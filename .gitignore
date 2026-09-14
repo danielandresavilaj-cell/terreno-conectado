@@ -28,3 +28,6 @@ test-results/
 # Docker / infra local
 *.sqlite
 pgdata/
+
+# Temporal: el token OAuth no tiene scope 'workflow' (ver gh auth refresh -s workflow)
+.github/
