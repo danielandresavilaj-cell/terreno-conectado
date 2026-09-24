@@ -1,6 +1,6 @@
 # ADR-002 — Arquitectura de despliegue demo y ejercicio de diseño "producción real"
 
-**Estado:** APROBADO COMO EJERCICIO DE DISEÑO (Daniel Ávila, 2026-09-14 · Raúl González, 2026-09-24) — **el provisionamiento real sigue pendiente del checklist en "Decisiones pendientes" (Artículo VI)**
+**Estado:** APROBADO COMO EJERCICIO DE DISEÑO POR RAÚL GONZÁLEZ (2026-09-24) — **pendiente firma de Daniel Ávila**; el provisionamiento real sigue pendiente del checklist en "Decisiones pendientes" (Artículo VI)
 **Fecha:** 2026-09-14 · **Decisores:** Daniel Ávila, Raúl González
 
 > **Regla de oro (Artículo VI):** antes de que cualquier IA o script cree el VPS, la base de datos o el dominio, el equipo debe poder explicar este documento sin notas. Este ADR existe para **entender el diseño primero**.

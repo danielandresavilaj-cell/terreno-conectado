@@ -1,7 +1,7 @@
 # CONSTITUCIÓN DEL PROYECTO
 ## Terreno Conectado — Datos al día, donde no hay señal
 
-**Versión:** 1.0.1 · **Ratificada:** 2026-09-14 · **Firmantes:** Daniel Ávila, Raúl González (pendiente contraparte)
+**Versión:** 1.0.1 · **Ratificada:** 2026-09-14 · **Firmantes:** Raúl González (2026-09-24) · Daniel Ávila (pendiente firma)
 
 Esta constitución define los principios innegociables del proyecto. Todo spec, plan, task, PR y decisión de infraestructura debe cumplirlos. Una decisión que viole un principio requiere una enmienda explícita a esta constitución (PR numerado, justificación, firma de ambos integrantes) — nunca una excepción silenciosa.
 
@@ -80,3 +80,4 @@ El Gantt de la asignatura (18 semanas, fases F1/F2/F3) no se modifica. Si el tie
 | :--- | :--- | :--- |
 | 1.0.0 | 2026-09-14 | Ratificación inicial |
 | 1.0.1 | 2026-09-23 | Redacción: subtítulo "Decisiones en Tiempo Real" → "Datos al día, donde no hay señal" (PATCH, no modifica principios) |
+| 1.0.1 | 2026-09-24 | Firmado por Raúl González; pendiente firma de Daniel Ávila (sin cambio de contenido) |
