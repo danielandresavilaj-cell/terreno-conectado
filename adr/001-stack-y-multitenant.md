@@ -1,6 +1,6 @@
 # ADR-001 — Stack tecnológico y estrategia multi-tenant
 
-**Estado:** ACEPTADO (Daniel, 2026-09-14 — pendiente contraparte Raúl)
+**Estado:** ACEPTADO (Daniel Ávila, 2026-09-14 · Raúl González, 2026-09-24)
 **Fecha:** 2026-09-14 · **Decisores:** Daniel Ávila, Raúl González
 **Relacionado:** research.md (evaluación completa), spec maestro §7–8
 
