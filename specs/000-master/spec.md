@@ -1,4 +1,4 @@
-# SPEC MAESTRO — Terreno Conectado, Decisiones en Tiempo Real
+# SPEC MAESTRO — Terreno Conectado, Datos al día donde no hay señal
 
 | | |
 | :--- | :--- |
@@ -243,3 +243,4 @@ La demo se considera exitosa si, en vivo ante el docente:
 | Versión | Fecha | Cambio | Autor |
 | :--- | :--- | :--- | :--- |
 | 1.0.0 | 2026-09-14 | Borrador inicial derivado del informe APT Fase 1 + decisiones de grilling (Q1–Q14) | Daniel Ávila (con IA) |
+| 1.0.1 | 2026-09-23 | Título: "Decisiones en Tiempo Real" → "Datos al día donde no hay señal" (Opción A — alinear la promesa con la realidad offline-first) | Daniel Ávila (con IA) |

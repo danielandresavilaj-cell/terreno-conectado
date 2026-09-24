@@ -1,4 +1,4 @@
-# Terreno Conectado, Decisiones en Tiempo Real
+# Terreno Conectado — Datos al día, donde no hay señal
 
 Plataforma SaaS **offline-first** de captura de datos operacionales para faenas mineras y obras de construcción en Chile. Captura local sin conexión, sincronización automática al recuperar señal, multi-tenant con datos aislados por empresa cliente.
 

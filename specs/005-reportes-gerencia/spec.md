@@ -6,7 +6,7 @@
 | **Dueño** | Daniel Ávila |
 | **Padre** | specs/000-master/spec.md |
 | **Depende de** | 003 (datos sincronizados + SYNC_LOG), 004 (dominio) |
-| **Bloquea a** | Demo final (el dashboard es la prueba de la promesa "decisiones en tiempo real") |
+| **Bloquea a** | Demo final (el dashboard es la prueba de la promesa: datos al día en ≤ 60 s tras reconexión) |
 
 ## Alcance heredado del spec maestro
 
