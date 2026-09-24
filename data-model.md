@@ -1,6 +1,6 @@
 # DATA MODEL — Modelo conceptual de datos
 
-**Versión:** 1.0.0 · **Fecha:** 2026-09-14 · **Dueño:** Daniel Ávila · **Relacionado:** spec maestro §5/§7, specs 001–006
+**Versión:** 1.0.0 · **Fecha:** 2026-09-14 · **Autor:** Daniel Ávila · **Relacionado:** spec maestro §5/§7, specs 001–006
 **Evidencia APT:** "Modelo conceptual de datos preliminar" (informe §6).
 **Reglas transversales:** toda tabla de dominio lleva `tenant_id UUID NOT NULL` + política RLS (Artículo IV); IDs `UUIDv7` generados en el cliente cuando el registro nace offline (FR-015); timestamps `created_at`, `updated_at` (servidor) y `captured_at` (cliente, autoridad para LWW — FR-023).
 

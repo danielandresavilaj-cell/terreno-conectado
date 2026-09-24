@@ -3,7 +3,7 @@
 | | |
 | :--- | :--- |
 | **Estado** | ESQUELETO (detallar en ciclo del módulo, semanas 9–12) |
-| **Dueño** | Daniel Ávila |
+| **Autor** | Daniel Ávila |
 | **Padre** | specs/000-master/spec.md |
 | **Depende de** | 003 (datos sincronizados + SYNC_LOG), 004 (dominio) |
 | **Bloquea a** | Demo final (el dashboard es la prueba de la promesa: datos al día en ≤ 60 s tras reconexión) |

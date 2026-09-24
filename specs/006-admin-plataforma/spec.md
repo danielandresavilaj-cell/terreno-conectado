@@ -3,7 +3,7 @@
 | | |
 | :--- | :--- |
 | **Estado** | ESQUELETO (detallar en ciclo del módulo, semanas 9–12) |
-| **Dueño** | Raúl González |
+| **Autor** | Raúl González |
 | **Padre** | specs/000-master/spec.md |
 | **Depende de** | 001 (roles, platform_admin) |
 | **Bloquea a** | QA/monitoreo (health), auditoría de la demo |

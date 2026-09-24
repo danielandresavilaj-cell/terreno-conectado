@@ -3,7 +3,7 @@
 | | |
 | :--- | :--- |
 | **Estado** | ESQUELETO (detallar en ciclo del módulo, semanas 5–8) |
-| **Dueño** | Daniel Ávila |
+| **Autor** | Daniel Ávila |
 | **Padre** | specs/000-master/spec.md |
 | **Depende de** | 001 (sesión/tenant), 004 (plantillas a renderizar offline) |
 | **Bloquea a** | 003 (sin outbox local no hay sync) |

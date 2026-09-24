@@ -3,7 +3,7 @@
 | | |
 | :--- | :--- |
 | **Estado** | ESQUELETO (detallar en ciclo del módulo, semanas 5–8) |
-| **Dueño** | Raúl González |
+| **Autor** | Raúl González |
 | **Padre** | specs/000-master/spec.md |
 | **Depende de** | — (primer módulo: todo lo demás lo consume) |
 | **Bloquea a** | 002, 003, 004, 005, 006 |

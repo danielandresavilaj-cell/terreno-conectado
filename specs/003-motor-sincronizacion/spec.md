@@ -3,7 +3,7 @@
 | | |
 | :--- | :--- |
 | **Estado** | ESQUELETO (detallar en ciclo del módulo, semanas 5–8) |
-| **Dueño** | Daniel Ávila |
+| **Autor** | Daniel Ávila |
 | **Padre** | specs/000-master/spec.md |
 | **Depende de** | 001 (JWT/tenant), 002 (outbox local) |
 | **Bloquea a** | 005 (el dashboard solo muestra lo sincronizado) |

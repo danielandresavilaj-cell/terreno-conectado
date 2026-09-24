@@ -1,6 +1,6 @@
 # TASKS — Iteración 0: Walking skeleton (MVP vertical)
 
-**Versión:** 0.1.0 · **Fecha:** 2026-09-24 · **Dueño:** Raúl González
+**Versión:** 0.1.0 · **Fecha:** 2026-09-24 · **Autor:** Raúl González
 **Padre:** `plans/000-walking-skeleton/plan.md` · **Spec de referencia:** `specs/000-master/spec.md` §9 (MVP)
 
 > **Regla (Artículo II):** cada task referencia al menos un ID de requisito; cada commit referencia al menos un task. Estado de iteración: los criterios de aceptación de la demo (§13 spec maestro) dependen de que esta iteración complete el guion §9.

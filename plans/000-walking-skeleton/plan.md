@@ -1,6 +1,6 @@
 # PLAN — Iteración 0: Walking skeleton (MVP vertical)
 
-**Versión:** 0.1.0 · **Fecha:** 2026-09-24 · **Dueño:** Raúl González (infra/validación)
+**Versión:** 0.1.0 · **Fecha:** 2026-09-24 · **Autor:** Raúl González (infra/validación)
 **Derivado de:** `specs/000-master/spec.md` §9 (MVP) · **Relacionado:** ADR-001, ADR-002, `data-model.md`, `test-plan.md`
 **Tareas:** `tasks/000-walking-skeleton/tasks.md` (TSK-WS-001 → 012)
 

@@ -5,7 +5,7 @@
 | **ID** | 000-master |
 | **Versión** | 1.0.0 |
 | **Estado** | BORRADOR PARA REVISIÓN (pendiente firma Daniel + Raúl) |
-| **Dueños** | Daniel Ávila (datos/negocio) · Raúl González (infra/plataforma) |
+| **Autores** | Daniel Ávila (datos/negocio) · Raúl González (infra/plataforma) |
 | **Fuente** | Informe de Definición APT, Fase 1 (2026-09-04) |
 | **Specs derivados** | 001-auth-tenancy · 002-captura-offline · 003-motor-sincronizacion · 004-dominio-inspecciones · 005-reportes-gerencia · 006-admin-plataforma |
 
@@ -60,7 +60,7 @@ flowchart LR
 
 ## 4. Módulos del sistema
 
-| # | Módulo | Spec | Dueño | Resumen |
+| # | Módulo | Spec | Autor | Resumen |
 | :--- | :--- | :--- | :--- | :--- |
 | 001 | Autenticación y tenancy | `specs/001-auth-tenancy/` | Raúl | Login, JWT con claim de tenant, roles, aislamiento |
 | 002 | Captura offline (PWA) | `specs/002-captura-offline/` | Daniel | Formularios offline, IndexedDB, fotos comprimidas, cola local |
