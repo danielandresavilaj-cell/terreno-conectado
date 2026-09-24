@@ -27,7 +27,7 @@ Requisitos que este spec detallará: **FR-020 → FR-026** y soporte a **NFR-03,
 - [ ] Contratos de API de ingesta: `POST /api/v1/sync/batch` (request/response, códigos de error parciales)
 - [ ] Semántica exacta de upsert + condición de versión (SQL) — ver data-model.md §4.1
 - [ ] Algoritmo del worker de cola cliente (concurrencia 1, tamaño de lote, reanudación)
-- [ ] Definición determinista de LWW ante `captured_at` iguales (relojes desviados — caso adversarial §5 test-plan)
+- [x] Definición determinista de LWW ante `captured_at` iguales: **decidida** en `plans/000-walking-skeleton/plan.md` §3.1 — gana mayor `client_version`; si empatan, mayor `captured_at`; si aún empatan, mayor UUIDv7 (orden lexicográfico). Resolución reproducible ante relojes desviados (caso adversarial §5 test-plan).
 - [ ] Descarga incremental hacia el cliente (plantillas y datos de referencia para offline)
 - [ ] Criterios de aceptación = escenarios de caos 1–7 pasando (test-plan.md §4)
 - [ ] Plan técnico → `plans/003-motor-sincronizacion/plan.md`

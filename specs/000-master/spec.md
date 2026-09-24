@@ -73,6 +73,8 @@ flowchart LR
 
 Convención EARS en español: ubicuo (`EL SISTEMA DEBERÁ…`), evento (`CUANDO…`), estado (`MIENTRAS…`), no deseado (`SI… ENTONCES…`), opcional (`DONDE…`).
 
+> **Nota de numeración:** los IDs FR se numeran por bloques de módulo (001–006, 010–017, 020–026, 030–035, 040–043, 050–052). Los espacios (007–009, 018–019, 027–029, 036–039, 044–049) están **reservados a propósito** para ampliaciones futuras sin renumerar.
+
 ### 5.1 Módulo 001 — Autenticación y tenancy
 
 - **FR-001** EL SISTEMA DEBERÁ autenticar usuarios con email y contraseña (hash argon2/bcrypt) y emitir un JWT de corta duración con claims `user_id`, `tenant_id`, `rol`.

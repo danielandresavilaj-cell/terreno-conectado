@@ -25,7 +25,7 @@
 
 ## 2. Sincronización — el corazón del proyecto
 
-| Opción | Evaluación | Veredecto |
+| Opción | Evaluación | Veredicto |
 | :--- | :--- | :--- |
 | **Cola propia en Dexie + endpoints REST idempotentes por lotes + LWW auditado** | ~1-2 semanas de trabajo; fuerza a entender idempotencia, conflictos y backoff (objetivo de aprendizaje de Daniel); cero vendor lock-in; costo $0 | ✅ **ELEGIDA** |
 | PowerSync | Resuelve sync+offline de forma robusta, pero: SaaS de pago para producción, SDK acota el aprendizaje, y el corazón del proyecto quedaría delegado a un tercero | ❌ Quita el núcleo del valor académico; costo |
