@@ -26,6 +26,7 @@ terreno-conectado/
 ├── adr/                  ← Decisiones arquitectónicas (incl. ejercicio de despliegue/redes/costos)
 ├── plans/                ← plan.md por módulo (diseño técnico derivado del spec)
 ├── tasks/                ← tasks.md por iteración (cada tarea referencia FR/NFR del spec)
+├── docs/                 ← Guías de trabajo del equipo (tablero, convenciones)
 ├── frontend/             ← PWA React + Vite + Dexie (IndexedDB)
 ├── backend/              ← NestJS + PostgreSQL 16 (Row-Level Security)
 ├── infra/                ← Docker Compose, Caddy, scripts de deploy
@@ -45,3 +46,8 @@ terreno-conectado/
 1. [constitution.md](constitution.md)
 2. [specs/000-master/spec.md](specs/000-master/spec.md)
 3. [research.md](research.md) · [data-model.md](data-model.md) · [test-plan.md](test-plan.md)
+4. [docs/guia-del-tablero.md](docs/guia-del-tablero.md) — cómo navegar, leer y trabajar con el [tablero compartido](https://github.com/users/danielandresavilaj-cell/projects/1)
+
+## Tablero del equipo
+
+El trabajo diario se organiza en el [Project board](https://github.com/users/danielandresavilaj-cell/projects/1): 12 tareas del walking skeleton como sub-issues de la épica de iteración, campos de módulo / owner / prioridad / story points, y milestones M0–M3 alineados al Gantt de la asignatura. Las reglas de trabajo (Definition of Ready, Definition of Done, límite WIP, trazabilidad commit→issue) están en [docs/guia-del-tablero.md](docs/guia-del-tablero.md).
