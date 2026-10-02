@@ -1,0 +1,274 @@
+@import 'tailwindcss';
+
+/* ============================================================================
+   Terreno Conectado — sistema de diseño
+   Identidad: "panel de instrumentos de mina". Superficies de grafito cálido
+   (polvo), acento ámbar sodio (focos de faena), cobre del Atacama como
+   secundario, y datos en monoespaciada como lectura de telemetría de equipo.
+   Objetivo de contraste: el trabajador lee la pantalla con guantes y bajo luz
+   solar directa, así que el frente (texto) es muy brillante sobre fondo oscuro.
+   ========================================================================== */
+
+@theme {
+  --font-display: 'Archivo', system-ui, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+
+  /* Superficies — grafito cálido */
+  --color-s0: #0e0f11;
+  --color-s1: #16181b;
+  --color-s2: #1e2126;
+  --color-s3: #272b31;
+  --color-line: #31363d;
+  --color-line-soft: #23272d;
+
+  /* Texto */
+  --color-ink: #f2f3f5;
+  --color-ink-2: #a8b0ba;
+  --color-ink-3: #6d7681;
+
+  /* Acento primario — ámbar sodio (focos de faena) */
+  --color-beam: #f0a828;
+  --color-beam-dim: #8a5f16;
+  --color-beam-glow: #f0a82826;
+
+  /* Secundario — cobre del Atacama */
+  --color-copper: #c07a4a;
+
+  /* Señales de estado de sincronización */
+  --color-pending: #7d8792;
+  --color-syncing: #58a6ff;
+  --color-synced: #3ecf8e;
+  --color-failed: #ef4444;
+
+  /* Severidad de hallazgos (FR-032) */
+  --color-sev-baja: #8a9aa8;
+  --color-sev-media: #f0b429;
+  --color-sev-alta: #f97316;
+  --color-sev-critica: #ef4444;
+
+  /* Curvas — nunca ease-in en UI (emil-design-eng) */
+  --ease-out-ui: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out-ui: cubic-bezier(0.77, 0, 0.175, 1);
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+
+  --radius-panel: 14px;
+}
+
+@layer base {
+  * {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  html {
+    background: var(--color-s0);
+    color-scheme: dark;
+    /* En horizontal iOS infla el texto y rompe el layout de los panels.
+       El index.html declara viewport-fit=cover, que obliga a compensar
+       los recortes con env(safe-area-inset-*). */
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+
+  body {
+    margin: 0;
+    background: var(--color-s0);
+    color: var(--color-ink);
+    font-family: var(--font-display);
+    font-synthesis-weight: none;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    overscroll-behavior-y: none;
+  }
+
+  /* Etiquetas de instrumento: versalitas monoespaciadas, nunca texto suelto */
+  .label-inst {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--color-ink-3);
+  }
+
+  .num-inst {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
+  }
+
+  button {
+    font-family: inherit;
+    color: inherit;
+  }
+
+  input,
+  textarea,
+  select {
+    font-family: inherit;
+    color: inherit;
+  }
+
+  /* iOS Safari hace zoom automático al enfocar un campo con menos de 16px y
+     luego no vuelve al 100%: el usuario queda con la página magnificada y
+     desplazada, y con guantes es un fastidio real. 16px es el umbral de iOS,
+     no una preferencia tipográfica. Los campos usan text-[14px] para_NO_ tocar
+     ese valor: se sube solo el tamaño de fuente del control. */
+  input,
+  textarea,
+  select {
+    font-size: max(16px, 1em);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-beam);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+}
+
+@layer components {
+  /* Panel: superficie base de la app */
+  .panel {
+    background: var(--color-s1);
+    border: 1px solid var(--color-line-soft);
+    border-radius: var(--radius-panel);
+  }
+
+  /* Hairline de regla: detalle de panel industrial */
+  .rule {
+    height: 1px;
+    background: var(--color-line-soft);
+  }
+}
+
+/* ============================================================================
+   Compensación de recortes (safe areas)
+   El index.html declara viewport-fit=cover, así que el contenido sí llega
+   bajo la muesca y bajo la barra de gestos de iOS. Sin esto, la barra fija
+   inferior queda tapada por el indicador de inicio y la superior aparece
+   pegada al notch. En Landmark y en cualquier iPhone con recorte, env()
+   devuelve el inset real; en el resto devuelve 0 y no cambia nada.
+   ========================================================================== */
+@utility pt-safe {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+@utility pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* Alto total de la barra inferior móvil: contenido + inset + un margen de
+   respiro, para que el texto no quede pegado al indicador de inicio. */
+@utility h-barra-inferior {
+  height: calc(3.5rem + env(safe-area-inset-bottom, 0px));
+}
+
+/* Relleno inferior del <main> equivalente: deja de pisar la barra de estado. */
+@utility pb-barra {
+  padding-bottom: calc(3.5rem + env(safe-area-inset-bottom, 0px) + 1rem);
+}
+
+/* El panel de hallazgo se ancla abajo en móvil y necesita el inset para que
+   los botones no queden bajo el gesto de volver. */
+@utility mb-safe {
+  margin-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* ============================================================================
+   Movimiento
+   Reglas aplicadas (emil-design-eng + find-animation-opportunities):
+   · Solo transform y opacity — nada de width/height/top/left.
+   · Entradas desde scale(0.95), nunca scale(0).
+   · easings propios, ease-out en entradas; ease-in nunca.
+   · Presión de botón: scale(0.97) en 160ms ease-out.
+   · Nada se anima desde teclado (se repite cientos de veces al día).
+   · prefers-reduced-motion: se conserva el color y el opacity que ayudan a
+     comprender; se elimina el movimiento posicional.
+   ========================================================================== */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  /* La opacidad de entrada se conserva: sigue siendo legible al instante */
+  [data-enter] {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}
+
+/* Barrido de confirmación: recorre el elemento una vez cuando un registro
+   termina de sincronizar. Es señal de "esto acaba de pasar", no decoración. */
+@keyframes sweep {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.sweep::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in oklab, var(--color-synced) 22%, transparent),
+    transparent
+  );
+  animation: sweep 700ms var(--ease-out-ui) forwards;
+  pointer-events: none;
+}
+
+/* Latido del indicador "sincronizando": funcional, muestra trabajo real en curso */
+@keyframes throb {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.45;
+    transform: scale(0.82);
+  }
+}
+
+.throb {
+  animation: throb 1.1s var(--ease-in-out-ui) infinite;
+}
+
+/* Barrido del agua para el hallazgo crítico: una sola vez, discreto.
+   No es un shake — el foco lo carga el color y el peso, el movimiento solo
+   confirma que algo acaba de cambiar. */
+@keyframes flare-once {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in oklab, var(--color-sev-critica) 55%, transparent);
+  }
+  100% {
+    box-shadow: 0 0 0 14px transparent;
+  }
+}
+
+.flare-once {
+  animation: flare-once 900ms var(--ease-out-ui) 1;
+}
+
+/* Relleno del medidor de cuota (FR-017) */
+@keyframes fill {
+  from {
+    transform: scaleX(0);
+  }
+}
+
+.meter > span {
+  transform-origin: left center;
+  animation: fill 600ms var(--ease-out-ui) both;
+}
