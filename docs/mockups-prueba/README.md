@@ -8,7 +8,7 @@ Tres exploraciones visuales de la interfaz de Terreno Conectado, escritas en HTM
 
 ## Qué no son
 
-- No son la aplicación. No hay frontend, ni backend, ni base de datos detrás de esto.
+- No son la aplicación. No hay lógica de negocio, ni API, ni base de datos detrás de esto.
 - No cumplen ningún requisito funcional. Son telas estáticas con datos de ejemplo.
 - No están listos para publicarse. Faltan pruebas, faltan los estados vacíos reales, y ninguna cifra corresponde a una faena real.
 
@@ -36,4 +36,12 @@ El naranja `#F97316` da 2,8:1 sobre blanco, así que en ese tema no se usa para 
 
 ## Qué sigue
 
-Nada de esto está conectado con `frontend/`, que sigue vacío. Cuando empiece la implementación, esta carpeta se borra o se archiva.
+Nada de esto está conectado con `frontend/`, que ya no está vacío: existe una aplicación React
+funcional y animada (`frontend/README-mockup.md`), escrita después que estos HTML y que ya los
+supera en todo lo que estos pretendían mostrar. La dirección visual que terminó en el producto
+sale de `nocturno-oscuro.html` — grafito, señal ámbar, cobre y tipografía Archivo + IBM Plex Mono —
+pero los tres archivos de esta carpeta siguen siendo telas planas, sin componentes ni estados.
+
+Se conservan para poder comparar la evolución y justificar decisiones de diseño frente al
+spec. Cuando la aplicación real incorpore la lógica de negocio, esta carpeta se borra o se
+archiva.
