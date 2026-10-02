@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="es-CL">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Terreno Conectado — mockups de prueba</title>
+<style>
+:root{
+  --pizarra:#1E293B;
+  --pizarra-2:#172033;
+  --pizarra-3:#334155;
+  --pizarra-4:#94A3B8;
+  --pizarra-5:#64748B;
+  --naranja:#F97316;
+  --papel:#FFFFFF;
+  --linea:#E2E8F0;
+  --tinta:#0F172A;
+  --tinta-2:#475569;
+  --sans:"Helvetica Neue",Arial,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{
+  font-family:var(--sans);
+  background:var(--pizarra-2);color:var(--papel);
+  line-height:1.55;padding:0 20px 72px;
+  -webkit-font-smoothing:antialiased;
+}
+:focus-visible{outline:3px solid var(--naranja);outline-offset:2px;border-radius:3px}
+.envoltura{max-width:860px;margin:0 auto}
+
+.cab{
+  border-bottom:3px solid var(--naranja);
+  padding:40px 0 28px;margin-bottom:34px;
+}
+.cab .marca{font-size:12.5px;font-weight:700;letter-spacing:.04em;color:var(--naranja)}
+.cab h1{font-size:31px;font-weight:900;letter-spacing:-.02em;margin:9px 0 10px;line-height:1.15}
+.cab p{color:var(--pizarra-4);font-size:15px;max-width:62ch}
+.cab p b{color:var(--papel);font-weight:600}
+
+.aviso{
+  background:var(--pizarra);border:1px solid var(--pizarra-3);
+  border-left:5px solid var(--naranja);border-radius:6px;
+  padding:15px 18px;margin-bottom:30px;font-size:14px;color:var(--pizarra-4);line-height:1.65;
+}
+.aviso b{color:var(--papel);font-weight:600}
+
+.tarjetas{display:flex;flex-direction:column;gap:13px;margin-bottom:34px}
+.tarjeta{
+  display:grid;grid-template-columns:1fr auto;gap:18px;align-items:center;
+  background:var(--papel);color:var(--tinta);text-decoration:none;
+  border-radius:7px;padding:18px 20px;border-left:6px solid var(--naranja);
+}
+.tarjeta:hover{border-left-color:var(--pizarra)}
+.tarjeta h2{font-size:17px;font-weight:700;letter-spacing:-.01em}
+.tarjeta .sub{font-size:13.5px;color:var(--tinta-2);margin-top:4px;line-height:1.5}
+.tarjeta .meta{font-size:12px;color:var(--tinta-2);margin-top:9px;display:flex;gap:7px;flex-wrap:wrap}
+.tarjeta .meta span{border:1px solid var(--linea);border-radius:3px;padding:2px 8px;font-weight:600}
+.tarjeta .ir{
+  flex:none;border:1px solid var(--linea);border-radius:5px;
+  padding:9px 15px;font-size:13.5px;font-weight:700;white-space:nowrap;
+}
+.tarjeta:hover .ir{border-color:var(--naranja)}
+
+h3.seccion{font-size:13px;font-weight:700;letter-spacing:.04em;color:var(--pizarra-5);margin:0 0 12px}
+table{width:100%;border-collapse:collapse;font-size:13.5px}
+th{
+  text-align:left;font-size:11.5px;font-weight:600;color:var(--pizarra-5);
+  padding:0 12px 8px;border-bottom:1px solid var(--pizarra-3);
+}
+td{padding:11px 12px;border-bottom:1px solid var(--pizarra-3);color:var(--pizarra-4);vertical-align:top}
+td:first-child{color:var(--papel);font-weight:600}
+tr:last-child td{border-bottom:0}
+code{font-size:12.5px;color:var(--naranja);background:var(--pizarra);border-radius:3px;padding:1px 6px}
+
+.pie{max-width:860px;margin:40px auto 0;padding-top:22px;border-top:1px solid var(--pizarra-3);font-size:13px;color:var(--pizarra-5);line-height:1.65}
+.pie a{color:var(--naranja)}
+@media (max-width:640px){
+  .cab{padding-top:30px}
+  .cab h1{font-size:25px}
+  .tarjeta{grid-template-columns:1fr}
+  .tarjeta .ir{justify-self:start}
+}
+</style>
+</head>
+<body>
+<div class="envoltura">
+
+<header class="cab">
+  <div class="marca">Terreno Conectado</div>
+  <h1>Mockups de prueba</h1>
+  <p>Tres exploraciones visuales de la interfaz, escritas en HTML y CSS planos.
+     <b>No son la aplicación</b> y de aquí no sale código de producción.</p>
+</header>
+
+<div class="aviso">
+  Prototipos desechables, ajenos a la entrega del ramo. Todos los nombres, cifras e
+  identificadores son datos inventados de ejemplo. Las tipografías se cargan desde el CDN de
+  Google Fonts, algo que <b>no puede ocurrir en la aplicación real</b> porque el producto es
+  offline-first y NFR-07 exige Lighthouse ≥ 80 en móvil.
+</div>
+
+<div class="tarjetas">
+  <a class="tarjeta" href="pizarra-claro.html">
+    <div>
+      <h2>Pizarra de turnos, tema claro</h2>
+      <div class="sub">Base mineral fría y acentos con nombre. Cada registro lleva a la izquierda
+        un riel con el color del casco de quien es dueño, así que se responde de quién es
+        antes de leer una palabra.</div>
+      <div class="meta"><span>8 pantallas</span><span>tema claro</span><span>sin cobertura</span></div>
+    </div>
+    <div class="ir">Abrir</div>
+  </a>
+
+  <a class="tarjeta" href="nocturno-oscuro.html">
+    <div>
+      <h2>Turno de noche, tema oscuro</h2>
+      <div class="sub">Cromo pizarra con señal naranja, y papel blanco para todo lo que se lee al
+        sol. Agrega telemetría de flota, cumplimiento de seguridad y progreso de faena.</div>
+      <div class="meta"><span>10 pantallas</span><span>tema oscuro</span><span>flota y cumplimiento</span></div>
+    </div>
+    <div class="ir">Abrir</div>
+  </a>
+
+  <a class="tarjeta" href="borrador-inicial.html">
+    <div>
+      <h2>Primera versión</h2>
+      <div class="sub">Ya superada por las dos anteriores. Se conserva solo para poder comparar
+        la evolución del diseño.</div>
+      <div class="meta"><span>8 pantallas</span><span>tema claro</span><span>superada</span></div>
+    </div>
+    <div class="ir">Abrir</div>
+  </a>
+</div>
+
+<h3 class="seccion">Decisiones técnicas de estas telas</h3>
+<table>
+  <tbody>
+    <tr>
+      <td>Contraste</td>
+      <td>En el tema oscuro el naranja <code>#F97316</code> da 2,8:1 sobre blanco, así que no
+        escribe texto: queda para superficies, rieles y barras. El texto naranja va en
+        <code>#C2410C</code>, que da 5,18:1.</td>
+    </tr>
+    <tr>
+      <td>Botones</td>
+      <td>Los primarios usan tinta oscura sobre el naranja, que da 6,37:1, en vez de blanco sobre
+        naranja, que no alcanzaba el mínimo.</td>
+    </tr>
+    <tr>
+      <td>Revisión</td>
+      <td>Se verificó balance de etiquetas, codificación UTF-8, sintaxis del JavaScript y
+        contraste calculado. <b>No se abrieron en un navegador para mirarlos</b>: eso sigue
+        pendiente.</td>
+    </tr>
+    <tr>
+      <td>Accesibilidad</td>
+      <td>Objetivos táctiles de 56 px, foco visible, respeto por la reducción de movimiento y
+        puntos de quiebre a 1080 y 560 px.</td>
+    </tr>
+  </tbody>
+</table>
+
+<p class="pie">
+  Detalle completo en el <a href="README.md">README de esta carpeta</a>.
+  Nada de esto está conectado con <code>frontend/</code>, que sigue vacío.
+</p>
+
+</div>
+</body>
+</html>
