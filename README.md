@@ -26,7 +26,7 @@ Proyecto Capstone (PTY4614) — Duoc UC, Ingeniería en Informática, Sede Alame
 | Sincronización | Cola propia + ingesta idempotente por lotes | el corazón del proyecto, no se delega a un BaaS |
 | Fotos | Compresión en cliente (canvas) + volumen Docker | $0; evolución a S3 documentada |
 | Infra demo | 1 VPS + Docker Compose + Caddy | TLS automático, ~US$5/mes |
-| CI/CD | GitHub Actions | lint, test, build, deploy — pendiente de crear (issue #14) |
+| CI/CD | GitHub Actions | typecheck y build en cada push (`.github/workflows/ci.yml`); tests y deploy pendientes (issue #14) |
 | Tests | Vitest + Playwright + Testcontainers | `context.setOffline` simula el offline real |
 
 Evaluación completa y alternativas descartadas con criterios: [research.md](research.md) · Decisiones firmadas: [adr/](adr/)
@@ -94,10 +94,10 @@ terreno-conectado/
 ├── Fase 1/
 │   ├── Evidencias Grupales/    ← Informe APT Fase 1, Guía 1.5 completada, PPT, Carta Gantt
 │   └── Evidencias Individules/
-├── frontend/             ← PWA React + Vite + Dexie (IndexedDB)
-├── backend/              ← NestJS + PostgreSQL 16 (Row-Level Security)
-├── infra/                ← Docker Compose, Caddy, scripts de deploy
-└── .github/workflows/    ← CI/CD — pendiente de crear (issue #14)
+├── frontend/             ← Mockup React + Vite (app funcional; Dexie e IndexedDB pendientes)
+├── backend/              ← NestJS + PostgreSQL 16 (Row-Level Security) — pendiente
+├── infra/                ← Docker Compose, Caddy, scripts de deploy — pendiente
+└── .github/workflows/    ← CI: typecheck + build del frontend (issue #14)
 ```
 
 ## Ciclo de trabajo por módulo
@@ -111,39 +111,57 @@ terreno-conectado/
 
 ## Cómo ejecutar localmente
 
-> ⚠️ **Estado: todavía no es ejecutable.** El monorepo aún no está implementado — `frontend/` y `backend/` están vacíos. Los comandos de abajo son los definidos en [ADR-001](adr/001-stack-y-multitenant.md) y en [TSK-WS-001 / TSK-WS-002](tasks/000-walking-skeleton/tasks.md); se habilitan al cerrar la iteración 0 (milestone M0).
+> ⚠️ **Estado real: el frontend sí corre, el resto todavía no.** El mockup de `frontend/` es una
+> app navegable con la cola de sincronización simulada. `backend/` e `infra/` siguen vacíos: no hay
+> monorepo, ni PostgreSQL, ni API. Por eso los pasos van separados.
 
-**Prerrequisitos**
+### Frontend — funciona hoy
 
-| Herramienta | Versión | Para qué |
-| :--- | :--- | :--- |
-| Node.js | 20 LTS | lenguaje único del proyecto (TypeScript) |
-| pnpm | 9 | monorepo con workspaces |
-| Docker + Docker Compose | 24+ | PostgreSQL 16 en local |
+App React 18 + Vite 6 + Tailwind 4, seis pantallas (Login, Captura, Bitácora, Cola, Gerencia,
+Conflictos) con el ciclo `pending → syncing → synced` animado. No hay persistencia ni API: es un
+mockup, y lo que le falta está detallado en
+[`frontend/README-mockup.md`](frontend/README-mockup.md).
 
-**Pasos**
+**Prerrequisitos:** Node.js 20 LTS. Nada más — no necesita Docker ni base de datos.
 
 ```bash
 git clone https://github.com/danielandresavilaj-cell/terreno-conectado.git
-cd terreno-conectado
+cd terreno-conectado/frontend
 
+npm install
+npm run dev                # Vite  -> http://localhost:5173
+```
+
+Otros comandos: `npm run typecheck`, `npm run build` (bundle en `dist/`), `npm run preview`.
+
+Cada push a `main` corre typecheck y build en [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
+
+### Monorepo — pendiente, todavía no se puede ejecutar
+
+Los comandos que siguen son el contrato de [ADR-001](adr/001-stack-y-multitenant.md) y de
+[TSK-WS-001 / TSK-WS-002](tasks/000-walking-skeleton/tasks.md), no instrucciones de hoy. **Ninguno
+funciona todavía**: no existen `pnpm-workspace.yaml`, `package.json` raíz, `infra/docker-compose.yml`
+ni `.env.example`. Se habilitan al cerrar la iteración 0 (milestone M0, issues
+[#27](https://github.com/danielandresavilaj-cell/terreno-conectado/issues/27) y
+[#16](https://github.com/danielandresavilaj-cell/terreno-conectado/issues/16)).
+
+```bash
 pnpm install                                  # instala los 3 workspaces
 docker compose -f infra/docker-compose.yml up -d   # PostgreSQL 16
-
 pnpm --filter backend start:dev               # NestJS  -> :3000
 pnpm --filter frontend dev                    # Vite    -> :5173
-
 pnpm seed:demo                                # tenants A y B de prueba (FR-006)
 pnpm test                                     # unit + integración
 ```
 
-**Variables de entorno:** copiar `.env.example` a `.env` y completar. Ningún secreto se versiona (constitución, Art. IX).
+**Variables de entorno:** se copiará `.env.example` a `.env`; ese archivo aún no existe. Ningún
+secreto se versiona (constitución, Art. IX).
 
-| Servicio | URL |
-| :--- | :--- |
-| Frontend (Vite) | http://localhost:5173 |
-| Backend (NestJS) | http://localhost:3000 |
-| Health check | http://localhost:3000/health |
+| Servicio | URL | Estado |
+| :--- | :--- | :--- |
+| Frontend (Vite, mockup) | http://localhost:5173 | funciona |
+| Backend (NestJS) | http://localhost:3000 | pendiente |
+| Health check | http://localhost:3000/health | pendiente |
 
 ## Enlaces del proyecto
 
