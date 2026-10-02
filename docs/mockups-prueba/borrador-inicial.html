@@ -1,0 +1,1232 @@
+<!DOCTYPE html>
+<html lang="es-CL">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Terreno Conectado — Mockup de interfaz</title>
+<style>
+:root{
+  --bg:#e9e9ec;
+  --surface:#ffffff;
+  --surface-2:#fafafa;
+  --ink:#18181b;
+  --ink-2:#3f3f46;
+  --muted:#5b5b63;
+  --line:#d4d4d8;
+  --line-strong:#a1a1aa;
+  --brand:#1d4ed8;
+  --brand-2:#1e3a8a;
+  --ok:#15803d;      --ok-bg:#dcfce7;   --ok-line:#86efac;
+  --warn:#92400e;    --warn-bg:#fef3c7; --warn-line:#fcd34d;
+  --danger:#b91c1c;  --danger-bg:#fee2e2;--danger-line:#fca5a5;
+  --crit:#7f1d1d;    --high:#c2410c;    --med:#a16207;  --low:#4d7c0f;
+  --r:14px;
+  --tap:52px;
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{
+  background:var(--bg);
+  color:var(--ink);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  font-size:16px;line-height:1.5;
+  -webkit-font-smoothing:antialiased;
+  padding:0 0 80px;
+}
+button{font-family:inherit;font-size:inherit;cursor:pointer}
+
+/* ---------- doc chrome ---------- */
+.doc-head{
+  background:var(--ink);color:#fff;padding:26px 32px;
+}
+.doc-head h1{font-size:26px;font-weight:800;letter-spacing:-.3px}
+.doc-head p{color:#d4d4d8;font-size:15px;margin-top:6px;max-width:900px}
+.doc-head .tag{
+  display:inline-block;background:#3f3f46;color:#fafafa;font-size:12px;
+  font-weight:700;letter-spacing:.6px;text-transform:uppercase;
+  padding:4px 10px;border-radius:999px;margin-bottom:12px;
+}
+.bar{
+  position:sticky;top:0;z-index:50;background:#fff;
+  border-bottom:2px solid var(--line);
+  padding:12px 32px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;
+}
+.bar .spacer{flex:1}
+.tab{
+  background:#fff;border:2px solid var(--line);color:var(--ink-2);
+  font-size:13px;font-weight:700;padding:8px 13px;border-radius:10px;
+  display:flex;align-items:center;gap:7px;
+}
+.tab .n{
+  background:var(--ink);color:#fff;width:20px;height:20px;border-radius:6px;
+  display:grid;place-items:center;font-size:11px;font-weight:800;
+}
+.tab[aria-selected="true"]{background:var(--brand);border-color:var(--brand);color:#fff}
+.tab[aria-selected="true"] .n{background:#fff;color:var(--brand)}
+.ghost{
+  background:#fff;border:2px solid var(--line);color:var(--ink-2);
+  font-size:13px;font-weight:700;padding:8px 13px;border-radius:10px;
+}
+.offline-toggle{
+  display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700;
+  color:var(--ink-2);border:2px solid var(--line);border-radius:10px;padding:7px 12px;
+  background:#fff;
+}
+.offline-toggle input{width:18px;height:18px;accent-color:var(--danger)}
+
+/* ---------- stage + frames ---------- */
+.stage{padding:40px 32px;display:flex;justify-content:center}
+body.grid .stage{padding:28px 20px}
+.screen{display:none}
+body.single .screen.active{display:block}
+
+.frame-label{
+  text-align:center;margin-bottom:14px;
+}
+.frame-label .t{font-size:19px;font-weight:800;letter-spacing:-.2px}
+.frame-label .d{font-size:13.5px;color:var(--muted);margin-top:3px}
+.fr-badge{
+  display:inline-block;margin-top:8px;background:var(--surface);
+  border:2px solid var(--line);border-radius:999px;
+  padding:5px 12px;font-family:var(--mono);font-size:11.5px;
+  font-weight:700;color:var(--ink-2);
+}
+
+.phone{
+  width:390px;background:var(--ink);border-radius:40px;padding:12px;
+  box-shadow:0 22px 50px rgba(0,0,0,.22);margin:0 auto;
+}
+.phone .notch{
+  height:26px;background:var(--ink);border-radius:28px;
+  display:grid;place-items:center;margin-bottom:6px;
+}
+.phone .notch i{display:block;width:104px;height:5px;background:#3f3f46;border-radius:99px}
+.screen-in{
+  background:var(--surface);border-radius:30px;overflow:hidden;
+  display:flex;flex-direction:column;
+}
+.statusbar{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:9px 20px;font-size:12px;font-weight:800;color:var(--ink-2);
+  border-bottom:1px solid var(--line);background:var(--surface-2);
+}
+.statusbar .dots{display:flex;gap:4px;align-items:center}
+.statusbar .sig{display:flex;align-items:flex-end;gap:2px;height:10px}
+.statusbar .sig i{display:block;width:3px;background:var(--ink-2);border-radius:1px}
+.statusbar .batt{width:20px;height:10px;border:2px solid var(--ink-2);border-radius:3px;position:relative}
+.statusbar .batt::after{content:"";position:absolute;inset:1px;background:var(--ink-2);border-radius:1px}
+.statusbar .batt::before{content:"";position:absolute;right:-4px;top:3px;width:2px;height:4px;background:var(--ink-2)}
+
+.browser{
+  width:100%;max-width:1280px;margin:0 auto;background:var(--surface);
+  border:2px solid var(--line-strong);border-radius:14px;overflow:hidden;
+  box-shadow:0 22px 50px rgba(0,0,0,.16);
+}
+.browser .chrome{
+  background:#e4e4e7;border-bottom:2px solid var(--line);
+  padding:10px 14px;display:flex;align-items:center;gap:12px;
+}
+.browser .dots2{display:flex;gap:6px}
+.browser .dots2 i{width:12px;height:12px;border-radius:50%;display:block}
+.browser .url{
+  flex:1;background:#fff;border:2px solid var(--line);border-radius:8px;
+  padding:5px 12px;font-family:var(--mono);font-size:12px;color:var(--ink-2);
+}
+
+/* ---------- app primitives ---------- */
+.appnav{
+  background:var(--brand-2);color:#fff;padding:14px 18px;
+  display:flex;justify-content:space-between;align-items:center;gap:12px;
+}
+.appnav h2{font-size:18px;font-weight:800;letter-spacing:-.2px}
+.appnav .who{font-size:11.5px;opacity:.9;text-align:right;line-height:1.35}
+.topbar{
+  background:var(--surface);border-bottom:2px solid var(--line);
+  padding:12px 18px;display:flex;justify-content:space-between;align-items:center;
+}
+.topbar h2{font-size:18px;font-weight:800}
+.body{padding:16px 18px;display:flex;flex-direction:column;gap:14px}
+.sub{font-size:11px;font-weight:800;letter-spacing:.9px;text-transform:uppercase;color:var(--muted)}
+.muted{color:var(--muted);font-size:13px}
+.mono{font-family:var(--mono);font-size:12px}
+
+.chip{
+  display:inline-flex;align-items:center;gap:5px;
+  font-size:11.5px;font-weight:800;padding:4px 9px;border-radius:999px;
+  border:2px solid var(--line);background:var(--surface-2);color:var(--ink-2);
+  white-space:nowrap;
+}
+.chip .dot{width:8px;height:8px;border-radius:50%;background:currentColor;flex:none}
+.chip.ok{color:var(--ok);background:var(--ok-bg);border-color:var(--ok-line)}
+.chip.warn{color:var(--warn);background:var(--warn-bg);border-color:var(--warn-line)}
+.chip.danger{color:var(--danger);background:var(--danger-bg);border-color:var(--danger-line)}
+.chip.info{color:var(--brand);background:#dbeafe;border-color:#93c5fd}
+.chip.solid{color:#fff;background:var(--ink);border-color:var(--ink)}
+
+.card{
+  background:var(--surface);border:2px solid var(--line);border-radius:var(--r);
+  padding:14px;
+}
+.card.tint{background:var(--surface-2)}
+.card.brand{border-color:#93c5fd;background:#eff6ff}
+.card.warn{border-color:var(--warn-line);background:var(--warn-bg)}
+.card.danger{border-color:var(--danger-line);background:var(--danger-bg)}
+
+.btn{
+  display:flex;align-items:center;justify-content:center;gap:8px;
+  min-height:var(--tap);padding:0 18px;border-radius:12px;
+  font-size:16px;font-weight:800;border:2px solid transparent;text-align:center;
+}
+.btn.primary{background:var(--brand);color:#fff}
+.btn.dark{background:var(--ink);color:#fff}
+.btn.soft{background:#fff;border-color:var(--line-strong);color:var(--ink)}
+.btn.wide{width:100%}
+.btn[disabled]{background:#e4e4e7;color:var(--muted);border-color:var(--line)}
+
+.field{display:flex;flex-direction:column;gap:6px}
+.field label{font-size:12.5px;font-weight:800;color:var(--ink-2)}
+.input{
+  min-height:var(--tap);border:2px solid var(--line-strong);border-radius:12px;
+  padding:0 14px;display:flex;align-items:center;background:#fff;
+  font-size:15.5px;font-weight:600;
+}
+.input .ph{color:#a1a1aa;font-weight:500}
+.input.focus{border-color:var(--brand);box-shadow:0 0 0 4px #dbeafe}
+
+.banner{
+  display:flex;gap:11px;align-items:flex-start;
+  padding:12px 14px;border-radius:12px;font-size:13.5px;font-weight:600;
+  border:2px solid;
+}
+.banner .ic{
+  width:22px;height:22px;border-radius:6px;flex:none;display:grid;place-items:center;
+  font-size:13px;font-weight:900;color:#fff;margin-top:1px;
+}
+.banner.off{background:var(--warn-bg);border-color:var(--warn-line);color:var(--warn)}
+.banner.off .ic{background:var(--warn)}
+.banner.ok{background:var(--ok-bg);border-color:var(--ok-line);color:var(--ok)}
+.banner.ok .ic{background:var(--ok)}
+.banner.err{background:var(--danger-bg);border-color:var(--danger-line);color:var(--danger)}
+.banner.err .ic{background:var(--danger)}
+
+/* checklist */
+.q{border:2px solid var(--line);border-radius:var(--r);overflow:hidden;background:#fff}
+.q.nok{border-color:var(--danger-line)}
+.q-h{padding:12px 14px 10px;display:flex;gap:10px;align-items:flex-start}
+.q-h .num{
+  width:26px;height:26px;border-radius:8px;background:var(--ink);color:#fff;
+  display:grid;place-items:center;font-size:13px;font-weight:800;flex:none;
+}
+.q-t{font-size:14.5px;font-weight:700;line-height:1.35;flex:1}
+.seg{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:0 14px 14px}
+.seg button{
+  min-height:var(--tap);border:2px solid var(--line-strong);border-radius:12px;
+  background:#fff;font-size:15px;font-weight:800;color:var(--ink-2);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
+}
+.seg button small{font-size:10.5px;font-weight:700;letter-spacing:.4px}
+.seg button.on-ok{background:var(--ok);border-color:var(--ok);color:#fff}
+.seg button.on-nok{background:var(--danger);border-color:var(--danger);color:#fff}
+.seg button.on-na{background:var(--ink-2);border-color:var(--ink-2);color:#fff}
+
+/* lists */
+.row{
+  display:flex;gap:12px;align-items:center;
+  padding:13px 14px;border:2px solid var(--line);border-radius:var(--r);background:#fff;
+}
+.row + .row{margin-top:9px}
+.row .ic{
+  width:40px;height:40px;border-radius:11px;display:grid;place-items:center;
+  font-size:17px;font-weight:900;flex:none;border:2px solid;
+}
+.ic.blue{background:#dbeafe;border-color:#93c5fd;color:var(--brand)}
+.ic.amber{background:var(--warn-bg);border-color:var(--warn-line);color:var(--warn)}
+.ic.green{background:var(--ok-bg);border-color:var(--ok-line);color:var(--ok)}
+.ic.red{background:var(--danger-bg);border-color:var(--danger-line);color:var(--danger)}
+.ic.gray{background:#f4f4f5;border-color:var(--line);color:var(--muted)}
+.row .bd{flex:1;min-width:0}
+.row .t{font-size:14.5px;font-weight:700;line-height:1.3}
+.row .s{font-size:12px;color:var(--muted);margin-top:2px}
+.row .rt{display:flex;flex-direction:column;align-items:flex-end;gap:5px;flex:none}
+
+.bottomnav{
+  display:grid;grid-template-columns:repeat(3,1fr);
+  border-top:2px solid var(--line);background:var(--surface-2);
+}
+.bottomnav div{
+  padding:11px 4px;text-align:center;font-size:11px;font-weight:800;color:var(--muted);
+  border-right:1px solid var(--line);
+}
+.bottomnav div:last-child{border-right:0}
+.bottomnav div .bi{font-size:19px;font-weight:900;display:block;margin-bottom:1px}
+.bottomnav div.on{color:var(--brand);background:#eff6ff}
+
+.sticky{
+  padding:12px 14px;border-top:2px solid var(--line);background:#fff;
+  display:flex;gap:10px;align-items:center;
+}
+.sticky .btn{flex:1}
+
+/* desktop shell */
+.shell{display:grid;grid-template-columns:236px 1fr;min-height:640px}
+.side{background:var(--brand-2);color:#fff;padding:20px 14px;display:flex;flex-direction:column;gap:4px}
+.side .brand{font-size:15px;font-weight:800;padding:0 8px 4px;letter-spacing:-.2px}
+.side .tenant{
+  font-size:11px;background:rgba(255,255,255,.16);border-radius:8px;
+  padding:7px 9px;margin-bottom:14px;line-height:1.4;
+}
+.side a{
+  color:#dbeafe;text-decoration:none;font-size:13.5px;font-weight:700;
+  padding:9px 10px;border-radius:9px;display:flex;gap:9px;align-items:center;
+}
+.side a.on{background:#fff;color:var(--brand-2)}
+.side a .ai{width:18px;text-align:center;font-weight:900}
+.side .foot{margin-top:auto;font-size:10.5px;opacity:.75;padding:0 8px;line-height:1.45}
+.main{padding:20px 24px;background:var(--surface-2);display:flex;flex-direction:column;gap:16px}
+.pagetop{display:flex;justify-content:space-between;align-items:flex-start;gap:16px}
+.pagetop h2{font-size:23px;font-weight:800;letter-spacing:-.3px}
+.pagetop .sub2{font-size:13px;color:var(--muted);margin-top:2px}
+
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.kpi{background:#fff;border:2px solid var(--line);border-radius:var(--r);padding:14px}
+.kpi .k{font-size:11px;font-weight:800;letter-spacing:.7px;text-transform:uppercase;color:var(--muted)}
+.kpi .v{font-size:31px;font-weight:800;letter-spacing:-1px;margin:5px 0 1px;line-height:1}
+.kpi .u{font-size:12.5px;color:var(--muted);font-weight:600}
+.kpi.hi{border-color:var(--danger-line);background:var(--danger-bg)}
+.kpi.hi .v{color:var(--danger)}
+.kpi.good{border-color:var(--ok-line);background:var(--ok-bg)}
+.kpi.good .v{color:var(--ok)}
+
+.grid2{display:grid;grid-template-columns:1.35fr 1fr;gap:14px}
+.panel{background:#fff;border:2px solid var(--line);border-radius:var(--r);padding:15px}
+.panel > h3{font-size:14.5px;font-weight:800;margin-bottom:3px}
+.panel > .hint{font-size:12px;color:var(--muted);margin-bottom:13px}
+
+.bars{display:flex;flex-direction:column;gap:11px}
+.bar-r{display:flex;align-items:center;gap:11px}
+.bar-r .lb{width:112px;font-size:12.5px;font-weight:700;flex:none}
+.bar-t{flex:1;height:26px;background:#f4f4f5;border-radius:7px;overflow:hidden;border:1px solid var(--line)}
+.bar-t i{display:block;height:100%;border-radius:6px 0 0 6px}
+.bar-r .vv{width:44px;text-align:right;font-size:12.5px;font-weight:800;flex:none}
+
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{
+  text-align:left;font-size:10.5px;font-weight:800;letter-spacing:.7px;text-transform:uppercase;
+  color:var(--muted);padding:0 9px 8px;border-bottom:2px solid var(--line);
+}
+td{padding:11px 9px;border-bottom:1px solid var(--line);vertical-align:top}
+tr:last-child td{border-bottom:0}
+td .strong{font-weight:700}
+tr.flag{background:var(--danger-bg)}
+
+.sev{
+  display:inline-block;font-size:10.5px;font-weight:800;padding:3px 8px;border-radius:6px;
+  color:#fff;text-transform:uppercase;letter-spacing:.5px;
+}
+.sev.crit{background:var(--crit)} .sev.high{background:var(--high)}
+.sev.med{background:var(--med)}  .sev.low{background:var(--low)}
+
+/* conflict */
+.vs{display:grid;grid-template-columns:1fr 34px 1fr;gap:10px;align-items:stretch}
+.vs .mid{display:grid;place-items:center;font-size:11px;font-weight:900;color:var(--muted)}
+.ver{border:2px solid var(--line);border-radius:12px;overflow:hidden;background:#fff}
+.ver.win{border-color:var(--ok-line)}
+.ver.lose{border-color:var(--line-strong);background:var(--surface-2)}
+.ver .vh{
+  padding:8px 11px;font-size:11px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;
+  display:flex;justify-content:space-between;align-items:center;gap:8px;
+}
+.ver.win .vh{background:var(--ok-bg);color:var(--ok);border-bottom:2px solid var(--ok-line)}
+.ver.lose .vh{background:#e4e4e7;color:var(--ink-2);border-bottom:2px solid var(--line)}
+.ver .vb{padding:11px;font-size:13px}
+.kv{display:flex;justify-content:space-between;gap:10px;padding:4px 0;font-size:12.5px}
+.kv .k{color:var(--muted);font-weight:600}
+.kv .v{font-family:var(--mono);font-size:11.5px;font-weight:700;text-align:right}
+.diff{
+  margin-top:8px;padding:9px 11px;border-radius:9px;font-size:13px;
+  background:var(--ok-bg);border:2px solid var(--ok-line);color:var(--ok);font-weight:700;
+}
+.diff small{display:block;font-size:10.5px;opacity:.8;font-weight:700;margin-bottom:2px;letter-spacing:.4px}
+
+.empty{
+  text-align:center;padding:52px 24px;border:2px dashed var(--line-strong);border-radius:var(--r);
+  background:#fff;
+}
+.empty .e-ic{
+  width:66px;height:66px;border-radius:50%;margin:0 auto 16px;
+  background:#f4f4f5;border:2px solid var(--line);color:var(--muted);
+  display:grid;place-items:center;font-size:30px;font-weight:900;
+}
+.empty h3{font-size:17px;font-weight:800;margin-bottom:6px}
+.empty p{font-size:13.5px;color:var(--muted);max-width:430px;margin:0 auto 16px;line-height:1.55}
+
+.proof{
+  background:#0f172a;color:#e2e8f0;border-radius:var(--r);padding:15px;
+  font-family:var(--mono);font-size:12px;line-height:1.75;overflow-x:auto;
+}
+.proof .c{color:#64748b}
+.proof .k{color:#7dd3fc}
+.proof .g{color:#86efac}
+.proof .y{color:#fde047}
+.proof .r{color:#fca5a5}
+
+/* offline simulation */
+body.sim-off .offline-strip{display:flex}
+.offline-strip{
+  display:none;background:var(--ink);color:#fff;padding:9px 18px;
+  font-size:12.5px;font-weight:800;align-items:center;gap:9px;
+}
+.offline-strip .pill{background:var(--danger);border-radius:6px;padding:2px 8px;font-size:11px}
+
+/* grid mode */
+body.grid .screen{display:block;margin-bottom:70px}
+body.grid .frame-label{text-align:left}
+.note{
+  max-width:1280px;margin:0 auto 14px;background:#fff;border:2px dashed var(--line-strong);
+  border-radius:var(--r);padding:14px 16px;font-size:13px;color:var(--ink-2);
+}
+.note b{color:var(--ink)}
+</style>
+</head>
+<body class="single">
+
+<header class="doc-head">
+  <span class="tag">Mockup · no implementado</span>
+  <h1>Terreno Conectado — interfaz propuesta</h1>
+  <p>8 pantallas que recorren el guion de la demo del spec maestro §9, de punta a punta. Cada pantalla
+     declara los requisitos FR/NFR que cubre, para poder rastrearla contra el spec.
+     Datos de ejemplo: <b>Minera El Cobre SpA</b> (tenant A) y <b>Constructora Andes SpA</b> (tenant B).</p>
+</header>
+
+<div class="bar">
+  <button class="tab" data-go="1"><span class="n">1</span> Login</button>
+  <button class="tab" data-go="2"><span class="n">2</span> Inspecciones</button>
+  <button class="tab" data-go="3"><span class="n">3</span> Checklist</button>
+  <button class="tab" data-go="4"><span class="n">4</span> Bitácora</button>
+  <button class="tab" data-go="5"><span class="n">5</span> Sin conexión</button>
+  <button class="tab" data-go="6"><span class="n">6</span> Dashboard</button>
+  <button class="tab" data-go="7"><span class="n">7</span> Conflicto</button>
+  <button class="tab" data-go="8"><span class="n">8</span> Aislamiento</button>
+  <span class="spacer"></span>
+  <label class="offline-toggle"><input type="checkbox" id="simoff"> Simular sin conexión</label>
+  <button class="ghost" id="mode">Ver las 8</button>
+</div>
+
+<main class="stage">
+
+<!-- ============ 1 · LOGIN ============ -->
+<section class="screen" id="s1">
+  <div class="frame-label">
+    <div class="t">1 · Iniciar sesión</div>
+    <div class="d">El trabajador de terreno entra al turno. Un solo tenant por sesión.</div>
+    <span class="fr-badge">FR-001 · FR-005 · NFR-06</span>
+  </div>
+  <div class="phone">
+    <div class="notch"><i></i></div>
+    <div class="screen-in">
+      <div class="statusbar">
+        <span>09:41</span>
+        <span class="dots">
+          <span class="sig"><i style="height:4px"></i><i style="height:6px"></i><i style="height:8px"></i><i style="height:10px"></i></span>
+          <span class="batt"></span>
+        </span>
+      </div>
+      <div class="offline-strip"><span class="pill">SIN SEÑAL</span> Los datos se guardan en este dispositivo</div>
+      <div class="body" style="gap:18px">
+        <div style="text-align:center;padding:10px 0 2px">
+          <div style="width:56px;height:56px;border-radius:16px;background:var(--brand);color:#fff;display:grid;place-items:center;font-size:27px;font-weight:900;margin:0 auto 12px">TC</div>
+          <div style="font-size:21px;font-weight:800;letter-spacing:-.3px">Terreno Conectado</div>
+          <div class="muted" style="margin-top:3px">Datos al día, donde no hay señal</div>
+        </div>
+
+        <div class="banner ok" style="padding:9px 12px">
+          <span class="ic">✓</span>
+          <span>Sesión de <b>Minera El Cobre SpA</b> · Faena Centinela</span>
+        </div>
+
+        <div class="field">
+          <label>Correo</label>
+          <div class="input focus">rodrigo.perez@elcobrespa.cl</div>
+        </div>
+        <div class="field">
+          <label>Contraseña</label>
+          <div class="input">••••••••••••</div>
+        </div>
+
+        <button class="btn primary wide">Iniciar sesión</button>
+
+        <div class="card tint" style="font-size:12px;color:var(--muted);line-height:1.55">
+          <b style="color:var(--ink-2)">Seguridad.</b> 5 intentos fallidos bloquean la cuenta
+          15 minutos. Las contraseñas se guardan como argon2id, nunca en texto plano.
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 2 · LISTA ============ -->
+<section class="screen" id="s2">
+  <div class="frame-label">
+    <div class="t">2 · Inspecciones del turno</div>
+    <div class="d">Parte de «Mis inspecciones». Se puede crear una nueva aunque no haya red.</div>
+    <span class="fr-badge">FR-010 · FR-031 · NFR-01</span>
+  </div>
+  <div class="phone">
+    <div class="notch"><i></i></div>
+    <div class="screen-in">
+      <div class="statusbar">
+        <span>09:44</span>
+        <span class="dots"><span class="sig"><i style="height:10px"></i><i style="height:10px"></i><i style="height:10px"></i><i style="height:10px"></i></span><span class="batt"></span></span>
+      </div>
+      <div class="offline-strip"><span class="pill">SIN SEÑAL</span> Los datos se guardan en este dispositivo</div>
+      <div class="appnav">
+        <h2>Inspecciones</h2>
+        <div class="who">Rodrigo Pérez<br>field_worker</div>
+      </div>
+      <div class="body">
+        <div class="card tint" style="padding:11px 13px;display:flex;justify-content:space-between;align-items:center;gap:10px">
+          <div>
+            <div class="sub">Faena</div>
+            <div style="font-size:14px;font-weight:700;margin-top:2px">Centinela — Sector Norte</div>
+          </div>
+          <span class="chip info"><span class="dot"></span>Plantilla v3</span>
+        </div>
+
+        <div>
+          <div class="sub" style="margin-bottom:9px">Hoy · jueves 01 oct</div>
+
+          <div class="row">
+            <div class="ic amber">1</div>
+            <div class="bd">
+              <div class="t">Inspección diaria de seguridad</div>
+              <div class="s">7 de 9 puntos · <span class="mono">a3f1c02e-…</span></div>
+            </div>
+            <div class="rt"><span class="chip warn"><span class="dot"></span>En curso</span></div>
+          </div>
+
+          <div class="row">
+            <div class="ic blue">2</div>
+            <div class="bd">
+              <div class="t">Checklist de equipos — turno AM</div>
+              <div class="s">Sin iniciar</div>
+            </div>
+            <div class="rt"><span class="chip"><span class="dot"></span>Borrador</span></div>
+          </div>
+
+          <div class="row">
+            <div class="ic green">✓</div>
+            <div class="bd">
+              <div class="t">Inspección diaria de seguridad</div>
+              <div class="s">Ayer 16:20 · enviada</div>
+            </div>
+            <div class="rt"><span class="chip ok"><span class="dot"></span>Enviada</span></div>
+          </div>
+
+          <div class="row">
+            <div class="ic gray">✓</div>
+            <div class="bd">
+              <div class="t">Inspección diaria de seguridad</div>
+              <div class="s">23 sep · revisada</div>
+            </div>
+            <div class="rt"><span class="chip solid">Revisada</span></div>
+          </div>
+        </div>
+
+        <button class="btn primary wide">+ Nueva inspección</button>
+      </div>
+      <div class="bottomnav">
+        <div class="on"><span class="bi">▤</span>Inspecciones</div>
+        <div><span class="bi">✎</span>Bitácora</div>
+        <div><span class="bi">⇅</span>Sincronizar</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 3 · CHECKLIST ============ -->
+<section class="screen" id="s3">
+  <div class="frame-label">
+    <div class="t">3 · Captura del checklist — en modo avión</div>
+    <div class="d">Responder <code>ok / nok / na</code>. Un <b>nok</b> obliga a registrar hallazgo.</div>
+    <span class="fr-badge">FR-011 · FR-030 · FR-032 · FR-015</span>
+  </div>
+  <div class="phone">
+    <div class="notch"><i></i></div>
+    <div class="screen-in">
+      <div class="statusbar">
+        <span>09:47</span>
+        <span class="dots"><span class="sig"><i style="height:10px"></i><i style="height:10px"></i><i style="height:10px"></i><i style="height:10px"></i></span><span class="batt"></span></span>
+      </div>
+      <div class="offline-strip"><span class="pill">MODO AVIÓN</span> Capturando sin conexión · se guarda en el equipo</div>
+      <div class="appnav">
+        <h2>Inspección diaria</h2>
+        <div class="who">7 / 9 puntos<br>guardado 09:47</div>
+      </div>
+      <div class="body" style="gap:12px">
+
+        <div class="card tint" style="padding:10px 12px">
+          <div style="display:flex;justify-content:space-between;font-size:11.5px;font-weight:800;margin-bottom:7px">
+            <span>Progreso</span><span>78%</span>
+          </div>
+          <div class="bar-t" style="height:9px"><i style="width:78%;background:var(--brand)"></i></div>
+        </div>
+
+        <div class="q">
+          <div class="q-h"><div class="num">1</div><div class="t">Uso de elementos de protección personal en el sector</div></div>
+          <div class="seg">
+            <button class="on-ok">✓ OK<small>CUMPLE</small></button>
+            <button>NOK<small>NO CUMPLE</small></button>
+            <button>NA<small>NO APLICA</small></button>
+          </div>
+        </div>
+
+        <div class="q nok">
+          <div class="q-h"><div class="num">2</div><div class="t">Estado y señalización del arnés de seguridad</div></div>
+          <div class="seg">
+            <button>✓ OK<small>CUMPLE</small></button>
+            <button class="on-nok">NOK<small>NO CUMPLE</small></button>
+            <button>NA<small>NO APLICA</small></button>
+          </div>
+          <div style="margin:0 14px 14px">
+            <div class="banner err">
+              <span class="ic">!</span>
+              <span>La plantilla exige hallazgo con foto cuando el punto se marca <b>NOK</b>.</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="card danger" style="padding:0;overflow:hidden">
+          <div style="padding:11px 13px;border-bottom:2px solid var(--danger-line);display:flex;justify-content:space-between;align-items:center">
+            <span style="font-size:12px;font-weight:800;color:var(--danger)">HALLAZGO · PUNTO 2</span>
+            <span class="chip danger"><span class="dot"></span>Sin enviar</span>
+          </div>
+          <div style="padding:13px;display:flex;flex-direction:column;gap:12px">
+            <div class="field">
+              <label>Severidad</label>
+              <div style="display:flex;gap:7px">
+                <span class="chip">Baja</span>
+                <span class="chip">Media</span>
+                <span class="chip" style="background:var(--high);border-color:var(--high);color:#fff">Alta</span>
+                <span class="chip">Crítica</span>
+              </div>
+            </div>
+            <div class="field">
+              <label>Descripción</label>
+              <div class="input" style="min-height:76px;align-items:flex-start;padding:11px 14px;font-size:14px">
+                Arnés sin certificación vigente en 2 de 5 trabajadores del equipo norte.
+              </div>
+            </div>
+            <div>
+              <div class="sub" style="margin-bottom:7px">Evidencia fotográfica</div>
+              <div style="display:flex;gap:10px;align-items:center">
+                <div style="width:74px;height:74px;border-radius:11px;background:#e4e4e7;border:2px solid var(--line-strong);display:grid;place-items:center;color:var(--muted);font-size:23px;font-weight:900;flex:none">▣</div>
+                <div style="font-size:11.5px;color:var(--muted);line-height:1.5">
+                  <b style="color:var(--ink-2)">arnes-02.jpg</b><br>
+                  8 MP → 1280 px · q0.7<br>
+                  <span style="color:var(--ok);font-weight:800">1,1 MB → 142 KB</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card tint" style="padding:10px 12px;font-family:var(--mono);font-size:11px;color:var(--muted);line-height:1.7">
+          id <span style="color:var(--brand);font-weight:700">0192f3a1-8c44-7b2e-9d10-4a5e6f7b8c90</span><br>
+          capturado <span style="color:var(--ink-2)">2026-10-01T09:47:12-03:00</span> · template v3
+        </div>
+      </div>
+      <div class="sticky">
+        <span class="chip warn"><span class="dot"></span>4 pendientes</span>
+        <button class="btn primary">Guardar</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 4 · BITACORA + OUTBOX ============ -->
+<section class="screen" id="s4">
+  <div class="frame-label">
+    <div class="t">4 · Bitácora del turno y estado de la cola</div>
+    <div class="d">Cada registro muestra su estado local. Un reintento con backoff es visible, no oculto.</div>
+    <span class="fr-badge">FR-013 · FR-022 · FR-033 · FR-026</span>
+  </div>
+  <div class="phone">
+    <div class="notch"><i></i></div>
+    <div class="screen-in">
+      <div class="statusbar">
+        <span>09:52</span>
+        <span class="dots"><span class="sig"><i style="height:6px"></i><i style="height:6px"></i><i style="height:6px"></i><i style="height:6px"></i></span><span class="batt"></span></span>
+      </div>
+      <div class="offline-strip"><span class="pill">MODO AVIÓN</span> Capturando sin conexión · se guarda en el equipo</div>
+      <div class="appnav">
+        <h2>Bitácora de turno</h2>
+        <div class="who">Rodrigo Pérez<br>field_worker</div>
+      </div>
+      <div class="body">
+
+        <div class="card" style="padding:12px 13px">
+          <div class="row" style="padding:0;border:0;align-items:flex-start">
+            <div class="ic gray" style="width:34px;height:34px;font-size:14px">✎</div>
+            <div class="bd">
+              <div class="t" style="font-size:13.5px;font-weight:600;line-height:1.45">
+                Turno mañana. La revisión de arneses quedó agendada para el viernes con Mantenimiento.
+              </div>
+              <div class="s" style="margin-top:6px">
+                <span class="chip warn" style="font-size:10.5px"><span class="dot"></span>Pendiente</span>
+                <span class="chip" style="font-size:10.5px;margin-left:4px">turno</span>
+                <span class="chip" style="font-size:10.5px">seguridad</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card" style="padding:12px 13px">
+          <div class="row" style="padding:0;border:0;align-items:flex-start">
+            <div class="ic gray" style="width:34px;height:34px;font-size:14px">✎</div>
+            <div class="bd">
+              <div class="t" style="font-size:13.5px;font-weight:600;line-height:1.45">
+                El SeMCA-2 presenta falla intermitente en el ascenso. Se documentó en bitácora.
+              </div>
+              <div class="s" style="margin-top:6px">
+                <span class="chip danger" style="font-size:10.5px"><span class="dot"></span>Falló · reintento 3</span>
+                <span class="chip" style="font-size:10.5px;margin-left:4px">equipo</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card warn" style="padding:12px 13px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:9px">
+            <span class="sub" style="color:var(--warn)">Cola de sincronización</span>
+            <span class="chip warn"><span class="dot"></span>4 pendientes</span>
+          </div>
+          <div class="bar-t" style="height:8px;margin-bottom:11px"><i style="width:34%;background:var(--warn)"></i></div>
+
+          <div style="display:flex;flex-direction:column;gap:7px">
+            <div style="display:flex;align-items:center;gap:9px;font-size:12.5px">
+              <span class="chip ok" style="flex:none"><span class="dot"></span>Sincronizado</span>
+              <span style="color:var(--muted)">Bitácora 09:31</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:9px;font-size:12.5px">
+              <span class="chip info" style="flex:none"><span class="dot"></span>Sincronizando</span>
+              <span style="color:var(--muted)">Respuesta · EPP</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:9px;font-size:12.5px">
+              <span class="chip warn" style="flex:none"><span class="dot"></span>Pendiente</span>
+              <span style="color:var(--muted)">Inspección + hallazgo</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:9px;font-size:12.5px">
+              <span class="chip warn" style="flex:none"><span class="dot"></span>Pendiente</span>
+              <span style="color:var(--muted)">Evidencia fotográfica</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="card danger" style="padding:12px 13px">
+          <div class="sub" style="color:var(--danger);margin-bottom:7px">Reintento con backoff</div>
+          <div style="font-size:12.5px;line-height:1.6;color:var(--ink-2)">
+            El servidor rechazó el lote 2 veces. Espera actual de <b>32 s</b> antes del siguiente intento.
+            <div class="mono" style="margin-top:7px;color:var(--muted)">1s → 2s → 4s → 8s → 16s → 32s … máx 5 min</div>
+          </div>
+        </div>
+      </div>
+      <div class="bottomnav">
+        <div><span class="bi">▤</span>Inspecciones</div>
+        <div class="on"><span class="bi">✎</span>Bitácora</div>
+        <div><span class="bi">⇅</span>Sincronizar</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 5 · SIN CONEXION ============ -->
+<section class="screen" id="s5">
+  <div class="frame-label">
+    <div class="t">5 · Estado sin conexión y cuota de almacenamiento</div>
+    <div class="d">La app sigue siendo plenamente utilizable. Esto no es un estado de error.</div>
+    <span class="fr-badge">FR-016 · FR-017 · FR-014 · NFR-01</span>
+  </div>
+  <div class="phone">
+    <div class="notch"><i></i></div>
+    <div class="screen-in">
+      <div class="statusbar">
+        <span>09:55</span>
+        <span class="dots"><span class="sig"><span style="color:var(--danger);font-size:11px;font-weight:900">✕</span></span><span class="batt"></span></span>
+      </div>
+      <div class="appnav" style="background:var(--ink)">
+        <h2>Sin conexión</h2>
+        <div class="who">Rodrigo Pérez<br>field_worker</div>
+      </div>
+      <div class="body">
+
+        <div class="banner off">
+          <span class="ic">!</span>
+          <span>No hay red en el sector. <b>Todo lo que captures sigue funcionando</b> y se
+          sincroniza solo al recuperar señal.</span>
+        </div>
+
+        <div class="card" style="padding:0;overflow:hidden">
+          <div style="padding:13px;border-bottom:2px solid var(--line)">
+            <div class="sub" style="margin-bottom:10px">Almacenamiento local</div>
+            <div style="display:flex;justify-content:space-between;font-size:12.5px;font-weight:800;margin-bottom:7px">
+              <span>2,3 GB de 3,0 GB</span><span style="color:var(--warn)">78%</span>
+            </div>
+            <div class="bar-t" style="height:11px">
+              <i style="width:78%;background:linear-gradient(90deg,var(--ok) 0%,var(--warn) 78%)"></i>
+            </div>
+            <div style="font-size:12px;color:var(--muted);margin-top:8px;line-height:1.55">
+              Al llegar al <b>80%</b> la app avisa al trabajador y prioriza subir primero las fotos
+              que ya se pueden sincronizar.
+            </div>
+          </div>
+          <div style="padding:13px;display:flex;flex-direction:column;gap:9px">
+            <div style="display:flex;justify-content:space-between;font-size:12.5px"><span style="color:var(--muted)">Inspecciones</span><b>142 registros · 84 MB</b></div>
+            <div style="display:flex;justify-content:space-between;font-size:12.5px"><span style="color:var(--muted)">Evidencias fotográficas</span><b>310 fotos · 1,9 GB</b></div>
+            <div style="display:flex;justify-content:space-between;font-size:12.5px"><span style="color:var(--muted)">Bitácoras</span><b>38 entradas · 2 MB</b></div>
+          </div>
+        </div>
+
+        <div class="card brand" style="padding:13px">
+          <div class="sub" style="color:var(--brand);margin-bottom:9px">Pendiente de enviar</div>
+          <div style="display:flex;flex-direction:column;gap:8px;font-size:13px">
+            <div style="display:flex;justify-content:space-between"><span>Inspección diaria de seguridad</span><b>1</b></div>
+            <div style="display:flex;justify-content:space-between"><span>Respuestas de checklist</span><b>4</b></div>
+            <div style="display:flex;justify-content:space-between"><span>Hallazgo con foto</span><b>1</b></div>
+            <div style="display:flex;justify-content:space-between"><span>Entradas de bitácora</span><b>2</b></div>
+            <div style="border-top:2px solid #93c5fd;margin-top:4px;padding-top:9px;display:flex;justify-content:space-between">
+              <span><b>Total</b></span><b style="color:var(--brand)">8 registros</b>
+            </div>
+          </div>
+        </div>
+
+        <div class="card tint" style="padding:12px 13px;font-size:12.5px;color:var(--muted);line-height:1.6">
+          <b style="color:var(--ink-2)">Durabilidad.</b> Estos datos sobreviven al cierre de la app y
+          al reinicio del dispositivo: se escriben en transactions atómicas, nunca a medias.
+        </div>
+      </div>
+      <div class="bottomnav">
+        <div class="on"><span class="bi">▤</span>Inspecciones</div>
+        <div><span class="bi">✎</span>Bitácora</div>
+        <div><span class="bi">⇅</span>Sincronizar</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 6 · DASHBOARD ============ -->
+<section class="screen" id="s6">
+  <div class="frame-label">
+    <div class="t">6 · Dashboard del supervisor</div>
+    <div class="d">El hallazgo crítico aparece aquí en menos de 60 segundos después de sincronizar.</div>
+    <span class="fr-badge">FR-040 · FR-043 · FR-035 · NFR-03</span>
+  </div>
+  <div class="browser">
+    <div class="chrome">
+      <div class="dots2"><i style="background:#fca5a5"></i><i style="background:#fcd34d"></i><i style="background:#86efac"></i></div>
+      <div class="url">https://terreno.duckdns.org/dashboard</div>
+    </div>
+    <div class="shell">
+      <aside class="side">
+        <div class="brand">Terreno Conectado</div>
+        <div class="tenant"><b>Minera El Cobre SpA</b><br>Faena Centinela</div>
+        <a class="on"><span class="ai">▤</span> Dashboard</a>
+        <a><span class="ai">▣</span> Inspecciones</a>
+        <a><span class="ai">!</span> Hallazgos <span style="margin-left:auto;background:#fff;color:#b91c1c;border-radius:99px;padding:1px 7px;font-size:11px;font-weight:900">3</span></a>
+        <a><span class="ai">⚖</span> Conflictos <span style="margin-left:auto;background:#fff;color:#7c2d12;border-radius:99px;padding:1px 7px;font-size:11px;font-weight:900">1</span></a>
+        <a><span class="ai">✎</span> Bitácoras</a>
+        <a><span class="ai">⇅</span> Sincronización</a>
+        <div class="foot">Carla Muñoz<br>supervisor<br><br>Sesión: 4 h 12 min</div>
+      </aside>
+      <div class="main">
+        <div class="pagetop">
+          <div>
+            <h2>Dashboard</h2>
+            <div class="sub2">Jueves 01 de octubre de 2026 · turno en curso</div>
+          </div>
+          <div style="display:flex;gap:9px;align-items:center">
+            <span class="chip info"><span class="dot"></span>Última sync 09:58</span>
+            <span class="chip ok"><span class="dot"></span>0 pendientes</span>
+          </div>
+        </div>
+
+        <div class="kpis">
+          <div class="kpi hi">
+            <div class="k">Hallazgos altos y críticos</div>
+            <div class="v">3</div>
+            <div class="u">1 crítico · 2 altos</div>
+          </div>
+          <div class="kpi good">
+            <div class="k">Latencia captura → visible</div>
+            <div class="v">38 s</div>
+            <div class="u">Meta ≤ 60 s · cumplida</div>
+          </div>
+          <div class="kpi">
+            <div class="k">Inspecciones del período</div>
+            <div class="v">47</div>
+            <div class="u">7 en curso · 40 enviadas</div>
+          </div>
+          <div class="kpi">
+            <div class="k">Conflictos abiertos</div>
+            <div class="v">1</div>
+            <div class="u">Resuelto por LWW</div>
+          </div>
+        </div>
+
+        <div class="grid2">
+          <div class="panel">
+            <h3>Hallazgos por severidad</h3>
+            <div class="hint">Período: últimos 7 días · faena Centinela</div>
+            <div class="bars">
+              <div class="bar-r">
+                <div class="lb">Crítica</div>
+                <div class="bar-t"><i style="width:12%;background:var(--crit)"></i></div>
+                <div class="vv">1</div>
+              </div>
+              <div class="bar-r">
+                <div class="lb">Alta</div>
+                <div class="bar-t"><i style="width:38%;background:var(--high)"></i></div>
+                <div class="vv">3</div>
+              </div>
+              <div class="bar-r">
+                <div class="lb">Media</div>
+                <div class="bar-t"><i style="width:57%;background:var(--med)"></i></div>
+                <div class="vv">5</div>
+              </div>
+              <div class="bar-r">
+                <div class="lb">Baja</div>
+                <div class="bar-t"><i style="width:76%;background:var(--low)"></i></div>
+                <div class="vv">7</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="panel">
+            <h3>Inspecciones por estado</h3>
+            <div class="hint">Ciclo de vida: borrador → en curso → enviada → revisada</div>
+            <div class="bars">
+              <div class="bar-r">
+                <div class="lb">En curso</div>
+                <div class="bar-t"><i style="width:15%;background:var(--warn)"></i></div>
+                <div class="vv">7</div>
+              </div>
+              <div class="bar-r">
+                <div class="lb">Enviadas</div>
+                <div class="bar-t"><i style="width:85%;background:var(--brand)"></i></div>
+                <div class="vv">33</div>
+              </div>
+              <div class="bar-r">
+                <div class="lb">Revisadas</div>
+                <div class="bar-t"><i style="width:18%;background:var(--ok)"></i></div>
+                <div class="vv">7</div>
+              </div>
+              <div class="bar-r">
+                <div class="lb">Borrador</div>
+                <div class="bar-t"><i style="width:5%;background:var(--muted)"></i></div>
+                <div class="vv">2</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel" style="padding:0;overflow:hidden">
+          <div style="padding:15px 15px 0">
+            <h3>Hallazgos recientes</h3>
+            <div class="hint">Los altos y críticos se destacan inmediatamente al sincronizar</div>
+          </div>
+          <table>
+            <thead>
+              <tr><th>Severidad</th><th>Hallazgo</th><th>Faena / sector</th><th>Reportado por</th><th>Capturado</th><th>Visible</th></tr>
+            </thead>
+            <tbody>
+              <tr class="flag">
+                <td><span class="sev crit">Crítica</span></td>
+                <td><div class="strong">Falla en ascenso del SeMCA-2</div><div class="muted" style="font-size:11.5px">Equipo crítico en uso</div></td>
+                <td>Centinela — Sector Norte</td>
+                <td>Rodrigo Pérez<br><span class="muted" style="font-size:11.5px">field_worker</span></td>
+                <td class="mono">09:52</td>
+                <td class="mono" style="color:var(--ok);font-weight:800">+38 s</td>
+              </tr>
+              <tr>
+                <td><span class="sev high">Alta</span></td>
+                <td><div class="strong">Arnés sin certificación vigente</div><div class="muted" style="font-size:11.5px">2 de 5 trabajadores</div></td>
+                <td>Centinela — Sector Norte</td>
+                <td>Rodrigo Pérez<br><span class="muted" style="font-size:11.5px">field_worker</span></td>
+                <td class="mono">09:47</td>
+                <td class="mono" style="color:var(--ok);font-weight:800">+41 s</td>
+              </tr>
+              <tr>
+                <td><span class="sev high">Alta</span></td>
+                <td><div class="strong">Señalización ausente en tramo de 8 m</div></td>
+                <td>Centinela — Rampa Este</td>
+                <td>Martín Rojas<br><span class="muted" style="font-size:11.5px">field_worker</span></td>
+                <td class="mono">08:31</td>
+                <td class="mono" style="color:var(--ok);font-weight:800">+52 s</td>
+              </tr>
+              <tr>
+                <td><span class="sev med">Media</span></td>
+                <td><div class="strong">Extintor con presión baja</div></td>
+                <td>Centinela — Galpón 2</td>
+                <td>Javiera Soto<br><span class="muted" style="font-size:11.5px">tenant_admin</span></td>
+                <td class="mono">ayer</td>
+                <td class="mono" style="color:var(--ok);font-weight:800">+33 s</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 7 · CONFLICTO ============ -->
+<section class="screen" id="s7">
+  <div class="frame-label">
+    <div class="t">7 · Detalle de inspección con conflicto resuelto</div>
+    <div class="d">Dos tablets editaron el mismo registro sin conexión. Se aplica LWW y <b>ambas versiones quedan visibles</b>.</div>
+    <span class="fr-badge">FR-023 · FR-024 · NFR-04</span>
+  </div>
+  <div class="browser">
+    <div class="chrome">
+      <div class="dots2"><i style="background:#fca5a5"></i><i style="background:#fcd34d"></i><i style="background:#86efac"></i></div>
+      <div class="url">https://terreno.duckdns.org/inspections/0192f3a1-8c44-7b2e-9d10-4a5e6f7b8c90</div>
+    </div>
+    <div class="shell">
+      <aside class="side">
+        <div class="brand">Terreno Conectado</div>
+        <div class="tenant"><b>Minera El Cobre SpA</b><br>Faena Centinela</div>
+        <a><span class="ai">▤</span> Dashboard</a>
+        <a class="on"><span class="ai">▣</span> Inspecciones</a>
+        <a><span class="ai">!</span> Hallazgos <span style="margin-left:auto;background:#fff;color:#b91c1c;border-radius:99px;padding:1px 7px;font-size:11px;font-weight:900">3</span></a>
+        <a><span class="ai">⚖</span> Conflictos <span style="margin-left:auto;background:#fff;color:#7c2d12;border-radius:99px;padding:1px 7px;font-size:11px;font-weight:900">1</span></a>
+        <a><span class="ai">✎</span> Bitácoras</a>
+        <a><span class="ai">⇅</span> Sincronización</a>
+        <div class="foot">Carla Muñoz<br>supervisor</div>
+      </aside>
+      <div class="main">
+        <div class="pagetop">
+          <div>
+            <h2>Inspección diaria de seguridad</h2>
+            <div class="sub2">Faena Centinela — Sector Norte · Plantilla v3 · Rodrigo Pérez</div>
+          </div>
+          <div style="display:flex;gap:9px;flex-wrap:wrap">
+            <span class="chip warn"><span class="dot"></span>Enviada</span>
+            <span class="chip danger"><span class="dot"></span>Conflicto resuelto</span>
+          </div>
+        </div>
+
+        <div class="panel" style="border-color:var(--warn-line)">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin-bottom:13px;flex-wrap:wrap">
+            <div>
+              <h3 style="color:var(--warn)">Registro de conflicto · resolución LWW</h3>
+              <div class="hint" style="margin:3px 0 0">Dos dispositivos editaron este registro sin conexión. La resolución es determinista y ambas versiones se conservan para auditoría.</div>
+            </div>
+            <span class="chip warn" style="flex:none"><span class="dot"></span>Visible para el supervisor</span>
+          </div>
+
+          <div class="vs">
+            <div class="ver win">
+              <div class="vh"><span>Ganador</span><span>Tablet 2</span></div>
+              <div class="vb">
+                <div class="kv"><span class="k">Dispositivo</span><span class="v">tablet-02</span></div>
+                <div class="kv"><span class="k">Usuario</span><span class="v">Rodrigo Pérez</span></div>
+                <div class="kv"><span class="k">client_version</span><span class="v">4</span></div>
+                <div class="kv"><span class="k">captured_at</span><span class="v">10:42:07</span></div>
+                <div class="diff">
+                  <small>Respuesta · punto 2 · Estado del arnés</small>
+                  NOK — 2 de 5 sin certificación
+                </div>
+              </div>
+            </div>
+
+            <div class="mid">VS</div>
+
+            <div class="ver lose">
+              <div class="vh"><span>Descartado</span><span>Tablet 1</span></div>
+              <div class="vb">
+                <div class="kv"><span class="k">Dispositivo</span><span class="v">tablet-01</span></div>
+                <div class="kv"><span class="k">Usuario</span><span class="v">Rodrigo Pérez</span></div>
+                <div class="kv"><span class="k">client_version</span><span class="v">3</span></div>
+                <div class="kv"><span class="k">captured_at</span><span class="v">10:40:19</span></div>
+                <div class="diff" style="background:#f4f4f5;border-color:var(--line-strong);color:var(--ink-2)">
+                  <small>Respuesta · punto 2 · Estado del arnés</small>
+                  OK — todos conformes
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card tint" style="margin-top:13px;padding:11px 13px;font-size:12.5px;line-height:1.6">
+            <b style="color:var(--ink-2)">Criterio aplicado (determinista).</b>
+            Ambos registros compartían <span class="mono">captured_at</span> con 1,8 s de diferencia, así que
+            resolvió por <span class="mono">client_version</span>: ganó la versión 4 sobre la 3.
+            Si hubieran empatado también, se habría resuelto por UUIDv7 mayor. El mismo input produce
+            siempre el mismo ganador, aunque los relojes de los equipos estén desviados.
+          </div>
+        </div>
+
+        <div class="grid2">
+          <div class="panel">
+            <h3>Respuestas del checklist</h3>
+            <div class="hint">9 puntos · 7 en conforme · 1 no conforme · 1 no aplica</div>
+            <table>
+              <thead><tr><th style="width:28px">#</th><th>Punto</th><th style="width:88px">Respuesta</th><th style="width:104px">Foto</th></tr></thead>
+              <tbody>
+                <tr><td class="mono">1</td><td>Uso de EPP en el sector</td><td><span class="chip ok"><span class="dot"></span>OK</span></td><td class="muted">—</td></tr>
+                <tr class="flag"><td class="mono">2</td><td>Estado y señalización del arnés</td><td><span class="chip danger"><span class="dot"></span>NOK</span></td><td><span class="chip info">1 adjunta</span></td></tr>
+                <tr><td class="mono">3</td><td>Señalización de excavaciones</td><td><span class="chip ok"><span class="dot"></span>OK</span></td><td class="muted">—</td></tr>
+                <tr><td class="mono">4</td><td>Estado de ladders y andamios</td><td><span class="chip ok"><span class="dot"></span>OK</span></td><td class="muted">—</td></tr>
+                <tr><td class="mono">5</td><td>Control de acceso al sector</td><td><span class="chip"><span class="dot"></span>NA</span></td><td class="muted">—</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="panel">
+            <h3>Registro de sincronización</h3>
+            <div class="hint">Auditable por tenant · latencia captura → disponibilidad</div>
+            <table>
+              <tbody>
+                <tr><td class="mono">10:42:07</td><td><div class="strong">Lote aceptado</div><div class="muted" style="font-size:11.5px">tablet-02 · 9 registros</div></td><td><span class="chip ok"><span class="dot"></span>9 ok</span></td></tr>
+                <tr><td class="mono">10:42:07</td><td><div class="strong">Conflicto detectado</div><div class="muted" style="font-size:11.5px">respuesta punto 2</div></td><td><span class="chip warn"><span class="dot"></span>LWW</span></td></tr>
+                <tr><td class="mono">10:40:19</td><td><div class="strong">Lote aceptado</div><div class="muted" style="font-size:11.5px">tablet-01 · 4 registros</div></td><td><span class="chip ok"><span class="dot"></span>4 ok</span></td></tr>
+                <tr><td class="mono">10:39:58</td><td><div class="strong">Lote reintentado</div><div class="muted" style="font-size:11.5px">reintento 1 · backoff</div></td><td><span class="chip info"><span class="dot"></span>idempotente</span></td></tr>
+              </tbody>
+            </table>
+            <div class="card tint" style="margin-top:12px;padding:10px 12px;font-size:12px;color:var(--muted)">
+              0 pérdidas · 0 duplicados · latencia total <b style="color:var(--ink-2)">+51 s</b>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 8 · AISLAMIENTO ============ -->
+<section class="screen" id="s8">
+  <div class="frame-label">
+    <div class="t">8 · Aislamiento multi-tenant — el segundo cliente no ve nada</div>
+    <div class="d">Misma aplicación, otra empresa. El aislamiento lo garantiza la base de datos, no los filtros.</div>
+    <span class="fr-badge">FR-002 · FR-025 · NFR-05 · Art. IV</span>
+  </div>
+  <div class="browser">
+    <div class="chrome">
+      <div class="dots2"><i style="background:#fca5a5"></i><i style="background:#fcd34d"></i><i style="background:#86efac"></i></div>
+      <div class="url">https://terreno.duckdns.org/dashboard</div>
+    </div>
+    <div class="shell">
+      <aside class="side">
+        <div class="brand">Terreno Conectado</div>
+        <div class="tenant"><b>Constructora Andes SpA</b><br>Obra Cerro Verde</div>
+        <a class="on"><span class="ai">▤</span> Dashboard</a>
+        <a><span class="ai">▣</span> Inspecciones</a>
+        <a><span class="ai">!</span> Hallazgos <span style="margin-left:auto;background:#fff;color:#b91c1c;border-radius:99px;padding:1px 7px;font-size:11px;font-weight:900">0</span></a>
+        <a><span class="ai">⚖</span> Conflictos <span style="margin-left:auto;background:#fff;color:#7c2d12;border-radius:99px;padding:1px 7px;font-size:11px;font-weight:900">0</span></a>
+        <a><span class="ai">✎</span> Bitácoras</a>
+        <div class="foot">Felipe Vergara<br>tenant_admin<br><br>Sesión: 11 min</div>
+      </aside>
+      <div class="main">
+        <div class="pagetop">
+          <div>
+            <h2>Dashboard</h2>
+            <div class="sub2">Constructora Andes SpA · Obra Cerro Verde</div>
+          </div>
+          <span class="chip ok"><span class="dot"></span>Sesión aislada correctamente</span>
+        </div>
+
+        <div class="banner ok">
+          <span class="ic">✓</span>
+          <span><b>Aislamiento verificado.</b> Este usuario está autenticado con
+          <span class="mono">tenant_id = 8c1f…b402</span>. Todas las consultas se ejecutan bajo
+          <span class="mono">SET LOCAL app.tenant_id</span> y las políticas RLS descartan cualquier fila
+          de otro tenant antes de que llegue a la aplicación.</span>
+        </div>
+
+        <div class="kpis">
+          <div class="kpi"><div class="k">Inspecciones del período</div><div class="v">0</div><div class="u">Aún no hay captura</div></div>
+          <div class="kpi"><div class="k">Hallazgos</div><div class="v">0</div><div class="u">Sin hallazgos</div></div>
+          <div class="kpi"><div class="k">Conflictos</div><div class="v">0</div><div class="u">Sin conflictos</div></div>
+          <div class="kpi"><div class="k">Latencia media</div><div class="v">—</div><div class="u">Sin datos aún</div></div>
+        </div>
+
+        <div class="empty">
+          <div class="e-ic">▤</div>
+          <h3>Sin inspecciones en esta faena</h3>
+          <p>La empresa Constructora Andes SpA todavía no registra inspecciones. Lo que el usuario ve
+             aquí es exactamente lo que existe para su tenant, y nada más.</p>
+          <span class="chip ok" style="font-size:12.5px;padding:7px 14px">
+            <span class="dot"></span>0 filas de Minera El Cobre SpA expuestas
+          </span>
+        </div>
+
+        <div class="panel">
+          <h3>Verificación a nivel de base de datos</h3>
+          <div class="hint">Prueba de intrusión cross-tenant que corre en CI (artículo IV de la constitución)</div>
+          <div class="proof"><span class="c">-- como tenant A (Minera El Cobre SpA)</span>
+<span class="k">SELECT</span> count(*) <span class="k">FROM</span> inspection;
+ <span class="y">+-------+
+ | <span class="g">47</span>   |
+ +-------+
+
+<span class="c">-- como tenant B (Constructora Andes SpA)</span>
+<span class="k">SELECT</span> count(*) <span class="k">FROM</span> inspection;
+ <span class="y">+-------+
+ | <span class="g">0</span>    |
+ +-------+
+
+<span class="c">-- intento de intrusión: JWT de A con payload de B</span>
+<span class="k">POST</span> /api/v1/sync/batch  tenant_id=<span class="r">b402…</span>
+ <span class="r">403 rejected</span>  lote completo descartado
+ <span class="c">→ incidente registrado en AUDIT_LOG (FR-025)</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<script>
+(function(){
+  var tabs = Array.prototype.slice.call(document.querySelectorAll('.tab'));
+  var screens = Array.prototype.slice.call(document.querySelectorAll('.screen'));
+  var modeBtn = document.getElementById('mode');
+  var off = document.getElementById('simoff');
+
+  function show(n){
+    tabs.forEach(function(t){ t.setAttribute('aria-selected', String(t.dataset.go === String(n))); });
+    screens.forEach(function(s){ s.classList.toggle('active', s.id === 's'+n); });
+    document.body.classList.add('single');
+    document.body.classList.remove('grid');
+    modeBtn.textContent = 'Ver las 8';
+    window.scrollTo({top:0, behavior:'smooth'});
+  }
+
+  tabs.forEach(function(t){
+    t.addEventListener('click', function(){ show(t.dataset.go); });
+  });
+
+  modeBtn.addEventListener('click', function(){
+    var grid = document.body.classList.toggle('grid');
+    if(grid){
+      document.body.classList.remove('single');
+      tabs.forEach(function(t){ t.setAttribute('aria-selected','false'); });
+      modeBtn.textContent = 'Ver una a una';
+    } else {
+      show(1);
+    }
+  });
+
+  off.addEventListener('change', function(){
+    document.body.classList.toggle('sim-off', off.checked);
+  });
+
+  // deep link
+  var h = (location.hash || '').replace('#','');
+  if(h && document.getElementById('s'+h)) show(h);
+
+  tabs[0].setAttribute('aria-selected','true');
+  screens[0].classList.add('active');
+})();
+</script>
+</body>
+</html>

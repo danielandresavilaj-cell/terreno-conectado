@@ -1,0 +1,1602 @@
+<!DOCTYPE html>
+<html lang="es-CL">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Terreno Conectado — turno de noche</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;900&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   TERRENO CONECTADO — sistema "turno de noche"
+   Cromo: pizarra #1E293B. Señal: naranja #F97316.
+   Papel blanco para todo lo que se lee al sol.
+   ============================================================ */
+:root{
+  /* cromo oscuro */
+  --pizarra:#1E293B;
+  --pizarra-2:#172033;
+  --pizarra-3:#334155;
+  --pizarra-4:#94A3B8;
+  --pizarra-5:#64748B;
+
+  /* señal naranja */
+  --naranja:#F97316;
+  --naranja-tinta:#C2410C;
+
+  /* papel */
+  --papel:#FFFFFF;
+  --papel-2:#F8FAFC;
+  --papel-3:#F1F5F9;
+  --linea:#E2E8F0;
+  --linea-2:#CBD5E1;
+
+  /* tinta */
+  --tinta:#0F172A;
+  --tinta-2:#475569;
+  --tinta-3:#94A3B8;
+
+  /* estado */
+  --verdito:#2E6B4E;
+  --verdito-bg:#E7F1EC;
+  --alerta:#A3161B;
+  --alerta-bg:#F9E8E8;
+  --cobalto:#0B5FA5;
+  --cobalto-bg:#E5EFF8;
+  --sulfuro:#B07908;
+  --sulfuro-tinta:#8A5D06;
+  --sulfuro-bg:#FBF1DC;
+
+  --tap:56px;
+  --sans:"Archivo","Helvetica Neue",Arial,sans-serif;
+}
+
+*{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-text-size-adjust:100%}
+body{
+  font-family:var(--sans);
+  background:var(--pizarra-2);
+  color:var(--papel);
+  font-size:16px;line-height:1.5;
+  font-variant-numeric:tabular-nums;
+  -webkit-font-smoothing:antialiased;
+  padding-bottom:80px;
+}
+button{font:inherit;color:inherit;cursor:pointer;background:none;border:0}
+:focus-visible{outline:3px solid var(--naranja);outline-offset:2px;border-radius:3px}
+a{color:inherit}
+svg{display:block;flex:none}
+
+/* ---------- armazon del documento ---------- */
+.enc{background:var(--pizarra);padding:32px 30px 28px;border-bottom:3px solid var(--naranja)}
+.enc h1{font-size:29px;font-weight:900;letter-spacing:-.02em;line-height:1.1}
+.enc p{color:var(--pizarra-4);font-size:14.5px;margin-top:10px;max-width:74ch}
+.enc p b{color:var(--papel);font-weight:600}
+.enc .ficha{
+  margin-top:17px;font-size:13px;color:var(--pizarra-5);
+  display:flex;flex-wrap:wrap;gap:6px 20px;
+}
+.enc .ficha b{color:var(--naranja);font-weight:700}
+
+.barra{
+  position:sticky;top:0;z-index:40;background:var(--pizarra);
+  padding:10px 30px;display:flex;gap:7px;align-items:center;flex-wrap:wrap;
+  border-bottom:1px solid var(--pizarra-3);
+}
+.barra .hueco{flex:1}
+.pest{
+  display:flex;gap:8px;align-items:center;
+  border:1px solid var(--pizarra-3);border-radius:5px;
+  padding:8px 12px;font-size:13px;font-weight:600;color:var(--pizarra-4);
+}
+.pest .n{
+  font-size:11px;font-weight:900;width:19px;height:19px;border-radius:3px;
+  background:var(--pizarra-3);color:var(--papel);display:grid;place-items:center;
+}
+.pest:hover{border-color:var(--pizarra-5);color:var(--papel)}
+.pest[aria-selected="true"]{background:var(--naranja);border-color:var(--naranja);color:var(--tinta)}
+.pest[aria-selected="true"] .n{background:rgba(0,0,0,.2);color:var(--tinta)}
+.pal{
+  border:1px solid var(--pizarra-3);border-radius:5px;
+  padding:8px 12px;font-size:13px;font-weight:600;color:var(--pizarra-4);
+}
+.pal:hover{border-color:var(--naranja);color:var(--naranja)}
+.interruptor{
+  display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;
+  border:1px solid var(--pizarra-3);border-radius:5px;padding:7px 11px;
+  color:var(--pizarra-4);
+}
+.interruptor input{width:17px;height:17px;accent-color:var(--naranja)}
+
+.escena{padding:44px 30px}
+.pantalla{display:none}
+body.una .pantalla.ver{display:block}
+body.todas .pantalla{display:block;margin-bottom:80px}
+
+.marco-rot{text-align:center;margin-bottom:18px;max-width:1320px;margin-left:auto;margin-right:auto}
+.marco-rot .que{font-size:20px;font-weight:700;letter-spacing:-.01em;color:var(--papel)}
+.marco-rot .par{font-size:13.5px;color:var(--pizarra-4);margin-top:4px}
+.marco-rot .par b{color:var(--naranja);font-weight:600}
+.marco-rot .cubre{
+  display:inline-block;margin-top:10px;font-size:11.5px;font-weight:600;
+  color:var(--pizarra-4);border-bottom:1px solid var(--pizarra-3);padding-bottom:2px;
+}
+
+/* ---------- cascote del telefono ---------- */
+.telefono{
+  width:394px;margin:0 auto;
+  background:var(--pizarra);border-radius:36px;padding:11px;
+  border:1px solid var(--pizarra-3);
+}
+.telefono .mella{height:20px;display:grid;place-items:center}
+.telefono .mella i{display:block;width:98px;height:5px;background:var(--pizarra-3);border-radius:9px}
+.cascote{border-radius:27px;overflow:hidden;background:var(--pizarra);display:flex;flex-direction:column}
+
+/* barra de estado iOS */
+.estado-ios{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:7px 22px 5px;font-size:13.5px;font-weight:700;color:var(--papel);
+}
+.estado-ios .nicho{width:96px;height:20px}
+.estado-ios .ind{display:flex;align-items:center;gap:5px}
+
+/* cabecera */
+.cabeza{
+  background:var(--pizarra);padding:8px 18px 14px;
+  display:flex;justify-content:space-between;align-items:flex-end;gap:14px;
+}
+.cabeza h2{font-size:21px;font-weight:700;letter-spacing:-.015em}
+.cabeza .quien{font-size:11.5px;text-align:right;line-height:1.45;color:var(--pizarra-4)}
+.cabeza .quien b{display:block;color:var(--naranja);font-weight:700;font-size:12.5px}
+.cabeza .aqui{color:var(--pizarra-5);font-size:11.5px;padding-bottom:2px}
+
+/* franja sin cobertura */
+.franja-sin{
+  background:var(--naranja);color:var(--tinta);
+  display:none;align-items:center;gap:9px;padding:8px 18px;
+  font-size:12.5px;font-weight:600;
+}
+.franja-sin svg{width:15px;height:15px}
+body.sin .franja-sin{display:flex}
+
+/* panel de papel: un solo contenedor, no un juego de cajas */
+.papel{
+  background:var(--papel);color:var(--tinta);
+  margin:10px;border-radius:13px;overflow:hidden;
+}
+.papel h3{font-size:15px;font-weight:700;letter-spacing:-.01em}
+.papel .sub{font-size:12.5px;color:var(--tinta-2);margin-top:2px;line-height:1.45}
+.bloque{padding:15px 15px 0}
+.bloque:last-child{padding-bottom:15px}
+.rotulo{font-size:11.5px;font-weight:600;color:var(--tinta-2)}
+
+/* ---------- libro mayor ---------- */
+.mayor{border-top:1px solid var(--linea);margin-top:12px}
+.fila{
+  display:grid;grid-template-columns:6px minmax(0,1fr) auto;
+  border-bottom:1px solid var(--linea);min-height:66px;
+}
+.fila:last-child{border-bottom:0}
+.fila > *{min-width:0}
+.riel{background:var(--linea-2)}
+.riel.terreno{background:var(--naranja)}
+.riel.supervision{background:var(--cobalto)}
+.riel.sincronizado{background:var(--verdito)}
+.riel.alerta{background:var(--alerta)}
+.riel.neutro{background:var(--tinta-3)}
+.cuerpo{padding:12px 13px}
+.estado{
+  padding:12px 13px;display:flex;flex-direction:column;
+  align-items:flex-end;justify-content:center;gap:4px;
+  border-left:1px solid var(--linea);min-width:96px;
+}
+.fila .titulo{font-size:14.5px;font-weight:600;line-height:1.35}
+.fila .linea2{font-size:12.5px;color:var(--tinta-2);margin-top:3px;display:flex;flex-wrap:wrap;gap:3px 13px}
+.fila .linea2 b{font-weight:600;color:var(--tinta)}
+
+.est{font-size:12px;font-weight:700;white-space:nowrap;display:flex;align-items:center;gap:6px}
+.est::before{content:"";width:8px;height:8px;border-radius:50%;background:currentColor;flex:none}
+.est.naranja{color:var(--naranja-tinta)}
+.est.verdito{color:var(--verdito)}
+.est.cobalto{color:var(--cobalto)}
+.est.alerta{color:var(--alerta)}
+.est.tinta{color:var(--tinta-2)}
+.est.claro{color:var(--pizarra-4)}
+
+/* cinta de barrera: unico elemento que exige accion */
+.cinta{
+  height:9px;
+  background:repeating-linear-gradient(-45deg,var(--naranja) 0 9px,var(--pizarra) 9px 18px);
+}
+.cinta-fina{height:5px}
+
+.aviso{
+  display:flex;gap:10px;align-items:flex-start;padding:11px 13px;
+  border-left:5px solid var(--sulfuro);background:var(--sulfuro-bg);
+  font-size:13.5px;line-height:1.5;
+}
+.aviso .marca{font-weight:900;flex:none;color:var(--tinta)}
+.aviso.ok{border-color:var(--verdito);background:var(--verdito-bg)}
+.aviso.mal{border-color:var(--alerta);background:var(--alerta-bg)}
+.aviso.info{border-color:var(--cobalto);background:var(--cobalto-bg)}
+.aviso.nar{border-color:var(--naranja);background:#FEF0E4}
+.aviso b{font-weight:700}
+
+/* ---------- controles de guante ---------- */
+.boton{
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  min-height:var(--tap);padding:0 20px;border-radius:5px;
+  font-size:15.5px;font-weight:700;border:1px solid transparent;text-align:center;
+}
+.boton.primario{background:var(--naranja);color:var(--tinta)}
+.boton.primario:hover{background:#EA660C}
+.boton.tinta{background:var(--tinta);color:var(--papel)}
+.boton.linea{background:var(--papel);border-color:var(--linea-2);color:var(--tinta)}
+.boton.ancho{width:100%}
+.boton svg{width:19px;height:19px}
+
+.campo{display:flex;flex-direction:column;gap:6px}
+.campo label{font-size:12.5px;font-weight:600;color:var(--tinta-2)}
+.entrada{
+  min-height:var(--tap);border:1px solid var(--linea-2);border-radius:5px;
+  padding:0 13px;display:flex;align-items:center;background:var(--papel);
+  font-size:15.5px;
+}
+.entrada.foco{border-color:var(--naranja);border-width:2px;padding:0 12px}
+.entrada.vacia{color:var(--tinta-3)}
+.entrada.alta{align-items:flex-start;padding:11px 13px;font-size:14.5px;line-height:1.45;min-height:76px}
+
+/* ---------- veredicto ---------- */
+.pregunta{border:1px solid var(--linea-2);border-radius:6px;overflow:hidden;background:var(--papel)}
+.pregunta.mal{border-color:var(--alerta);border-width:2px}
+.pregunta .encabezado{padding:12px 13px;display:flex;gap:10px;align-items:flex-start}
+.pregunta .encabezado .ord{font-size:12.5px;font-weight:900;color:var(--tinta-3);width:19px;flex:none;padding-top:2px}
+.pregunta .encabezado .que{font-size:14.5px;font-weight:600;line-height:1.35;flex:1}
+.veredicto{display:grid;grid-template-columns:repeat(3,1fr);border-top:1px solid var(--linea)}
+.veredicto button{
+  min-height:var(--tap);background:var(--papel);border:0;border-right:1px solid var(--linea);
+  font-size:15.5px;font-weight:700;color:var(--tinta-2);
+  display:flex;align-items:center;justify-content:center;gap:6px;
+}
+.veredicto button:last-child{border-right:0}
+.veredicto button svg{width:17px;height:17px}
+.veredicto button.si{background:var(--verdito);color:#fff}
+.veredicto button.no{background:var(--alerta);color:#fff}
+.veredicto button.na{background:var(--tinta-2);color:#fff}
+.pie-papel{padding:12px 13px;border-top:1px solid var(--linea);display:flex;gap:10px;align-items:center;background:var(--papel)}
+.pie-papel .boton{flex:1}
+
+/* ---------- barra de navegacion inferior ---------- */
+.suelo{
+  display:grid;grid-template-columns:repeat(4,1fr);
+  background:var(--pizarra-2);border-top:1px solid var(--pizarra-3);
+  padding:5px 0 9px;
+}
+.suelo a{
+  padding:5px 2px 3px;text-align:center;font-size:10.5px;font-weight:600;
+  color:var(--pizarra-5);text-decoration:none;
+  display:flex;flex-direction:column;align-items:center;gap:4px;
+}
+.suelo a svg{width:23px;height:23px}
+.suelo a.activo{color:var(--naranja)}
+.suelo a .globo{
+  position:relative;top:0;font-size:10px;font-weight:900;color:var(--naranja);
+  font-variant-numeric:tabular-nums;
+}
+
+/* ---------- barras de datos ---------- */
+.barra-f{display:flex;align-items:center;gap:12px}
+.barra-f .lb{width:100px;font-size:12.5px;font-weight:600;flex:none}
+.barra-f .pista{flex:1;height:26px;background:var(--papel-3);border-radius:3px;overflow:hidden}
+.barra-f .pista i{display:block;height:100%;border-radius:0 3px 3px 0}
+.barra-f .vl{width:38px;text-align:right;font-size:12.5px;font-weight:700;flex:none}
+
+.cifra{font-size:33px;font-weight:900;letter-spacing:-.03em;line-height:1}
+.cifra .u{font-size:14px;font-weight:600;letter-spacing:0;margin-left:2px}
+.cifra.naranja{color:var(--naranja-tinta)}
+.cifra.verdito{color:var(--verdito)}
+.cifra.alerta{color:var(--alerta)}
+
+tira-med{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;border-top:1px solid var(--linea);border-bottom:1px solid var(--linea)}
+.medidor{padding:14px 13px;border-left:1px solid var(--linea)}
+.medidor:first-child{border-left:0}
+.medidor .que{font-size:11.5px;font-weight:600;color:var(--tinta-2);line-height:1.3}
+.medidor .cifra{margin:6px 0 2px}
+
+/* ---------- escritorio ---------- */
+.navegador{
+  max-width:1320px;margin:0 auto;background:var(--papel);color:var(--tinta);
+  border:1px solid var(--pizarra-3);border-radius:8px;overflow:hidden;
+}
+.cromado{
+  background:var(--pizarra-2);padding:9px 13px;display:flex;align-items:center;gap:13px;
+  border-bottom:1px solid var(--pizarra-3);
+}
+.cromado .luces{display:flex;gap:5px}
+.cromado .luces i{width:11px;height:11px;border-radius:50%;display:block}
+.cromado .barra-url{
+  flex:1;background:var(--pizarra);border:1px solid var(--pizarra-3);border-radius:5px;
+  padding:4px 11px;font-size:11.5px;color:var(--pizarra-4);
+}
+
+.concha{display:grid;grid-template-columns:230px minmax(0,1fr);min-height:680px}
+.lateral{background:var(--pizarra);padding:18px 0;display:flex;flex-direction:column}
+.lateral .marca{padding:0 17px 4px;font-size:14.5px;font-weight:700}
+.lateral .inquilino{
+  margin:0 14px 16px;padding:9px 11px;border:1px solid var(--pizarra-3);border-radius:5px;
+  font-size:11.5px;line-height:1.45;color:var(--pizarra-4);
+}
+.lateral .inquilino b{color:var(--papel);font-weight:600;display:block}
+.lateral a{
+  color:var(--pizarra-4);text-decoration:none;font-size:13.5px;font-weight:500;
+  padding:9px 17px;display:flex;gap:11px;align-items:center;
+  border-left:3px solid transparent;
+}
+.lateral a svg{width:17px;height:17px}
+.lateral a:hover{color:var(--papel)}
+.lateral a.activo{background:var(--pizarra-2);color:var(--papel);border-left-color:var(--naranja)}
+.lateral a .cuenta{
+  margin-left:auto;font-size:11px;font-weight:900;color:var(--naranja);
+  font-variant-numeric:tabular-nums;
+}
+.lateral a .cuenta.tranquila{color:var(--pizarra-5)}
+.lateral .pie-l{
+  margin-top:auto;padding:14px 17px 0;font-size:11px;line-height:1.5;
+  color:var(--pizarra-5);border-top:1px solid var(--pizarra-3);
+}
+.lateral .pie-l b{color:var(--pizarra-4);font-weight:600;display:block}
+
+.pagina{padding:22px 26px;background:var(--papel-2);display:flex;flex-direction:column;gap:17px}
+.tit-pag{display:flex;justify-content:space-between;align-items:flex-start;gap:18px;flex-wrap:wrap}
+.tit-pag h2{font-size:23px;font-weight:700;letter-spacing:-.02em;color:var(--tinta)}
+.tit-pag .sub{font-size:13px;color:var(--tinta-2);margin-top:2px}
+.placa{background:var(--papel);border:1px solid var(--linea);border-radius:6px;padding:15px}
+.placa h3{font-size:14.5px;font-weight:700;color:var(--tinta)}
+.placa .sub{font-size:12px;color:var(--tinta-2);margin:2px 0 13px}
+.columnas{display:grid;grid-template-columns:1.3fr 1fr;gap:16px}
+
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;font-size:11px;font-weight:600;color:var(--tinta-2);padding:0 10px 8px;border-bottom:1px solid var(--linea-2)}
+td{padding:11px 10px;border-bottom:1px solid var(--linea);vertical-align:top;color:var(--tinta)}
+tr:last-child td{border-bottom:0}
+tr.alerta-fondo{background:var(--alerta-bg)}
+.sev{display:flex;align-items:center;gap:9px}
+.sev i{width:5px;align-self:stretch;background:var(--linea-2)}
+.sev i.critica{background:var(--alerta)}
+.sev i.alta{background:var(--naranja-tinta)}
+.sev i.media{background:var(--sulfuro)}
+.sev i.baja{background:var(--verdito)}
+.sev span{font-size:12px;font-weight:700}
+
+.vs{display:grid;grid-template-columns:1fr 38px 1fr}
+.vs .medio{display:grid;place-items:center;font-size:11px;font-weight:900;color:var(--tinta-3);letter-spacing:.04em}
+.version{border:1px solid var(--linea-2);border-radius:6px;overflow:hidden;background:var(--papel)}
+.version.gana{border-color:var(--verdito);border-width:2px}
+.version.pierde{background:var(--papel-2)}
+.version .tope{
+  padding:8px 12px;font-size:11.5px;font-weight:700;display:flex;
+  justify-content:space-between;align-items:center;gap:9px;
+  border-bottom:1px solid var(--linea);color:var(--tinta-2);
+}
+.version.gana .tope{background:var(--verdito);color:#fff;border-color:var(--verdito)}
+.version.pierde .tope{background:var(--papel-3)}
+.version .cuerpo2{padding:12px}
+.pares{display:flex;justify-content:space-between;gap:10px;padding:4px 0;font-size:12.5px}
+.pares .k{color:var(--tinta-2)}
+.pares .v{font-size:12px;font-weight:600;text-align:right}
+.cambio{margin-top:9px;padding:9px 11px;border-radius:4px;font-size:13px;font-weight:600;background:var(--verdito-bg);border-left:4px solid var(--verdito);color:var(--verdito)}
+.cambio.pierde{background:var(--papel-3);border-color:var(--linea-2);color:var(--tinta-2)}
+.cambio .de{display:block;font-size:11px;font-weight:600;margin-bottom:2px;opacity:.85}
+
+.consola{
+  background:#0F172A;color:#CBD5E1;border-radius:6px;padding:15px 17px;
+  font-size:12.5px;line-height:1.85;overflow-x:auto;
+}
+.consola .com{color:#64748B}
+.consola .sql{color:#7FC8F0}
+.consola .ok{color:#86D6A6}
+.consola .mal{color:#F5A0A0}
+.consola .num{color:#F7C97A}
+
+.vacio{
+  text-align:center;padding:48px 22px;border:1px dashed var(--linea-2);
+  border-radius:6px;background:var(--papel);
+}
+.vacio .glifo{
+  width:60px;height:60px;margin:0 auto 16px;border-radius:50%;
+  background:var(--papel-3);display:grid;place-items:center;
+}
+.vacio .glifo svg{width:28px;height:28px;color:var(--tinta-3)}
+.vacio h3{font-size:18px;font-weight:700;color:var(--tinta);margin-bottom:6px}
+.vacio p{font-size:13.5px;color:var(--tinta-2);max-width:56ch;margin:0 auto 16px;line-height:1.6}
+
+/* ---------- insignias de cumplimiento ---------- */
+.insignias{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}
+.insignia{
+  border:1px solid var(--linea-2);border-radius:6px;padding:11px 10px;background:var(--papel);
+  display:flex;flex-direction:column;gap:5px;
+}
+.insignia svg{width:21px;height:21px}
+.insignia .que{font-size:11.5px;font-weight:600;color:var(--tinta-2);line-height:1.3}
+.insignia .cif{font-size:24px;font-weight:900;letter-spacing:-.02em;line-height:1}
+.insignia.lista{border-color:var(--verdito);background:var(--verdito-bg)}
+.insignia.lista svg{color:var(--verdito)}
+.insignia.lista .cif{color:var(--verdito)}
+.insignia.por-vencer{border-color:var(--sulfuro);background:var(--sulfuro-bg)}
+.insignia.por-vencer svg{color:var(--sulfuro)}
+.insignia.por-vencer .cif{color:var(--sulfuro)}
+.insignia.vencida{border-color:var(--alerta);background:var(--alerta-bg)}
+.insignia.vencida svg{color:var(--alerta)}
+.insignia.vencida .cif{color:var(--alerta)}
+
+/* ---------- flota ---------- */
+.maquina{display:grid;grid-template-columns:6px minmax(0,1fr);border-bottom:1px solid var(--linea)}
+.maquina:last-child{border-bottom:0}
+.maquina .riel{grid-row:span 2}
+.maquina .cuerpo{padding:12px 13px}
+.maquina .cuerpo .titulo{font-size:14.5px;font-weight:700;display:flex;align-items:center;gap:8px}
+.maquina .cuerpo .titulo svg{width:17px;height:17px;color:var(--naranja-tinta)}
+.maquina .cuerpo .linea2{font-size:12.5px;color:var(--tinta-2);margin-top:3px;display:flex;flex-wrap:wrap;gap:3px 13px}
+.medidor-linea{height:7px;background:var(--papel-3);border-radius:3px;overflow:hidden;margin-top:9px}
+.medidor-linea i{display:block;height:100%;border-radius:0 3px 3px 0}
+
+.nota-doc{
+  max-width:1320px;margin:0 auto 18px;background:var(--pizarra);
+  border:1px solid var(--pizarra-3);border-left:5px solid var(--naranja);
+  border-radius:6px;padding:14px 17px;font-size:13px;line-height:1.6;color:var(--pizarra-4);
+}
+.nota-doc b{color:var(--papel);font-weight:600}
+
+@media (max-width:1080px){
+  .concha{grid-template-columns:1fr}
+  .lateral{flex-direction:row;align-items:center;overflow-x:auto;padding:0}
+  .lateral .marca,.lateral .inquilino,.lateral .pie-l{display:none}
+  .lateral a{white-space:nowrap;border-left:0;border-bottom:3px solid transparent}
+  .lateral a.activo{border-bottom-color:var(--naranja)}
+  .columnas{grid-template-columns:1fr}
+  .vs{grid-template-columns:1fr}
+  .vs .medio{padding:7px 0}
+}
+@media (max-width:560px){
+  .enc,.barra,.escena{padding-left:15px;padding-right:15px}
+  .telefono{width:100%;max-width:394px}
+  .barra{gap:5px;padding:8px 12px}
+  .pest{font-size:12px;padding:7px 9px}
+  .insignias{grid-template-columns:repeat(2,1fr)}
+}
+
+@media (prefers-reduced-motion:no-preference){
+  .pest,.boton,.fila,.suelo a,.lateral a{transition:background-color .13s ease,color .13s ease,border-color .13s ease}
+}
+@media (prefers-reduced-motion:reduce){
+  *{transition:none !important;animation:none !important}
+}
+</style>
+</head>
+<body class="una">
+
+<header class="enc">
+  <h1>Terreno Conectado</h1>
+  <p>Variante de turno de noche. El cromo va en <b>pizarra #1E293B</b> y la señal en
+     <b>naranja #F97316</b>, pero el papel donde se leen los datos sigue blanco: es la parte
+     que se mira al sol y con guantes. El <b>riel de rol</b> a la izquierda de cada registro
+     responde "¿de quién es esto?" antes de leer una palabra, y la <b>cinta de barrera</b>
+     aparece en un solo caso, cuando alguien tiene que actuar.</p>
+  <div class="ficha">
+    <span>Tenant <b>Minera El Cobre SpA</b></span>
+    <span>Faena <b>Centinela, Sector Norte</b></span>
+    <span>Pantallas <b>10</b></span>
+    <span>Contraste <b>5.22:1</b> en cromo, <b>5.18:1</b> en papel</span>
+  </div>
+</header>
+
+<div class="barra">
+  <button class="pest" data-ir="1"><span class="n">1</span>Entrar</button>
+  <button class="pest" data-ir="2"><span class="n">2</span>Inspecciones</button>
+  <button class="pest" data-ir="3"><span class="n">3</span>Veredicto</button>
+  <button class="pest" data-ir="4"><span class="n">4</span>Bitácora</button>
+  <button class="pest" data-ir="5"><span class="n">5</span>Sin cobertura</button>
+  <button class="pest" data-ir="6"><span class="n">6</span>Tablero</button>
+  <button class="pest" data-ir="7"><span class="n">7</span>Flota</button>
+  <button class="pest" data-ir="8"><span class="n">8</span>Cumplimiento</button>
+  <button class="pest" data-ir="9"><span class="n">9</span>Conflicto</button>
+  <button class="pest" data-ir="10"><span class="n">10</span>Segundo cliente</button>
+  <span class="hueco"></span>
+  <label class="interruptor"><input type="checkbox" id="sinred"> Simular sin cobertura</label>
+  <button class="pal" id="modo">Ver las diez</button>
+</div>
+
+<main class="escena">
+
+<!-- ============ 1 ENTRAR ============ -->
+<section class="pantalla" id="p1">
+  <div class="marco-rot">
+    <div class="que">1. Entrar al turno</div>
+    <div class="par">Un solo inquilino por sesión. La empresa se muestra antes de que el trabajador escriba nada.</div>
+    <span class="cubre">FR-001, FR-005, NFR-06</span>
+  </div>
+  <div class="telefono">
+    <div class="mella"><i></i></div>
+    <div class="cascote">
+      <div class="estado-ios">
+        <span>21:47</span>
+        <span class="nicho"></span>
+        <span class="ind">
+          <svg width="17" height="11" viewBox="0 0 17 11" fill="currentColor" aria-hidden="true"><rect x="0" y="7.5" width="3" height="3.5" rx="1"/><rect x="4.8" y="5" width="3" height="6" rx="1"/><rect x="9.6" y="2.5" width="3" height="8.5" rx="1"/><rect x="14.4" y="0" width="3" height="11" rx="1"/></svg>
+          <svg width="16" height="12" viewBox="0 0 16 12" fill="currentColor" aria-hidden="true"><path d="M8 11.4 1.2 4.4a9.9 9.9 0 0 1 13.6 0L8 11.4Z"/></svg>
+          <svg width="26" height="12" viewBox="0 0 26 12" aria-hidden="true"><rect x=".5" y=".5" width="21" height="11" rx="3.2" fill="none" stroke="currentColor" stroke-opacity=".4"/><rect x="2" y="2" width="14.5" height="8" rx="2"/><path d="M23.4 4.1v3.8a2.2 2.2 0 0 0 0-3.8Z"/></svg>
+        </span>
+      </div>
+      <div class="cabeza">
+        <h2>Terreno Conectado</h2>
+        <div class="aqui">turno noche</div>
+      </div>
+      <div class="franja-sin">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M2 2l20 20M8.5 16.5a5 5 0 0 1 7 0M5 13a10 10 0 0 1 4-2.4M1 8.5A15 15 0 0 1 6 6M12 20h.01"/></svg>
+        Sin cobertura. Lo que captures se guarda en este equipo
+      </div>
+      <div class="papel" style="margin-top:0;border-radius:0">
+        <div class="bloque" style="display:flex;flex-direction:column;gap:19px">
+          <div>
+            <div style="font-size:13.5px;color:var(--tinta-2)">Datos al día, donde no hay señal</div>
+          </div>
+          <div class="aviso ok">
+            <span class="marca">Sesión</span>
+            <span>Vas a entrar como <b>Rodrigo Pérez</b> en <b>Minera El Cobre SpA</b>, faena Centinela.</span>
+          </div>
+          <div class="campo">
+            <label for="correo">Correo</label>
+            <div class="entrada foco" id="correo">rodrigo.perez@elcobrespa.cl</div>
+          </div>
+          <div class="campo">
+            <label for="clave">Contraseña</label>
+            <div class="entrada" id="clave">••••••••••••</div>
+          </div>
+          <button class="boton primario ancho">Entrar al turno</button>
+          <div style="font-size:12.5px;color:var(--tinta-2);line-height:1.6;border-top:1px solid var(--linea);padding-top:14px">
+            Cinco intentos fallidos bloquean la cuenta quince minutos. Las contraseñas se guardan
+            como argon2id, nunca en texto plano y nunca en los registros del sistema.
+          </div>
+        </div>
+      </div>
+      <nav class="suelo">
+        <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>Inspecciones</a>
+        <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 20h4L19 9a2.1 2.1 0 0 0-3-3L5 17v3Z"/><path d="M14.5 6.5 17.5 9.5"/></svg>Bitácora</a>
+        <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 16V4M8 8l4-4 4 4"/><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg>Cola</a>
+        <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>Tablero</a>
+      </nav>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 2 INSPECCIONES ============ -->
+<section class="pantalla" id="p2">
+  <div class="marco-rot">
+    <div class="que">2. Inspecciones del turno</div>
+    <div class="par">Un panel blanco, filas de libro mayor. El riel indica el rol dueño y la columna derecha, siempre el estado.</div>
+    <span class="cubre">FR-010, FR-031, NFR-01</span>
+  </div>
+  <div class="telefono">
+    <div class="mella"><i></i></div>
+    <div class="cascote">
+      <div class="estado-ios">
+        <span>21:52</span><span class="nicho"></span>
+        <span class="ind">
+          <svg width="17" height="11" viewBox="0 0 17 11" fill="currentColor" aria-hidden="true"><rect x="0" y="7.5" width="3" height="3.5" rx="1"/><rect x="4.8" y="5" width="3" height="6" rx="1"/><rect x="9.6" y="2.5" width="3" height="8.5" rx="1"/><rect x="14.4" y="0" width="3" height="11" rx="1"/></svg>
+          <svg width="16" height="12" viewBox="0 0 16 12" fill="currentColor" aria-hidden="true"><path d="M8 11.4 1.2 4.4a9.9 9.9 0 0 1 13.6 0L8 11.4Z"/></svg>
+          <svg width="26" height="12" viewBox="0 0 26 12" aria-hidden="true"><rect x=".5" y=".5" width="21" height="11" rx="3.2" fill="none" stroke="currentColor" stroke-opacity=".4"/><rect x="2" y="2" width="11" height="8" rx="2"/><path d="M23.4 4.1v3.8a2.2 2.2 0 0 0 0-3.8Z"/></svg>
+        </span>
+      </div>
+      <div class="cabeza">
+        <h2>Inspecciones</h2>
+        <div class="quien"><b>Rodrigo Pérez</b>personal de terreno</div>
+      </div>
+      <div class="franja-sin">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M2 2l20 20M8.5 16.5a5 5 0 0 1 7 0M5 13a10 10 0 0 1 4-2.4M1 8.5A15 15 0 0 1 6 6M12 20h.01"/></svg>
+        Sin cobertura. Todo lo que captures sigue funcionando
+      </div>
+      <div class="papel">
+        <div class="bloque" style="padding-bottom:0">
+          <div class="rotulo">Faena Centinela, Sector Norte</div>
+        </div>
+        <div class="mayor" style="margin-top:9px">
+          <div class="fila">
+            <div class="riel terreno"></div>
+            <div class="cuerpo">
+              <div class="titulo">Inspección diaria de seguridad</div>
+              <div class="linea2"><span>7 de 9 puntos</span><b>en curso</b></div>
+            </div>
+            <div class="estado"><span class="est naranja">Pendiente</span></div>
+          </div>
+          <div class="fila">
+            <div class="riel terreno"></div>
+            <div class="cuerpo">
+              <div class="titulo">Checklist de equipos, turno noche</div>
+              <div class="linea2"><span>Sin iniciar</span><b>plantilla v3</b></div>
+            </div>
+            <div class="estado"><span class="est tinta">Borrador</span></div>
+          </div>
+          <div class="fila">
+            <div class="riel sincronizado"></div>
+            <div class="cuerpo">
+              <div class="titulo">Inspección diaria de seguridad</div>
+              <div class="linea2"><span>Hoy, 14:20</span><b>Rodrigo Pérez</b></div>
+            </div>
+            <div class="estado"><span class="est verdito">Enviada</span></div>
+          </div>
+          <div class="fila">
+            <div class="riel supervision"></div>
+            <div class="cuerpo">
+              <div class="titulo">Inspección diaria de seguridad</div>
+              <div class="linea2"><span>23 de septiembre</span><b>Carla Muñoz</b></div>
+            </div>
+            <div class="estado"><span class="est tinta">Revisada</span></div>
+          </div>
+        </div>
+        <div class="bloque">
+          <button class="boton primario ancho">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+            Abrir una inspección nueva
+          </button>
+        </div>
+      </div>
+      <nav class="suelo">
+        <a href="#" class="activo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>Inspecciones</a>
+        <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 20h4L19 9a2.1 2.1 0 0 0-3-3L5 17v3Z"/><path d="M14.5 6.5 17.5 9.5"/></svg>Bitácora</a>
+        <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 16V4M8 8l4-4 4 4"/><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg>Cola<span class="globo">4</span></a>
+        <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>Tablero</a>
+      </nav>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 3 VEREDICTO ============ -->
+<section class="pantalla" id="p3">
+  <div class="marco-rot">
+    <div class="que">3. Veredicto del punto, sin cobertura</div>
+    <div class="par">Un punto que no cumple marca la pregunta con cinta de barrera: hay que abrir un hallazgo.</div>
+    <span class="cubre">FR-011, FR-030, FR-032, FR-015</span>
+  </div>
+  <div class="telefono">
+    <div class="mella"><i></i></div>
+    <div class="cascote">
+      <div class="estado-ios">
+        <span>21:58</span><span class="nicho"></span>
+        <span class="ind">
+          <svg width="17" height="11" viewBox="0 0 17 11" fill="currentColor" aria-hidden="true"><rect x="0" y="7.5" width="3" height="3.5" rx="1"/><rect x="4.8" y="5" width="3" height="6" rx="1"/><rect x="9.6" y="2.5" width="3" height="8.5" rx="1"/><rect x="14.4" y="0" width="3" height="11" rx="1"/></svg>
+          <svg width="16" height="12" viewBox="0 0 16 12" fill="currentColor" aria-hidden="true"><path d="M8 11.4 1.2 4.4a9.9 9.9 0 0 1 13.6 0L8 11.4Z"/></svg>
+          <svg width="26" height="12" viewBox="0 0 26 12" aria-hidden="true"><rect x=".5" y=".5" width="21" height="11" rx="3.2" fill="none" stroke="currentColor" stroke-opacity=".4"/><rect x="2" y="2" width="12.5" height="8" rx="2"/><path d="M23.4 4.1v3.8a2.2 2.2 0 0 0 0-3.8Z"/></svg>
+        </span>
+      </div>
+      <div class="cabeza">
+        <h2>Inspección diaria</h2>
+        <div class="quien"><b>7 de 9 puntos</b>guardado 21:58</div>
+      </div>
+      <div class="franja-sin">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M2 2l20 20M8.5 16.5a5 5 0 0 1 7 0M5 13a10 10 0 0 1 4-2.4M1 8.5A15 15 0 0 1 6 6M12 20h.01"/></svg>
+        Modo avión. Capturando sin cobertura, se guarda en el equipo
+      </div>
+      <div class="papel" style="display:flex;flex-direction:column;gap:15px">
+
+        <div class="pregunta">
+          <div class="encabezado"><div class="ord">1</div><div class="que">Uso de elementos de protección personal en el sector</div></div>
+          <div class="veredicto">
+            <button class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true"><path d="M4 12.5 9.5 18 20 6.5"/></svg>Cumple</button>
+            <button><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>No cumple</button>
+            <button><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true"><path d="M5 12h14"/></svg>No aplica</button>
+          </div>
+        </div>
+
+        <div>
+          <div class="pregunta mal">
+            <div class="encabezado"><div class="ord">2</div><div class="que">Estado y señalización del arnés de seguridad</div></div>
+            <div class="veredicto">
+              <button><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true"><path d="M4 12.5 9.5 18 20 6.5"/></svg>Cumple</button>
+              <button class="no"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>No cumple</button>
+              <button><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true"><path d="M5 12h14"/></svg>No aplica</button>
+            </div>
+          </div>
+          <div class="cinta"></div>
+          <div class="aviso mal" style="border-radius:0 0 5px 5px">
+            <span class="marca">Falta</span>
+            <span>La plantilla pide un hallazgo con foto cuando el punto no cumple.</span>
+          </div>
+        </div>
+
+        <div class="placa" style="border-left:5px solid var(--alerta)">
+          <div class="rotulo">Hallazgo del punto 2</div>
+          <div style="display:flex;flex-direction:column;gap:13px;margin-top:12px">
+            <div class="campo">
+              <label>Severidad</label>
+              <div style="display:flex;gap:8px;flex-wrap:wrap">
+                <span class="est tinta">Baja</span>
+                <span class="est tinta">Media</span>
+                <span class="est naranja">Alta</span>
+                <span class="est tinta">Crítica</span>
+              </div>
+            </div>
+            <div class="campo">
+              <label>Qué se observó</label>
+              <div class="entrada alta">Dos de los cinco trabajadores del equipo norte no tienen certificación vigente del arnés.</div>
+            </div>
+            <div>
+              <div class="rotulo" style="margin-bottom:8px">Evidencia fotográfica</div>
+              <div style="display:flex;gap:12px;align-items:center">
+                <div style="width:70px;height:70px;border-radius:5px;background:var(--papel-3);display:grid;place-items:center;color:var(--tinta-3);flex:none">
+                  <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="12" cy="12" r="3.5"/><path d="M8 5l1.5-2h5L16 5"/></svg>
+                </div>
+                <div style="font-size:12.5px;color:var(--tinta-2);line-height:1.55">
+                  <b style="color:var(--tinta);font-weight:600">arnes-02.jpg</b><br>
+                  8 megapíxeles reducidos a 1280 px, calidad 0.7<br>
+                  <b style="color:var(--verdito)">1,1 MB reducidos a 142 KB</b>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div style="font-size:11.5px;color:var(--tinta-2);line-height:1.65;border-top:1px solid var(--linea);padding-top:12px">
+          Identificador generado en el equipo, 0192f3a1-8c44-7b2e-9d10-4a5e6f7b8c90.<br>
+          Capturado a las 21:58:12, con la plantilla versión 3 congelada.
+        </div>
+
+        <div class="pie-papel" style="margin:0 -13px -13px">
+          <span class="est naranja">4 en la cola</span>
+          <button class="boton primario">Guardar</button>
+        </div>
+      </div>
+      <nav class="suelo">
+        <a href="#" class="activo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>Inspecciones</a>
+        <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 20h4L19 9a2.1 2.1 0 0 0-3-3L5 17v3Z"/><path d="M14.5 6.5 17.5 9.5"/></svg>Bitácora</a>
+        <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 16V4M8 8l4-4 4 4"/><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg>Cola<span class="globo">4</span></a>
+        <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>Tablero</a>
+      </nav>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 4 BITACORA Y COLA ============ -->
+<section class="pantalla" id="p4">
+  <div class="marco-rot">
+    <div class="que">4. Bitácora del turno y estado de la cola</div>
+    <div class="par">El reintento fallido se muestra con su espera exacta. Ocultarlo sería mentirle al trabajador.</div>
+    <span class="cubre">FR-013, FR-022, FR-033, FR-026</span>
+  </div>
+  <div class="telefono">
+    <div class="mella"><i></i></div>
+    <div class="cascote">
+      <div class="estado-ios">
+        <span>22:04</span><span class="nicho"></span>
+        <span class="ind">
+          <svg width="17" height="11" viewBox="0 0 17 11" fill="currentColor" aria-hidden="true"><rect x="0" y="7.5" width="3" height="3.5" rx="1"/><rect x="4.8" y="5" width="3" height="6" rx="1"/><rect x="9.6" y="2.5" width="3" height="8.5" rx="1"/><rect x="14.4" y="0" width="3" height="11" rx="1"/></svg>
+          <svg width="16" height="12" viewBox="0 0 16 12" fill="currentColor" aria-hidden="true"><path d="M8 11.4 1.2 4.4a9.9 9.9 0 0 1 13.6 0L8 11.4Z"/></svg>
+          <svg width="26" height="12" viewBox="0 0 26 12" aria-hidden="true"><rect x=".5" y=".5" width="21" height="11" rx="3.2" fill="none" stroke="currentColor" stroke-opacity=".4"/><rect x="2" y="2" width="10" height="8" rx="2"/><path d="M23.4 4.1v3.8a2.2 2.2 0 0 0 0-3.8Z"/></svg>
+        </span>
+      </div>
+      <div class="cabeza">
+        <h2>Bitácora del turno</h2>
+        <div class="quien"><b>Rodrigo Pérez</b>personal de terreno</div>
+      </div>
+      <div class="franja-sin">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M2 2l20 20M8.5 16.5a5 5 0 0 1 7 0M5 13a10 10 0 0 1 4-2.4M1 8.5A15 15 0 0 1 6 6M12 20h.01"/></svg>
+        Modo avión. Capturando sin cobertura, se guarda en el equipo
+      </div>
+      <div class="papel">
+        <div class="bloque" style="padding-bottom:0"><div class="rotulo">Entradas del turno</div></div>
+        <div class="mayor" style="margin-top:9px">
+          <div class="fila" style="min-height:0">
+            <div class="riel terreno"></div>
+            <div class="cuerpo">
+              <div class="titulo" style="font-weight:500">Turno mañana. La revisión de arneses quedó agendada para el viernes con Mantenimiento.</div>
+              <div class="linea2"><b>turno</b><b>seguridad</b><span>21:31</span></div>
+            </div>
+            <div class="estado"><span class="est verdito">Enviada</span></div>
+          </div>
+          <div class="fila" style="min-height:0">
+            <div class="riel alerta"></div>
+            <div class="cuerpo">
+              <div class="titulo" style="font-weight:500">El SeMCA-2 falla de forma intermitente al ascender. Queda anotado en bitácora.</div>
+              <div class="linea2"><b>equipo</b><span>22:04</span></div>
+            </div>
+            <div class="estado"><span class="est alerta">Reintento 3</span></div>
+          </div>
+        </div>
+
+        <div class="bloque" style="padding-bottom:0"><div class="rotulo">Cola de salida, 4 registros</div></div>
+        <div class="mayor" style="margin-top:9px">
+          <div class="fila" style="min-height:0">
+            <div class="riel sincronizado"></div>
+            <div class="cuerpo"><div class="titulo" style="font-size:14px">Bitácora de las 21:31</div></div>
+            <div class="estado"><span class="est verdito">Enviada</span></div>
+          </div>
+          <div class="fila" style="min-height:0">
+            <div class="riel supervision"></div>
+            <div class="cuerpo"><div class="titulo" style="font-size:14px">Respuesta del punto 1</div></div>
+            <div class="estado"><span class="est cobalto">Subiendo</span></div>
+          </div>
+          <div class="fila" style="min-height:0">
+            <div class="riel terreno"></div>
+            <div class="cuerpo"><div class="titulo" style="font-size:14px">Inspección y hallazgo</div></div>
+            <div class="estado"><span class="est naranja">En espera</span></div>
+          </div>
+          <div class="fila" style="min-height:0">
+            <div class="riel alerta"></div>
+            <div class="cuerpo"><div class="titulo" style="font-size:14px">Evidencia fotográfica</div></div>
+            <div class="estado"><span class="est alerta">Rechazada</span></div>
+          </div>
+        </div>
+
+        <div class="bloque">
+          <div class="cinta cinta-fina"></div>
+          <div class="aviso mal" style="border-radius:0 0 5px 5px">
+            <span class="marca">Esperando 32 s</span>
+            <span>El servidor rechazó el lote dos veces. La espera crece al doble en cada intento
+            y el tope es de cinco minutos. No hace falta que el trabajador toque nada.</span>
+          </div>
+          <p class="sub" style="margin-top:11px">Intentos: 1 s, luego 2 s, 4 s, 8 s, 16 s, 32 s, y hasta 5 minutos.</p>
+        </div>
+      </div>
+      <nav class="suelo">
+        <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>Inspecciones</a>
+        <a href="#" class="activo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 20h4L19 9a2.1 2.1 0 0 0-3-3L5 17v3Z"/><path d="M14.5 6.5 17.5 9.5"/></svg>Bitácora</a>
+        <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 16V4M8 8l4-4 4 4"/><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg>Cola<span class="globo">4</span></a>
+        <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>Tablero</a>
+      </nav>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 5 SIN COBERTURA ============ -->
+<section class="pantalla" id="p5">
+  <div class="marco-rot">
+    <div class="que">5. Estado sin cobertura</div>
+    <div class="par">No es una pantalla de error. Es el estado normal del producto y se comunica como tal.</div>
+    <span class="cubre">FR-016, FR-017, FR-014, NFR-01</span>
+  </div>
+  <div class="telefono">
+    <div class="mella"><i></i></div>
+    <div class="cascote">
+      <div class="estado-ios">
+        <span>22:11</span><span class="nicho"></span>
+        <span class="ind">
+          <svg width="17" height="11" viewBox="0 0 17 11" fill="currentColor" aria-hidden="true"><rect x="0" y="7.5" width="3" height="3.5" rx="1" opacity=".3"/><rect x="4.8" y="5" width="3" height="6" rx="1" opacity=".3"/><rect x="9.6" y="2.5" width="3" height="8.5" rx="1" opacity=".3"/><rect x="14.4" y="0" width="3" height="11" rx="1" opacity=".3"/></svg>
+          <svg width="16" height="12" viewBox="0 0 16 12" fill="currentColor" opacity=".3" aria-hidden="true"><path d="M8 11.4 1.2 4.4a9.9 9.9 0 0 1 13.6 0L8 11.4Z"/></svg>
+          <svg width="26" height="12" viewBox="0 0 26 12" aria-hidden="true"><rect x=".5" y=".5" width="21" height="11" rx="3.2" fill="none" stroke="currentColor" stroke-opacity=".4"/><rect x="2" y="2" width="8" height="8" rx="2"/><path d="M23.4 4.1v3.8a2.2 2.2 0 0 0 0-3.8Z"/></svg>
+        </span>
+      </div>
+      <div class="cabeza">
+        <h2>Trabajando sin cobertura</h2>
+        <div class="quien"><b>Rodrigo Pérez</b>personal de terreno</div>
+      </div>
+      <div class="papel">
+        <div class="bloque" style="padding-bottom:0">
+          <div class="aviso nar">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" style="width:19px;height:19px;flex:none;margin-top:1px" aria-hidden="true"><path d="M2 2l20 20M8.5 16.5a5 5 0 0 1 7 0M5 13a10 10 0 0 1 4-2.4M1 8.5A15 15 0 0 1 6 6M12 20h.01"/></svg>
+            <span>En este sector no hay red. <b>Todo lo que captures sigue funcionando</b> y se envía
+            solo en cuanto el equipo recupere señal.</span>
+          </div>
+        </div>
+
+        <div class="bloque" style="padding-bottom:0">
+          <div class="rotulo">Espacio en el equipo</div>
+          <div style="display:flex;justify-content:space-between;font-size:13.5px;font-weight:700;margin:9px 0 7px">
+            <span>2,3 GB usados</span><span style="color:var(--naranja-tinta)">78% de 3,0 GB</span>
+          </div>
+          <div class="medidor-linea" style="height:13px"><i style="width:78%;background:var(--naranja)"></i></div>
+          <p class="sub" style="margin-top:10px">Al llegar al 80% la aplicación avisa al trabajador y sube primero las fotos que ya se pueden enviar.</p>
+        </div>
+
+        <div class="mayor">
+          <div class="fila" style="min-height:0">
+            <div class="riel neutro"></div>
+            <div class="cuerpo"><div class="titulo" style="font-size:14px">Inspecciones</div></div>
+            <div class="estado"><span style="font-size:13.5px;font-weight:700">142, 84 MB</span></div>
+          </div>
+          <div class="fila" style="min-height:0">
+            <div class="riel neutro"></div>
+            <div class="cuerpo"><div class="titulo" style="font-size:14px">Fotos de evidencia</div></div>
+            <div class="estado"><span style="font-size:13.5px;font-weight:700">310, 1,9 GB</span></div>
+          </div>
+          <div class="fila" style="min-height:0">
+            <div class="riel neutro"></div>
+            <div class="cuerpo"><div class="titulo" style="font-size:14px">Entradas de bitácora</div></div>
+            <div class="estado"><span style="font-size:13.5px;font-weight:700">38, 2 MB</span></div>
+          </div>
+        </div>
+
+        <div class="bloque">
+          <div class="rotulo">Esperan salir, 8 registros</div>
+          <div class="mayor" style="margin-top:9px">
+            <div class="fila" style="min-height:0">
+              <div class="riel terreno"></div>
+              <div class="cuerpo"><div class="titulo" style="font-size:14px">Inspección diaria de seguridad</div></div>
+              <div class="estado"><span class="cifra" style="font-size:17px">1</span></div>
+            </div>
+            <div class="fila" style="min-height:0">
+              <div class="riel terreno"></div>
+              <div class="cuerpo"><div class="titulo" style="font-size:14px">Respuestas del checklist</div></div>
+              <div class="estado"><span class="cifra" style="font-size:17px">4</span></div>
+            </div>
+            <div class="fila" style="min-height:0">
+              <div class="riel alerta"></div>
+              <div class="cuerpo"><div class="titulo" style="font-size:14px">Hallazgo con foto</div></div>
+              <div class="estado"><span class="cifra" style="font-size:17px">1</span></div>
+            </div>
+            <div class="fila" style="min-height:0">
+              <div class="riel terreno"></div>
+              <div class="cuerpo"><div class="titulo" style="font-size:14px">Entradas de bitácora</div></div>
+              <div class="estado"><span class="cifra" style="font-size:17px">2</span></div>
+            </div>
+          </div>
+          <p class="sub" style="margin-top:14px;border-top:1px solid var(--linea);padding-top:13px">
+            <b style="color:var(--tinta)">Durabilidad.</b> Estos datos sobreviven al cierre de la
+            aplicación y al reinicio del equipo. Se escriben en transacciones atómicas, nunca a medias.
+          </p>
+        </div>
+      </div>
+      <nav class="suelo">
+        <a href="#" class="activo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>Inspecciones</a>
+        <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 20h4L19 9a2.1 2.1 0 0 0-3-3L5 17v3Z"/><path d="M14.5 6.5 17.5 9.5"/></svg>Bitácora</a>
+        <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 16V4M8 8l4-4 4 4"/><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg>Cola<span class="globo">8</span></a>
+        <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>Tablero</a>
+      </nav>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 6 TABLERO ============ -->
+<section class="pantalla" id="p6">
+  <div class="marco-rot">
+    <div class="que">6. Tablero de la supervisión</div>
+    <div class="par">Los medidores son una tira continua, no cuatro cajas. El número manda y todo lo demás se calla.</div>
+    <span class="cubre">FR-040, FR-043, FR-035, NFR-03</span>
+  </div>
+  <div class="navegador">
+    <div class="cromado">
+      <div class="luces"><i style="background:#E06C6C"></i><i style="background:var(--naranja)"></i><i style="background:#6FBF8E"></i></div>
+      <div class="barra-url">terreno.duckdns.org/tablero</div>
+    </div>
+    <div class="concha">
+      <aside class="lateral">
+        <div class="marca">Terreno Conectado</div>
+        <div class="inquilino"><b>Minera El Cobre SpA</b>Faena Centinela</div>
+        <a href="#" class="activo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>Tablero</a>
+        <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>Inspecciones</a>
+        <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 3.5 2.5 20h19L12 3.5Z"/><path d="M12 10v4.5M12 17.5h.01"/></svg>Hallazgos<span class="cuenta">3</span></a>
+        <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 4v16M7 8l5-4 5 4M7 16l5 4 5-4M4 12h16"/></svg>Conflictos<span class="cuenta">1</span></a>
+        <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 20h4L19 9a2.1 2.1 0 0 0-3-3L5 17v3Z"/><path d="M14.5 6.5 17.5 9.5"/></svg>Bitácoras</a>
+        <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 17h4V9H3v8ZM10 17h4V4h-4v13ZM17 17h4v-5h-4v5Z"/></svg>Flota</a>
+        <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 16V4M8 8l4-4 4 4"/><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg>Sincronización</a>
+        <div class="pie-l"><b>Carla Muñoz</b>supervisión, 4 h 12 min en turno</div>
+      </aside>
+      <div class="pagina">
+        <div class="tit-pag">
+          <div>
+            <h2>Tablero</h2>
+            <div class="sub">Jueves 1 de octubre de 2026, turno noche en curso</div>
+          </div>
+          <div style="display:flex;gap:18px;align-items:center">
+            <span class="est cobalto">Última subida 22:08</span>
+            <span class="est verdito">Cola vacía</span>
+          </div>
+        </div>
+
+        <div class="placa" style="padding:0;overflow:hidden">
+          <div class="tira-med">
+            <div class="medidor">
+              <div class="que">Hallazgos altos y críticos</div>
+              <div class="cifra alerta">3</div>
+              <div class="sub" style="margin:0">uno crítico, dos altos</div>
+            </div>
+            <div class="medidor">
+              <div class="que">De la captura a visible</div>
+              <div class="cifra verdito">38<span class="u">s</span></div>
+              <div class="sub" style="margin:0">la meta es 60 s, se cumple</div>
+            </div>
+            <div class="medidor">
+              <div class="que">Inspecciones del período</div>
+              <div class="cifra">47</div>
+              <div class="sub" style="margin:0">7 en curso, 40 enviadas</div>
+            </div>
+            <div class="medidor">
+              <div class="que">Conflictos abiertos</div>
+              <div class="cifra">1</div>
+              <div class="sub" style="margin:0">resuelto por última escritura</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="placa" style="padding:0;overflow:hidden">
+          <div style="padding:15px 15px 0">
+            <h3>Progreso de la faena</h3>
+            <div class="sub">Avance del mes contra el plan, Sector Norte y Rampa Este</div>
+          </div>
+          <div class="barras" style="padding:14px 15px 15px;display:flex;flex-direction:column;gap:11px">
+            <div class="barra-f">
+              <div class="lb">Perforación</div>
+              <div class="pista"><i style="width:82%;background:var(--naranja)"></i></div>
+              <div class="vl">82%</div>
+            </div>
+            <div class="barra-f">
+              <div class="lb">Voladuras</div>
+              <div class="pista"><i style="width:74%;background:var(--naranja-tinta)"></i></div>
+              <div class="vl">74%</div>
+            </div>
+            <div class="barra-f">
+              <div class="lb">Sostenimiento</div>
+              <div class="pista"><i style="width:91%;background:var(--naranja)"></i></div>
+              <div class="vl">91%</div>
+            </div>
+            <div class="barra-f">
+              <div class="lb">Transporte</div>
+              <div class="pista"><i style="width:63%;background:var(--naranja-tinta)"></i></div>
+              <div class="vl">63%</div>
+            </div>
+            <div class="barra-f">
+              <div class="lb">Expansible</div>
+              <div class="pista"><i style="width:47%;background:var(--pizarra-5)"></i></div>
+              <div class="vl">47%</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="columnas">
+          <div class="placa">
+            <h3>Hallazgos por severidad</h3>
+            <div class="sub">Últimos siete días, faena Centinela</div>
+            <div class="barras" style="display:flex;flex-direction:column;gap:10px">
+              <div class="barra-f"><div class="lb">Crítica</div><div class="pista"><i style="width:10%;background:var(--alerta)"></i></div><div class="vl">1</div></div>
+              <div class="barra-f"><div class="lb">Alta</div><div class="pista"><i style="width:30%;background:var(--naranja-tinta)"></i></div><div class="vl">3</div></div>
+              <div class="barra-f"><div class="lb">Media</div><div class="pista"><i style="width:50%;background:var(--sulfuro)"></i></div><div class="vl">5</div></div>
+              <div class="barra-f"><div class="lb">Baja</div><div class="pista"><i style="width:70%;background:var(--verdito)"></i></div><div class="vl">7</div></div>
+            </div>
+          </div>
+          <div class="placa">
+            <h3>Inspecciones por estado</h3>
+            <div class="sub">Borrador, en curso, enviada, revisada</div>
+            <div class="barras" style="display:flex;flex-direction:column;gap:10px">
+              <div class="barra-f"><div class="lb">En curso</div><div class="pista"><i style="width:17%;background:var(--naranja)"></i></div><div class="vl">7</div></div>
+              <div class="barra-f"><div class="lb">Enviadas</div><div class="pista"><i style="width:85%;background:var(--cobalto)"></i></div><div class="vl">33</div></div>
+              <div class="barra-f"><div class="lb">Revisadas</div><div class="pista"><i style="width:18%;background:var(--verdito)"></i></div><div class="vl">7</div></div>
+              <div class="barra-f"><div class="lb">Borrador</div><div class="pista"><i style="width:5%;background:var(--tinta-3)"></i></div><div class="vl">2</div></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="placa" style="padding:0;overflow:hidden">
+          <div style="padding:15px 15px 0">
+            <h3>Hallazgos recientes</h3>
+            <div class="sub">Los altos y críticos se destacan apenas se sincronizan</div>
+          </div>
+          <table>
+            <thead>
+              <tr><th style="width:6px"></th><th style="width:112px">Severidad</th><th>Hallazgo</th><th style="width:130px">Faena</th><th style="width:148px">Reportado por</th><th style="width:92px">Visible en</th></tr>
+            </thead>
+            <tbody>
+              <tr class="alerta-fondo">
+                <td></td>
+                <td><div class="sev"><i class="critica" style="height:32px"></i><span style="color:var(--alerta)">Crítica</span></div></td>
+                <td><b style="font-weight:600">El SeMCA-2 falla al ascender</b><div style="font-size:12px;color:var(--tinta-2)">Equipo crítico en uso</div></td>
+                <td>Sector Norte</td>
+                <td>Rodrigo Pérez<div style="font-size:12px;color:var(--tinta-2)">personal de terreno</div></td>
+                <td style="color:var(--verdito);font-weight:700">38 s</td>
+              </tr>
+              <tr>
+                <td></td>
+                <td><div class="sev"><i class="alta" style="height:32px"></i><span style="color:var(--naranja-tinta)">Alta</span></div></td>
+                <td><b style="font-weight:600">Arnés sin certificación vigente</b><div style="font-size:12px;color:var(--tinta-2)">Dos de cinco trabajadores</div></td>
+                <td>Sector Norte</td>
+                <td>Rodrigo Pérez<div style="font-size:12px;color:var(--tinta-2)">personal de terreno</div></td>
+                <td style="color:var(--verdito);font-weight:700">41 s</td>
+              </tr>
+              <tr>
+                <td></td>
+                <td><div class="sev"><i class="alta" style="height:32px"></i><span style="color:var(--naranja-tinta)">Alta</span></div></td>
+                <td><b style="font-weight:600">Señalización ausente en un tramo de 8 m</b></td>
+                <td>Rampa Este</td>
+                <td>Martín Rojas<div style="font-size:12px;color:var(--tinta-2)">personal de terreno</div></td>
+                <td style="color:var(--verdito);font-weight:700">52 s</td>
+              </tr>
+              <tr>
+                <td></td>
+                <td><div class="sev"><i class="media" style="height:32px"></i><span style="color:var(--sulfuro-tinta)">Media</span></div></td>
+                <td><b style="font-weight:600">Extintor con presión baja</b></td>
+                <td>Galpón 2</td>
+                <td>Javiera Soto<div style="font-size:12px;color:var(--tinta-2)">administración</div></td>
+                <td style="color:var(--verdito);font-weight:700">33 s</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 7 FLOTA ============ -->
+<section class="pantalla" id="p7">
+  <div class="marco-rot">
+    <div class="que">7. Telemetría de flota</div>
+    <div class="par">Combustible, horas de motor y geocerca. La barra de combustible es el único acento naranja de la pantalla.</div>
+    <span class="cubre">FR-046, FR-047, FR-048</span>
+  </div>
+  <div class="telefono">
+    <div class="mella"><i></i></div>
+    <div class="cascote">
+      <div class="estado-ios">
+        <span>22:16</span><span class="nicho"></span>
+        <span class="ind">
+          <svg width="17" height="11" viewBox="0 0 17 11" fill="currentColor" aria-hidden="true"><rect x="0" y="7.5" width="3" height="3.5" rx="1"/><rect x="4.8" y="5" width="3" height="6" rx="1"/><rect x="9.6" y="2.5" width="3" height="8.5" rx="1"/><rect x="14.4" y="0" width="3" height="11" rx="1"/></svg>
+          <svg width="16" height="12" viewBox="0 0 16 12" fill="currentColor" aria-hidden="true"><path d="M8 11.4 1.2 4.4a9.9 9.9 0 0 1 13.6 0L8 11.4Z"/></svg>
+          <svg width="26" height="12" viewBox="0 0 26 12" aria-hidden="true"><rect x=".5" y=".5" width="21" height="11" rx="3.2" fill="none" stroke="currentColor" stroke-opacity=".4"/><rect x="2" y="2" width="13.5" height="8" rx="2"/><path d="M23.4 4.1v3.8a2.2 2.2 0 0 0 0-3.8Z"/></svg>
+        </span>
+      </div>
+      <div class="cabeza">
+        <h2>Flota</h2>
+        <div class="quien"><b>14 máquinas</b>12 operando, 2 en mantención</div>
+      </div>
+      <div class="papel">
+        <div class="bloque" style="padding-bottom:0">
+          <div class="insignias" style="grid-template-columns:repeat(3,1fr)">
+            <div class="insignia lista">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" aria-hidden="true"><path d="M4 12.5 9.5 18 20 6.5"/></svg>
+              <div class="que">Con combustible</div>
+              <div class="cif">11</div>
+            </div>
+            <div class="insignia por-vencer">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.5V12l3 2"/></svg>
+              <div class="que">Bajo 20%</div>
+              <div class="cif">1</div>
+            </div>
+            <div class="insignia vencida">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" aria-hidden="true"><path d="M12 3.5 2.5 20h19L12 3.5Z"/><path d="M12 10v4.5M12 17.5h.01"/></svg>
+              <div class="que">Revisión vencida</div>
+              <div class="cif">2</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="bloque" style="padding-bottom:0;margin-top:15px">
+          <div class="rotulo">Maquinaria en faena Centinela</div>
+        </div>
+        <div class="mayor" style="margin-top:9px">
+          <div class="maquina">
+            <div class="riel terreno"></div>
+            <div class="cuerpo">
+              <div class="titulo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true"><path d="M2 7h11v9H2zM13 10h4l3 3v3h-7z"/><circle cx="6" cy="18" r="2"/><circle cx="17" cy="18" r="2"/></svg>Camión 214, CAT 793</div>
+              <div class="linea2"><span>Rampa Este, punto 4</span><span>1.842 h de motor</span><b>Operando</b></div>
+              <div class="medidor-linea"><i style="width:64%;background:var(--naranja)"></i></div>
+              <div class="linea2" style="margin-top:6px"><span style="color:var(--tinta)">64% de combustible</span><span>autonomía 412 km</span></div>
+            </div>
+          </div>
+          <div class="maquina">
+            <div class="riel terreno"></div>
+            <div class="cuerpo">
+              <div class="titulo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 3.5v17M3.5 12h17M6 6l12 12M18 6 6 18"/></svg>Excavadora 07, CAT 6015B</div>
+              <div class="linea2"><span>Sector Norte, banco 3</span><span>3.109 h de motor</span><b>Operando</b></div>
+              <div class="medidor-linea"><i style="width:88%;background:var(--naranja)"></i></div>
+              <div class="linea2" style="margin-top:6px"><span style="color:var(--tinta)">88% de combustible</span><span>autonomía 690 km</span></div>
+            </div>
+          </div>
+          <div class="maquina">
+            <div class="riel alerta"></div>
+            <div class="cuerpo">
+              <div class="titulo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 3.5v17M3.5 12h17M6 6l12 12M18 6 6 18"/></svg>Perforadora 03, Atlas Copco ROC</div>
+              <div class="linea2"><span>Planta de concentración</span><span>2.476 h de motor</span><b style="color:var(--alerta)">Revisión vencida</b></div>
+              <div class="medidor-linea"><i style="width:12%;background:var(--alerta)"></i></div>
+              <div class="linea2" style="margin-top:6px"><span style="color:var(--alerta)">12% de combustible</span><span>autonomía 61 km</span></div>
+            </div>
+          </div>
+          <div class="maquina">
+            <div class="riel neutro"></div>
+            <div class="cuerpo">
+              <div class="titulo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true"><path d="M4 18V9h9v9zM13 13h4l3 3v2h-7z"/><circle cx="8" cy="20" r="1.8"/><circle cx="17" cy="20" r="1.8"/></svg>Cargador frontal 11, CAT 993</div>
+              <div class="linea2"><span>Galpón 2, mantención</span><span>4.230 h de motor</span><b>Detenido</b></div>
+              <div class="medidor-linea"><i style="width:45%;background:var(--tinta-3)"></i></div>
+              <div class="linea2" style="margin-top:6px"><span style="color:var(--tinta)">45% de combustible</span><span>próximo service a las 4.250 h</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="bloque">
+          <div class="aviso nar">
+            <span class="marca">Geocerca</span>
+            <span>La perforadora 03 está a <b>1,2 km fuera del radio autorizado</b>. El registro
+            queda adjunto al hallazgo del punto 2 de esta noche.</span>
+          </div>
+        </div>
+      </div>
+      <nav class="suelo">
+        <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>Inspecciones</a>
+        <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 20h4L19 9a2.1 2.1 0 0 0-3-3L5 17v3Z"/><path d="M14.5 6.5 17.5 9.5"/></svg>Bitácora</a>
+        <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 16V4M8 8l4-4 4 4"/><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg>Cola</a>
+        <a href="#" class="activo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>Flota</a>
+      </nav>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 8 CUMPLIMIENTO ============ -->
+<section class="pantalla" id="p8">
+  <div class="marco-rot">
+    <div class="que">8. Cumplimiento de seguridad</div>
+    <div class="par">Las insignias no son decoración: cada estado tiene su propio color y ninguno se repite.</div>
+    <span class="cubre">FR-050, FR-051, NFR-03</span>
+  </div>
+  <div class="telefono">
+    <div class="mella"><i></i></div>
+    <div class="cascote">
+      <div class="estado-ios">
+        <span>22:23</span><span class="nicho"></span>
+        <span class="ind">
+          <svg width="17" height="11" viewBox="0 0 17 11" fill="currentColor" aria-hidden="true"><rect x="0" y="7.5" width="3" height="3.5" rx="1"/><rect x="4.8" y="5" width="3" height="6" rx="1"/><rect x="9.6" y="2.5" width="3" height="8.5" rx="1"/><rect x="14.4" y="0" width="3" height="11" rx="1"/></svg>
+          <svg width="16" height="12" viewBox="0 0 16 12" fill="currentColor" aria-hidden="true"><path d="M8 11.4 1.2 4.4a9.9 9.9 0 0 1 13.6 0L8 11.4Z"/></svg>
+          <svg width="26" height="12" viewBox="0 0 26 12" aria-hidden="true"><rect x=".5" y=".5" width="21" height="11" rx="3.2" fill="none" stroke="currentColor" stroke-opacity=".4"/><rect x="2" y="2" width="12" height="8" rx="2"/><path d="M23.4 4.1v3.8a2.2 2.2 0 0 0 0-3.8Z"/></svg>
+        </span>
+      </div>
+      <div class="cabeza">
+        <h2>Cumplimiento</h2>
+        <div class="quien"><b>Sector Norte</b>38 personas en turno</div>
+      </div>
+      <div class="papel">
+        <div class="bloque">
+          <div class="insignias">
+            <div class="insignia lista">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" aria-hidden="true"><path d="M12 2.5 4 5.6v6.1c0 5 3.4 9.1 8 9.8 4.6-.7 8-4.8 8-9.8V5.6L12 2.5Z"/><path d="M8.8 12.2 11.2 14.6 15.4 10"/></svg>
+              <div class="que">Al día</div>
+              <div class="cif">31</div>
+            </div>
+            <div class="insignia por-vencer">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.5V12l3 2"/></svg>
+              <div class="que">Vence en 30 días</div>
+              <div class="cif">5</div>
+            </div>
+            <div class="insignia vencida">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M6.4 6.4 17.6 17.6"/></svg>
+              <div class="que">Vencido</div>
+              <div class="cif">2</div>
+            </div>
+          </div>
+          <p class="sub" style="margin-top:11px">Certificaciones consideradas: arnés, maniobras de izaje, operación de equipos y examen médico.</p>
+        </div>
+
+        <div class="bloque" style="padding-bottom:0">
+          <div class="rotulo">Personas con certificación vencida</div>
+        </div>
+        <div class="mayor" style="margin-top:9px">
+          <div class="fila">
+            <div class="riel alerta"></div>
+            <div class="cuerpo">
+              <div class="titulo">Javiera Soto</div>
+              <div class="linea2"><span>Operación de equipos</span><span>venció el 12 de agosto</span></div>
+            </div>
+            <div class="estado"><span class="est alerta">108 días</span></div>
+          </div>
+          <div class="fila">
+            <div class="riel alerta"></div>
+            <div class="cuerpo">
+              <div class="titulo">Nicolás Fuenzalida</div>
+              <div class="linea2"><span>Examen médico</span><span>venció el 29 de septiembre</span></div>
+            </div>
+            <div class="estado"><span class="est alerta">2 días</span></div>
+          </div>
+        </div>
+
+        <div class="bloque" style="padding-bottom:0;margin-top:15px">
+          <div class="rotulo">Vencen dentro de 30 días</div>
+        </div>
+        <div class="mayor" style="margin-top:9px">
+          <div class="fila">
+            <div class="riel neutro"></div>
+            <div class="cuerpo">
+              <div class="titulo">Martín Rojas</div>
+              <div class="linea2"><span>Arnés</span><span>vence el 22 de octubre</span></div>
+            </div>
+            <div class="estado"><span class="est sulfuro">21 días</span></div>
+          </div>
+          <div class="fila">
+            <div class="riel neutro"></div>
+            <div class="cuerpo">
+              <div class="titulo">Camila Ortiz</div>
+              <div class="linea2"><span>Operación de equipos</span><span>vence el 27 de octubre</span></div>
+            </div>
+            <div class="estado"><span class="est sulfuro">26 días</span></div>
+          </div>
+          <div class="fila">
+            <div class="riel neutro"></div>
+            <div class="cuerpo">
+              <div class="titulo">Diego Maldonado</div>
+              <div class="linea2"><span>Trabajo en altura</span><span>vence el 29 de octubre</span></div>
+            </div>
+            <div class="estado"><span class="est sulfuro">28 días</span></div>
+          </div>
+        </div>
+
+        <div class="bloque">
+          <div class="cinta cinta-fina"></div>
+          <div class="aviso mal" style="border-radius:0 0 5px 5px">
+            <span class="marca">Bloquea acceso</span>
+            <span>Un trabajador con certificación vencida <b>no puede iniciar sesión</b> en faena.
+            La aplicación se lo dice en la pantalla 1, con la fecha y quién renovarla.</span>
+          </div>
+        </div>
+      </div>
+      <nav class="suelo">
+        <a href="#" class="activo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>Tablero</a>
+        <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>Inspecciones</a>
+        <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 3.5 2.5 20h19L12 3.5Z"/><path d="M12 10v4.5M12 17.5h.01"/></svg>Hallazgos<span class="globo">2</span></a>
+        <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 17h4V9H3v8ZM10 17h4V4h-4v13ZM17 17h4v-5h-4v5Z"/></svg>Flota</a>
+      </nav>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 9 CONFLICTO ============ -->
+<section class="pantalla" id="p9">
+  <div class="marco-rot">
+    <div class="que">9. Inspección con conflicto resuelto</div>
+    <div class="par">Dos tablets editaron el mismo registro sin cobertura. Se aplica la última escritura y <b>las dos versiones quedan a la vista</b>.</div>
+    <span class="cubre">FR-023, FR-024, NFR-04</span>
+  </div>
+  <div class="navegador">
+    <div class="cromado">
+      <div class="luces"><i style="background:#E06C6C"></i><i style="background:var(--naranja)"></i><i style="background:#6FBF8E"></i></div>
+      <div class="barra-url">terreno.duckdns.org/inspecciones/0192f3a1-8c44-7b2e-9d10-4a5e6f7b8c90</div>
+    </div>
+    <div class="concha">
+      <aside class="lateral">
+        <div class="marca">Terreno Conectado</div>
+        <div class="inquilino"><b>Minera El Cobre SpA</b>Faena Centinela</div>
+        <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>Tablero</a>
+        <a href="#" class="activo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>Inspecciones</a>
+        <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 3.5 2.5 20h19L12 3.5Z"/><path d="M12 10v4.5M12 17.5h.01"/></svg>Hallazgos<span class="cuenta">3</span></a>
+        <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 4v16M7 8l5-4 5 4M7 16l5 4 5-4M4 12h16"/></svg>Conflictos<span class="cuenta">1</span></a>
+        <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 20h4L19 9a2.1 2.1 0 0 0-3-3L5 17v3Z"/><path d="M14.5 6.5 17.5 9.5"/></svg>Bitácoras</a>
+        <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 17h4V9H3v8ZM10 17h4V4h-4v13ZM17 17h4v-5h-4v5Z"/></svg>Flota</a>
+        <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 16V4M8 8l4-4 4 4"/><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg>Sincronización</a>
+        <div class="pie-l"><b>Carla Muñoz</b>supervisión</div>
+      </aside>
+      <div class="pagina">
+        <div class="tit-pag">
+          <div>
+            <h2>Inspección diaria de seguridad</h2>
+            <div class="sub">Faena Centinela, Sector Norte, plantilla versión 3, ejecutada por Rodrigo Pérez</div>
+          </div>
+          <div style="display:flex;gap:18px;align-items:center;flex-wrap:wrap">
+            <span class="est naranja">Enviada</span>
+            <span class="est alerta">Conflicto resuelto</span>
+          </div>
+        </div>
+
+        <div class="placa" style="border-left:5px solid var(--naranja)">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:18px;flex-wrap:wrap;margin-bottom:15px">
+            <div>
+              <h3>Conflicto entre dispositivos, resuelto por última escritura</h3>
+              <p class="sub" style="margin:4px 0 0;max-width:72ch">
+                Dos equipos editaron este registro sin cobertura. La resolución es determinista y
+                las dos versiones se conservan para poder auditarlas.
+              </p>
+            </div>
+            <span class="est verdito" style="white-space:nowrap">Visible para supervisión</span>
+          </div>
+
+          <div class="vs">
+            <div class="version gana">
+              <div class="tope"><span>Se aplica</span><span>Tablet 2</span></div>
+              <div class="cuerpo2">
+                <div class="pares"><span class="k">Equipo</span><span class="v">tablet-02</span></div>
+                <div class="pares"><span class="k">Persona</span><span class="v">Rodrigo Pérez</span></div>
+                <div class="pares"><span class="k">Versión en el equipo</span><span class="v">4</span></div>
+                <div class="pares"><span class="k">Capturado</span><span class="v">22:42:07</span></div>
+                <div class="cambio">
+                  <span class="de">Punto 2, estado del arnés</span>
+                  No cumple, dos de cinco sin certificación
+                </div>
+              </div>
+            </div>
+            <div class="medio">contra</div>
+            <div class="version pierde">
+              <div class="tope"><span>Se descarta</span><span>Tablet 1</span></div>
+              <div class="cuerpo2">
+                <div class="pares"><span class="k">Equipo</span><span class="v">tablet-01</span></div>
+                <div class="pares"><span class="k">Persona</span><span class="v">Rodrigo Pérez</span></div>
+                <div class="pares"><span class="k">Versión en el equipo</span><span class="v">3</span></div>
+                <div class="pares"><span class="k">Capturado</span><span class="v">22:40:19</span></div>
+                <div class="cambio pierde">
+                  <span class="de">Punto 2, estado del arnés</span>
+                  Cumple, todo el equipo conforme
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="aviso info" style="margin-top:15px">
+            <span class="marca">Criterio</span>
+            <span>Los dos registros se capturaron con 1,8 s de diferencia, así que resolvió por
+            <b>versión en el equipo</b>: ganó la 4 sobre la 3. Si hubieran empatado también, se
+            habría resuelto por identificador mayor. La misma entrada produce siempre el mismo
+            ganador, aunque los relojes de los equipos estén desviados.</span>
+          </div>
+        </div>
+
+        <div class="columnas">
+          <div class="placa">
+            <h3>Respuestas del checklist</h3>
+            <div class="sub">Nueve puntos, siete cumplen, uno no cumple, uno no aplica</div>
+            <table>
+              <thead><tr><th style="width:26px">#</th><th>Punto</th><th style="width:104px">Veredicto</th><th style="width:92px">Foto</th></tr></thead>
+              <tbody>
+                <tr><td style="color:var(--tinta-3);font-weight:700">1</td><td>Uso de elementos de protección</td><td><span class="est verdito">Cumple</span></td><td style="color:var(--tinta-3)">ninguna</td></tr>
+                <tr class="alerta-fondo">
+                  <td style="color:var(--alerta);font-weight:700">2</td>
+                  <td>Estado y señalización del arnés</td>
+                  <td><span class="est alerta">No cumple</span></td>
+                  <td>1 adjunta</td>
+                </tr>
+                <tr><td style="color:var(--tinta-3);font-weight:700">3</td><td>Señalización de excavaciones</td><td><span class="est verdito">Cumple</span></td><td style="color:var(--tinta-3)">ninguna</td></tr>
+                <tr><td style="color:var(--tinta-3);font-weight:700">4</td><td>Estado de ladders y andamios</td><td><span class="est verdito">Cumple</span></td><td style="color:var(--tinta-3)">ninguna</td></tr>
+                <tr><td style="color:var(--tinta-3);font-weight:700">5</td><td>Control de acceso al sector</td><td><span class="est tinta">No aplica</span></td><td style="color:var(--tinta-3)">ninguna</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="placa">
+            <h3>Registro de sincronización</h3>
+            <div class="sub">Auditable por empresa, con la demora de la captura a la disponibilidad</div>
+            <div class="mayor" style="margin-top:0;border-top:0">
+              <div class="fila" style="min-height:0">
+                <div class="riel sincronizado"></div>
+                <div class="cuerpo"><div class="titulo" style="font-size:13.5px">Lote aceptado desde tablet-02</div><div class="linea2"><span>nueve registros</span></div></div>
+                <div class="estado"><span style="font-size:12.5px;font-weight:700">22:42:07</span></div>
+              </div>
+              <div class="fila" style="min-height:0">
+                <div class="riel sulfuro"></div>
+                <div class="cuerpo"><div class="titulo" style="font-size:13.5px">Conflicto detectado en el punto 2</div><div class="linea2"><span>quedó registrado</span></div></div>
+                <div class="estado"><span style="font-size:12.5px;font-weight:700">22:42:07</span></div>
+              </div>
+              <div class="fila" style="min-height:0">
+                <div class="riel sincronizado"></div>
+                <div class="cuerpo"><div class="titulo" style="font-size:13.5px">Lote aceptado desde tablet-01</div><div class="linea2"><span>cuatro registros</span></div></div>
+                <div class="estado"><span style="font-size:12.5px;font-weight:700">22:40:19</span></div>
+              </div>
+              <div class="fila" style="min-height:0">
+                <div class="riel supervision"></div>
+                <div class="cuerpo"><div class="titulo" style="font-size:13.5px">Lote reenviado, sin duplicar</div><div class="linea2"><span>primer reintento</span></div></div>
+                <div class="estado"><span style="font-size:12.5px;font-weight:700">22:39:58</span></div>
+              </div>
+            </div>
+            <div class="aviso ok" style="margin-top:14px">
+              <span class="marca">Sin pérdidas</span>
+              <span>Ningún registro duplicado. Demora total desde la captura: <b>51 s</b>.</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 10 SEGUNDO CLIENTE ============ -->
+<section class="pantalla" id="p10">
+  <div class="marco-rot">
+    <div class="que">10. El segundo cliente no ve nada del primero</div>
+    <div class="par">Misma aplicación, otra empresa. El aislamiento lo garantiza la base de datos, no los filtros de la aplicación.</div>
+    <span class="cubre">FR-002, FR-025, NFR-05, Art. IV</span>
+  </div>
+  <div class="navegador">
+    <div class="cromado">
+      <div class="luces"><i style="background:#E06C6C"></i><i style="background:var(--naranja)"></i><i style="background:#6FBF8E"></i></div>
+      <div class="barra-url">terreno.duckdns.org/tablero</div>
+    </div>
+    <div class="concha">
+      <aside class="lateral">
+        <div class="marca">Terreno Conectado</div>
+        <div class="inquilino"><b>Constructora Andes SpA</b>Obra Cerro Verde</div>
+        <a href="#" class="activo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>Tablero</a>
+        <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>Inspecciones</a>
+        <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 3.5 2.5 20h19L12 3.5Z"/><path d="M12 10v4.5M12 17.5h.01"/></svg>Hallazgos<span class="cuenta tranquila">0</span></a>
+        <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 4v16M7 8l5-4 5 4M7 16l5 4 5-4M4 12h16"/></svg>Conflictos<span class="cuenta tranquila">0</span></a>
+        <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 20h4L19 9a2.1 2.1 0 0 0-3-3L5 17v3Z"/><path d="M14.5 6.5 17.5 9.5"/></svg>Bitácoras</a>
+        <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 17h4V9H3v8ZM10 17h4V4h-4v13ZM17 17h4v-5h-4v5Z"/></svg>Flota</a>
+        <div class="pie-l"><b>Felipe Vergara</b>administración de empresa, 11 min</div>
+      </aside>
+      <div class="pagina">
+        <div class="tit-pag">
+          <div>
+            <h2>Tablero</h2>
+            <div class="sub">Constructora Andes SpA, obra Cerro Verde</div>
+          </div>
+          <span class="est verdito">Sesión aislada correctamente</span>
+        </div>
+
+        <div class="aviso ok">
+          <span class="marca">Aislamiento verificado</span>
+          <span>Esta persona está autenticada con el inquilino 8c1f…b402. Cada consulta corre bajo
+          ese inquilino y las políticas de seguridad a nivel de fila descartan cualquier registro
+          de otra empresa antes de que llegue a la aplicación.</span>
+        </div>
+
+        <div class="placa" style="padding:0;overflow:hidden">
+          <div class="tira-med">
+            <div class="medidor"><div class="que">Inspecciones del período</div><div class="cifra">0</div><div class="sub" style="margin:0">todavía sin captura</div></div>
+            <div class="medidor"><div class="que">Hallazgos</div><div class="cifra">0</div><div class="sub" style="margin:0">sin hallazgos</div></div>
+            <div class="medidor"><div class="que">Conflictos</div><div class="cifra">0</div><div class="sub" style="margin:0">sin conflictos</div></div>
+            <div class="medidor"><div class="que">Demora media</div><div class="cifra" style="font-size:22px;color:var(--tinta-3)">sin datos</div><div class="sub" style="margin:0">todavía no aplica</div></div>
+          </div>
+        </div>
+
+        <div class="vacio">
+          <div class="glifo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg></div>
+          <h3>Sin inspecciones en esta obra</h3>
+          <p>Constructora Andes SpA todavía no registra inspecciones. Lo que esta persona ve aquí es
+             exactamente lo que existe para su empresa, y nada más.</p>
+          <span class="est verdito" style="justify-content:center">Cero filas de Minera El Cobre SpA expuestas</span>
+        </div>
+
+        <div class="placa">
+          <h3>Comprobación a nivel de base de datos</h3>
+          <div class="sub">Prueba de intrusión entre empresas que corre en la integración continua</div>
+          <div class="consola">
+<span class="com">-- entrando como Minera El Cobre SpA</span>
+<span class="sql">SELECT</span> count(*) <span class="sql">FROM</span> inspection;
+ <span class="num">47</span>
+
+<span class="com">-- entrando como Constructora Andes SpA</span>
+<span class="sql">SELECT</span> count(*) <span class="sql">FROM</span> inspection;
+ <span class="num">0</span>
+
+<span class="com">-- intento de intrusión: credencial de una empresa, datos de la otra</span>
+<span class="sql">POST</span> /api/v1/sync/batch   inquilino = b402
+ <span class="mal">403 rechazado</span>, el lote completo se descarta
+ <span class="com">y queda el incidente en el registro de auditoría</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<script>
+(function(){
+  var pest = Array.prototype.slice.call(document.querySelectorAll('.pest'));
+  var pantallas = Array.prototype.slice.call(document.querySelectorAll('.pantalla'));
+  var btnModo = document.getElementById('modo');
+  var chkSin = document.getElementById('sinred');
+
+  function ver(n){
+    document.body.classList.add('una');
+    document.body.classList.remove('todas');
+    pest.forEach(function(b){ b.setAttribute('aria-selected', b.dataset.ir === String(n) ? 'true' : 'false'); });
+    pantallas.forEach(function(p){ p.classList.toggle('ver', p.id === 'p'+n); });
+    btnModo.textContent = 'Ver las diez';
+    window.scrollTo({top:0, behavior:'smooth'});
+  }
+
+  pest.forEach(function(b){
+    b.addEventListener('click', function(){ ver(b.dataset.ir); });
+  });
+
+  btnModo.addEventListener('click', function(){
+    if(document.body.classList.contains('todas')){
+      ver(1);
+    } else {
+      document.body.classList.add('todas');
+      document.body.classList.remove('una');
+      pest.forEach(function(b){ b.setAttribute('aria-selected','false'); });
+      btnModo.textContent = 'Ver una a una';
+    }
+  });
+
+  chkSin.addEventListener('change', function(){
+    document.body.classList.toggle('sin', chkSin.checked);
+  });
+
+  var h = (location.hash||'').replace('#','');
+  if(h && document.getElementById('p'+h)) ver(h); else ver(1);
+})();
+</script>
+</body>
+</html>

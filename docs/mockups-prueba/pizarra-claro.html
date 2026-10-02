@@ -1,0 +1,1259 @@
+<!DOCTYPE html>
+<html lang="es-CL">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Terreno Conectado — Pizarra de turnos</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;900&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   TERRENO CONECTADO — sistema "Pizarra de turnos"
+   Base: mineral frío, cobalto, verdito, sulfuro, alerta.
+   Tipografía: Archivo (una familia, dos voces).
+   Estructura: filas de libro mayor con riel de rol.
+   ============================================================ */
+:root{
+  --hielo:#E8EEF2;
+  --hielo-2:#F4F7F9;
+  --pizarra:#BCC9D3;
+  --pizarra-2:#DCE4EA;
+  --grafito:#1B242D;
+  --grafito-2:#54636F;
+  --grafito-3:#7C8B96;
+  --cobalto:#0B5FA5;
+  --cobalto-2:#0A4C81;
+  --verdito:#2E6B4E;
+  --verdito-bg:#E6F0EA;
+  --sulfuro:#E8A317;
+  --sulfuro-bg:#FBF0D8;
+  --alerta:#A3161B;
+  --alerta-bg:#F7E5E5;
+  --papel:#FFFFFF;
+
+  --fila:1px solid var(--pizarra-2);
+  --tap:56px;                 /* dedo con guante */
+  --sans:"Archivo","Helvetica Neue",Arial,sans-serif;
+}
+
+*{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-text-size-adjust:100%}
+body{
+  font-family:var(--sans);
+  background:var(--hielo);
+  color:var(--grafito);
+  font-size:16px;line-height:1.5;
+  font-variant-numeric:tabular-nums;
+  -webkit-font-smoothing:antialiased;
+  padding-bottom:72px;
+}
+button{font:inherit;color:inherit;cursor:pointer}
+:focus-visible{outline:3px solid var(--cobalto);outline-offset:2px}
+a{color:inherit}
+
+/* ---------- armazón del documento ---------- */
+.enc{background:var(--grafito);color:var(--papel);padding:30px 32px 26px}
+.enc h1{font-size:29px;font-weight:900;letter-spacing:-.02em;line-height:1.1}
+.enc p{color:#A9BAC6;font-size:14.5px;margin-top:9px;max-width:74ch}
+.enc .ficha{
+  margin-top:16px;font-size:13px;color:#8FA3B1;
+  display:flex;flex-wrap:wrap;gap:6px 18px;
+}
+.enc .ficha b{color:var(--papel);font-weight:600}
+
+.barra{
+  position:sticky;top:0;z-index:40;background:var(--papel);
+  border-bottom:2px solid var(--grafito);
+  padding:10px 32px;display:flex;gap:7px;align-items:center;flex-wrap:wrap;
+}
+.barra .hueco{flex:1}
+.pest{
+  background:var(--papel);border:1px solid var(--pizarra);
+  padding:8px 12px;font-size:13px;font-weight:600;color:var(--grafito-2);
+  display:flex;gap:8px;align-items:center;border-radius:4px;
+}
+.pest .n{
+  font-size:11px;font-weight:900;width:19px;height:19px;border-radius:3px;
+  background:var(--pizarra-2);color:var(--grafito);display:grid;place-items:center;
+}
+.pest[aria-selected="true"]{background:var(--grafito);border-color:var(--grafito);color:var(--papel)}
+.pest[aria-selected="true"] .n{background:var(--sulfuro);color:var(--grafito)}
+.pal{
+  background:var(--papel);border:1px solid var(--pizarra);border-radius:4px;
+  padding:8px 12px;font-size:13px;font-weight:600;color:var(--grafito-2);
+}
+.interruptor{
+  display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;
+  border:1px solid var(--pizarra);border-radius:4px;padding:7px 11px;background:var(--papel);
+}
+.interruptor input{width:17px;height:17px;accent-color:var(--alerta)}
+
+.escena{padding:44px 32px}
+.pantalla{display:none}
+body.una .pantalla.ver{display:block}
+body.todas .pantalla{display:block;margin-bottom:76px}
+
+.marco-rot{text-align:center;margin-bottom:16px}
+.marco-rot .que{font-size:20px;font-weight:700;letter-spacing:-.01em}
+.marco-rot .par{font-size:13.5px;color:var(--grafito-2);margin-top:3px}
+.marco-rot .cubre{
+  display:inline-block;margin-top:9px;font-size:11.5px;font-weight:600;
+  color:var(--grafito-2);border-bottom:1px solid var(--pizarra);padding-bottom:2px;
+}
+
+.telefono{
+  width:392px;background:var(--grafito);border-radius:34px;padding:10px;
+  margin:0 auto;
+}
+.telefono .mella{height:22px;display:grid;place-items:center}
+.telefono .mella i{display:block;width:96px;height:4px;background:#3B4A55;border-radius:9px}
+.lienzo{background:var(--papel);border-radius:26px;overflow:hidden}
+.barra-est{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:8px 18px;font-size:11.5px;font-weight:700;color:var(--grafito-2);
+  border-bottom:var(--fila);background:var(--hielo-2);
+}
+
+.navegador{
+  max-width:1320px;margin:0 auto;background:var(--papel);
+  border:1px solid var(--pizarra);border-radius:6px;overflow:hidden;
+}
+.cromado{
+  background:var(--pizarra-2);border-bottom:1px solid var(--pizarra);
+  padding:9px 13px;display:flex;align-items:center;gap:13px;
+}
+.cromado .luces{display:flex;gap:5px}
+.cromado .luces i{width:11px;height:11px;border-radius:50%;display:block}
+.cromado .barra-url{
+  flex:1;background:var(--papel);border:1px solid var(--pizarra);
+  border-radius:4px;padding:4px 11px;font-size:11.5px;color:var(--grafito-2);
+  font-variant-numeric:tabular-nums;
+}
+
+/* ---------- primitivas ---------- */
+.cabecera{
+  background:var(--cobalto);color:var(--papel);
+  padding:13px 18px;display:flex;justify-content:space-between;align-items:center;gap:14px;
+}
+.cabecera h2{font-size:18px;font-weight:700;letter-spacing:-.01em}
+.cabecera .quien{font-size:11.5px;text-align:right;line-height:1.4;color:#BCD8EE}
+.cabecera .quien b{display:block;color:var(--papel);font-weight:600}
+
+.hoja{padding:16px 18px;display:flex;flex-direction:column;gap:16px}
+.rotulo{
+  font-size:11.5px;font-weight:600;letter-spacing:.02em;color:var(--grafito-2);
+}
+.rotulo.claro{color:var(--papel);opacity:.75}
+
+.aviso{
+  display:flex;gap:11px;align-items:flex-start;padding:11px 13px;
+  border-left:5px solid var(--sulfuro);background:var(--sulfuro-bg);
+  font-size:13.5px;line-height:1.5;
+}
+.aviso .marca{font-weight:900;flex:none;color:var(--grafito)}
+.aviso.ok{border-color:var(--verdito);background:var(--verdito-bg)}
+.aviso.mal{border-color:var(--alerta);background:var(--alerta-bg)}
+.aviso.neutro{border-color:var(--cobalto);background:#E4EEF7}
+.aviso b{font-weight:700}
+
+/* cinta de barrera: el único elemento que exige acción */
+.cinta{
+  height:9px;
+  background:repeating-linear-gradient(
+    -45deg,
+    var(--sulfuro) 0 9px,
+    var(--grafito) 9px 18px
+  );
+}
+.cinta-fina{height:5px}
+
+/* ---------- libro mayor: la estructura central ---------- */
+.mayor{border-top:1px solid var(--pizarra)}
+.fila{
+  display:grid;
+  grid-template-columns:7px minmax(0,1fr) auto;
+  background:var(--papel);
+  border-bottom:var(--fila);
+  min-height:64px;
+}
+.fila > *{min-width:0}
+.fila .riel{background:var(--pizarra)}
+.fila .riel.terreno{background:var(--sulfuro)}
+.fila .riel.supervision{background:var(--cobalto)}
+.fila .riel.sincronizado{background:var(--verdito)}
+.fila .riel.alerta{background:var(--alerta)}
+.fila .riel.neutro{background:var(--grafito-3)}
+.fila .cuerpo{padding:12px 14px}
+.fila .estado{
+  padding:12px 14px;display:flex;flex-direction:column;
+  align-items:flex-end;justify-content:center;gap:4px;
+  border-left:var(--fila);min-width:104px;
+}
+
+.fila .titulo{font-size:14.5px;font-weight:600;line-height:1.35}
+.fila .linea2{
+  font-size:12.5px;color:var(--grafito-2);margin-top:3px;
+  display:flex;flex-wrap:wrap;gap:4px 14px;
+}
+.fila .linea2 b{font-weight:600;color:var(--grafito)}
+
+/* etiqueta de estado: texto sobre filete, nunca pastilla */
+.est{
+  font-size:12px;font-weight:700;white-space:nowrap;
+  display:flex;align-items:center;gap:6px;
+}
+.est::before{content:"";width:8px;height:8px;border-radius:50%;background:currentColor;flex:none}
+.est.verdito{color:var(--verdito)}
+.est.sulfuro{color:var(--sulfuro)}
+.est.cobalto{color:var(--cobalto)}
+.est.alerta{color:var(--alerta)}
+.est.grafito{color:var(--grafito-2)}
+
+.grupo{padding:14px 14px 6px}
+.grupo .rotulo{margin-bottom:2px}
+
+/* ---------- controles: targets de guante ---------- */
+.boton{
+  display:inline-flex;align-items:center;justify-content:center;
+  min-height:var(--tap);padding:0 20px;border-radius:4px;
+  font-size:15.5px;font-weight:700;border:1px solid transparent;text-align:center;
+}
+.boton.primario{background:var(--cobalto);color:var(--papel)}
+.boton.primario:hover{background:var(--cobalto-2)}
+.boton.secundario{background:var(--papel);border-color:var(--pizarra);color:var(--grafito)}
+.boton.grafito{background:var(--grafito);color:var(--papel)}
+.boton.ancho{width:100%}
+.boton.inerte{background:var(--hielo);color:var(--grafito-3);border-color:var(--pizarra-2)}
+
+.campo{display:flex;flex-direction:column;gap:6px}
+.campo label{font-size:12.5px;font-weight:600;color:var(--grafito-2)}
+.entrada{
+  min-height:var(--tap);border:1px solid var(--pizarra);border-radius:4px;
+  padding:0 14px;display:flex;align-items:center;background:var(--papel);font-size:15.5px;
+}
+.entrada.alerta-foco{border-color:var(--cobalto);border-width:2px;padding:0 13px}
+.entrada.vacia{color:var(--grafito-3)}
+
+/* ---------- veredicto ok / nok / na ---------- */
+.veredicto{display:grid;grid-template-columns:repeat(3,1fr);border-top:1px solid var(--pizarra-2)}
+.veredicto button{
+  min-height:var(--tap);background:var(--papel);border:0;
+  border-right:1px solid var(--pizarra-2);
+  font-size:16px;font-weight:700;color:var(--grafito-2);
+  display:flex;align-items:center;justify-content:center;gap:7px;
+}
+.veredicto button:last-child{border-right:0}
+.veredicto button .glifo{font-size:19px;font-weight:900}
+.veredicto button.al-pulsado{background:var(--verdito);color:var(--papel)}
+.veredicto button.mal-pulsado{background:var(--alerta);color:var(--papel)}
+.veredicto button.na-pulsado{background:var(--grafito-2);color:var(--papel)}
+.pregunta{border:1px solid var(--pizarra);border-radius:5px;overflow:hidden;background:var(--papel)}
+.pregunta.mal{border-color:var(--alerta);border-width:2px}
+.pregunta .encabezado{padding:12px 14px;display:flex;gap:11px;align-items:flex-start}
+.pregunta .encabezado .ord{
+  font-size:12.5px;font-weight:900;color:var(--grafito-3);
+  width:20px;flex:none;padding-top:2px;
+}
+.pregunta .encabezado .que{font-size:14.5px;font-weight:600;line-height:1.35;flex:1}
+
+.pie{
+  padding:12px 14px;border-top:1px solid var(--pizarra);
+  display:flex;gap:11px;align-items:center;background:var(--papel);
+}
+.pie .boton{flex:1}
+
+.nav-pie{
+  display:grid;grid-template-columns:repeat(3,1fr);
+  border-top:1px solid var(--pizarra);background:var(--hielo-2);
+}
+.nav-pie a{
+  padding:10px 4px;text-align:center;font-size:11.5px;font-weight:600;
+  color:var(--grafito-2);border-right:1px solid var(--pizarra-2);
+  text-decoration:none;
+}
+.nav-pie a:last-child{border-right:0}
+.nav-pie a .glifo{display:block;font-size:17px;font-weight:900;margin-bottom:1px}
+.nav-pie a.activo{color:var(--cobalto);background:var(--papel);box-shadow:inset 0 -3px 0 var(--cobalto)}
+
+/* ---------- escritorio ---------- */
+.concha{display:grid;grid-template-columns:228px minmax(0,1fr);min-height:660px}
+.lateral{background:var(--grafito);color:#B7C6D0;padding:18px 0;display:flex;flex-direction:column}
+.lateral .marca{padding:0 18px 14px;font-size:14.5px;font-weight:700;color:var(--papel)}
+.lateral .inquilino{
+  margin:0 14px 16px;padding:9px 11px;border:1px solid #35444F;border-radius:4px;
+  font-size:11.5px;line-height:1.45;
+}
+.lateral .inquilino b{color:var(--papel);font-weight:600;display:block}
+.lateral a{
+  color:#B7C6D0;text-decoration:none;font-size:13.5px;font-weight:500;
+  padding:9px 18px;display:flex;gap:11px;align-items:center;
+  border-left:3px solid transparent;
+}
+.lateral a .glifo{width:16px;text-align:center;font-weight:700}
+.lateral a.activo{background:#25313B;color:var(--papel);border-left-color:var(--sulfuro)}
+.lateral a .cuenta{
+  margin-left:auto;font-size:11px;font-weight:700;
+  background:var(--alerta);color:var(--papel);border-radius:3px;padding:1px 6px;
+}
+.lateral a .cuenta.tranquila{background:#35444F;color:#B7C6D0}
+.lateral .pie-lateral{
+  margin-top:auto;padding:14px 18px 0;font-size:11px;line-height:1.5;color:#7E919F;
+  border-top:1px solid #2A3742;
+}
+.lateral .pie-lateral b{color:#B7C6D0;font-weight:600;display:block}
+
+.pagina{padding:22px 26px;background:var(--hielo-2);display:flex;flex-direction:column;gap:18px}
+.titulo-pagina{display:flex;justify-content:space-between;align-items:flex-start;gap:18px;flex-wrap:wrap}
+.titulo-pagina h2{font-size:24px;font-weight:700;letter-spacing:-.02em}
+.titulo-pagina .sub{font-size:13px;color:var(--grafito-2);margin-top:2px}
+
+/* tira de medidores: el accesorio que quité */
+.medidores{
+  display:grid;grid-auto-flow:column;grid-auto-columns:1fr;
+  background:var(--papel);border:1px solid var(--pizarra);border-radius:5px;overflow:hidden;
+}
+.medidor{padding:16px 18px;border-left:1px solid var(--pizarra-2)}
+.medidor:first-child{border-left:0}
+.medidor .que{font-size:12px;font-weight:600;color:var(--grafito-2);line-height:1.3}
+.medidor .cifra{
+  font-size:34px;font-weight:900;letter-spacing:-.03em;line-height:1;margin:7px 0 3px;
+}
+.medidor .cifra .u{font-size:15px;font-weight:600;letter-spacing:0;margin-left:2px}
+.medidor .nota{font-size:12px;color:var(--grafito-2)}
+.medidor.mal .cifra{color:var(--alerta)}
+.medidor.bien .cifra{color:var(--verdito)}
+
+.columnas{display:grid;grid-template-columns:1.3fr 1fr;gap:16px}
+.placa{background:var(--papel);border:1px solid var(--pizarra);border-radius:5px;padding:16px}
+.placa h3{font-size:14.5px;font-weight:700}
+.placa .sub{font-size:12px;color:var(--grafito-2);margin:2px 0 14px}
+
+.barras{display:flex;flex-direction:column;gap:10px}
+.barra-f{display:flex;align-items:center;gap:12px}
+.barra-f .lb{width:104px;font-size:12.5px;font-weight:600;flex:none}
+.barra-f .pista{flex:1;height:24px;background:var(--hielo);border-radius:3px;overflow:hidden}
+.barra-f .pista i{display:block;height:100%;border-radius:0 3px 3px 0}
+.barra-f .vl{width:40px;text-align:right;font-size:12.5px;font-weight:700;flex:none}
+
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{
+  text-align:left;font-size:11px;font-weight:600;color:var(--grafito-2);
+  padding:0 10px 8px;border-bottom:1px solid var(--pizarra);
+}
+td{padding:11px 10px;border-bottom:var(--fila);vertical-align:top}
+tr:last-child td{border-bottom:0}
+tr.sobre-alerta{background:var(--alerta-bg)}
+td .fuerte{font-weight:600}
+
+/* severidad: filete de color a la izquierda de la fila, no pastilla */
+.sev-celda{display:flex;align-items:center;gap:9px}
+.sev-fila{width:5px;align-self:stretch;background:var(--pizarra)}
+.sev-fila.critica{background:var(--alerta)}
+.sev-fila.alta{background:#C2410C}
+.sev-fila.media{background:var(--sulfuro)}
+.sev-fila.baja{background:var(--verdito)}
+.sev-txt{font-size:12px;font-weight:700;letter-spacing:.01em}
+
+/* ---------- conflicto ---------- */
+.versus{display:grid;grid-template-columns:1fr 40px 1fr;align-items:stretch}
+.versus .medio{display:grid;place-items:center;font-size:11px;font-weight:900;color:var(--grafito-3);letter-spacing:.04em}
+.version{border:1px solid var(--pizarra);border-radius:5px;overflow:hidden;background:var(--papel)}
+.version.gana{border-color:var(--verdito);border-width:2px}
+.version.pierde{background:var(--hielo-2)}
+.version .tope{
+  padding:8px 12px;font-size:11.5px;font-weight:700;
+  display:flex;justify-content:space-between;align-items:center;gap:9px;
+  border-bottom:1px solid var(--pizarra-2);
+}
+.version.gana .tope{background:var(--verdito);color:var(--papel);border-color:var(--verdito)}
+.version.pierde .tope{background:var(--pizarra-2);color:var(--grafito-2)}
+.version .cuerpo2{padding:12px}
+.pares{display:flex;justify-content:space-between;gap:10px;padding:4px 0;font-size:12.5px}
+.pares .k{color:var(--grafito-2)}
+.pares .v{font-size:12px;font-weight:600;text-align:right}
+.cambio{
+  margin-top:9px;padding:9px 11px;border-radius:4px;font-size:13px;font-weight:600;
+  background:var(--verdito-bg);border-left:4px solid var(--verdito);color:var(--verdito);
+}
+.cambio.pierde{background:var(--hielo);border-color:var(--pizarra);color:var(--grafito-2)}
+.cambio .de{display:block;font-size:11px;font-weight:600;margin-bottom:2px;opacity:.85}
+
+/* ---------- consola de verificacion ---------- */
+.consola{
+  background:#0E161C;color:#C3D2DC;border-radius:5px;padding:16px 18px;
+  font-size:12.5px;line-height:1.8;overflow-x:auto;
+  font-variant-numeric:tabular-nums;
+}
+.consola .com{color:#5E7382}
+.consola .sql{color:#7FC8F0}
+.consola .ok{color:#8FD6A8}
+.consola .mal{color:#F0A0A0}
+.consola .num{color:#E8C87A}
+
+.vacio{
+  text-align:center;padding:56px 24px;border:1px dashed var(--pizarra);
+  border-radius:5px;background:var(--papel);
+}
+.vacio .glifo{
+  width:62px;height:62px;margin:0 auto 18px;border-radius:50%;
+  background:var(--hielo);border:1px solid var(--pizarra);
+  display:grid;place-items:center;font-size:28px;font-weight:900;color:var(--grafito-3);
+}
+.vacio h3{font-size:18px;font-weight:700;margin-bottom:7px}
+.vacio p{font-size:13.5px;color:var(--grafito-2);max-width:56ch;margin:0 auto 18px;line-height:1.6}
+
+/* ---------- simulacion sin senal ---------- */
+.franja-sin{background:var(--grafito);color:var(--papel);display:none;align-items:center;gap:10px;padding:8px 18px;font-size:12.5px;font-weight:600}
+.franja-sin .foco{background:var(--alerta);border-radius:3px;padding:2px 8px;font-size:11px;font-weight:700}
+body.sin .franja-sin{display:flex}
+
+/* ---------- avisos de construccion ---------- */
+.nota{
+  max-width:1320px;margin:0 auto 16px;background:var(--papel);
+  border:1px solid var(--pizarra);border-left:5px solid var(--cobalto);
+  border-radius:4px;padding:14px 17px;font-size:13px;line-height:1.6;color:var(--grafito-2);
+}
+.nota b{color:var(--grafito);font-weight:600}
+
+@media (max-width:1080px){
+  .concha{grid-template-columns:1fr}
+  .lateral{flex-direction:row;align-items:center;overflow-x:auto;padding:0}
+  .lateral .marca,.lateral .inquilino,.lateral .pie-lateral{display:none}
+  .lateral a{white-space:nowrap;border-left:0;border-bottom:3px solid transparent}
+  .lateral a.activo{border-bottom-color:var(--sulfuro)}
+  .medidores{grid-auto-flow:row;grid-auto-columns:auto}
+  .medidor{border-left:0;border-top:1px solid var(--pizarra-2)}
+  .medidor:first-child{border-top:0}
+  .columnas{grid-template-columns:1fr}
+  .versus{grid-template-columns:1fr}
+  .versus .medio{padding:7px 0}
+}
+@media (max-width:560px){
+  .enc,.barra,.escena{padding-left:16px;padding-right:16px}
+  .telefono{width:100%;max-width:392px}
+  .barra{gap:5px;padding:8px 12px}
+  .pest{font-size:12px;padding:7px 9px}
+}
+
+@media (prefers-reduced-motion:no-preference){
+  .pest,.boton,.fila{transition:background-color .13s ease,color .13s ease,border-color .13s ease}
+}
+@media (prefers-reduced-motion:reduce){
+  *{transition:none !important;animation:none !important}
+}
+</style>
+</head>
+<body class="una">
+
+<header class="enc">
+  <h1>Terreno Conectado</h1>
+  <p>Interfaz propuesta para la captura de datos en faena. El elemento que organiza todo es el
+     <b>riel de rol</b> a la izquierda de cada registro: lleva el color del casco de quien es
+     dueño, así que se responde "¿de quién es esto?" antes de leer una palabra.
+     La <b>cinta de barrera</b> es el segundo elemento, y aparece en un solo caso: cuando un
+     registro necesita que alguien lo atienda.</p>
+  <div class="ficha">
+    <span>Tenant de ejemplo <b>Minera El Cobre SpA</b></span>
+    <span>Faena <b>Centinela, Sector Norte</b></span>
+    <span>Pantallas <b>8</b></span>
+  </div>
+</header>
+
+<div class="barra">
+  <button class="pest" data-ir="1"><span class="n">1</span>Entrar</button>
+  <button class="pest" data-ir="2"><span class="n">2</span>Inspecciones</button>
+  <button class="pest" data-ir="3"><span class="n">3</span>Veredicto</button>
+  <button class="pest" data-ir="4"><span class="n">4</span>Bitácora</button>
+  <button class="pest" data-ir="5"><span class="n">5</span>Sin cobertura</button>
+  <button class="pest" data-ir="6"><span class="n">6</span>Tablero</button>
+  <button class="pest" data-ir="7"><span class="n">7</span>Conflicto</button>
+  <button class="pest" data-ir="8"><span class="n">8</span>Segundo cliente</button>
+  <span class="hueco"></span>
+  <label class="interruptor"><input type="checkbox" id="sinred"> Simular sin cobertura</label>
+  <button class="pal" id="modo">Ver las ocho</button>
+</div>
+
+<main class="escena">
+
+<!-- ============ 1 · ENTRAR ============ -->
+<section class="pantalla" id="p1">
+  <div class="marco-rot">
+    <div class="que">1. Entrar al turno</div>
+    <div class="par">Un solo inquilino por sesión. La empresa se muestra antes de que el trabajador escriba nada.</div>
+    <span class="cubre">FR-001, FR-005, NFR-06</span>
+  </div>
+  <div class="telefono">
+    <div class="mella"><i></i></div>
+    <div class="lienzo">
+      <div class="barra-est"><span>09:41</span><span>batería 86%</span></div>
+      <div class="franja-sin"><span class="foco">Sin cobertura</span>Lo que captures se guarda en este equipo</div>
+      <div class="hoja" style="gap:20px">
+        <div>
+          <div style="font-size:22px;font-weight:900;letter-spacing:-.02em">Terreno Conectado</div>
+          <div style="font-size:13.5px;color:var(--grafito-2);margin-top:3px">Datos al día, donde no hay señal</div>
+        </div>
+
+        <div class="aviso ok">
+          <span class="marca">Sesión</span>
+          <span>Vas a entrar como <b>Rodrigo Pérez</b> en <b>Minera El Cobre SpA</b>, faena Centinela.</span>
+        </div>
+
+        <div class="campo">
+          <label for="correo">Correo</label>
+          <div class="entrada alerta-foco" id="correo">rodrigo.perez@elcobrespa.cl</div>
+        </div>
+        <div class="campo">
+          <label for="clave">Contraseña</label>
+          <div class="entrada" id="clave">••••••••••••</div>
+        </div>
+
+        <button class="boton primario ancho">Entrar al turno</button>
+
+        <div style="font-size:12.5px;color:var(--grafito-2);line-height:1.6;border-top:var(--fila);padding-top:14px">
+          Cinco intentos fallidos bloquean la cuenta quince minutos. Las contraseñas se guardan
+          como argon2id, nunca en texto plano y nunca en los registros del sistema.
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 2 · INSPECCIONES ============ -->
+<section class="pantalla" id="p2">
+  <div class="marco-rot">
+    <div class="que">2. Inspecciones del turno</div>
+    <div class="par">Libro mayor, no tarjetas. El riel indica el rol dueño; la columna derecha, siempre el estado.</div>
+    <span class="cubre">FR-010, FR-031, NFR-01</span>
+  </div>
+  <div class="telefono">
+    <div class="mella"><i></i></div>
+    <div class="lienzo">
+      <div class="barra-est"><span>09:44</span><span>batería 84%</span></div>
+      <div class="franja-sin"><span class="foco">Sin cobertura</span>Lo que captures se guarda en este equipo</div>
+      <div class="cabecera">
+        <h2>Inspecciones</h2>
+        <div class="quien"><b>Rodrigo Pérez</b>personal de terreno</div>
+      </div>
+      <div class="hoja">
+        <div class="grupo" style="padding:0 0 4px">
+          <div class="rotulo">Faena Centinela, Sector Norte</div>
+        </div>
+
+        <div class="mayor">
+          <div class="fila">
+            <div class="riel terreno"></div>
+            <div class="cuerpo">
+              <div class="titulo">Inspección diaria de seguridad</div>
+              <div class="linea2"><span>7 de 9 puntos</span><b>en curso</b></div>
+            </div>
+            <div class="estado"><span class="est sulfuro">Pendiente</span></div>
+          </div>
+
+          <div class="fila">
+            <div class="riel terreno"></div>
+            <div class="cuerpo">
+              <div class="titulo">Checklist de equipos, turno AM</div>
+              <div class="linea2"><span>Sin iniciar</span><b>plantilla v3</b></div>
+            </div>
+            <div class="estado"><span class="est grafito">Borrador</span></div>
+          </div>
+
+          <div class="fila">
+            <div class="riel sincronizado"></div>
+            <div class="cuerpo">
+              <div class="titulo">Inspección diaria de seguridad</div>
+              <div class="linea2"><span>Ayer, 16:20</span><b>Rodrigo Pérez</b></div>
+            </div>
+            <div class="estado"><span class="est verdito">Enviada</span></div>
+          </div>
+
+          <div class="fila">
+            <div class="riel supervision"></div>
+            <div class="cuerpo">
+              <div class="titulo">Inspección diaria de seguridad</div>
+              <div class="linea2"><span>23 de septiembre</span><b>Carla Muñoz</b></div>
+            </div>
+            <div class="estado"><span class="est grafito">Revisada</span></div>
+          </div>
+        </div>
+
+        <button class="boton primario ancho">Abrir una inspección nueva</button>
+      </div>
+      <nav class="nav-pie">
+        <a href="#" class="activo"><span class="glifo">▤</span>Inspecciones</a>
+        <a href="#"><span class="glifo">✎</span>Bitácora</a>
+        <a href="#"><span class="glifo">⇅</span>Cola</a>
+      </nav>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 3 · VEREDICTO ============ -->
+<section class="pantalla" id="p3">
+  <div class="marco-rot">
+    <div class="que">3. Veredicto del punto, sin cobertura</div>
+    <div class="par">Un veredicto que no cumple marca la pregunta con cinta de barrera: hay que abrir un hallazgo.</div>
+    <span class="cubre">FR-011, FR-030, FR-032, FR-015</span>
+  </div>
+  <div class="telefono">
+    <div class="mella"><i></i></div>
+    <div class="lienzo">
+      <div class="barra-est"><span>09:47</span><span>batería 82%</span></div>
+      <div class="franja-sin"><span class="foco">Modo avión</span>Capturando sin cobertura, se guarda en el equipo</div>
+      <div class="cabecera">
+        <h2>Inspección diaria</h2>
+        <div class="quien"><b>7 de 9 puntos</b>guardado 09:47</div>
+      </div>
+      <div class="hoja">
+
+        <div class="pregunta">
+          <div class="encabezado"><div class="ord">1</div><div class="que">Uso de elementos de protección personal en el sector</div></div>
+          <div class="veredicto">
+            <button class="al-pulsado"><span class="glifo">✓</span>Cumple</button>
+            <button><span class="glifo">✕</span>No cumple</button>
+            <button><span class="glifo">—</span>No aplica</button>
+          </div>
+        </div>
+
+        <div>
+          <div class="pregunta mal">
+            <div class="encabezado"><div class="ord">2</div><div class="que">Estado y señalización del arnés de seguridad</div></div>
+            <div class="veredicto">
+              <button><span class="glifo">✓</span>Cumple</button>
+              <button class="mal-pulsado"><span class="glifo">✕</span>No cumple</button>
+              <button><span class="glifo">—</span>No aplica</button>
+            </div>
+          </div>
+          <div class="cinta"></div>
+          <div class="aviso mal" style="margin-top:0;border-radius:0 0 4px 4px">
+            <span class="marca">Falta</span>
+            <span>La plantilla pide un hallazgo con foto cuando el punto no cumple.</span>
+          </div>
+        </div>
+
+        <div class="placa" style="border-left:5px solid var(--alerta)">
+          <div class="rotulo">Hallazgo del punto 2</div>
+          <div class="hoja" style="padding:12px 0 0;gap:13px">
+            <div class="campo">
+              <label>Severidad</label>
+              <div style="display:flex;gap:7px;flex-wrap:wrap">
+                <span class="est grafito">Baja</span>
+                <span class="est grafito">Media</span>
+                <span class="est sulfuro">Alta</span>
+                <span class="est grafito">Crítica</span>
+              </div>
+            </div>
+            <div class="campo">
+              <label>Qué se observó</label>
+              <div class="entrada" style="min-height:78px;align-items:flex-start;padding:11px 14px;font-size:14.5px;line-height:1.45">
+                Dos de los cinco trabajadores del equipo norte no tienen certificación vigente del arnés.
+              </div>
+            </div>
+            <div>
+              <div class="rotulo" style="margin-bottom:8px">Evidencia fotográfica</div>
+              <div style="display:flex;gap:13px;align-items:center">
+                <div style="width:72px;height:72px;border-radius:4px;background:var(--hielo);border:1px solid var(--pizarra);display:grid;place-items:center;color:var(--grafito-3);font-size:22px;font-weight:900;flex:none">▣</div>
+                <div style="font-size:12.5px;color:var(--grafito-2);line-height:1.55">
+                  <b style="color:var(--grafito);font-weight:600">arnes-02.jpg</b><br>
+                  8 megapíxeles reducidos a 1280 px, calidad 0.7<br>
+                  <b style="color:var(--verdito)">1,1 MB reducidos a 142 KB</b>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div style="font-size:11.5px;color:var(--grafito-2);line-height:1.65;border-top:var(--fila);padding-top:12px">
+          Identificador generado en el equipo, 0192f3a1-8c44-7b2e-9d10-4a5e6f7b8c90.<br>
+          Capturado a las 09:47:12, con la plantilla versión 3 congelada.
+        </div>
+      </div>
+      <div class="pie">
+        <span class="est sulfuro">4 en la cola</span>
+        <button class="boton primario">Guardar</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 4 · BITACORA Y COLA ============ -->
+<section class="pantalla" id="p4">
+  <div class="marco-rot">
+    <div class="que">4. Bitácora del turno y estado de la cola</div>
+    <div class="par">El reintento fallido se muestra con su espera exacta. Ocultarlo sería mentirle al trabajador.</div>
+    <span class="cubre">FR-013, FR-022, FR-033, FR-026</span>
+  </div>
+  <div class="telefono">
+    <div class="mella"><i></i></div>
+    <div class="lienzo">
+      <div class="barra-est"><span>09:52</span><span>batería 80%</span></div>
+      <div class="franja-sin"><span class="foco">Modo avión</span>Capturando sin cobertura, se guarda en el equipo</div>
+      <div class="cabecera">
+        <h2>Bitácora del turno</h2>
+        <div class="quien"><b>Rodrigo Pérez</b>personal de terreno</div>
+      </div>
+      <div class="hoja">
+
+        <div class="mayor" style="border-top:0">
+          <div class="fila" style="min-height:0">
+            <div class="riel terreno"></div>
+            <div class="cuerpo">
+              <div class="titulo" style="font-weight:500">Turno mañana. La revisión de arneses quedó agendada para el viernes con Mantenimiento.</div>
+              <div class="linea2"><b>turno</b><b>seguridad</b><span>09:31</span></div>
+            </div>
+            <div class="estado"><span class="est verdito">Enviada</span></div>
+          </div>
+
+          <div class="fila" style="min-height:0">
+            <div class="riel alerta"></div>
+            <div class="cuerpo">
+              <div class="titulo" style="font-weight:500">El SeMCA-2 falla de forma intermitente al ascender. Queda anotado en bitácora.</div>
+              <div class="linea2"><b>equipo</b><span>09:52</span></div>
+            </div>
+            <div class="estado"><span class="est alerta">Reintento 3</span></div>
+          </div>
+        </div>
+
+        <div class="placa" style="padding:0;overflow:hidden">
+          <div class="grupo">
+            <div class="rotulo">Cola de salida, 4 registros</div>
+          </div>
+          <div class="mayor">
+            <div class="fila" style="min-height:0">
+              <div class="riel sincronizado"></div>
+              <div class="cuerpo"><div class="titulo" style="font-size:14px">Bitácora de las 09:31</div></div>
+              <div class="estado"><span class="est verdito">Enviada</span></div>
+            </div>
+            <div class="fila" style="min-height:0">
+              <div class="riel supervision"></div>
+              <div class="cuerpo"><div class="titulo" style="font-size:14px">Respuesta del punto 1</div></div>
+              <div class="estado"><span class="est cobalto">Subiendo</span></div>
+            </div>
+            <div class="fila" style="min-height:0">
+              <div class="riel terreno"></div>
+              <div class="cuerpo"><div class="titulo" style="font-size:14px">Inspección y hallazgo</div></div>
+              <div class="estado"><span class="est sulfuro">En espera</span></div>
+            </div>
+            <div class="fila" style="min-height:0">
+              <div class="riel alerta"></div>
+              <div class="cuerpo"><div class="titulo" style="font-size:14px">Evidencia fotográfica</div></div>
+              <div class="estado"><span class="est alerta">Rechazada</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div class="cinta cinta-fina"></div>
+          <div class="aviso mal" style="border-radius:0 0 4px 4px;margin-top:0">
+            <span class="marca">Esperando 32 s</span>
+            <span>El servidor rechazó el lote dos veces. La espera crece al doble en cada intento
+            y el tope es de cinco minutos. No hace falta que el trabajador toque nada.</span>
+          </div>
+        </div>
+
+        <div style="font-size:12.5px;color:var(--grafito-2);line-height:1.6">
+          Intentos: 1 s, luego 2 s, 4 s, 8 s, 16 s, 32 s, y hasta 5 minutos.
+        </div>
+      </div>
+      <nav class="nav-pie">
+        <a href="#"><span class="glifo">▤</span>Inspecciones</a>
+        <a href="#" class="activo"><span class="glifo">✎</span>Bitácora</a>
+        <a href="#"><span class="glifo">⇅</span>Cola</a>
+      </nav>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 5 · SIN COBERTURA ============ -->
+<section class="pantalla" id="p5">
+  <div class="marco-rot">
+    <div class="que">5. Estado sin cobertura</div>
+    <div class="par">No es una pantalla de error. Es el estado normal del producto y se comunica como tal.</div>
+    <span class="cubre">FR-016, FR-017, FR-014, NFR-01</span>
+  </div>
+  <div class="telefono">
+    <div class="mella"><i></i></div>
+    <div class="lienzo">
+      <div class="barra-est"><span>09:55</span><span>sin señal</span></div>
+      <div class="cabecera" style="background:var(--grafito)">
+        <h2>Trabajando sin cobertura</h2>
+        <div class="quien"><b>Rodrigo Pérez</b>personal de terreno</div>
+      </div>
+      <div class="hoja">
+
+        <div class="aviso">
+          <span class="marca">Sin cobertura</span>
+          <span>En este sector no hay red. <b>Todo lo que captures sigue funcionando</b> y se envía
+          solo en cuanto el equipo recupere señal.</span>
+        </div>
+
+        <div class="placa" style="padding:0;overflow:hidden">
+          <div class="grupo"><div class="rotulo">Espacio en el equipo</div></div>
+          <div style="padding:0 14px 14px">
+            <div style="display:flex;justify-content:space-between;font-size:13px;font-weight:700;margin-bottom:7px">
+              <span>2,3 GB usados</span><span style="color:var(--sulfuro)">78% de 3,0 GB</span>
+            </div>
+            <div class="barra-f" style="gap:0">
+              <div class="pista" style="height:12px;width:100%"><i style="width:78%;background:var(--sulfuro)"></i></div>
+            </div>
+            <p style="font-size:12.5px;color:var(--grafito-2);margin-top:10px;line-height:1.55">
+              Al llegar al 80% la aplicación avisa al trabajador y sube primero las fotos que ya
+              se pueden enviar.
+            </p>
+          </div>
+          <div class="mayor">
+            <div class="fila" style="min-height:0">
+              <div class="riel neutro"></div>
+              <div class="cuerpo"><div class="titulo" style="font-size:14px">Inspecciones</div></div>
+              <div class="estado"><span style="font-size:13px;font-weight:600">142, 84 MB</span></div>
+            </div>
+            <div class="fila" style="min-height:0">
+              <div class="riel neutro"></div>
+              <div class="cuerpo"><div class="titulo" style="font-size:14px">Fotos de evidencia</div></div>
+              <div class="estado"><span style="font-size:13px;font-weight:600">310, 1,9 GB</span></div>
+            </div>
+            <div class="fila" style="min-height:0">
+              <div class="riel neutro"></div>
+              <div class="cuerpo"><div class="titulo" style="font-size:14px">Entradas de bitácora</div></div>
+              <div class="estado"><span style="font-size:13px;font-weight:600">38, 2 MB</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="placa" style="border-left:5px solid var(--cobalto)">
+          <div class="rotulo">Esperan salir, 8 registros</div>
+          <div class="mayor" style="margin-top:8px">
+            <div class="fila" style="min-height:0">
+              <div class="riel terreno"></div>
+              <div class="cuerpo"><div class="titulo" style="font-size:14px">Inspección diaria de seguridad</div></div>
+              <div class="estado"><span style="font-size:15px;font-weight:700">1</span></div>
+            </div>
+            <div class="fila" style="min-height:0">
+              <div class="riel terreno"></div>
+              <div class="cuerpo"><div class="titulo" style="font-size:14px">Respuestas del checklist</div></div>
+              <div class="estado"><span style="font-size:15px;font-weight:700">4</span></div>
+            </div>
+            <div class="fila" style="min-height:0">
+              <div class="riel alerta"></div>
+              <div class="cuerpo"><div class="titulo" style="font-size:14px">Hallazgo con foto</div></div>
+              <div class="estado"><span style="font-size:15px;font-weight:700">1</span></div>
+            </div>
+            <div class="fila" style="min-height:0">
+              <div class="riel terreno"></div>
+              <div class="cuerpo"><div class="titulo" style="font-size:14px">Entradas de bitácora</div></div>
+              <div class="estado"><span style="font-size:15px;font-weight:700">2</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div style="font-size:12.5px;color:var(--grafito-2);line-height:1.6;border-top:var(--fila);padding-top:13px">
+          <b style="color:var(--grafito);font-weight:600">Durabilidad.</b> Estos datos sobreviven al cierre
+          de la aplicación y al reinicio del equipo. Se escriben en transacciones atómicas, nunca a medias.
+        </div>
+      </div>
+      <nav class="nav-pie">
+        <a href="#" class="activo"><span class="glifo">▤</span>Inspecciones</a>
+        <a href="#"><span class="glifo">✎</span>Bitácora</a>
+        <a href="#"><span class="glifo">⇅</span>Cola</a>
+      </nav>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 6 · TABLERO ============ -->
+<section class="pantalla" id="p6">
+  <div class="marco-rot">
+    <div class="que">6. Tablero de la supervisión</div>
+    <div class="par">Los medidores son una tira continua, no cuatro cajas. El número manda y todo lo demás se calla.</div>
+    <span class="cubre">FR-040, FR-043, FR-035, NFR-03</span>
+  </div>
+  <div class="navegador">
+    <div class="cromado">
+      <div class="luces"><i style="background:#E06C6C"></i><i style="background:#E8A317"></i><i style="background:#6FBF8E"></i></div>
+      <div class="barra-url">terreno.duckdns.org/tablero</div>
+    </div>
+    <div class="concha">
+      <aside class="lateral">
+        <div class="marca">Terreno Conectado</div>
+        <div class="inquilino"><b>Minera El Cobre SpA</b>Faena Centinela</div>
+        <a href="#" class="activo"><span class="glifo">▤</span>Tablero</a>
+        <a href="#"><span class="glifo">▣</span>Inspecciones</a>
+        <a href="#"><span class="glifo">!</span>Hallazgos<span class="cuenta">3</span></a>
+        <a href="#"><span class="glifo">⚖</span>Conflictos<span class="cuenta">1</span></a>
+        <a href="#"><span class="glifo">✎</span>Bitácoras</a>
+        <a href="#"><span class="glifo">⇅</span>Sincronización</a>
+        <div class="pie-lateral"><b>Carla Muñoz</b>supervisión, 4 h 12 min en turno</div>
+      </aside>
+      <div class="pagina">
+        <div class="titulo-pagina">
+          <div>
+            <h2>Tablero</h2>
+            <div class="sub">Jueves 1 de octubre de 2026, turno en curso</div>
+          </div>
+          <div style="display:flex;gap:18px;align-items:center">
+            <span class="est cobalto">Última subida 09:58</span>
+            <span class="est verdito">Cola vacía</span>
+          </div>
+        </div>
+
+        <div class="medidores">
+          <div class="medidor mal">
+            <div class="que">Hallazgos altos y críticos</div>
+            <div class="cifra">3</div>
+            <div class="nota">uno crítico, dos altos</div>
+          </div>
+          <div class="medidor bien">
+            <div class="que">De la captura a visible</div>
+            <div class="cifra">38<span class="u">s</span></div>
+            <div class="nota">la meta es 60 s, se cumple</div>
+          </div>
+          <div class="medidor">
+            <div class="que">Inspecciones del período</div>
+            <div class="cifra">47</div>
+            <div class="nota">7 en curso, 40 enviadas</div>
+          </div>
+          <div class="medidor">
+            <div class="que">Conflictos abiertos</div>
+            <div class="cifra">1</div>
+            <div class="nota">resuelto por última escritura</div>
+          </div>
+        </div>
+
+        <div class="columnas">
+          <div class="placa">
+            <h3>Hallazgos por severidad</h3>
+            <div class="sub">Últimos siete días, faena Centinela</div>
+            <div class="barras">
+              <div class="barra-f"><div class="lb">Crítica</div><div class="pista"><i style="width:10%;background:var(--alerta)"></i></div><div class="vl">1</div></div>
+              <div class="barra-f"><div class="lb">Alta</div><div class="pista"><i style="width:30%;background:#C2410C"></i></div><div class="vl">3</div></div>
+              <div class="barra-f"><div class="lb">Media</div><div class="pista"><i style="width:50%;background:var(--sulfuro)"></i></div><div class="vl">5</div></div>
+              <div class="barra-f"><div class="lb">Baja</div><div class="pista"><i style="width:70%;background:var(--verdito)"></i></div><div class="vl">7</div></div>
+            </div>
+          </div>
+          <div class="placa">
+            <h3>Inspecciones por estado</h3>
+            <div class="sub">Borrador, en curso, enviada, revisada</div>
+            <div class="barras">
+              <div class="barra-f"><div class="lb">En curso</div><div class="pista"><i style="width:17%;background:var(--sulfuro)"></i></div><div class="vl">7</div></div>
+              <div class="barra-f"><div class="lb">Enviadas</div><div class="pista"><i style="width:85%;background:var(--cobalto)"></i></div><div class="vl">33</div></div>
+              <div class="barra-f"><div class="lb">Revisadas</div><div class="pista"><i style="width:18%;background:var(--verdito)"></i></div><div class="vl">7</div></div>
+              <div class="barra-f"><div class="lb">Borrador</div><div class="pista"><i style="width:5%;background:var(--grafito-3)"></i></div><div class="vl">2</div></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="placa" style="padding:0;overflow:hidden">
+          <div style="padding:16px 16px 0">
+            <h3>Hallazgos recientes</h3>
+            <div class="sub">Los altos y críticos se destacan apenas se sincronizan</div>
+          </div>
+          <table>
+            <thead>
+              <tr><th style="width:6px"></th><th style="width:118px">Severidad</th><th>Hallazgo</th><th>Faena</th><th style="width:150px">Reportado por</th><th style="width:96px">Visible en</th></tr>
+            </thead>
+            <tbody>
+              <tr class="sobre-alerta">
+                <td></td>
+                <td><div class="sev-celda"><i class="sev-fila critica" style="height:34px"></i><span class="sev-txt" style="color:var(--alerta)">Crítica</span></div></td>
+                <td><div class="fuerte">El SeMCA-2 falla al ascender</div><div style="font-size:12px;color:var(--grafito-2)">Equipo crítico en uso</div></td>
+                <td>Sector Norte</td>
+                <td>Rodrigo Pérez<br><span style="font-size:12px;color:var(--grafito-2)">personal de terreno</span></td>
+                <td style="color:var(--verdito);font-weight:700">38 s</td>
+              </tr>
+              <tr>
+                <td></td>
+                <td><div class="sev-celda"><i class="sev-fila alta" style="height:34px"></i><span class="sev-txt" style="color:#C2410C">Alta</span></div></td>
+                <td><div class="fuerte">Arnés sin certificación vigente</div><div style="font-size:12px;color:var(--grafito-2)">Dos de cinco trabajadores</div></td>
+                <td>Sector Norte</td>
+                <td>Rodrigo Pérez<br><span style="font-size:12px;color:var(--grafito-2)">personal de terreno</span></td>
+                <td style="color:var(--verdito);font-weight:700">41 s</td>
+              </tr>
+              <tr>
+                <td></td>
+                <td><div class="sev-celda"><i class="sev-fila alta" style="height:34px"></i><span class="sev-txt" style="color:#C2410C">Alta</span></div></td>
+                <td><div class="fuerte">Señalización ausente en un tramo de 8 m</div></td>
+                <td>Rampa Este</td>
+                <td>Martín Rojas<br><span style="font-size:12px;color:var(--grafito-2)">personal de terreno</span></td>
+                <td style="color:var(--verdito);font-weight:700">52 s</td>
+              </tr>
+              <tr>
+                <td></td>
+                <td><div class="sev-celda"><i class="sev-fila media" style="height:34px"></i><span class="sev-txt" style="color:#8A6A0B">Media</span></div></td>
+                <td><div class="fuerte">Extintor con presión baja</div></td>
+                <td>Galpón 2</td>
+                <td>Javiera Soto<br><span style="font-size:12px;color:var(--grafito-2)">administración</span></td>
+                <td style="color:var(--verdito);font-weight:700">33 s</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 7 · CONFLICTO ============ -->
+<section class="pantalla" id="p7">
+  <div class="marco-rot">
+    <div class="que">7. Inspección con conflicto resuelto</div>
+    <div class="par">Dos tablets editaron el mismo registro sin cobertura. Se aplica la última escritura y <b>las dos versiones quedan a la vista</b>.</div>
+    <span class="cubre">FR-023, FR-024, NFR-04</span>
+  </div>
+  <div class="navegador">
+    <div class="cromado">
+      <div class="luces"><i style="background:#E06C6C"></i><i style="background:#E8A317"></i><i style="background:#6FBF8E"></i></div>
+      <div class="barra-url">terreno.duckdns.org/inspecciones/0192f3a1-8c44-7b2e-9d10-4a5e6f7b8c90</div>
+    </div>
+    <div class="concha">
+      <aside class="lateral">
+        <div class="marca">Terreno Conectado</div>
+        <div class="inquilino"><b>Minera El Cobre SpA</b>Faena Centinela</div>
+        <a href="#"><span class="glifo">▤</span>Tablero</a>
+        <a href="#" class="activo"><span class="glifo">▣</span>Inspecciones</a>
+        <a href="#"><span class="glifo">!</span>Hallazgos<span class="cuenta">3</span></a>
+        <a href="#"><span class="glifo">⚖</span>Conflictos<span class="cuenta">1</span></a>
+        <a href="#"><span class="glifo">✎</span>Bitácoras</a>
+        <a href="#"><span class="glifo">⇅</span>Sincronización</a>
+        <div class="pie-lateral"><b>Carla Muñoz</b>supervisión</div>
+      </aside>
+      <div class="pagina">
+        <div class="titulo-pagina">
+          <div>
+            <h2>Inspección diaria de seguridad</h2>
+            <div class="sub">Faena Centinela, Sector Norte, plantilla versión 3, ejecutada por Rodrigo Pérez</div>
+          </div>
+          <div style="display:flex;gap:18px;align-items:center;flex-wrap:wrap">
+            <span class="est sulfuro">Enviada</span>
+            <span class="est alerta">Conflicto resuelto</span>
+          </div>
+        </div>
+
+        <div class="placa" style="border-left:5px solid var(--sulfuro)">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:18px;flex-wrap:wrap;margin-bottom:15px">
+            <div>
+              <h3>Conflicto entre dispositivos, resuelto por última escritura</h3>
+              <p class="sub" style="margin:4px 0 0;max-width:72ch">
+                Dos equipos editaron este registro sin cobertura. La resolución es determinista y
+                las dos versiones se conservan para poder auditarlas.
+              </p>
+            </div>
+            <span class="est verdito" style="white-space:nowrap">Visible para supervisión</span>
+          </div>
+
+          <div class="versus">
+            <div class="version gana">
+              <div class="tope"><span>Se aplica</span><span>Tablet 2</span></div>
+              <div class="cuerpo2">
+                <div class="pares"><span class="k">Equipo</span><span class="v">tablet-02</span></div>
+                <div class="pares"><span class="k">Persona</span><span class="v">Rodrigo Pérez</span></div>
+                <div class="pares"><span class="k">Versión en el equipo</span><span class="v">4</span></div>
+                <div class="pares"><span class="k">Capturado</span><span class="v">10:42:07</span></div>
+                <div class="cambio">
+                  <span class="de">Punto 2, estado del arnés</span>
+                  No cumple, dos de cinco sin certificación
+                </div>
+              </div>
+            </div>
+            <div class="medio">contra</div>
+            <div class="version pierde">
+              <div class="tope"><span>Se descarta</span><span>Tablet 1</span></div>
+              <div class="cuerpo2">
+                <div class="pares"><span class="k">Equipo</span><span class="v">tablet-01</span></div>
+                <div class="pares"><span class="k">Persona</span><span class="v">Rodrigo Pérez</span></div>
+                <div class="pares"><span class="k">Versión en el equipo</span><span class="v">3</span></div>
+                <div class="pares"><span class="k">Capturado</span><span class="v">10:40:19</span></div>
+                <div class="cambio pierde">
+                  <span class="de">Punto 2, estado del arnés</span>
+                  Cumple, todo el equipo conforme
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="aviso neutro" style="margin-top:15px">
+            <span class="marca">Criterio</span>
+            <span>Los dos registros se capturaron con 1,8 s de diferencia, así que resolvió por
+            <b>versión en el equipo</b>: ganó la 4 sobre la 3. Si hubieran empatado también, se
+            habría resuelto por identificador mayor. La misma entrada produce siempre el mismo
+            ganador, aunque los relojes de los equipos estén desviados.</span>
+          </div>
+        </div>
+
+        <div class="columnas">
+          <div class="placa">
+            <h3>Respuestas del checklist</h3>
+            <div class="sub">Nueve puntos, siete cumplen, uno no cumple, uno no aplica</div>
+            <table>
+              <thead><tr><th style="width:26px">#</th><th>Punto</th><th style="width:104px">Veredicto</th><th style="width:96px">Foto</th></tr></thead>
+              <tbody>
+                <tr><td style="color:var(--grafito-3);font-weight:700">1</td><td>Uso de elementos de protección</td><td><span class="est verdito">Cumple</span></td><td style="color:var(--grafito-3)">ninguna</td></tr>
+                <tr class="sobre-alerta">
+                  <td style="color:var(--alerta);font-weight:700">2</td>
+                  <td>Estado y señalización del arnés</td>
+                  <td><span class="est alerta">No cumple</span></td>
+                  <td>1 adjunta</td>
+                </tr>
+                <tr><td style="color:var(--grafito-3);font-weight:700">3</td><td>Señalización de excavaciones</td><td><span class="est verdito">Cumple</span></td><td style="color:var(--grafito-3)">ninguna</td></tr>
+                <tr><td style="color:var(--grafito-3);font-weight:700">4</td><td>Estado de ladders y andamios</td><td><span class="est verdito">Cumple</span></td><td style="color:var(--grafito-3)">ninguna</td></tr>
+                <tr><td style="color:var(--grafito-3);font-weight:700">5</td><td>Control de acceso al sector</td><td><span class="est grafito">No aplica</span></td><td style="color:var(--grafito-3)">ninguna</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="placa">
+            <h3>Registro de sincronización</h3>
+            <div class="sub">Auditable por empresa, con la demora de la captura a la disponibilidad</div>
+            <div class="mayor" style="border-top:0">
+              <div class="fila" style="min-height:0">
+                <div class="riel verdito"></div>
+                <div class="cuerpo"><div class="titulo" style="font-size:13.5px">Lote aceptado desde tablet-02</div><div class="linea2"><span>nueve registros</span></div></div>
+                <div class="estado"><span style="font-size:12.5px;font-weight:700">10:42:07</span></div>
+              </div>
+              <div class="fila" style="min-height:0">
+                <div class="riel sulfuro"></div>
+                <div class="cuerpo"><div class="titulo" style="font-size:13.5px">Conflicto detectado en el punto 2</div><div class="linea2"><span>quedó registrado</span></div></div>
+                <div class="estado"><span style="font-size:12.5px;font-weight:700">10:42:07</span></div>
+              </div>
+              <div class="fila" style="min-height:0">
+                <div class="riel verdito"></div>
+                <div class="cuerpo"><div class="titulo" style="font-size:13.5px">Lote aceptado desde tablet-01</div><div class="linea2"><span>cuatro registros</span></div></div>
+                <div class="estado"><span style="font-size:12.5px;font-weight:700">10:40:19</span></div>
+              </div>
+              <div class="fila" style="min-height:0">
+                <div class="riel cobalto"></div>
+                <div class="cuerpo"><div class="titulo" style="font-size:13.5px">Lote reenviado, sin duplicar</div><div class="linea2"><span>primer reintento</span></div></div>
+                <div class="estado"><span style="font-size:12.5px;font-weight:700">10:39:58</span></div>
+              </div>
+            </div>
+            <div class="aviso ok" style="margin-top:14px">
+              <span class="marca">Sin pérdidas</span>
+              <span>Ningún registro duplicado. Demora total desde la captura: <b>51 s</b>.</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 8 · SEGUNDO CLIENTE ============ -->
+<section class="pantalla" id="p8">
+  <div class="marco-rot">
+    <div class="que">8. El segundo cliente no ve nada del primero</div>
+    <div class="par">Misma aplicación, otra empresa. El aislamiento lo garantiza la base de datos, no los filtros de la aplicación.</div>
+    <span class="cubre">FR-002, FR-025, NFR-05, Art. IV</span>
+  </div>
+  <div class="navegador">
+    <div class="cromado">
+      <div class="luces"><i style="background:#E06C6C"></i><i style="background:#E8A317"></i><i style="background:#6FBF8E"></i></div>
+      <div class="barra-url">terreno.duckdns.org/tablero</div>
+    </div>
+    <div class="concha">
+      <aside class="lateral">
+        <div class="marca">Terreno Conectado</div>
+        <div class="inquilino"><b>Constructora Andes SpA</b>Obra Cerro Verde</div>
+        <a href="#" class="activo"><span class="glifo">▤</span>Tablero</a>
+        <a href="#"><span class="glifo">▣</span>Inspecciones</a>
+        <a href="#"><span class="glifo">!</span>Hallazgos<span class="cuenta tranquila">0</span></a>
+        <a href="#"><span class="glifo">⚖</span>Conflictos<span class="cuenta tranquila">0</span></a>
+        <a href="#"><span class="glifo">✎</span>Bitácoras</a>
+        <div class="pie-lateral"><b>Felipe Vergara</b>administración de empresa, 11 min</div>
+      </aside>
+      <div class="pagina">
+        <div class="titulo-pagina">
+          <div>
+            <h2>Tablero</h2>
+            <div class="sub">Constructora Andes SpA, obra Cerro Verde</div>
+          </div>
+          <span class="est verdito">Sesión aislada correctamente</span>
+        </div>
+
+        <div class="aviso ok">
+          <span class="marca">Aislamiento verificado</span>
+          <span>Esta persona está autenticada con el inquilino 8c1f…b402. Cada consulta corre bajo
+          ese inquilino y las políticas de seguridad a nivel de fila descartan cualquier registro
+          de otra empresa antes de que llegue a la aplicación.</span>
+        </div>
+
+        <div class="medidores">
+          <div class="medidor"><div class="que">Inspecciones del período</div><div class="cifra">0</div><div class="nota">todavía sin captura</div></div>
+          <div class="medidor"><div class="que">Hallazgos</div><div class="cifra">0</div><div class="nota">sin hallazgos</div></div>
+          <div class="medidor"><div class="que">Conflictos</div><div class="cifra">0</div><div class="nota">sin conflictos</div></div>
+          <div class="medidor"><div class="que">Demora media</div><div class="cifra">sin datos</div><div class="nota">todavía no aplica</div></div>
+        </div>
+
+        <div class="vacio">
+          <div class="glifo">▤</div>
+          <h3>Sin inspecciones en esta obra</h3>
+          <p>Constructora Andes SpA todavía no registra inspecciones. Lo que esta persona ve aquí es
+             exactamente lo que existe para su empresa, y nada más.</p>
+          <span class="est verdito" style="justify-content:center">Cero filas de Minera El Cobre SpA expuestas</span>
+        </div>
+
+        <div class="placa">
+          <h3>Comprobación a nivel de base de datos</h3>
+          <div class="sub">Prueba de intrusión entre empresas que corre en la integración continua</div>
+          <div class="consola">
+<span class="com">-- entrando como Minera El Cobre SpA</span>
+<span class="sql">SELECT</span> count(*) <span class="sql">FROM</span> inspection;
+ <span class="num">47</span>
+
+<span class="com">-- entrando como Constructora Andes SpA</span>
+<span class="sql">SELECT</span> count(*) <span class="sql">FROM</span> inspection;
+ <span class="num">0</span>
+
+<span class="com">-- intento de intrusión: credencial de una empresa, datos de la otra</span>
+<span class="sql">POST</span> /api/v1/sync/batch   inquilino = b402
+ <span class="mal">403 rechazado</span>, el lote completo se descarta
+ <span="com">y queda el incidente en el registro de auditoría</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<script>
+(function(){
+  var pest = Array.prototype.slice.call(document.querySelectorAll('.pest'));
+  var pantallas = Array.prototype.slice.call(document.querySelectorAll('.pantalla'));
+  var btnModo = document.getElementById('modo');
+  var chkSin = document.getElementById('sinred');
+
+  function ver(n){
+    document.body.classList.add('una');
+    document.body.classList.remove('todas');
+    pest.forEach(function(b){ b.setAttribute('aria-selected', b.dataset.ir === String(n) ? 'true' : 'false'); });
+    pantallas.forEach(function(p){ p.classList.toggle('ver', p.id === 'p'+n); });
+    btnModo.textContent = 'Ver las ocho';
+    window.scrollTo({top:0, behavior:'smooth'});
+  }
+
+  pest.forEach(function(b){
+    b.addEventListener('click', function(){ ver(b.dataset.ir); });
+  });
+
+  btnModo.addEventListener('click', function(){
+    if(document.body.classList.contains('todas')){
+      ver(1);
+    } else {
+      document.body.classList.add('todas');
+      document.body.classList.remove('una');
+      pest.forEach(function(b){ b.setAttribute('aria-selected','false'); });
+      btnModo.textContent = 'Ver una a una';
+    }
+  });
+
+  chkSin.addEventListener('change', function(){
+    document.body.classList.toggle('sin', chkSin.checked);
+  });
+
+  var h = (location.hash||'').replace('#','');
+  if(h && document.getElementById('p'+h)) ver(h); else ver(1);
+})();
+</script>
+</body>
+</html>
