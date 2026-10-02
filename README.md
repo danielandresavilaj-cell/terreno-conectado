@@ -91,6 +91,9 @@ terreno-conectado/
 ├── plans/                ← plan.md por módulo (diseño técnico derivado del spec)
 ├── tasks/                ← tasks.md por iteración (cada tarea referencia FR/NFR del spec)
 ├── docs/                 ← Guías de trabajo del equipo (tablero, convenciones)
+├── Fase 1/
+│   ├── Evidencias Grupales/    ← Informe APT Fase 1, Guía 1.5 completada, PPT, Carta Gantt
+│   └── Evidencias Individules/
 ├── frontend/             ← PWA React + Vite + Dexie (IndexedDB)
 ├── backend/              ← NestJS + PostgreSQL 16 (Row-Level Security)
 ├── infra/                ← Docker Compose, Caddy, scripts de deploy
@@ -155,9 +158,10 @@ pnpm test                                     # unit + integración
 ## Documentos clave para empezar
 
 1. [constitution.md](constitution.md)
-2. [specs/000-master/spec.md](specs/000-master/spec.md)
-3. [research.md](research.md) · [data-model.md](data-model.md) · [test-plan.md](test-plan.md)
-4. [docs/guia-del-tablero.md](docs/guia-del-tablero.md) — cómo navegar, leer y trabajar con el [tablero compartido](https://github.com/users/danielandresavilaj-cell/projects/1)
+2. Evidencias de Fase 1 en `Fase 1/Evidencias Grupales/` (informe APT, guía 1.5 completada, presentación, Carta Gantt)
+3. [specs/000-master/spec.md](specs/000-master/spec.md)
+4. [research.md](research.md) · [data-model.md](data-model.md) · [test-plan.md](test-plan.md)
+5. [docs/guia-del-tablero.md](docs/guia-del-tablero.md) — cómo navegar, leer y trabajar con el [tablero compartido](https://github.com/users/danielandresavilaj-cell/projects/1)
 
 ## Tablero del equipo
 
