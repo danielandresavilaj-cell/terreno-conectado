@@ -92,8 +92,7 @@ terreno-conectado/
 ├── tasks/                ← tasks.md por iteración (cada tarea referencia FR/NFR del spec)
 ├── docs/                 ← Guías de trabajo del equipo (tablero, convenciones)
 ├── Fase 1/
-│   ├── Evidencias Grupales/    ← Informe APT Fase 1, Guía 1.5 completada, PPT, Carta Gantt
-│   └── Evidencias Individules/
+│   └── Evidencias Grupales/    ← Informe de Definición del Proyecto APT (el resto vive en el repo Capstone)
 ├── frontend/             ← Mockup React + Vite (app funcional; Dexie e IndexedDB pendientes)
 ├── backend/              ← NestJS + PostgreSQL 16 (Row-Level Security) — pendiente
 ├── infra/                ← Docker Compose, Caddy, scripts de deploy — pendiente
@@ -176,7 +175,7 @@ secreto se versiona (constitución, Art. IX).
 ## Documentos clave para empezar
 
 1. [constitution.md](constitution.md)
-2. Evidencias de Fase 1 en `Fase 1/Evidencias Grupales/` (informe APT, guía 1.5 completada, presentación, Carta Gantt)
+2. Evidencias de la asignatura en el repositorio [Capstone](https://github.com/danielandresavilaj-cell/Capstone) — Fase 1 completa (informe APT, guía 1.5, presentación, Carta Gantt y evidencias individuales) y plantillas de Fase 2
 3. [specs/000-master/spec.md](specs/000-master/spec.md)
 4. [research.md](research.md) · [data-model.md](data-model.md) · [test-plan.md](test-plan.md)
 5. [docs/guia-del-tablero.md](docs/guia-del-tablero.md) — cómo navegar, leer y trabajar con el [tablero compartido](https://github.com/users/danielandresavilaj-cell/projects/1)
