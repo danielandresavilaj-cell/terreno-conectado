@@ -1,0 +1,26 @@
+# Code owners — revisión cruzada obligatoria.
+#
+# Cada cambio del otro requiere aprobación antes de mergear. Son dos personas en
+# un proyecto de capstone: la revisión cruzada no es un trámite, es la
+# coevaluación que la asignatura exige y el mecanismo que evita que un error
+# llegue al docente sin que nadie más lo haya visto.
+#
+# Las rutas de arquitectura e infraestructura exigen acuerdo explícito de ambos
+# porque comprometen el diseño del sistema (artículo II) o dinero real (ADR-002,
+# artículo VI).
+
+*                       @danielandresavilaj-cell @ev6rlasting
+
+# Datos de negocio, specs de dominio y evidencias
+/specs/                 @danielandresavilaj-cell
+/docs/                  @danielandresavilaj-cell
+/tasks/                 @danielandresavilaj-cell
+
+# Plataforma e infraestructura
+/backend/               @ev6rlasting
+/infra/                 @ev6rlasting
+
+# Decisiones transversales: requieren los dos
+/constitution.md        @danielandresavilaj-cell @ev6rlasting
+/specs/000-master/      @danielandresavilaj-cell @ev6rlasting
+/adr/                   @danielandresavilaj-cell @ev6rlasting
