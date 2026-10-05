@@ -23,7 +23,7 @@ Ninguna tarea de implementación se ejecuta sin un requisito trazable (FR/NFR) e
 
 La sincronización DEBE ser idempotente: reintentos no duplican, fallos no pierden. Ante conflicto, resolución determinista y auditada — nunca sobrescritura silenciosa.
 
-**Criterio de aceptación:** las pruebas de caos del `test-plan.md` (corte de red a mitad de sync, doble envío, edición concurrente) pasan con cero pérdida y cero duplicación. Es la promesa central del proyecto ante el docente y ante un cliente real.
+**Criterio de aceptación:** las pruebas de caos del `docs/test-plan.md` (corte de red a mitad de sync, doble envío, edición concurrente) pasan con cero pérdida y cero duplicación. Es la promesa central del proyecto ante el docente y ante un cliente real.
 
 ## Artículo IV — Aislamiento multi-tenant por diseño
 
@@ -33,7 +33,7 @@ Cada tabla de dominio lleva `tenant_id`. La capa de aislamiento es Row-Level Sec
 
 ## Artículo V — Simplicidad como presupuesto
 
-Somos dos personas en ~11 semanas efectivas con otras asignaturas en paralelo. Monolito + PWA + un solo lenguaje (TypeScript). Cada dependencia nueva se justifica por escrito en `research.md`. La complejidad que no podamos mantener no entra.
+Somos dos personas en ~11 semanas efectivas con otras asignaturas en paralelo. Monolito + PWA + un solo lenguaje (TypeScript). Cada dependencia nueva se justifica por escrito en `docs/research.md`. La complejidad que no podamos mantener no entra.
 
 **Criterio de aceptación:** el stack real coincide con el ADR-001; desviaciones requieren ADR nuevo.
 
@@ -47,7 +47,7 @@ La infraestructura de demo cuesta ≤ US$7/mes. Antes de que cualquier IA o scri
 
 El plan de pruebas cubre cada promesa del spec maestro: offline, sincronización, integridad, aislamiento, rendimiento en gama media. El testing adversarial usa un modelo de IA **distinto** al que implementó, atacando los invariantes del spec. Probar es evidencia académica (competencia de certificación) y práctica de ingeniería a la vez.
 
-**Criterio de aceptación:** cada NFR del spec maestro tiene al menos una prueba automatizada o un protocolo manual documentado en `test-plan.md`.
+**Criterio de aceptación:** cada NFR del spec maestro tiene al menos una prueba automatizada o un protocolo manual documentado en `docs/test-plan.md`.
 
 ## Artículo VIII — Documentación concurrente, evidencia mapeada
 

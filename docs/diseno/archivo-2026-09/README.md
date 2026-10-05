@@ -1,4 +1,9 @@
-# Mockups de prueba
+# Mockups de prueba — ARCHIVADO (2026-09)
+
+> ⚠️ **CONGELADO. No usar como base de trabajo, no modificar, no reubicar.**
+> Estas telas fueron superadas por la app real de [`frontend/`](../../../frontend/README.md). Se
+> conservan únicamente para documentar la evolución del diseño y para permitir comparar por qué se
+> eligió la dirección visual final. Cualquier trabajo nuevo empieza en `frontend/`, nunca aquí.
 
 Estos archivos son prototipos desechables de interfaz. **No son parte de la entrega del ramo y de aquí no sale código de producción.**
 
@@ -37,11 +42,12 @@ El naranja `#F97316` da 2,8:1 sobre blanco, así que en ese tema no se usa para 
 ## Qué sigue
 
 Nada de esto está conectado con `frontend/`, que ya no está vacío: existe una aplicación React
-funcional y animada (`frontend/README-mockup.md`), escrita después que estos HTML y que ya los
-supera en todo lo que estos pretendían mostrar. La dirección visual que terminó en el producto
-sale de `nocturno-oscuro.html` — grafito, señal ámbar, cobre y tipografía Archivo + IBM Plex Mono —
-pero los tres archivos de esta carpeta siguen siendo telas planas, sin componentes ni estados.
+funcional y animada ([`frontend/README.md`](../../../frontend/README.md)), escrita después que estos
+HTML y que ya los supera en todo lo que estos pretendían mostrar. La dirección visual que terminó
+en el producto sale de `nocturno-oscuro.html` — grafito, señal ámbar, cobre y tipografía Archivo +
+IBM Plex Mono — pero los tres archivos de esta carpeta siguen siendo telas planas, sin componentes
+ni estados.
 
-Se conservan para poder comparar la evolución y justificar decisiones de diseño frente al
-spec. Cuando la aplicación real incorpore la lógica de negocio, esta carpeta se borra o se
-archiva.
+Esta carpeta se archivó el 2026-10-05 con el nombre que le da el título: `archivo-2026-09`, la
+fecha en que se escribieron los mockups. Sigue aquí para comparar la evolución y justificar
+decisiones de diseño frente al spec.

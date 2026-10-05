@@ -24,7 +24,7 @@ Requisitos que este spec detallará: **FR-001 → FR-006** y soporte a **NFR-05,
 - [ ] Flujo de refresh token y almacenamiento seguro en PWA
 - [ ] Esquema de hash y política de contraseñas
 - [ ] Endpoints (contratos): `POST /auth/login`, `POST /auth/refresh`, `GET /me`
-- [ ] Criterios de aceptación y casos de prueba (→ test-plan.md §3)
+- [ ] Criterios de aceptación y casos de prueba (→ docs/test-plan.md §3)
 - [ ] Plan técnico → `plans/001-auth-tenancy/plan.md`; tareas → `tasks/001-*/tasks.md`
 
 ## Control de cambios

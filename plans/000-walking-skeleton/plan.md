@@ -1,7 +1,7 @@
 # PLAN — Iteración 0: Walking skeleton (MVP vertical)
 
 **Versión:** 0.1.0 · **Fecha:** 2026-09-24 · **Autor:** Raúl González (infra/validación)
-**Derivado de:** `specs/000-master/spec.md` §9 (MVP) · **Relacionado:** ADR-001, ADR-002, `data-model.md`, `test-plan.md`
+**Derivado de:** `specs/000-master/spec.md` §9 (MVP) · **Relacionado:** ADR-001, ADR-002, `docs/data-model.md`, `docs/test-plan.md`
 **Tareas:** `tasks/000-walking-skeleton/tasks.md` (TSK-WS-001 → 012)
 
 > **Qué es este plan:** el *cómo* del primer corte vertical del sistema. No describe todo el producto — describe lo mínimo que atraviesa todas las capas (dispositivo → sync → backend → dashboard) y demuestra la promesa de punta a punta (Artículo III).
@@ -37,8 +37,8 @@ TSK-007 ingest batch (backend) ◄────────── TSK-008 worker 
 
 1. **Tie-breaker LWW determinista (TSK-009):** ante `captured_at` iguales, gana el mayor `client_version`; si también empatan, mayor UUIDv7 (orden lexicográfico). Esto hace la resolución **reproducible** ante relojes desviados (test-plan §5, caso adversarial). Queda documentado como criterio en el spec 003 cuando se detalle.
 2. **Refresh token en PWA (TSK-003):** decisión pendiente de elegir — las opciones (cookie httpOnly + CSRF vs storage cifrado vs SW-only) se documentarán en el spec 001 antes de implementar; esta iteración puede comenzar con access-token en memoria + refresh en storage temporal, marcado explícito en el plan.
-3. **Solo un idioma y toolchain (TSK-001):** pnpm workspaces, TypeScript en ambos extremos, DTOs compartidos en un paquete `shared/` — coherente con ADR-001.
-4. **El orden de dependencias del batch (TSK-007):** `site → inspection → responses → findings → attachments` fijo (data-model.md §4.2, FR-020).
+3. **Solo un idioma y toolchain (TSK-001):** npm workspaces, TypeScript en ambos extremos, DTOs compartidos en un paquete `shared/` — coherente con ADR-001.
+4. **El orden de dependencias del batch (TSK-007):** `site → inspection → responses → findings → attachments` fijo (docs/data-model.md §4.2, FR-020).
 
 ## 4. Riesgos y mitigaciones
 

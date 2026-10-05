@@ -83,7 +83,7 @@ Abramos un issue real para aprender a leerlo. Ejemplo: **[#19 — TSK-WS-005](ht
 │  FR-011 · FR-013 · FR-014 · FR-015                               │
 │                                                                  │
 │  ## Qué hay que hacer                  ← EL TRABAJO              │
-│  - Dexie con los stores de data-model.md §2.4                    │
+│  - Dexie con los stores de docs/data-model.md §2.4                    │
 │  - Formularios mínimos…                                          │
 │                                                                  │
 │  ## Criterio de aceptación             ← CÓMO SÉ QUE TERMINÉ     │
@@ -95,8 +95,8 @@ Abramos un issue real para aprender a leerlo. Ejemplo: **[#19 — TSK-WS-005](ht
 │  > Cita al Artículo I de la constitución…                        │
 │                                                                  │
 │  ## Referencias                        ← DÓNDE PROFUNDIZAR       │
-│  - data-model.md §2.4                                            │
-│  - test-plan.md §4 escenario 4                                   │
+│  - docs/data-model.md §2.4                                            │
+│  - docs/test-plan.md §4 escenario 4                                   │
 │                                                                  │
 ├──────────────────────────────────────────────────────────────────┤
 │  Barra lateral derecha:                                          │
@@ -234,8 +234,8 @@ PASO 4 — Entender el orden de construcción (20 min)
 
 PASO 5 — Profundizar en el corazón del proyecto (30 min)
   specs/003-motor-sincronizacion/spec.md
-  data-model.md §4 (reglas de integridad)
-  test-plan.md §4 (los 7 escenarios de caos)
+  docs/data-model.md §4 (reglas de integridad)
+  docs/test-plan.md §4 (los 7 escenarios de caos)
   → Este es el módulo donde se juega la nota. El board lo marca
     en rojo (module:003-sync) a propósito.
 
@@ -391,7 +391,7 @@ No son horas. Son **tamaño relativo**, y el cerebro humano compara mejor de lo 
 #2   [F2] Fase 2 — Diseño y desarrollo iterativo           ← épica paraguas
 │
 ├── #3   Iteración 0 — Walking skeleton (MVP vertical)     ← MILESTONE M0
-│   ├── #27  TSK-WS-001  Bootstrap monorepo pnpm           Raúl   3 pts
+│   ├── #27  TSK-WS-001  Bootstrap monorepo npm            Raúl   3 pts
 │   ├── #16  TSK-WS-002  PostgreSQL 16 + RLS               Raúl   5 pts
 │   ├── #17  TSK-WS-003  Auth (login/refresh/me)           Raúl   5 pts  ⚠ bloqueado por #11
 │   ├── #18  TSK-WS-004  PWA shell + service worker        Daniel 3 pts
@@ -546,8 +546,8 @@ Notas, decisiones ya tomadas, trampas conocidas.
 ## Referencias
 
 - `specs/003-motor-sincronizacion/spec.md` §X
-- `data-model.md` §X
-- `test-plan.md` §X
+- `docs/data-model.md` §X
+- `docs/test-plan.md` §X
 
 ---
 

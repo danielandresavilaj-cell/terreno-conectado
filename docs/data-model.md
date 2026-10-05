@@ -82,7 +82,7 @@ erDiagram
 **INSPECTION_RESPONSE** — `id, inspection_id, template_item_id, tenant_id, value_ok ENUM(ok,nok,na) NULL, value_text NULL, value_number NULL, captured_at, client_version`.
 **FINDING (Hallazgo)** — `id, inspection_id NULL, response_id NULL, tenant_id, severity ENUM(low, medium, high, critical), description TEXT, status ENUM(open, in_progress, resolved), captured_at, client_version`.
 **LOG_ENTRY (Bitácora)** — `id, site_id, author_id, tenant_id, entry_text TEXT, tags TEXT[], shift_date DATE, captured_at, client_version`.
-**ATTACHMENT (Foto)** — `id, tenant_id, owner_type ENUM(inspection, finding, log_entry), owner_id, file_key TEXT, mime, bytes INT, width/height INT, captured_at, client_version`. V1: `file_key` apunta a volumen Docker; evolución S3 documentada en research.md §6.
+**ATTACHMENT (Foto)** — `id, tenant_id, owner_type ENUM(inspection, finding, log_entry), owner_id, file_key TEXT, mime, bytes INT, width/height INT, captured_at, client_version`. V1: `file_key` apunta a volumen Docker; evolución S3 documentada en docs/research.md §6.
 
 ### 2.3 Sincronización y auditoría (spec 003 / 006)
 

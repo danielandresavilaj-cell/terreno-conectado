@@ -10,7 +10,7 @@
 
 ## Alcance heredado del spec maestro
 
-Requisitos que este spec detallará: **FR-030 → FR-035** y las entidades de dominio de data-model.md §2.2.
+Requisitos que este spec detallará: **FR-030 → FR-035** y las entidades de dominio de docs/data-model.md §2.2.
 
 - Plantillas de inspección versionadas: secciones, ítems, tipos de respuesta (ok/nok/na, texto, numérico, foto), reglas (hallazgo obligatorio en `nok`).
 - Ciclo de vida de inspección: `draft → in_progress → submitted → reviewed` (FR-031).
@@ -24,8 +24,8 @@ Requisitos que este spec detallará: **FR-030 → FR-035** y las entidades de do
 - [ ] Editor de plantillas (tenant_admin): UX de secciones/ítems y versionado (¿qué pasa con inspecciones en curso al versionar?)
 - [ ] Reglas de validación por tipo de respuesta (rangos numéricos, foto obligatoria)
 - [ ] Contratos de API de dominio (CRUD plantillas, lectura de inspecciones/hallazgos/bitácoras)
-- [ ] Semillas demo realistas (minería + construcción, es-CL) — data-model.md §5
-- [ ] Criterios de aceptación y pruebas (test-plan.md §3: FR-031/032)
+- [ ] Semillas demo realistas (minería + construcción, es-CL) — docs/data-model.md §5
+- [ ] Criterios de aceptación y pruebas (docs/test-plan.md §3: FR-031/032)
 - [ ] Plan técnico → `plans/004-dominio-inspecciones/plan.md`
 
 ## Control de cambios

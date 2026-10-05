@@ -2,7 +2,7 @@
 
 **Estado:** ACEPTADO (Daniel Ávila, 2026-09-14 · Raúl González, 2026-09-24)
 **Fecha:** 2026-09-14 · **Decisores:** Daniel Ávila, Raúl González
-**Relacionado:** research.md (evaluación completa), spec maestro §7–8
+**Relacionado:** docs/research.md (evaluación completa), spec maestro §7–8
 
 ## Contexto
 
@@ -10,17 +10,17 @@ Equipo de 2 estudiantes, ~11 semanas efectivas (Fase 2 del Gantt), otras asignat
 
 ## Decisión
 
-1. **Un solo lenguaje: TypeScript full-stack** (monorepo pnpm workspaces, tipos compartidos frontend/backend).
+1. **Un solo lenguaje: TypeScript full-stack** (monorepo npm workspaces, tipos compartidos frontend/backend).
 2. **Frontend:** PWA React 18 + Vite + Dexie (IndexedDB) + Workbox. Cola de sync propia en el cliente.
 3. **Backend:** monolito modular **NestJS** + REST. Endpoints de ingesta por lotes idempotentes.
-4. **Base de datos:** **PostgreSQL 16** con **Row-Level Security** como mecanismo primario de aislamiento multi-tenant (`tenant_id` + `SET LOCAL app.tenant_id` por transacción; ver data-model.md §3).
+4. **Base de datos:** **PostgreSQL 16** con **Row-Level Security** como mecanismo primario de aislamiento multi-tenant (`tenant_id` + `SET LOCAL app.tenant_id` por transacción; ver docs/data-model.md §3).
 5. **Sincronización:** implementación propia (cola Dexie + upsert por UUIDv7 cliente + LWW auditado con CONFLICT_RECORD). Sin BaaS de sync (PowerSync/ElectricSQL descartados).
 6. **Fotos:** compresión en cliente; almacenamiento V1 en volumen Docker del VPS.
-7. **Testing:** Vitest + Playwright + Testcontainers (detalle en test-plan.md).
+7. **Testing:** Vitest + Playwright + Testcontainers (detalle en docs/test-plan.md).
 
 ## Alternativas consideradas
 
-FastAPI (segundo lenguaje), Supabase (lock-in + pierde aprendizaje de backend), MongoDB/MySQL (sin RLS equivalente), PowerSync/ElectricSQL/CRDTs (delegan u over-engineering del núcleo), apps nativas (fuera de alcance). Evaluación ponderada completa en **research.md**.
+FastAPI (segundo lenguaje), Supabase (lock-in + pierde aprendizaje de backend), MongoDB/MySQL (sin RLS equivalente), PowerSync/ElectricSQL/CRDTs (delegan u over-engineering del núcleo), apps nativas (fuera de alcance). Evaluación ponderada completa en **docs/research.md**.
 
 ## Consecuencias
 

@@ -24,7 +24,7 @@ Requisitos que este spec detallará: **FR-040 → FR-043** y soporte a **NFR-03*
 - [ ] Visualización del registro de conflictos para el supervisor (FR-023 consume aquí)
 - [ ] Definición exacta de la métrica de latencia (percentil 50/95) para el informe final
 - [ ] Export CSV: formato, encoding, columnas
-- [ ] Criterios de aceptación y pruebas (test-plan.md §3: FR-040/043)
+- [ ] Criterios de aceptación y pruebas (docs/test-plan.md §3: FR-040/043)
 - [ ] Plan técnico → `plans/005-reportes-gerencia/plan.md`
 
 ## Evolución futura (post-V1 — NO entra en el alcance actual)
@@ -35,7 +35,7 @@ Idea del equipo registrada como visión, sin comprometer el alcance V1 (spec mae
 - **Por qué no entra en V1:** costo de API de LLM (choca con NFR-08, ≤ US$7/mes), privacidad multi-tenant (datos de un cliente saliendo hacia un proveedor externo — a evaluar contra Artículo IV/NFR-06) y carga de trabajo del equipo (Artículo V).
 - **Cuándo reabrirlo:** si el equipo lo decide, como enmienda al spec maestro (Artículo X) después de cerrar el walking skeleton, con costos y privacidad resueltos.
 
-> Nota: la IA sí participa en V1 como **probador adversarial** (red-team cross-model, test-plan.md §5, Artículo VII).
+> Nota: la IA sí participa en V1 como **probador adversarial** (red-team cross-model, docs/test-plan.md §5, Artículo VII).
 
 ## Control de cambios
 

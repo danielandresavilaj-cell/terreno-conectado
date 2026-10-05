@@ -29,7 +29,7 @@ Proyecto Capstone (PTY4614) — Duoc UC, Ingeniería en Informática, Sede Alame
 | CI/CD | GitHub Actions | typecheck y build en cada push (`.github/workflows/ci.yml`); tests y deploy pendientes (issue #14) |
 | Tests | Vitest + Playwright + Testcontainers | `context.setOffline` simula el offline real |
 
-Evaluación completa y alternativas descartadas con criterios: [research.md](research.md) · Decisiones firmadas: [adr/](adr/)
+Evaluación completa y alternativas descartadas con criterios: [docs/research.md](docs/research.md) · Decisiones firmadas: [adr/](adr/)
 
 ## Arquitectura
 
@@ -67,7 +67,7 @@ flowchart LR
 - **Aislamiento por motor (Art. IV).** Cada tabla de dominio lleva `tenant_id` y una política RLS. El filtrado de la aplicación es defensa secundaria, no la principal.
 - **Presupuesto (Art. VI).** ~US$5/mes en un solo VPS. El diseño de producción real (~US$200-600/mes) está documentado en [adr/002-arquitectura-despliegue.md](adr/002-arquitectura-despliegue.md) sin provisionarse.
 
-Modelo de datos completo (13 tablas): [data-model.md](data-model.md) · Requisitos FR/NFR: [specs/000-master/spec.md](specs/000-master/spec.md)
+Modelo de datos completo (13 tablas): [docs/data-model.md](docs/data-model.md) · Requisitos FR/NFR: [specs/000-master/spec.md](specs/000-master/spec.md)
 
 ## Metodología: Spec Driven Development (SDD)
 
@@ -84,20 +84,19 @@ terreno-conectado/
 │   ├── 004-dominio-inspecciones/
 │   ├── 005-reportes-gerencia/
 │   └── 006-admin-plataforma/
-├── research.md           ← Stack evaluado y alternativas descartadas con criterios
-├── data-model.md         ← Modelo conceptual de datos (evidencia APT Fase 2)
-├── test-plan.md          ← Plan de pruebas de validación (evidencia APT Fase 2)
+├── docs/                 ← research.md · data-model.md · test-plan.md · guia-del-tablero.md · evidencias.md
 ├── adr/                  ← Decisiones arquitectónicas (incl. ejercicio de despliegue/redes/costos)
 ├── plans/                ← plan.md por módulo (diseño técnico derivado del spec)
 ├── tasks/                ← tasks.md por iteración (cada tarea referencia FR/NFR del spec)
-├── docs/                 ← Guías de trabajo del equipo (tablero, convenciones)
-├── Fase 1/
-│   └── Evidencias Grupales/    ← Informe de Definición del Proyecto APT (el resto vive en el repo Capstone)
-├── frontend/             ← Mockup React + Vite (app funcional; Dexie e IndexedDB pendientes)
+├── frontend/             ← PWA React + Vite (app funcional; Dexie e IndexedDB pendientes)
 ├── backend/              ← NestJS + PostgreSQL 16 (Row-Level Security) — pendiente
 ├── infra/                ← Docker Compose, Caddy, scripts de deploy — pendiente
 └── .github/workflows/    ← CI: typecheck + build del frontend (issue #14)
 ```
+
+Las evidencias formales de la asignatura **no viven aquí**: están en el repositorio
+[Capstone](https://github.com/danielandresavilaj-cell/Capstone). La regla que lo define y el flujo
+para subirlas están en [`docs/evidencias.md`](docs/evidencias.md).
 
 ## Ciclo de trabajo por módulo
 
@@ -110,47 +109,50 @@ terreno-conectado/
 
 ## Cómo ejecutar localmente
 
-> ⚠️ **Estado real: el frontend sí corre, el resto todavía no.** El mockup de `frontend/` es una
+> ⚠️ **Estado real: el frontend sí corre, el resto todavía no.** La PWA de `frontend/` es una
 > app navegable con la cola de sincronización simulada. `backend/` e `infra/` siguen vacíos: no hay
-> monorepo, ni PostgreSQL, ni API. Por eso los pasos van separados.
+> PostgreSQL, ni API, ni cola persistente. Por eso los pasos van separados.
 
 ### Frontend — funciona hoy
 
 App React 18 + Vite 6 + Tailwind 4, seis pantallas (Login, Captura, Bitácora, Cola, Gerencia,
-Conflictos) con el ciclo `pending → syncing → synced` animado. No hay persistencia ni API: es un
-mockup, y lo que le falta está detallado en
-[`frontend/README-mockup.md`](frontend/README-mockup.md).
+Conflictos) con el ciclo `pending → syncing → synced` animado. No hay persistencia ni API todavía;
+lo que le falta está detallado en [`frontend/README.md`](frontend/README.md).
 
 **Prerrequisitos:** Node.js 20 LTS. Nada más — no necesita Docker ni base de datos.
 
 ```bash
 git clone https://github.com/danielandresavilaj-cell/terreno-conectado.git
-cd terreno-conectado/frontend
+cd terreno-conectado
 
 npm install
 npm run dev                # Vite  -> http://localhost:5173
 ```
 
-Otros comandos: `npm run typecheck`, `npm run build` (bundle en `dist/`), `npm run preview`.
+Otros comandos: `npm run typecheck`, `npm run build` (bundle en `frontend/dist/`), `npm run preview`.
 
-Cada push a `main` corre typecheck y build en [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
+El CI (typecheck + build del frontend) está escrito pero **todavía no está activo en el repositorio**:
+subir `.github/workflows/` requiere un PAT con scope `workflow`, que el equipo todavía no ha
+regenerado ([issue #14](https://github.com/danielandresavilaj-cell/terreno-conectado/issues/14)).
+Hasta que exista, el typecheck y el build hay que correrlos a mano con los comandos de arriba.
 
 ### Monorepo — pendiente, todavía no se puede ejecutar
 
 Los comandos que siguen son el contrato de [ADR-001](adr/001-stack-y-multitenant.md) y de
-[TSK-WS-001 / TSK-WS-002](tasks/000-walking-skeleton/tasks.md), no instrucciones de hoy. **Ninguno
-funciona todavía**: no existen `pnpm-workspace.yaml`, `package.json` raíz, `infra/docker-compose.yml`
-ni `.env.example`. Se habilitan al cerrar la iteración 0 (milestone M0, issues
+[TSK-WS-001 / TSK-WS-002](tasks/000-walking-skeleton/tasks.md), no instrucciones de hoy. El
+`package.json` raíz con `workspaces` ya existe y resuelve `frontend/`; **el resto aún no funciona**:
+no existen `infra/docker-compose.yml` ni `.env.example`. Se habilitan al cerrar la iteración 0
+(milestone M0, issues
 [#27](https://github.com/danielandresavilaj-cell/terreno-conectado/issues/27) y
-[#16](https://github.com/danielandresavilaj-cell/terreno-conectado/issues/16)).
+[#16](https://github.com/danielandresavilaj-cell/terreno-conectado/issues/16))).
 
 ```bash
-pnpm install                                  # instala los 3 workspaces
+npm install                                   # instala los workspaces declarados
 docker compose -f infra/docker-compose.yml up -d   # PostgreSQL 16
-pnpm --filter backend start:dev               # NestJS  -> :3000
-pnpm --filter frontend dev                    # Vite    -> :5173
-pnpm seed:demo                                # tenants A y B de prueba (FR-006)
-pnpm test                                     # unit + integración
+npm run start:dev -w backend                  # NestJS  -> :3000
+npm run dev -w frontend                       # Vite    -> :5173
+npm run seed:demo                             # tenants A y B de prueba (FR-006)
+npm test                                      # unit + integración
 ```
 
 **Variables de entorno:** se copiará `.env.example` a `.env`; ese archivo aún no existe. Ningún
@@ -170,15 +172,16 @@ secreto se versiona (constitución, Art. IX).
 | Tablero del equipo | https://github.com/users/danielandresavilaj-cell/projects/1 |
 | Issues | https://github.com/danielandresavilaj-cell/terreno-conectado/issues |
 
-> Proyecto **monorepo**: `frontend/`, `backend/` e `infra/` viven en un solo repositorio (pnpm workspaces), por lo que este es el único enlace que hay que entregar.
+> Proyecto **monorepo**: `frontend/`, `backend/` e `infra/` viven en un solo repositorio (npm workspaces), por lo que este es el único enlace que hay que entregar.
 
 ## Documentos clave para empezar
 
 1. [constitution.md](constitution.md)
 2. Evidencias de la asignatura en el repositorio [Capstone](https://github.com/danielandresavilaj-cell/Capstone) — Fase 1 completa (informe APT, guía 1.5, presentación, Carta Gantt y evidencias individuales) y plantillas de Fase 2
 3. [specs/000-master/spec.md](specs/000-master/spec.md)
-4. [research.md](research.md) · [data-model.md](data-model.md) · [test-plan.md](test-plan.md)
+4. [docs/research.md](docs/research.md) · [docs/data-model.md](docs/data-model.md) · [docs/test-plan.md](docs/test-plan.md)
 5. [docs/guia-del-tablero.md](docs/guia-del-tablero.md) — cómo navegar, leer y trabajar con el [tablero compartido](https://github.com/users/danielandresavilaj-cell/projects/1)
+6. [docs/evidencias.md](docs/evidencias.md) — qué evidencia vive en este repo y cuál en [Capstone](https://github.com/danielandresavilaj-cell/Capstone), y cómo subir una al cerrar cada fase
 
 ## Tablero del equipo
 

@@ -64,7 +64,7 @@ Escenarios ejecutados con Playwright (offline automático) y manualmente en la d
 
 ## 6. Datos de prueba
 
-- Semillas deterministas (`seed:demo`) — tenants A y B de data-model.md §5.
+- Semillas deterministas (`seed:demo`) — tenants A y B de docs/data-model.md §5.
 - Generación masiva con faker es-CL para caos y rendimiento.
 - Fotos sintéticas de tamaños conocidos (1/5/12 MP) para FR-012.
 - Nunca datos reales de empresas (informe APT §3.5: sin acceso a faenas reales).

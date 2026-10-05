@@ -23,7 +23,7 @@ Requisitos que este spec detallará: **FR-050 → FR-052** y soporte a **NFR-09*
 - [ ] Modelo del audit log y política de retención
 - [ ] Contrato `/health` (shape JSON, qué verifica) + integración con uptime monitor
 - [ ] Procedimiento de alta de tenant (checklist operativo documentado)
-- [ ] Criterios de aceptación y pruebas (test-plan.md §3: FR-052)
+- [ ] Criterios de aceptación y pruebas (docs/test-plan.md §3: FR-052)
 - [ ] Plan técnico → `plans/006-admin-plataforma/plan.md`
 
 ## Control de cambios

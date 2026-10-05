@@ -1,18 +1,29 @@
-# Mockup funcional y animado — Terreno Conectado
+# PWA en construcción — Terreno Conectado (frontend)
 
-Prototipo navegable de la PWA para validar el diseño antes de escribir la lógica de negocio.
-**Los botones reaccionan y las transiciones se ven, pero no hay persistencia, API, IndexedDB ni
-cola real.** El único ciclo simulado de verdad es el de la cola de sincronización
-(`pending → syncing → synced`), porque es el momento que demuestra la propuesta de valor
-(spec maestro §9, paso 3) y sin él el mockup no cuenta la historia.
+Aplicación React 18 + Vite 6 + Tailwind 4. Es la primera pieza real del producto: valida el diseño
+y la interacción en terreno antes de que exista la lógica de negocio. **Los botones reaccionan y las
+transiciones se ven, pero todavía no hay persistencia, API, IndexedDB ni cola real.** El único ciclo
+simulado de verdad es el de la cola de sincronización (`pending → syncing → synced`), porque es el
+momento que demuestra la propuesta de valor (spec maestro §9, paso 3) y sin él la app no cuenta la
+historia.
+
+Lo que falta para el producto real está trazado en
+[`tasks/000-walking-skeleton/tasks.md`](../tasks/000-walking-skeleton/tasks.md) y resumido al final
+de este documento.
 
 ## Correr
 
+Los comandos se ejecutan desde la raíz del repositorio (npm workspaces, ver `package.json` raíz):
+
 ```bash
 npm install
-npm run dev      # http://localhost:5173
-npm run build    # bundle de producción en dist/
+npm run dev                # http://localhost:5173
+npm run build              # bundle de producción en frontend/dist/
+npm run typecheck
 ```
+
+También funciona entrando directo a `frontend/` con `npm install && npm run dev`, aunque la forma
+canónica es desde la raíz.
 
 ## Recorrido de demo (guion del spec maestro §9)
 
@@ -90,13 +101,13 @@ opacidad que ayudan a comprender.
 
 ```
 src/
-  App.tsx                 Permisos por rol + routing del mockup
+  App.tsx                 Permisos por rol + routing de la app
   index.css               Tokens de diseño (@theme) y keyframes
   lib/
-    types.ts              Tipos del dominio (espejo de data-model.md)
+    types.ts              Tipos del dominio (espejo de docs/data-model.md)
     seed.ts               Datos semilla es-CL del tenant demo
     motion.ts             Tokens de movimiento compartidos
-    store.tsx             Estado del mockup + ciclo de la cola
+    store.tsx             Estado en memoria + ciclo de la cola
   components/
     Shell.tsx             Barra superior, navegación, interruptor de señal
     ui.tsx                Botón y Tarjeta (primitivas de presión/selección)
@@ -109,7 +120,29 @@ src/
 
 ## Qué falta para el producto real
 
-Todo lo que el mockup no es, y que el ciclo `spec → plan → tasks → código → tests → evidencia`
-de la constitución exige antes de implementarse: Dexie e IndexedDB, Workbox y service worker,
-compresión de imagen en canvas, cola idempotente con backoff, endpoints NestJS, RLS en
-PostgreSQL, y la suite de pruebas del `test-plan.md` (caos offline, intrusión cross-tenant).
+Todo lo que esta app todavía no es, y que el ciclo `spec → plan → tasks → código → tests →
+evidencia` de la constitución exige antes de implementarse:
+
+| Falta | Tarea / requisito |
+| :--- | :--- |
+| Dexie e IndexedDB (stores, claves, índices) | TSK-WS-005 · FR-011, FR-014 |
+| Workbox y service worker, PWA instalable | TSK-WS-004 · FR-010, NFR-01 |
+| Compresión de foto en canvas (≤ 1280 px, q 0.7) | TSK-WS-006 · FR-012 |
+| Worker de cola: disparo en `online`, backoff, marcado `synced` | TSK-WS-008 · FR-016, FR-022 |
+| Ingesta idempotente `POST /api/v1/sync/batch` | TSK-WS-007 · FR-020, FR-021 |
+| LWW + `CONFLICT_RECORD` (tie-breaker determinista) | TSK-WS-009 · FR-023 |
+| Rechazo cross-tenant + incidente en `AUDIT_LOG` | TSK-WS-010 · FR-025, FR-051 |
+| Dashboard mínimo con hallazgo alto/crítico | TSK-WS-011 · FR-035, FR-040 |
+| Auth (`/auth/login`, `/auth/refresh`, `/me`) | TSK-WS-003 · FR-001, FR-003 |
+| RLS en PostgreSQL | TSK-WS-002 · FR-006 |
+| Suite del `docs/test-plan.md` (caos offline, intrusión cross-tenant) | `docs/test-plan.md` §4 |
+
+La referencia completa, con criterios de aceptación y dependencias, está en
+[`tasks/000-walking-skeleton/tasks.md`](../tasks/000-walking-skeleton/tasks.md); este cuadro es un
+resumen para quien abra la carpeta sin leer el plan completo.
+
+## Nota sobre los mockups anteriores
+
+Las tres exploraciones visuales en HTML que precedieron a esta app están congeladas en
+[`docs/diseno/archivo-2026-09/`](../docs/diseno/archivo-2026-09/). No son código de producción ni
+una base para continuar: solo sirven para documentar la evolución del diseño.

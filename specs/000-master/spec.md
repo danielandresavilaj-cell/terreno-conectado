@@ -3,7 +3,7 @@
 | | |
 | :--- | :--- |
 | **ID** | 000-master |
-| **Versión** | 1.0.1 |
+| **Versión** | 1.1.0 |
 | **Estado** | APROBADO POR RAÚL GONZÁLEZ (2026-09-24) — pendiente firma de Daniel Ávila |
 | **Autores** | Daniel Ávila (datos/negocio) · Raúl González (infra/plataforma) |
 | **Fuente** | Informe de Definición APT, Fase 1 (2026-09-04) |
@@ -141,7 +141,7 @@ Convención EARS en español: ubicuo (`EL SISTEMA DEBERÁ…`), evento (`CUANDO�
 | **NFR-08** | Presupuesto | Infraestructura demo ≤ US$7/mes (Artículo VI). Sin servicios de pago no documentados. |
 | **NFR-09** | Observabilidad | `/health`, uptime monitoring externo (free tier), logs estructurados JSON con `tenant_id` y `request_id`. |
 | **NFR-10** | Idiomas | Documentación en español; código, tests, commits, variables y CI en inglés. UI de la app en español (es-CL). |
-| **NFR-11** | Simplicidad | Monolito NestJS + PWA React; un solo lenguaje (TypeScript); dependencias justificadas en research.md (Artículo V). |
+| **NFR-11** | Simplicidad | Monolito NestJS + PWA React; un solo lenguaje (TypeScript); dependencias justificadas en docs/research.md (Artículo V). |
 | **NFR-12** | Trazabilidad SDD | 100% de tasks referencian FR/NFR; 100% de FR con al menos un test (Artículos II y VII). |
 
 ## 7. Modelo multi-tenant
@@ -152,9 +152,9 @@ Convención EARS en español: ubicuo (`EL SISTEMA DEBERÁ…`), evento (`CUANDO�
 - **Datos por tenant:** usuarios, faenas, plantillas, inspecciones, hallazgos, bitácoras, conflictos, auditoría.
 - **Demo:** tenant semilla "Minera El Cobre SpA" + tenant semilla "Constructora Andes SpA" para probar aislamiento en vivo (Artículo IV / evidencia).
 
-Detalle físico (tablas, índices, políticas): `data-model.md`.
+Detalle físico (tablas, índices, políticas): `docs/data-model.md`.
 
-## 8. Stack tecnológico (resumen — decisión completa en ADR-001 y research.md)
+## 8. Stack tecnológico (resumen — decisión completa en ADR-001 y docs/research.md)
 
 | Capa | Tecnología |
 | :--- | :--- |
@@ -202,15 +202,20 @@ Fuera de alcance explícito — cualquier inclusión requiere enmienda a este sp
 
 ## 12. Mapeo evidencia APT → artefacto SDD (Artículo VIII)
 
-| Evidencia APT (informe §6) | Tipo | Artefacto en este repo |
-| :--- | :--- | :--- |
-| Informe de Definición del Proyecto APT | Avance | `~/Downloads/informe-capstone.md` (input, Fase 1 cerrada) |
-| Modelo conceptual de datos preliminar | Avance | `data-model.md` |
-| Boceto del flujo de captura y sincronización | Avance | §3.1 de este spec (mermaid) + `specs/003-motor-sincronizacion/` |
-| Plan de pruebas de validación | Avance | `test-plan.md` |
-| Prototipo o maqueta demostrativa | Final | `frontend/` + `backend/` + demo desplegada (ADR-002) + guion de demo (§9) |
-| Informe final y presentación de resultados | Final | `docs-evidencia/informe-final/` (Fase 3; consolida specs, resultados de test-plan y ADRs) |
-| Plan de trabajo / Carta Gantt | Transversal | Intactos en el informe APT §7–8; el avance SDD se evidencia en `tasks/` e historial git |
+**Regla:** este repositorio guarda la *fuente* en Markdown; el *entregable formal* de la asignatura
+se versiona únicamente en el repositorio [Capstone](https://github.com/danielandresavilaj-cell/Capstone).
+No se versiona aquí ningún documento formal ni carpeta de staging: el flujo de exportación está en
+`docs/evidencias.md`.
+
+| Evidencia APT (informe §6) | Tipo | Fuente (este repo) | Entregable formal (repo Capstone) |
+| :--- | :--- | :--- | :--- |
+| Informe de Definición del Proyecto APT | Avance | Já cerrado; histórico en el log de git | `Fase 1/Evidencias Grupales/Informe_Definicion_Proyecto_APT_Fase1.docx` |
+| Modelo conceptual de datos preliminar | Avance | `docs/data-model.md` | `Fase 2/` — al cerrar la fase |
+| Boceto del flujo de captura y sincronización | Avance | §3.1 de este spec (mermaid) + `specs/003-motor-sincronizacion/` | `Fase 2/` — al cerrar la fase |
+| Plan de pruebas de validación | Avance | `docs/test-plan.md` | `Fase 2/` — al cerrar la fase |
+| Prototipo o maqueta demostrativa | Final | `frontend/` + `backend/` + demo desplegada (ADR-002) + guion de demo (§9) | `Fase 2/` — al cerrar la fase |
+| Informe final y presentación de resultados | Final | Consolida specs, resultados de `docs/test-plan.md` y ADRs | `Fase 3/Evidencias Grupales/` |
+| Plan de trabajo / Carta Gantt | Transversal | Intactos en el informe APT §7–8; el avance SDD se evidencia en `tasks/` e historial git | `Fase 1/Evidencias Grupales/` |
 
 ## 13. Criterios de aceptación de la demo final
 
@@ -247,3 +252,4 @@ La demo se considera exitosa si, en vivo ante el docente:
 | 1.0.0 | 2026-09-14 | Borrador inicial derivado del informe APT Fase 1 + decisiones de grilling (Q1–Q14) | Daniel Ávila (con IA) |
 | 1.0.1 | 2026-09-23 | Título: "Decisiones en Tiempo Real" → "Datos al día donde no hay señal" (Opción A — alinear la promesa con la realidad offline-first) | Raúl González (con IA) |
 | 1.0.1 | 2026-09-24 | Firmado por Raúl González; pendiente firma de Daniel Ávila | Raúl González (con IA) |
+| 1.1.0 | 2026-10-05 | §12 reescrito: columna "Fuente (este repo)" + "Entregable formal (repo Capstone)"; se elimina la ruta local `docs-evidencia/informe-final/` y la referencia a `~/Downloads/`. Los entregables formales pasan a vivir solo en el repo Capstone (regla en `docs/evidencias.md`). Sin cambio de requisitos FR/NFR | Daniel Ávila (con IA) |

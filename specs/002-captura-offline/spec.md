@@ -21,11 +21,11 @@ Requisitos que este spec detallará: **FR-010 → FR-017** y soporte a **NFR-01,
 
 ## Secciones a completar en el ciclo del módulo
 
-- [ ] Diseño del esquema Dexie (stores, claves, índices) — alineado con data-model.md §2.4
+- [ ] Diseño del esquema Dexie (stores, claves, índices) — alineado con docs/data-model.md §2.4
 - [ ] UX de captura con guantes/luz solar: targets táctiles, contraste, autoguardado de borrador
 - [ ] Estrategia de cache Workbox (shell precache, plantillas cache-first, API network-first)
 - [ ] Compresión de imagen (canvas) y almacenamiento de blobs en IndexedDB
-- [ ] Criterios de aceptación y pruebas de caos asociadas (test-plan.md §4.1/4.4)
+- [ ] Criterios de aceptación y pruebas de caos asociadas (docs/test-plan.md §4.1/4.4)
 - [ ] Plan técnico → `plans/002-captura-offline/plan.md`
 
 ## Control de cambios
