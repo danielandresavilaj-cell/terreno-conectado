@@ -32,18 +32,9 @@ pgdata/
 # Nota: `.github/` ya NO se excluye.
 # Se excluía como rodeo porque el PAT de `git:https://github.com` no tiene el
 # scope `workflow`, y GitHub rechaza el push si un commit toca un archivo de
-# workflow sin ese scope. Excluir la carpeta era la forma de no toparse con el
-# rechazo, a costa de que la CI no se pudiera versionar.
+# workflow sin ese scope.
 #
-# El rodeo ya no hace falta: en este commit no hay ningun workflow, asi que el
-# push no lo dispara. Cuando se agregue `.github/workflows/`, el push va a
-# fallar con:
-#
-#   ! [remote rejected] ... (refusing to allow a Personal Access Token to
-#   create or update workflow ... without `workflow` scope)
-#
-# Eso significa hay que regenerar el PAT con ese scope. Es el ultimo paso que
-# bloquea el issue #14, y no se puede resolver desde el repo.
-#
-# Estado: el workflow de typecheck + build del frontend esta escrito y en la
-# rama local `ci/workflow-parkada`, esperando el token con scope para subirse.
+# Estado (2026-10-06, cierra #14): `.github/workflows/ci.yml` ya está versionado
+# y activo (se subió con un token que sí tiene el scope). Si haces push LOCAL de
+# cambios a workflows, tu PAT sigue necesitando el scope `workflow`; edítalos vía
+# web/API o regenera tu token. La rama local `ci/workflow-parkada` quedó obsoleta.
