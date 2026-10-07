@@ -36,7 +36,7 @@ const ORDEN_TIPO: Record<string, string> = {
 }
 
 export function Cola() {
-  const { cola, pendientes, online, recienSincronizado, setOnline } = useEstado()
+  const { cola, pendientes, online, recienSincronizado, setOnline, sincronizarAhora } = useEstado()
   const [filtro, setFiltro] = useState<'todos' | 'pendientes' | 'fallidos'>('todos')
 
   const lista = cola
@@ -190,7 +190,14 @@ export function Cola() {
         )}
         {!online && (
           <div className="mt-3">
-            <Boton tamano="sm" variante="secundaria" onClick={() => setOnline(true)}>
+            <Boton
+              tamano="sm"
+              variante="secundaria"
+              onClick={() => {
+                setOnline(true)
+                void sincronizarAhora()
+              }}
+            >
               Simular llegada de señal
             </Boton>
           </div>

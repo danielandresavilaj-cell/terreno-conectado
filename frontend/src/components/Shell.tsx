@@ -88,7 +88,7 @@ const NAV: Array<{ id: Pantalla; label: string; roles: Rol[]; icono: ReactNode }
 ]
 
 export function Shell({ children }: { children: ReactNode }) {
-  const { usuario, salir, pantalla, ir, online, toggleOnline, pendientes, cuotaAviso, setOnline } =
+  const { usuario, salir, pantalla, ir, online, toggleOnline, pendientes, cuotaAviso, setOnline, sincronizarAhora } =
     useEstado()
   const reducir = useReducedMotion()
   const [verAviso, setVerAviso] = useState(false)
@@ -235,6 +235,7 @@ export function Shell({ children }: { children: ReactNode }) {
                     onClick={() => {
                       setVerAviso(false)
                       setOnline(true)
+                      void sincronizarAhora()
                     }}
                   >
                     Sincronizar ahora

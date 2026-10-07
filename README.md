@@ -113,9 +113,10 @@ terreno-conectado/
 
 > **Estado real:** el monorepo, la base de datos (PostgreSQL 16 + RLS), la **auth** y la **PWA
 > instalable** ya existen. Desde **TSK-WS-005** el `frontend/` **persiste de verdad** en
-> Dexie/IndexedDB (inspección, hallazgos, bitácora y outbox local con UUIDv7 de cliente) y desde
-> **TSK-WS-007** el backend expone `POST /api/v1/sync/batch` (ingesta idempotente); el **worker**
-> que dispara la cola del cliente llega en TSK-WS-008 y el dashboard en TSK-WS-011.
+> Dexie/IndexedDB (inspección, hallazgos, bitácora y outbox local con UUIDv7 de cliente), desde
+> **TSK-WS-007** el backend expone `POST /api/v1/sync/batch` (ingesta idempotente) y desde
+> **TSK-WS-008** el **worker** de cola del cliente dispara la sincronización sola al reconectar;
+> el dashboard llega en TSK-WS-011.
 
 ### Frontend — funciona hoy
 
@@ -127,8 +128,11 @@ autoguarda en Dexie/IndexedDB (el borrador se restaura al reabrir, FR-014), los 
 bitácora se guardan localmente, y todo queda encolado en un **outbox real** con IDs **UUIDv7** de
 cliente (FR-013, FR-015) y orden de dependencia FR-020. Desde **TSK-WS-006** la foto del hallazgo
 se **comprime en el dispositivo** antes de encolarse (canvas ≤1280 px, q0.7, FR-012). La cola la
-consume la capa de sync: la API ya existe (**TSK-WS-007**, `POST /api/v1/sync/batch` idempotente);
-falta el **worker** de cliente que la dispara sola al reconectar (TSK-WS-008).
+consume el **worker de sincronización** (**TSK-WS-008**): al reconectar (evento `online` del
+navegador) o justo después de encolar, dispara el *flush* automático contra
+`POST /api/v1/sync/batch` con **concurrencia 1** y **backoff exponencial 1 s→5 min**; cada fila
+pasa `pending → syncing → synced` (o `failed` con contador de intentos y `lastError`, FR-016,
+FR-022, FR-026). La url de la API se ajusta con `VITE_API_URL` (default `http://localhost:3000/api/v1`).
 
 **Prerrequisitos:** Node.js 22 LTS. Nada más — no necesita Docker ni base de datos.
 
