@@ -1,0 +1,10 @@
+{
+  "name": "@terreno/infra",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Infraestructura de demo (Docker Compose, Caddy, deploy) — TSK-WS-002+ definen su contenido",
+  "scripts": {
+    "up": "docker compose -f docker-compose.yml up -d",
+    "down": "docker compose -f docker-compose.yml down"
+  }
+}

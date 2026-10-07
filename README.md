@@ -26,7 +26,7 @@ Proyecto Capstone (PTY4614) — Duoc UC, Ingeniería en Informática, Sede Alame
 | Sincronización | Cola propia + ingesta idempotente por lotes | el corazón del proyecto, no se delega a un BaaS |
 | Fotos | Compresión en cliente (canvas) + volumen Docker | $0; evolución a S3 documentada |
 | Infra demo | 1 VPS + Docker Compose + Caddy | TLS automático, ~US$5/mes |
-| CI/CD | GitHub Actions | typecheck y build en cada push (`.github/workflows/ci.yml`); tests y deploy pendientes (issue #14) |
+| CI/CD | GitHub Actions | lint + typecheck + build del monorepo en cada push y PR (`.github/workflows/ci.yml`); tests y deploy pendientes |
 | Tests | Vitest + Playwright + Testcontainers | `context.setOffline` simula el offline real |
 
 Evaluación completa y alternativas descartadas con criterios: [research.md](research.md) · Decisiones firmadas: [adr/](adr/)
@@ -93,10 +93,11 @@ terreno-conectado/
 ├── docs/                 ← Guías de trabajo del equipo (tablero, convenciones)
 ├── Fase 1/
 │   └── Evidencias Grupales/    ← Informe de Definición del Proyecto APT (el resto vive en el repo Capstone)
-├── frontend/             ← Mockup React + Vite (app funcional; Dexie e IndexedDB pendientes)
-├── backend/              ← NestJS + PostgreSQL 16 (Row-Level Security) — pendiente
-├── infra/                ← Docker Compose, Caddy, scripts de deploy — pendiente
-└── .github/workflows/    ← CI: typecheck + build del frontend (issue #14)
+├── frontend/             ← PWA React 18 + Vite (hoy: mockup navegable; Dexie/IndexedDB en TSK-WS-004+)
+├── backend/              ← API NestJS (base lista; PostgreSQL 16 + RLS en TSK-WS-002+)
+├── shared/               ← Tipos y contratos compartidos entre frontend y backend (ADR-001)
+├── infra/                ← Docker Compose, Caddy, scripts de deploy (TSK-WS-002+)
+└── .github/workflows/    ← CI: lint + typecheck + build del monorepo
 ```
 
 ## Ciclo de trabajo por módulo
@@ -135,22 +136,30 @@ Otros comandos: `npm run typecheck`, `npm run build` (bundle en `dist/`), `npm r
 
 Cada push a `main` corre typecheck y build en [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
 
-### Monorepo — pendiente, todavía no se puede ejecutar
+### Monorepo (npm workspaces) — base lista
 
-Los comandos que siguen son el contrato de [ADR-001](adr/001-stack-y-multitenant.md) y de
-[TSK-WS-001 / TSK-WS-002](tasks/000-walking-skeleton/tasks.md), no instrucciones de hoy. **Ninguno
-funciona todavía**: no existen `pnpm-workspace.yaml`, `package.json` raíz, `infra/docker-compose.yml`
-ni `.env.example`. Se habilitan al cerrar la iteración 0 (milestone M0, issues
-[#27](https://github.com/danielandresavilaj-cell/terreno-conectado/issues/27) y
-[#16](https://github.com/danielandresavilaj-cell/terreno-conectado/issues/16)).
+El monorepo existe (**TSK-WS-001**, enmienda ADR-001 001.1): 4 workspaces —`shared/`, `frontend/`,
+`backend/`, `infra/`— y una única `package-lock.json` en la raíz. Instalar, lint, typecheck y build
+**ya funcionan**:
 
 ```bash
-pnpm install                                  # instala los 3 workspaces
+npm install            # instala los 4 workspaces desde la raíz
+npm run lint           # ESLint (todo el repo)
+npm run typecheck      # tsc en shared/ · frontend/ · backend/
+npm run build          # build de frontend (Vite) y backend (tsc)
+npm run dev:frontend   # Vite   -> http://localhost:5173
+npm run dev:backend    # NestJS -> http://localhost:3000
+```
+
+Todavía **no** existen `infra/docker-compose.yml` (PostgreSQL 16), el seed de tenants A/B ni
+`.env.example`: llegan con [TSK-WS-002](https://github.com/danielandresavilaj-cell/terreno-conectado/issues/16)
+y TSK-WS-003. Por eso el backend arranca pero **aún no persiste nada**.
+
+```bash
+# Pendiente (TSK-WS-002+):
 docker compose -f infra/docker-compose.yml up -d   # PostgreSQL 16
-pnpm --filter backend start:dev               # NestJS  -> :3000
-pnpm --filter frontend dev                    # Vite    -> :5173
-pnpm seed:demo                                # tenants A y B de prueba (FR-006)
-pnpm test                                     # unit + integración
+npm run seed:demo                                  # tenants A y B (FR-006)
+npm test                                           # unit + integración
 ```
 
 **Variables de entorno:** se copiará `.env.example` a `.env`; ese archivo aún no existe. Ningún
@@ -158,9 +167,9 @@ secreto se versiona (constitución, Art. IX).
 
 | Servicio | URL | Estado |
 | :--- | :--- | :--- |
-| Frontend (Vite, mockup) | http://localhost:5173 | funciona |
-| Backend (NestJS) | http://localhost:3000 | pendiente |
-| Health check | http://localhost:3000/health | pendiente |
+| Frontend (Vite) | http://localhost:5173 | funciona |
+| Backend (NestJS, base) | http://localhost:3000 | funciona (sin persistencia) |
+| Health check | http://localhost:3000/health | pendiente (TSK-WS-012) |
 
 ## Enlaces del proyecto
 
@@ -170,7 +179,7 @@ secreto se versiona (constitución, Art. IX).
 | Tablero del equipo | https://github.com/users/danielandresavilaj-cell/projects/1 |
 | Issues | https://github.com/danielandresavilaj-cell/terreno-conectado/issues |
 
-> Proyecto **monorepo**: `frontend/`, `backend/` e `infra/` viven en un solo repositorio (pnpm workspaces), por lo que este es el único enlace que hay que entregar.
+> Proyecto **monorepo**: `shared/`, `frontend/`, `backend/` e `infra/` viven en un solo repositorio (npm workspaces), por lo que este es el único enlace que hay que entregar.
 
 ## Documentos clave para empezar
 

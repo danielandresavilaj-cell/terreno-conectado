@@ -1,0 +1,36 @@
+{
+  "name": "terreno-conectado",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Plataforma SaaS offline-first de captura de datos operacionales para faenas mineras y obras (monorepo)",
+  "workspaces": [
+    "shared",
+    "frontend",
+    "backend",
+    "infra"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "build": "npm run build --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "dev:frontend": "npm run dev --workspace @terreno/frontend",
+    "dev:backend": "npm run start:dev --workspace @terreno/backend"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.17.0",
+    "eslint": "^9.17.0",
+    "globals": "^15.14.0",
+    "typescript": "^5.7.3",
+    "typescript-eslint": "^8.18.0"
+  },
+  "allowScripts": {
+    "esbuild@0.25.12": true,
+    "@nestjs/core@10.4.22": true,
+    "fsevents@2.3.3": true
+  }
+}
