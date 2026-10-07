@@ -19,10 +19,26 @@ export interface Usuario {
   id: string
   nombre: string
   rol: Rol
+  email: string
+  /** Nombre del tenant (display). */
   tenant: string
+  /** UUID real del tenant en el backend (identidad offline, FR-006). */
+  tenantId: string
+  /** Nombre de la faena principal (display). */
   faena: string
+  /** UUID real de la faena principal vía `GET /sites`. */
+  faenaId: string
   /** FR-001: cuenta con 2 fallos previos, para mostrar el rate-limit (FR-005). */
   intentosFallidos?: number
+}
+
+/** Identidad del dispositivo: tenant + faenas tal como las confirmó el
+ *  backend (login/restaurado). Se cachea en Dexie `meta` para que la captura
+ *  offline (FR-006) sepa a qué tenant/faena escribir sin red. */
+export interface Identidad {
+  tenantId: string
+  tenantNombre: string
+  faenas: Faena[]
 }
 
 export interface Faena {

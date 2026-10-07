@@ -12,6 +12,7 @@
 import Dexie, { type EntityTable } from 'dexie'
 import { uuidv7, type SyncRecord } from '@terreno/shared'
 import { PLANTILLA } from './seed'
+import type { Identidad, Usuario } from './types'
 
 export type SyncEstado = 'pending' | 'syncing' | 'synced' | 'failed'
 export type OutboxTipo = 'inspeccion' | 'respuesta' | 'hallazgo' | 'foto' | 'bitacora'
@@ -180,6 +181,49 @@ export async function getDeviceId(): Promise<string> {
   return id
 }
 
+/* ------------------------------------------------------ identidad offline
+ *
+ * TSK-WS-011: el login y `GET /sites` confirman tenant + faenas con IDs
+ * reales; se cachean aquí para que la captura offline (FR-006) sepa a qué
+ * tenant/faena escribir sin red. `SesionCaché` incluye también el perfil para
+ * restaurar la sesión visual sin consultar `/auth/me` cuando no hay señal. */
+
+export interface SesionCaché {
+  perfil: { id: string; tenant_id: string | null; email: string; role: string; full_name: string }
+  identidad: Identidad
+  ts: string
+}
+
+export async function guardarSesionCaché(s: SesionCaché): Promise<void> {
+  await db.meta.put({ key: 'tc_sesion', value: JSON.stringify(s) })
+}
+
+export async function sesionCaché(): Promise<SesionCaché | null> {
+  const row = await db.meta.get('tc_sesion')
+  if (!row?.value) return null
+  try {
+    const s = JSON.parse(String(row.value)) as SesionCaché
+    if (!s?.identidad?.tenantId) return null
+    return s
+  } catch {
+    return null
+  }
+}
+
+export async function borrarSesionCaché(): Promise<void> {
+  await db.meta.delete('tc_sesion')
+}
+
+/** UUID del template demo, estable por dispositivo (el servidor lo valida como
+ *  UUID; un string legible como el viejo 'plantilla-…-v3' rompería el UPDATE). */
+export async function getTemplateId(): Promise<string> {
+  const row = await db.meta.get('templateId')
+  if (row?.value && typeof row.value === 'string') return row.value
+  const id = uuidv7()
+  await db.meta.put({ key: 'templateId', value: id })
+  return id
+}
+
 export async function getDraftInspectionId(): Promise<string | null> {
   const row = await db.meta.get('draftInspectionId')
   return row?.value ? String(row.value) : null
@@ -214,7 +258,7 @@ export async function ensureDraftInspection(params: {
     id,
     tenantId: params.tenantId,
     siteId: params.siteId,
-    templateId: 'plantilla-rajo-seguridad-v3',
+    templateId: await getTemplateId(),
     templateVersion: 3,
     executedBy: params.executedBy,
     status: 'draft',
@@ -579,121 +623,202 @@ export async function marcarEnviando(filas: OutboxRow[]): Promise<void> {
 
 /* ------------------------------------------------------------ seed demo */
 
-const SEED_VERSION = '2'
+const SEED_VERSION = '3'
 const PNG_BLANCO =
   'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='
 
 /**
  * Primer arranque: siembra el outbox/entidades demo (mismo contenido realista
  * del mockup, pero persistido de verdad) para que FR-013 se vea desde el
- * primer frame. No vuelve a correr si `meta.seedVersion === SEED_VERSION`.
+ * primer frame — y ahora con la IDENTIDAD REAL de la sesión (TSK-WS-011): los
+ * IDs de tenant/site/ejecutor/template son los que el backend espera, así el
+ * primer sync es un lote válido de verdad (nada de IDs falsos 'f-01/u-carla').
+ *
+ * Re-siembra (con borrado) SOLO si cambió la semilla (SEED_VERSION) o si el
+ * dispositivo quedó con datos de otro tenant: en un equipo compartido, los
+ * borradores de la empresa A no pueden sincronizarse con la sesión de B sin
+ * violar el aislamiento (NFR-05). Dentro del mismo tenant no se toca nada.
  */
-export async function seedDemoDataIfNeeded(cola: Array<{ uuid: string; titulo: string; detalle: string; tipo: string; estado: string; orden: number; tenantId: string; intentos?: number }>): Promise<void> {
-  const row = await db.meta.get('seedVersion')
-  if (row?.value === SEED_VERSION) return
+export async function seedDemoDataIfNeeded(
+  cola: Array<{
+    uuid: string
+    titulo: string
+    detalle: string
+    tipo: string
+    estado: string
+    orden: number
+    tenantId: string
+    intentos?: number
+  }>,
+  identidad: Identidad,
+  usuario: Usuario,
+): Promise<void> {
+  const previoRaw = await db.meta.get('seedVersion')
+  let previo: { version: string; tenantId: string } | null = null
+  try {
+    if (previoRaw?.value) {
+      previo = JSON.parse(String(previoRaw.value)) as { version: string; tenantId: string }
+    }
+  } catch {
+    previo = null
+  }
+  if (
+    previo &&
+    previo.version === SEED_VERSION &&
+    previo.tenantId === identidad.tenantId
+  ) {
+    return
+  }
+
+  const sitio = identidad.faenas[0]
+  if (!sitio) {
+    await db.meta.put({
+      key: 'seedVersion',
+      value: JSON.stringify({ version: SEED_VERSION, tenantId: identidad.tenantId }),
+    })
+    return
+  }
 
   const ts = ahoraIso()
-  const filas: OutboxRow[] = cola.map((r, i) => ({
-    entityType: TIPO_ENTIDAD_ENTITY[r.tipo as OutboxTipo] ?? 'finding',
-    entityId: r.uuid,
-    tipo: r.tipo as OutboxTipo,
-    titulo: r.titulo,
-    detalle: r.detalle,
-    batchOrder: r.orden,
-    status: r.estado as SyncEstado,
-    retries: r.intentos ?? 0,
-    tenantId: r.tenantId,
-    capturedAt: new Date(Date.now() - (cola.length - i) * 60_000).toISOString(),
-    updatedAt: ts,
-  }))
+  const filas: OutboxRow[] = cola
+    .filter((r) => r.tipo !== 'respuesta')
+    .map((r, i) => ({
+      entityType: TIPO_ENTIDAD_ENTITY[r.tipo as OutboxTipo] ?? 'finding',
+      entityId: r.uuid,
+      tipo: r.tipo as OutboxTipo,
+      titulo: r.titulo,
+      detalle: r.detalle,
+      batchOrder: r.orden,
+      status: r.estado as SyncEstado,
+      retries: r.intentos ?? 0,
+      tenantId: identidad.tenantId,
+      capturedAt: new Date(Date.now() - (cola.length - i) * 60_000).toISOString(),
+      updatedAt: ts,
+    }))
+
+  const templateId = await getTemplateId()
 
   await db.transaction(
     'rw',
     [db.outbox, db.inspections, db.responses, db.findings, db.logEntries, db.attachments, db.meta],
     async () => {
-    await db.outbox.bulkAdd(filas)
-    const insp = cola.find((c) => c.tipo === 'inspeccion')
-    if (insp) {
-      await db.inspections.add({
-        id: insp.uuid,
-        tenantId: insp.tenantId,
-        siteId: 'f-01',
-        templateId: 'plantilla-rajo-seguridad-v3',
-        templateVersion: 3,
-        executedBy: 'u-carla',
-        status: 'submitted',
-        capturedAt: ts,
-        syncedAt: ts,
-        clientVersion: 0,
-        templateName: 'Seguridad en rajo',
-        siteName: 'Faena Centinela — Sector Norte',
-        answeredCount: 5,
-        totalItems: 8,
-      })
-      for (const item of PLANTILLA.slice(0, 5)) {
-        await db.responses.add({
-          id: await idRespuesta(insp.uuid, item.id),
+      await db.outbox.clear()
+      await db.inspections.clear()
+      await db.responses.clear()
+      await db.findings.clear()
+      await db.logEntries.clear()
+      await db.attachments.clear()
+
+      await db.outbox.bulkAdd(filas)
+      const insp = cola.find((c) => c.tipo === 'inspeccion')
+      if (insp) {
+        await db.inspections.add({
+          id: insp.uuid,
+          tenantId: identidad.tenantId,
+          siteId: sitio.id,
+          templateId,
+          templateVersion: 3,
+          executedBy: usuario.id,
+          status: 'submitted',
+          capturedAt: ts,
+          syncedAt: ts,
+          clientVersion: 0,
+          templateName: 'Seguridad en rajo',
+          siteName: sitio.nombre,
+          answeredCount: 5,
+          totalItems: 8,
+        })
+        /* Respuestas del checklist: se crean COMO ENTIDAD y como filas del
+         * outbox (orden 2). Así el hallazgo r-3 y la foto r-4 encuentran su
+         * inspección/respuesta en el MISMO lote (FR-021) y el primer sync
+         * entero cae al tenant de verdad. */
+        for (const item of PLANTILLA.slice(0, 5)) {
+          const responseId = uuidv7()
+          await db.responses.add({
+            id: responseId,
+            inspectionId: insp.uuid,
+            templateItemId: item.id,
+            tenantId: identidad.tenantId,
+            valueOk: item.id === 'i-02' ? 'nok' : 'ok',
+            valueText: null,
+            valueNumber: item.id === 'i-04' ? 180 : null,
+            capturedAt: ts,
+            clientVersion: 0,
+          })
+          await db.outbox.add({
+            entityType: 'response',
+            entityId: responseId,
+            tipo: 'respuesta',
+            titulo: 'Respuestas de checklist',
+            detalle: `Ítem ${item.id} · ${item.id === 'i-02' ? 'nok' : 'ok'}`,
+            batchOrder: 2,
+            status: 'pending',
+            retries: 0,
+            tenantId: identidad.tenantId,
+            capturedAt: ts,
+            updatedAt: ts,
+          })
+        }
+      }
+      const hallazgo = cola.find((c) => c.tipo === 'hallazgo')
+      if (hallazgo && insp) {
+        const responseId = (await db.responses
+          .where('templateItemId')
+          .equals('i-02')
+          .and((r) => r.inspectionId === insp.uuid)
+          .first())?.id
+        await db.findings.add({
+          id: hallazgo.uuid,
           inspectionId: insp.uuid,
-          templateItemId: item.id,
-          tenantId: insp.tenantId,
-          valueOk: item.id === 'i-02' ? 'nok' : 'ok',
-          valueText: null,
-          valueNumber: item.id === 'i-04' ? 180 : null,
+          responseId: responseId ?? null,
+          tenantId: identidad.tenantId,
+          severity: 'high',
+          description: 'Sin señalización en ruta de evacuación',
+          status: 'open',
           capturedAt: ts,
           clientVersion: 0,
         })
       }
-    }
-    const hallazgo = cola.find((c) => c.tipo === 'hallazgo')
-    if (hallazgo) {
-      await db.findings.add({
-        id: hallazgo.uuid,
-        inspectionId: insp?.uuid ?? null,
-        responseId: insp ? await idRespuesta(insp.uuid, 'i-02') : null,
-        tenantId: hallazgo.tenantId,
-        severity: 'high',
-        description: 'Sin señalización en ruta de evacuación',
-        status: 'open',
-        capturedAt: ts,
-        clientVersion: 0,
+      const logRows = cola.filter((c) => c.tipo === 'bitacora')
+      for (const l of logRows) {
+        await db.logEntries.add({
+          id: l.uuid,
+          siteId: sitio.id,
+          authorId: usuario.id,
+          tenantId: identidad.tenantId,
+          entryText:
+            l.detalle.startsWith('2 entradas')
+              ? 'Relevo de turno con el jefe Jh. Salas. Se deja faena nivelada. Queda pendiente la señalización de la ruta de evacuación por falta de conos.'
+              : 'Viento sostenido del este, visibilidad buena. Se postergó el movimiento de la shovel por polvo en la rampa de acceso.',
+          tags: l.detalle === 'Turno B · 2 entradas' ? ['Turno B', 'Relevo'] : ['Clima'],
+          shiftDate: ts.slice(0, 10),
+          capturedAt: ts,
+          clientVersion: 0,
+        })
+      }
+      const foto = cola.find((c) => c.tipo === 'foto')
+      if (foto) {
+        const blob = await (await fetch(PNG_BLANCO)).blob()
+        await db.attachments.add({
+          id: foto.uuid,
+          tenantId: identidad.tenantId,
+          ownerType: 'finding',
+          ownerId: hallazgo?.uuid ?? '',
+          mime: 'image/png',
+          bytes: blob.size,
+          blob,
+          ancho: 1,
+          alto: 1,
+          capturedAt: ts,
+          clientVersion: 0,
+        })
+      }
+      await db.meta.put({
+        key: 'seedVersion',
+        value: JSON.stringify({ version: SEED_VERSION, tenantId: identidad.tenantId }),
       })
-    }
-    const logRows = cola.filter((c) => c.tipo === 'bitacora')
-    for (const l of logRows) {
-      await db.logEntries.add({
-        id: l.uuid,
-        siteId: 'f-01',
-        authorId: 'u-carla',
-        tenantId: l.tenantId,
-        entryText:
-          l.detalle.startsWith('2 entradas')
-            ? 'Relevo de turno con el jefe Jh. Salas. Se deja faena nivelada. Queda pendiente la señalización de la ruta de evacuación por falta de conos.'
-            : 'Viento sostenido del este, visibilidad buena. Se postergó el movimiento de la shovel por polvo en la rampa de acceso.',
-        tags: l.detalle === 'Turno B · 2 entradas' ? ['Turno B', 'Relevo'] : ['Clima'],
-        shiftDate: ts.slice(0, 10),
-        capturedAt: ts,
-        clientVersion: 0,
-      })
-    }
-    const foto = cola.find((c) => c.tipo === 'foto')
-    if (foto) {
-      const blob = await (await fetch(PNG_BLANCO)).blob()
-      await db.attachments.add({
-        id: foto.uuid,
-        tenantId: foto.tenantId,
-        ownerType: 'finding',
-        ownerId: hallazgo?.uuid ?? '',
-        mime: 'image/png',
-        bytes: blob.size,
-        blob,
-        ancho: 1,
-        alto: 1,
-        capturedAt: ts,
-        clientVersion: 0,
-      })
-    }
-    await db.meta.put({ key: 'seedVersion', value: SEED_VERSION })
-  })
+    },
+  )
 }
 
 const TIPO_ENTIDAD_ENTITY: Record<OutboxTipo, OutboxRow['entityType']> = {
@@ -702,9 +827,4 @@ const TIPO_ENTIDAD_ENTITY: Record<OutboxTipo, OutboxRow['entityType']> = {
   hallazgo: 'finding',
   foto: 'attachment',
   bitacora: 'log_entry',
-}
-
-async function idRespuesta(inspectionId: string, templateItemId: string): Promise<string> {
-  const r = await respuestaDelItem(inspectionId, templateItemId)
-  return r?.id ?? uuidv7()
 }

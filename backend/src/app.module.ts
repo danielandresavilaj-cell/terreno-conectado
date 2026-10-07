@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common'
 import { ConfigModule } from '@nestjs/config'
 import { AppController } from './app.controller'
 import { AuthModule } from './auth/auth.module'
+import { DashboardModule } from './dashboard/dashboard.module'
 import { DbModule } from './db/db.module'
 import { SyncModule } from './sync/sync.module'
 
@@ -11,6 +12,7 @@ import { SyncModule } from './sync/sync.module'
     DbModule,
     AuthModule,
     SyncModule,
+    DashboardModule,
   ],
   controllers: [AppController],
 })

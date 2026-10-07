@@ -116,8 +116,9 @@ terreno-conectado/
 > Dexie/IndexedDB (inspección, hallazgos, bitácora y outbox local con UUIDv7 de cliente), desde
 > **TSK-WS-007** el backend expone `POST /api/v1/sync/batch` (ingesta idempotente + LWW con
 > `CONFLICT_RECORD`, **TSK-WS-009**) y desde **TSK-WS-008** el **worker** de cola del cliente
-> dispara la sincronización sola al reconectar;
-> el dashboard llega en TSK-WS-011.
+> dispara la sincronización sola al reconectar; el **dashboard del supervisor con datos reales**
+> y la **sesión** (login por credenciales, restauración offline de la identidad) llegan en
+> **TSK-WS-011**.
 
 ### Frontend — funciona hoy
 
@@ -135,7 +136,22 @@ navegador) o justo después de encolar, dispara el *flush* automático contra
 pasa `pending → syncing → synced` (o `failed` con contador de intentos y `lastError`, FR-016,
 FR-022, FR-026). La url de la API se ajusta con `VITE_API_URL` (default `http://localhost:3000/api/v1`).
 
-**Prerrequisitos:** Node.js 22 LTS. Nada más — no necesita Docker ni base de datos.
+**Prerrequisitos:** Node.js 22 LTS. Nada más — no necesita Docker ni base de datos para navegar y
+capturar offline. Para **iniciar sesión** (TSK-WS-011) sí hace falta el backend arriba
+(`npm run dev:backend` en la raíz): el login valida credenciales contra `POST /auth/login` y
+devuelve la identidad del tenant; si no hay red, la sesión se restaura desde la caché local
+(FR-006).
+
+### Gestión / Dashboard (TSK-WS-011)
+
+`supervisor@minera.cl` / `supervisor@andes.cl` (password `TcDemo2026!`) abren
+[http://localhost:5173](http://localhost:5173) en una vista de **Gerencia** con datos reales del
+tenant: métricas de inspecciones por estado, hallazgos por severidad, **latencia media/p95
+captura→disponibilidad** (FR-040, el dashboard consulta `synced_at − captured_at`), highlight de
+hallazgos `alta/crítica` (FR-035) y exportación CSV. Filtros por período (24 h/7 d/30 d), faena y
+severidad; auto-refresh cada 30 s releyendo el servidor. Los **conflictos** se listan desde
+`GET /api/v1/conflicts` con ambas versiones (winner/loser, Artículo III). Todo vive en
+`GET /api/v1/sites`, `GET /api/v1/dashboard/summary` y `GET /api/v1/dashboard/findings`.
 
 ```bash
 git clone https://github.com/danielandresavilaj-cell/terreno-conectado.git
@@ -201,11 +217,11 @@ dispara el flush solo al reconectar, con concurrencia 1 y backoff 1 s→5 min (F
 
 | Tenant | Rol | Email |
 | :--- | :--- | :--- |
-| A (Minera Andina) | trabajador | `trabajador@minera.cl` |
-| A (Minera Andina) | supervisor | `supervisor@minera.cl` |
-| A (Minera Andina) | admin | `admin@minera.cl` |
-| B (Andes) | trabajador | `trabajador@andes.cl` |
-| B (Andes) | supervisor | `supervisor@andes.cl` |
+| A (Minera El Cobre SpA) | trabajador | `trabajador@minera.cl` |
+| A (Minera El Cobre SpA) | supervisor | `supervisor@minera.cl` |
+| A (Minera El Cobre SpA) | admin | `admin@minera.cl` |
+| B (Constructora Andes SpA) | trabajador | `trabajador@andes.cl` |
+| B (Constructora Andes SpA) | supervisor | `supervisor@andes.cl` |
 | — (plataforma) | admin_plataforma | `admin@terreno.local` |
 
 **Variables de entorno:** copia `.env.example` a `.env` (no se versiona). Ningún secreto se versiona

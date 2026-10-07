@@ -12,9 +12,9 @@
  *    `synced` (o la devuelve a `failed` con `lastError` + 1 intento). Los
  *    `records_unchanged` de un replay cuentan como éxito.
  *
- * Nota: V1 no autentica (no hay sesión real en el mockup); cuando llegue el
- * login real, basta con darle el access token a `fetchLote`. Autoridad de la
- * foto: `AttachmentRow.blob` ya viene comprimida (FR-012).
+ * Nota: el lote viaja autenticado con el access token de la sesión
+ * (`lib/api.ts`); el backoff suelta filas a `failed`, nunca autentica a medias.
+ * Autoridad de la foto: `AttachmentRow.blob` ya viene comprimida (FR-012).
  */
 
 import { uuidv7, type SyncBatchRequest, type SyncBatchResponse } from '@terreno/shared'
@@ -27,14 +27,12 @@ import {
   sincronizables,
   type OutboxRow,
 } from './db'
+import { API_BASE, getToken } from './api'
 
 /** Máximo de registros por lote que acepta el servidor (límite FR-021). */
 export const MAX_LOTE = 500
 /** FR-022: tope del backoff exponencial. */
 export const MAX_BACKOFF_MS = 5 * 60 * 1000
-
-export const API_BASE: string =
-  import.meta.env.VITE_API_URL?.replace(/\/$/, '') ?? 'http://localhost:3000/api/v1'
 
 export type EstadoSync = 'ok' | 'parcial' | 'fallo' | 'vacio' | 'en_curso'
 
@@ -55,15 +53,20 @@ export function backoffMs(intentos: number): number {
   return Math.min(1000 * 2 ** intentos, MAX_BACKOFF_MS)
 }
 
-/** HTTP puro, inyectable para pruebas. Headers icónicos de API. */
+/** HTTP puro, inyectable para pruebas. Headers icónicos de API.
+ *  TSK-WS-011: el lote viaja autenticado con el access token de la sesión
+ *  (`lib/api.ts`); sin sesión no hay lote, y el 401 lo maneja `apiFetch`. */
 export async function fetchLote(
   url: string,
   lote: SyncBatchRequest,
   fetchImpl: typeof fetch = fetch,
 ): Promise<Response> {
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+  const token = getToken()
+  if (token) headers.Authorization = `Bearer ${token}`
   return fetchImpl(url, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers,
     body: JSON.stringify(lote),
   })
 }

@@ -17,22 +17,22 @@ import { useState } from 'react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { Boton } from '../components/ui'
 import { CountUp } from '../components/CountUp'
-import { FAENAS } from '../lib/seed'
 import { useEstado } from '../lib/store'
 import { EASE } from '../lib/motion'
 
 const TAGS = ['Turno B', 'Relevo', 'Clima', 'Transporte', 'Incidencia']
 
 export function Bitacora() {
-  const { entradasBitacora, agregarBitacora } = useEstado()
+  const { entradasBitacora, agregarBitacora, identidad } = useEstado()
+  const faenas = identidad?.faenas ?? []
   const [abierto, setAbierto] = useState(false)
   const [texto, setTexto] = useState('')
   const [tags, setTags] = useState<string[]>(['Turno B'])
-  const [faena, setFaena] = useState(FAENAS[0].id)
+  const [faena, setFaena] = useState<string>(faenas[0]?.id ?? '')
   const reducir = useReducedMotion()
 
   const agregar = () => {
-    if (!texto.trim()) return
+    if (!texto.trim() || !faena) return
     agregarBitacora(texto.trim(), tags, faena)
     setTexto('')
     setAbierto(false)
@@ -47,7 +47,7 @@ export function Bitacora() {
             Turno B · hoy
           </h1>
           <p className="mt-1.5 text-[13px] text-ink-2">
-            {FAENAS.find((f) => f.id === faena)?.nombre} · geolocalización opcional (FR-034)
+            {faenas.find((f) => f.id === faena)?.nombre ?? '—'} · geolocalización opcional (FR-034)
           </p>
         </div>
         <Boton variante="primaria" onClick={() => setAbierto((v) => !v)}>
@@ -109,7 +109,10 @@ export function Bitacora() {
               <div>
                 <p className="label-inst mb-2">Faena u obra</p>
                 <div className="flex flex-wrap gap-1.5">
-                  {FAENAS.map((f) => {
+                  {faenas.length === 0 && (
+                    <p className="text-[12px] text-ink-3">Sin faenas asignadas a la sesión.</p>
+                  )}
+                  {faenas.map((f) => {
                     const sel = faena === f.id
                     return (
                       <motion.button

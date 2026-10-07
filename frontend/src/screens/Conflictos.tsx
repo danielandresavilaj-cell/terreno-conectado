@@ -1,5 +1,10 @@
 /* Conflictos de sincronización — FR-023, FR-051, Artículo III.
  *
+ * TSK-WS-011: consume `GET /api/v1/conflicts` (registro real de la ingesta
+ * LWW del sync). El "marcar como revisado" es local a la sesión: el registro
+ * del servidor es append-only y no tiene campo de revisión en el walking
+ * skeleton — la auditoría de quién revisó queda para TSK-WS-014.
+ *
  * Esta pantalla existe para responder una pregunta incómoda: ¿qué pasa cuando
  * dos dispositivos editan lo mismo sin señal? La respuesta del proyecto es LWW
  * por marca de tiempo + registro auditable de ambas versiones. Nunca
@@ -17,21 +22,85 @@
  *   que se puede intervenir la decisión, y no se puede.
  */
 
-import { useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { BadgeSev } from '../components/Badges'
 import { Boton } from '../components/ui'
-import { CONFLICTOS } from '../lib/seed'
+import { getConflicts } from '../lib/api'
+import { useEstado } from '../lib/store'
 import { EASE } from '../lib/motion'
 import type { Conflicto } from '../lib/types'
+import type { ConflictRecordDto } from '@terreno/shared'
+
+const ENTIDAD_LABEL: Record<ConflictRecordDto['entity_type'], string> = {
+  inspection: 'inspección',
+  response: 'respuesta',
+  finding: 'hallazgo',
+  log_entry: 'bitácora',
+  attachment: 'evidencia',
+}
+
+/** Payload wire → texto legible de la versión (la comparación es el contenido). */
+function formatoPayload(p: Record<string, unknown>): string {
+  return Object.entries(p)
+    .map(([k, v]) => {
+      if (v === null) return `${k}: null`
+      if (typeof v === 'object') return `${k}: ${JSON.stringify(v)}`
+      return `${k}: ${String(v)}`
+    })
+    .join('\n')
+}
+
+function mapaConflicto(c: ConflictRecordDto): Conflicto {
+  return {
+    id: c.id,
+    registro: `${ENTIDAD_LABEL[c.entity_type]} · ${c.entity_id.slice(0, 8)}…`,
+    faena: ENTIDAD_LABEL[c.entity_type],
+    devices: [
+      {
+        device: 'Versión ganadora',
+        autor: 'servidor · LWW',
+        valor: formatoPayload(c.winner_payload),
+        ts: new Date(c.resolved_at).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+      },
+      {
+        device: 'Versión descartada',
+        autor: 'servidor · LWW',
+        valor: formatoPayload(c.loser_payload),
+        ts: new Date(c.resolved_at).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+      },
+    ],
+    ganador: 'A',
+    resuelto: false,
+  }
+}
 
 export function Conflictos() {
-  const [resueltos, setResueltos] = useState<Record<string, boolean>>(
-    Object.fromEntries(CONFLICTOS.map((c) => [c.id, c.resuelto])),
-  )
+  const { usuario } = useEstado()
+  const [items, setItems] = useState<Conflicto[]>([])
+  const [cargando, setCargando] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [resueltos, setResueltos] = useState<Record<string, boolean>>({})
+
+  const cargar = useCallback(async () => {
+    setCargando(true)
+    setError(null)
+    try {
+      const r = await getConflicts()
+      setItems(r.items.map(mapaConflicto))
+    } catch {
+      setError('No se pudo leer el registro de conflictos.')
+    } finally {
+      setCargando(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    void cargar()
+  }, [cargar])
 
   const resolver = (id: string) => setResueltos((r) => ({ ...r, [id]: true }))
-  const abiertos = CONFLICTOS.filter((c) => !resueltos[c.id]).length
+  const abiertos = items.filter((c) => !resueltos[c.id]).length
 
   return (
     <div className="space-y-6">
@@ -48,30 +117,55 @@ export function Conflictos() {
             silencio (Artículo III).
           </p>
         </div>
-        <div className="panel px-4 py-3 shrink-0">
-          <p className="label-inst">Por revisar</p>
-          <p className="num-inst mt-1 text-[26px] font-semibold leading-none text-beam">
-            {abiertos}
-          </p>
+        <div className="flex items-center gap-2">
+          <Boton tamano="sm" variante="secundaria" onClick={() => void cargar()}>
+            Refrescar
+          </Boton>
+          <div className="panel px-4 py-3 shrink-0">
+            <p className="label-inst">Por revisar</p>
+            <p className="num-inst mt-1 text-[26px] font-semibold leading-none text-beam">
+              {abiertos}
+            </p>
+          </div>
         </div>
       </header>
 
-      {/* FR-051: el conflicto queda auditado con las dos versiones. */}
-      <div className="space-y-3">
-        {CONFLICTOS.map((c) => (
-          <CardConflicto
-            key={c.id}
-            c={c}
-            resuelto={!!resueltos[c.id]}
-            onResolver={() => resolver(c.id)}
-          />
-        ))}
-      </div>
+      {error && (
+        <div className="flex items-start gap-2 rounded-lg bg-sev-alta/10 border border-sev-alta/25 px-3 py-2">
+          <span className="mt-[3px] h-1.5 w-1.5 rounded-full bg-sev-alta shrink-0" />
+          <p className="text-[12px] leading-relaxed text-sev-alta">{error}</p>
+        </div>
+      )}
+
+      {cargando && items.length === 0 ? (
+        <div className="panel p-8 text-center">
+          <p className="text-[13px] text-ink-2">Leyendo del servidor…</p>
+        </div>
+      ) : items.length === 0 ? (
+        <div className="panel p-8 text-center">
+          <p className="text-[13px] text-ink-2">
+            Sin conflictos registrados en este tenant. El registro se pobla cuando dos dispositivos
+            editan el mismo registro offline.
+          </p>
+        </div>
+      ) : (
+        /* FR-051: el conflicto queda auditado con las dos versiones. */
+        <div className="space-y-3">
+          {items.map((c) => (
+            <CardConflicto
+              key={c.id}
+              c={c}
+              resuelto={!!resueltos[c.id]}
+              onResolver={() => resolver(c.id)}
+            />
+          ))}
+        </div>
+      )}
 
       <p className="text-[11px] text-ink-3 leading-relaxed border-t border-line-soft pt-4">
         Cada resolución queda en el audit log append-only junto con el usuario que la decidió
         (FR-051). La cola de sincronización nunca descarta una versión: se archiva como
-        conflicto para que el supervisor pueda auditar.
+        conflicto para que el supervisor pueda auditar. Sesión: {usuario?.email ?? '—'}.
       </p>
     </div>
   )
@@ -101,7 +195,7 @@ function CardConflicto({
       <header className="px-4 py-3.5 flex items-center justify-between gap-3 border-b border-line-soft">
         <div className="min-w-0">
           <p className="text-[13px] font-medium truncate">{c.registro}</p>
-          <p className="label-inst mt-1">Faena {c.faena} · 2 versiones</p>
+          <p className="label-inst mt-1">Registro {c.faena} · 2 versiones</p>
         </div>
         <AnimatePresence>
           {resuelto ? (
@@ -164,10 +258,12 @@ function CardConflicto({
                 </AnimatePresence>
               </div>
 
-              <p className="text-[13px] leading-relaxed text-ink-2">{d.valor}</p>
+              <pre className="text-[12px] leading-relaxed text-ink-2 whitespace-pre-wrap font-mono">
+                {d.valor}
+              </pre>
 
               <div className="mt-3 flex items-center gap-2">
-                <span className="label-inst">Editado</span>
+                <span className="label-inst">Resuelto</span>
                 <span className="num-inst text-[12px] text-ink-2">{d.ts}</span>
                 {gana && (
                   <span className="label-inst" style={{ color: 'var(--color-synced)' }}>
