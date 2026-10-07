@@ -111,15 +111,17 @@ terreno-conectado/
 
 ## Cómo ejecutar localmente
 
-> **Estado real:** el monorepo, el backend base (NestJS), la base de datos (PostgreSQL 16 + RLS) y la
-> **auth** ya existen. El `frontend/` sigue siendo un **mockup navegable** (sin Dexie/IndexedDB ni API),
-> y los endpoints de datos de la app (sync, dashboard) llegan en TSK-WS-007+.
+> **Estado real:** el monorepo, el backend base (NestJS), la base de datos (PostgreSQL 16 + RLS), la
+> **auth** y la **PWA instalable** ya existen. El `frontend/` es un **mockup navegable instalable**
+> (manifest + service worker precache), pero aún sin Dexie/IndexedDB ni API; los endpoints de datos
+> de la app (sync, dashboard) llegan en TSK-WS-007+.
 
 ### Frontend — funciona hoy
 
 App React 18 + Vite 6 + Tailwind 4, seis pantallas (Login, Captura, Bitácora, Cola, Gerencia,
-Conflictos) con el ciclo `pending → syncing → synced` animado. No hay persistencia ni API: es un
-mockup, y lo que le falta está detallado en
+Conflictos) con el ciclo `pending → syncing → synced` animado. Desde **TSK-WS-004** es una **PWA
+instalable** (manifest + service worker Workbox con precache del shell: funciona sin red tras la
+primera carga, FR-010). No hay persistencia ni API: es un mockup, y lo que le falta está detallado en
 [`frontend/README-mockup.md`](frontend/README-mockup.md).
 
 **Prerrequisitos:** Node.js 22 LTS. Nada más — no necesita Docker ni base de datos.

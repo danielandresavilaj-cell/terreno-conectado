@@ -27,10 +27,16 @@ export default tseslint.config(
       globals: { ...globals.node },
     },
   },
-  {
-    files: ['backend/**/*.{js,cjs}'],
+{
+    files: ['**/*.{js,cjs}'],
     languageOptions: {
       sourceType: 'commonjs',
+      globals: { ...globals.node },
+    },
+  },
+  {
+    files: ['**/*.mjs'],
+    languageOptions: {
       globals: { ...globals.node },
     },
   },

@@ -4,14 +4,15 @@ Prototipo navegable de la PWA para validar el diseño antes de escribir la lógi
 **Los botones reaccionan y las transiciones se ven, pero no hay persistencia, API, IndexedDB ni
 cola real.** El único ciclo simulado de verdad es el de la cola de sincronización
 (`pending → syncing → synced`), porque es el momento que demuestra la propuesta de valor
-(spec maestro §9, paso 3) y sin él el mockup no cuenta la historia.
+(spec maestro §9, paso 3) y sin él el mockup no cuenta la historia. Desde TSK-WS-004 es
+**instalable** (manifest + service worker) y funciona sin red tras la primera carga (FR-010).
 
 ## Correr
 
 ```bash
 npm install
 npm run dev      # http://localhost:5173
-npm run build    # bundle de producción en dist/
+npm run build    # bundle de producción en dist/ (genera sw.js + manifest.webmanifest)
 ```
 
 ## Recorrido de demo (guion del spec maestro §9)

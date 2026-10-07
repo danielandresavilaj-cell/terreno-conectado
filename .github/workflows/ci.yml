@@ -22,6 +22,7 @@ jobs:
       - run: npm run lint
       - run: npm run typecheck
       - run: npm run build
+      - run: node frontend/scripts/check-pwa.mjs
 
   integration:
     name: Integración — PostgreSQL 16 + RLS (Testcontainers)
