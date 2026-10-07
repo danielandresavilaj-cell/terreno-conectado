@@ -4,7 +4,7 @@
 | :--- | :--- |
 | **ID** | 000-master |
 | **Versión** | 1.0.1 |
-| **Estado** | APROBADO POR RAÚL GONZÁLEZ (2026-09-24) — pendiente firma de Daniel Ávila |
+| **Estado** | APROBADO — Raúl González (2026-09-24) y Daniel Ávila (2026-10-06) |
 | **Autores** | Daniel Ávila (datos/negocio) · Raúl González (infra/plataforma) |
 | **Fuente** | Informe de Definición APT, Fase 1 (2026-09-04) |
 | **Specs derivados** | 001-auth-tenancy · 002-captura-offline · 003-motor-sincronizacion · 004-dominio-inspecciones · 005-reportes-gerencia · 006-admin-plataforma |
@@ -247,3 +247,4 @@ La demo se considera exitosa si, en vivo ante el docente:
 | 1.0.0 | 2026-09-14 | Borrador inicial derivado del informe APT Fase 1 + decisiones de grilling (Q1–Q14) | Daniel Ávila (con IA) |
 | 1.0.1 | 2026-09-23 | Título: "Decisiones en Tiempo Real" → "Datos al día donde no hay señal" (Opción A — alinear la promesa con la realidad offline-first) | Raúl González (con IA) |
 | 1.0.1 | 2026-09-24 | Firmado por Raúl González; pendiente firma de Daniel Ávila | Raúl González (con IA) |
+| 1.0.1 | 2026-10-06 | Firmado por Daniel Ávila — firma delegada con autorización explícita del titular, registrada por el agente del equipo | Daniel Ávila |
