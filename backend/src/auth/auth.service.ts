@@ -67,7 +67,10 @@ export class AuthService {
 
     const user = candidates[0]
 
-    if (user.tenant_status !== 'active') {
+    if (user.role !== 'platform_admin' && user.tenant_status !== 'active') {
+      throw new UnauthorizedException('Credenciales inválidas')
+    }
+    if (!user.is_active) {
       throw new UnauthorizedException('Credenciales inválidas')
     }
     if (user.locked_until && new Date(user.locked_until).getTime() > Date.now()) {

@@ -1,36 +1,77 @@
 /* Login — FR-001, FR-003, FR-005, FR-006.
  *
+ * Desde TSK-WS-011 la sesión es REAL: `loginInApp` autentica contra el backend
+ * (Bearer, sessionStorage), obtiene la identidad del tenant vía `GET /sites` y
+ * la cachea en Dexie. Los errores del servidor se muestran en el propio panel:
+ * 401 credenciales, 423 cuenta bloqueada (FR-005) y 429 rate-limit — mismo
+ * vocabulario que devuelve `backend/src/auth/auth.service.ts`.
+ *
  * MOVIMIENTO (decisiones):
  * · Entrada escalonada de bloques, 40 ms entre ellos, translateY 8px + fade.
  *   Frecuencia: 1 vez por sesión → "raro / primera vez" → se permite delicia.
  *   CASCADA, con stagger — nunca aparecer todo de golpe.
- * · La tarjeta de usuario hace pop al seleccionarse: spring corto. Se usa
+ * · La tarjeta de cuenta demo hace pop al seleccionarse: spring corto. Se usa
  *   pocas veces por sesión, así que el rebote se siente confirmation y no
  *   latoso.
  * · El campo de contraseña NO tiene animación de foco. Es navegación por
  *   teclado puro; el foco debe ser instantáneo.
- * · El aviso de intentos fallidos (FR-005) hace entrada, no latido: es un
- *   estado, no un proceso en curso.
+ * · El error de autenticación hace entrada, no latido: es un estado, no un
+ *   proceso en curso.
  */
 
-import { useState } from 'react'
+import { useState, type FormEvent } from 'react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { Boton } from '../components/ui'
-import { useEstado, USUARIOS } from '../lib/store'
-import { ROL_HINT, ROL_LABEL, TENANTS } from '../lib/seed'
+import { useEstado } from '../lib/store'
+import { ApiError } from '../lib/api'
+import { DEMO_CUENTAS, DEMO_PASSWORD, ROL_HINT, ROL_LABEL } from '../lib/seed'
 import { EASE, STAGGER } from '../lib/motion'
-import type { Usuario } from '../lib/types'
 
 export function Login() {
-  const { entrar } = useEstado()
-  const [sel, setSel] = useState<Usuario | null>(null)
+  const { loginInApp } = useEstado()
+  const [email, setEmail] = useState('')
   const [pass, setPass] = useState('')
   const [oculto, setOculto] = useState(true)
+  const [enviando, setEnviando] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const reducir = useReducedMotion()
 
-  const cont = sel?.intentosFallidos ?? 0
-  // FR-005: bloqueo a los 5 intentos consecutivos.
-  const restantes = 5 - cont
+  const elegirCuenta = (cuenta: (typeof DEMO_CUENTAS)[number]) => {
+    setEmail(cuenta.email)
+    setPass(DEMO_PASSWORD)
+    setError(null)
+  }
+
+  const enviar = async (e: FormEvent) => {
+    e.preventDefault()
+    if (enviando || !email || pass.length < 4) return
+    setEnviando(true)
+    setError(null)
+    try {
+      await loginInApp(email.trim().toLowerCase(), pass)
+    } catch (err) {
+      if (err instanceof ApiError) {
+        // FR-005: 423 cuenta bloqueada / 429 rate-limit comparten panel de aviso.
+        if (err.status === 401) {
+          setError('Correo o contraseña incorrectos. Revisá y volvé a intentar.')
+        } else if (err.status === 423) {
+          setError(
+            'Cuenta bloqueada temporalmente por demasiados intentos (FR-005). Volvé en 15 minutos.',
+          )
+        } else if (err.status === 429) {
+          setError('Demasiados intentos seguidos. Esperá unos minutos y volvé a intentar.')
+        } else if (err.status === 0) {
+          setError('Sin conexión con el servidor. Necesitás red para iniciar sesión.')
+        } else {
+          setError(err.detalle)
+        }
+      } else {
+        setError('No se pudo iniciar sesión. Intentá nuevamente.')
+      }
+    } finally {
+      setEnviando(false)
+    }
+  }
 
   const bloque = (delay: number) => ({
     initial: reducir ? { opacity: 1 } : { opacity: 0, y: 8 },
@@ -114,18 +155,19 @@ export function Login() {
             Iniciar sesión
           </motion.h1>
           <motion.p {...bloque(0.06 + STAGGER)} className="mt-1.5 text-[13px] text-ink-2">
-            Elige una cuenta de demostración para recorrer la demo.
+            Elegí una cuenta de demostración o entrá con tus credenciales del tenant.
           </motion.p>
 
-          {/* Selector de cuenta demo (FR-006) */}
+          {/* Cuentas demo (FR-006): emails sembrados en el backend con same password */}
           <motion.div {...bloque(0.06 + STAGGER * 2)} className="mt-7 space-y-2">
-            <p className="label-inst mb-2.5">Cuentas del tenant demo</p>
-            {USUARIOS.map((u) => {
-              const activa = sel?.id === u.id
+            <p className="label-inst mb-2.5">Cuentas demo — password {DEMO_PASSWORD}</p>
+            {DEMO_CUENTAS.map((u) => {
+              const activa = email === u.email
               return (
                 <motion.button
-                  key={u.id}
-                  onClick={() => setSel(u)}
+                  key={u.email}
+                  type="button"
+                  onClick={() => elegirCuenta(u)}
                   whileTap={reducir ? undefined : { scale: 0.985 }}
                   animate={{
                     borderColor: activa ? 'var(--color-beam)' : 'var(--color-line-soft)',
@@ -139,28 +181,25 @@ export function Login() {
                       <p className="text-[14px] font-medium truncate">{u.nombre}</p>
                       <p className="text-[12px] text-ink-3 truncate">{ROL_LABEL[u.rol]}</p>
                     </div>
-                    <AnimatePresence>
-                      {activa && (
-                        <motion.span
-                          initial={{ opacity: 0, scale: 0.7 }}
-                          animate={{ opacity: 1, scale: 1 }}
-                          exit={{ opacity: 0, scale: 0.7 }}
-                          transition={{ type: 'spring', duration: 0.3, bounce: 0.3 }}
-                          className="h-4 w-4 rounded-full bg-beam grid place-items-center shrink-0"
-                        >
-                          <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden>
-                            <path
-                              d="M2 5.2 4 7.2 8 3"
-                              stroke="var(--color-s0)"
-                              strokeWidth="1.8"
-                              fill="none"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                            />
-                          </svg>
-                        </motion.span>
-                      )}
-                    </AnimatePresence>
+                    {activa && (
+                      <motion.span
+                        initial={{ opacity: 0, scale: 0.7 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ type: 'spring', duration: 0.3, bounce: 0.3 }}
+                        className="h-4 w-4 rounded-full bg-beam grid place-items-center shrink-0"
+                      >
+                        <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden>
+                          <path
+                            d="M2 5.2 4 7.2 8 3"
+                            stroke="var(--color-s0)"
+                            strokeWidth="1.8"
+                            fill="none"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                        </svg>
+                      </motion.span>
+                    )}
                   </div>
                 </motion.button>
               )
@@ -168,90 +207,100 @@ export function Login() {
           </motion.div>
 
           {/* Credenciales */}
-          <motion.div {...bloque(0.06 + STAGGER * 3)} className="mt-5 space-y-3">
-            <label className="block">
-              <span className="label-inst">Correo</span>
-              <input
-                type="email"
-                defaultValue={sel ? `${sel.id}@elcobre.cl` : ''}
-                key={sel?.id ?? 'vacio'}
-                placeholder="nombre@empresa.cl"
-                className="mt-1.5 w-full h-11 px-3 rounded-[10px] bg-s1 border border-line-soft text-[14px] placeholder:text-ink-3 focus:border-beam transition-colors duration-150"
-              />
-            </label>
-
-            <label className="block">
-              <span className="label-inst">Contraseña</span>
-              <div className="relative mt-1.5">
+          <form onSubmit={enviar}>
+            <motion.div {...bloque(0.06 + STAGGER * 3)} className="mt-5 space-y-3">
+              <label className="block">
+                <span className="label-inst">Correo</span>
                 <input
-                  type={oculto ? 'password' : 'text'}
-                  value={pass}
-                  onChange={(e) => setPass(e.target.value)}
-                  placeholder="••••••••"
-                  className="w-full h-11 px-3 pr-11 rounded-[10px] bg-s1 border border-line-soft text-[14px] placeholder:text-ink-3 focus:border-beam transition-colors duration-150"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  autoComplete="username"
+                  placeholder="nombre@empresa.cl"
+                  className="mt-1.5 w-full h-11 px-3 rounded-[10px] bg-s1 border border-line-soft text-[14px] placeholder:text-ink-3 focus:border-beam transition-colors duration-150"
                 />
-                <button
-                  onClick={() => setOculto((v) => !v)}
-                  aria-label={oculto ? 'Mostrar contraseña' : 'Ocultar contraseña'}
-                  className="absolute right-1 top-1 h-9 w-9 grid place-items-center rounded-lg text-ink-3 hover:text-ink hover:bg-s3 transition-colors duration-150 cursor-pointer"
-                >
-                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
-                    <path
-                      d="M1.5 8s2.4-4 6.5-4 6.5 4 6.5 4-2.4 4-6.5 4S1.5 8 1.5 8Z"
-                      stroke="currentColor"
-                      strokeWidth="1.3"
-                    />
-                    <circle cx="8" cy="8" r="1.7" stroke="currentColor" strokeWidth="1.3" />
-                  </svg>
-                </button>
-              </div>
-            </label>
+              </label>
 
-            {/* FR-005: rate-limit. Entrada con fade, sin latido — es un estado. */}
-            <AnimatePresence>
-              {cont > 0 && (
-                <motion.div
-                  initial={{ opacity: 0, y: -4 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.24, ease: EASE.out }}
-                  className="flex items-start gap-2 rounded-lg bg-sev-alta/10 border border-sev-alta/25 px-3 py-2"
-                >
-                  <span className="mt-[3px] h-1.5 w-1.5 rounded-full bg-sev-alta shrink-0" />
-                  <p className="text-[12px] leading-relaxed text-sev-alta">
-                    {cont} intentos fallidos. Quedan {restantes} antes del bloqueo temporal de 15
-                    minutos (FR-005).
-                  </p>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </motion.div>
+              <label className="block">
+                <span className="label-inst">Contraseña</span>
+                <div className="relative mt-1.5">
+                  <input
+                    type={oculto ? 'password' : 'text'}
+                    value={pass}
+                    onChange={(e) => setPass(e.target.value)}
+                    required
+                    autoComplete="current-password"
+                    placeholder="••••••••"
+                    className="w-full h-11 px-3 pr-11 rounded-[10px] bg-s1 border border-line-soft text-[14px] placeholder:text-ink-3 focus:border-beam transition-colors duration-150"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setOculto((v) => !v)}
+                    aria-label={oculto ? 'Mostrar contraseña' : 'Ocultar contraseña'}
+                    className="absolute right-1 top-1 h-9 w-9 grid place-items-center rounded-lg text-ink-3 hover:text-ink hover:bg-s3 transition-colors duration-150 cursor-pointer"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
+                      <path
+                        d="M1.5 8s2.4-4 6.5-4 6.5 4 6.5 4-2.4 4-6.5 4S1.5 8 1.5 8Z"
+                        stroke="currentColor"
+                        strokeWidth="1.3"
+                      />
+                      <circle cx="8" cy="8" r="1.7" stroke="currentColor" strokeWidth="1.3" />
+                    </svg>
+                  </button>
+                </div>
+              </label>
 
-          <motion.div {...bloque(0.06 + STAGGER * 4)} className="mt-6">
-            <Boton
-              variante="primaria"
-              tamano="lg"
-              bloqueCompleto
-              disabled={!sel || pass.length < 4}
-              onClick={() => sel && entrar(sel)}
-            >
-              Entrar
-            </Boton>
-          </motion.div>
+              {/* FR-005/errores: entrada con fade, sin latido — es un estado. */}
+              <AnimatePresence>
+                {error && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.24, ease: EASE.out }}
+                    className="flex items-start gap-2 rounded-lg bg-sev-alta/10 border border-sev-alta/25 px-3 py-2"
+                    role="alert"
+                  >
+                    <span className="mt-[3px] h-1.5 w-1.5 rounded-full bg-sev-alta shrink-0" />
+                    <p className="text-[12px] leading-relaxed text-sev-alta">{error}</p>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </motion.div>
+
+            <motion.div {...bloque(0.06 + STAGGER * 4)} className="mt-6">
+              <Boton
+                variante="primaria"
+                tamano="lg"
+                bloqueCompleto
+                disabled={enviando || !email || pass.length < 4}
+              >
+                {enviando ? 'Ingresando…' : 'Entrar'}
+              </Boton>
+            </motion.div>
+          </form>
 
           <motion.p {...bloque(0.06 + STAGGER * 5)} className="mt-5 text-[11px] text-ink-3 leading-relaxed">
-            Los datos de la sesión se aíslan por <span className="text-ink-2">{TENANTS.cobre.nombre}</span>.
-            La cuenta de {TENANTS.andes.nombre} no ve nada de este tenant (NFR-05).
+            Cada tenant se ve solo a sí mismo (NFR-05): las cuentas de{' '}
+            <span className="text-ink-2">Minera El Cobre SpA</span> y{' '}
+            <span className="text-ink-2">Constructora Andes SpA</span> viven en bases aisladas por
+            PostgreSQL RLS.
           </motion.p>
 
-          {sel && (
+          {email && (
             <motion.p
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              transition={{ delay: 0.5, duration: 0.3 }}
+              transition={{ delay: 0.4, duration: 0.3 }}
               className="mt-4 text-[12px] text-ink-2 border-l-2 border-beam pl-3"
             >
-              {ROL_HINT[sel.rol]}
+              {DEMO_CUENTAS.find((c) => c.email === email)?.rol
+                ? ROL_HINT[
+                    DEMO_CUENTAS.find((c) => c.email === email)!.rol
+                  ]
+                : 'Credenciales del tenant que el backend sembró (backend/db/seed.ts).'}
             </motion.p>
           )}
         </div>
