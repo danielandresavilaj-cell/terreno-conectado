@@ -111,9 +111,9 @@ terreno-conectado/
 
 ## Cómo ejecutar localmente
 
-> **Estado real:** el monorepo, el backend base (NestJS) y la base de datos (PostgreSQL 16 + RLS) ya
-> existen. El `frontend/` sigue siendo un **mockup navegable** (sin Dexie/IndexedDB ni API), y el
-> backend **aún no persiste** datos de la app (la auth y los endpoints llegan en TSK-WS-003+).
+> **Estado real:** el monorepo, el backend base (NestJS), la base de datos (PostgreSQL 16 + RLS) y la
+> **auth** ya existen. El `frontend/` sigue siendo un **mockup navegable** (sin Dexie/IndexedDB ni API),
+> y los endpoints de datos de la app (sync, dashboard) llegan en TSK-WS-007+.
 
 ### Frontend — funciona hoy
 
@@ -122,7 +122,7 @@ Conflictos) con el ciclo `pending → syncing → synced` animado. No hay persis
 mockup, y lo que le falta está detallado en
 [`frontend/README-mockup.md`](frontend/README-mockup.md).
 
-**Prerrequisitos:** Node.js 20 LTS. Nada más — no necesita Docker ni base de datos.
+**Prerrequisitos:** Node.js 22 LTS. Nada más — no necesita Docker ni base de datos.
 
 ```bash
 git clone https://github.com/danielandresavilaj-cell/terreno-conectado.git
@@ -159,8 +159,27 @@ cp .env.example .env                                # credenciales locales (no s
 docker compose -f infra/docker-compose.yml up -d    # PostgreSQL 16 -> :5432
 npm run db:migrate --workspace @terreno/backend     # aplica esquema + políticas RLS
 npm run db:seed    --workspace @terreno/backend     # tenants A y B + faenas (FR-006)
-npm test --workspace @terreno/backend               # integración: aislamiento RLS (Testcontainers)
+npm test --workspace @terreno/backend               # integración: aislamiento RLS + auth (Testcontainers)
 ```
+
+### Auth (TSK-WS-003)
+
+Endpoints (`POST /api/v1/auth/login`, `POST /api/v1/auth/refresh`, `GET /api/v1/me`): JWT HS256 de
+15 min con claims `user_id/tenant_id/rol`, refresh token de 30 días en cookie `httponly` con
+rotación y detección de reuso (decisión D5), CSRF double-submit, y bloqueo tras 5 credenciales
+fallidas (423 por 15 min). El acceso a datos usa el rol `tc_app` + `SET LOCAL app.tenant_id`
+(Row-Level Security, TSK-WS-002).
+
+**Usuarios demo** (seed, password `TcDemo2026!`):
+
+| Tenant | Rol | Email |
+| :--- | :--- | :--- |
+| A (Minera Andina) | trabajador | `trabajador@minera.cl` |
+| A (Minera Andina) | supervisor | `supervisor@minera.cl` |
+| A (Minera Andina) | admin | `admin@minera.cl` |
+| B (Andes) | trabajador | `trabajador@andes.cl` |
+| B (Andes) | supervisor | `supervisor@andes.cl` |
+| — (plataforma) | admin_plataforma | `admin@terreno.local` |
 
 **Variables de entorno:** copia `.env.example` a `.env` (no se versiona). Ningún secreto se versiona
 (constitución, Art. IX).
@@ -168,7 +187,7 @@ npm test --workspace @terreno/backend               # integración: aislamiento 
 | Servicio | URL | Estado |
 | :--- | :--- | :--- |
 | Frontend (Vite) | http://localhost:5173 | funciona (mockup) |
-| Backend (NestJS, base) | http://localhost:3000 | funciona (sin persistencia) |
+| Backend (NestJS, auth lista) | http://localhost:3000 | funciona (auth + RLS; datos de app en TSK-WS-007+) |
 | PostgreSQL 16 | localhost:5432 | funciona (Docker Compose) |
 | Health check | http://localhost:3000/health | pendiente (TSK-WS-012) |
 

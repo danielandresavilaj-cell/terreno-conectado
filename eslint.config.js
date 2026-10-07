@@ -40,4 +40,13 @@ export default tseslint.config(
       '@typescript-eslint/consistent-type-imports': 'warn',
     },
   },
+  {
+    // Nest inyecta por metadata de tipo: los tokens (ConfigService, DbService,
+    // AuthService, …) deben importarse como VALOR, no como tipo, para que
+    // design:paramtypes los referencie (si no, DI emite `Object` y falla).
+    files: ['backend/src/**/*.ts'],
+    rules: {
+      '@typescript-eslint/consistent-type-imports': 'off',
+    },
+  },
 )
