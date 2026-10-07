@@ -1,0 +1,27 @@
+# CODEOWNERS — Terreno Conectado
+# La protección de `main` exige review de code owner. Esta tabla decide a quién
+# se auto-asigna cada PR según el área que toca.
+# Regla de lectura: gana el ÚLTIMO patrón que coincide. Varios owners en una
+# línea = cualquiera de ellos puede aprobar.
+
+# Default: cualquier cambio puede aprobarlo cualquiera de los dos
+*                                        @danielandresavilaj-cell @ev6rlasting
+
+# Frontend / PWA — Daniel (módulos 002-offline, 005-reports, 007-forms UI)
+/frontend/                               @danielandresavilaj-cell
+
+# Backend / Infra — Raúl (módulos 001-auth, 006-admin, infra)
+/backend/                                @ev6rlasting
+/infra/                                  @ev6rlasting
+
+# Gobernanza y documentación — Daniel (autor de specs)
+/specs/                                  @danielandresavilaj-cell
+/docs/                                   @danielandresavilaj-cell
+/adr/                                    @danielandresavilaj-cell
+/plans/                                  @danielandresavilaj-cell
+/tasks/                                  @danielandresavilaj-cell
+/data-model.md                           @danielandresavilaj-cell
+/test-plan.md                            @danielandresavilaj-cell
+
+# La constitución siempre requiere a ambos (Art. X — enmiendas)
+/constitution.md                         @danielandresavilaj-cell @ev6rlasting
