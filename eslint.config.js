@@ -28,6 +28,13 @@ export default tseslint.config(
     },
   },
   {
+    files: ['backend/**/*.{js,cjs}'],
+    languageOptions: {
+      sourceType: 'commonjs',
+      globals: { ...globals.node },
+    },
+  },
+  {
     files: ['**/*.{ts,tsx}'],
     rules: {
       '@typescript-eslint/consistent-type-imports': 'warn',

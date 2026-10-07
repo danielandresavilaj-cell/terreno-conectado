@@ -111,9 +111,9 @@ terreno-conectado/
 
 ## Cómo ejecutar localmente
 
-> ⚠️ **Estado real: el frontend sí corre, el resto todavía no.** El mockup de `frontend/` es una
-> app navegable con la cola de sincronización simulada. `backend/` e `infra/` siguen vacíos: no hay
-> monorepo, ni PostgreSQL, ni API. Por eso los pasos van separados.
+> **Estado real:** el monorepo, el backend base (NestJS) y la base de datos (PostgreSQL 16 + RLS) ya
+> existen. El `frontend/` sigue siendo un **mockup navegable** (sin Dexie/IndexedDB ni API), y el
+> backend **aún no persiste** datos de la app (la auth y los endpoints llegan en TSK-WS-003+).
 
 ### Frontend — funciona hoy
 
@@ -134,7 +134,7 @@ npm run dev                # Vite  -> http://localhost:5173
 
 Otros comandos: `npm run typecheck`, `npm run build` (bundle en `dist/`), `npm run preview`.
 
-Cada push a `main` corre typecheck y build en [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
+Cada push a `main` y cada PR corren lint + typecheck + build en [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
 
 ### Monorepo (npm workspaces) — base lista
 
@@ -151,24 +151,26 @@ npm run dev:frontend   # Vite   -> http://localhost:5173
 npm run dev:backend    # NestJS -> http://localhost:3000
 ```
 
-Todavía **no** existen `infra/docker-compose.yml` (PostgreSQL 16), el seed de tenants A/B ni
-`.env.example`: llegan con [TSK-WS-002](https://github.com/danielandresavilaj-cell/terreno-conectado/issues/16)
-y TSK-WS-003. Por eso el backend arranca pero **aún no persiste nada**.
+La base de datos local ya existe (**TSK-WS-002**): PostgreSQL 16 con **Row-Level Security**,
+migraciones versionadas (`node-pg-migrate`) y seed de tenants A/B. El backend base arranca pero
+**aún no persiste** datos de la app (la conexión de la app llega en TSK-WS-003).
 
 ```bash
-# Pendiente (TSK-WS-002+):
-docker compose -f infra/docker-compose.yml up -d   # PostgreSQL 16
-npm run seed:demo                                  # tenants A y B (FR-006)
-npm test                                           # unit + integración
+cp .env.example .env                                # credenciales locales (no se versiona)
+docker compose -f infra/docker-compose.yml up -d    # PostgreSQL 16 -> :5432
+npm run db:migrate --workspace @terreno/backend     # aplica esquema + políticas RLS
+npm run db:seed    --workspace @terreno/backend     # tenants A y B + faenas (FR-006)
+npm test --workspace @terreno/backend               # integración: aislamiento RLS (Testcontainers)
 ```
 
-**Variables de entorno:** se copiará `.env.example` a `.env`; ese archivo aún no existe. Ningún
-secreto se versiona (constitución, Art. IX).
+**Variables de entorno:** copia `.env.example` a `.env` (no se versiona). Ningún secreto se versiona
+(constitución, Art. IX).
 
 | Servicio | URL | Estado |
 | :--- | :--- | :--- |
-| Frontend (Vite) | http://localhost:5173 | funciona |
+| Frontend (Vite) | http://localhost:5173 | funciona (mockup) |
 | Backend (NestJS, base) | http://localhost:3000 | funciona (sin persistencia) |
+| PostgreSQL 16 | localhost:5432 | funciona (Docker Compose) |
 | Health check | http://localhost:3000/health | pendiente (TSK-WS-012) |
 
 ## Enlaces del proyecto

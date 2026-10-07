@@ -9,9 +9,7 @@
     "emitDecoratorMetadata": true,
     "verbatimModuleSyntax": false,
     "isolatedModules": false,
-    "outDir": "./dist",
-    "rootDir": "./src",
     "types": ["node"]
   },
-  "include": ["src"]
+  "include": ["src", "db", "test", "vitest.config.ts"]
 }
