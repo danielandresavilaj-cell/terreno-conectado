@@ -112,17 +112,20 @@ terreno-conectado/
 ## Cómo ejecutar localmente
 
 > **Estado real:** el monorepo, el backend base (NestJS), la base de datos (PostgreSQL 16 + RLS), la
-> **auth** y la **PWA instalable** ya existen. El `frontend/` es un **mockup navegable instalable**
-> (manifest + service worker precache), pero aún sin Dexie/IndexedDB ni API; los endpoints de datos
-> de la app (sync, dashboard) llegan en TSK-WS-007+.
+> **auth** y la **PWA instalable** ya existen. Desde **TSK-WS-005** el `frontend/` **persiste de
+> verdad** en Dexie/IndexedDB (inspección, hallazgos, bitácora y outbox local con UUIDv7 de cliente);
+> los endpoints de datos de la app (sync, dashboard) llegan en TSK-WS-007+.
 
 ### Frontend — funciona hoy
 
 App React 18 + Vite 6 + Tailwind 4, seis pantallas (Login, Captura, Bitácora, Cola, Gerencia,
-Conflictos) con el ciclo `pending → syncing → synced` animado. Desde **TSK-WS-004** es una **PWA
-instalable** (manifest + service worker Workbox con precache del shell: funciona sin red tras la
-primera carga, FR-010). No hay persistencia ni API: es un mockup, y lo que le falta está detallado en
-[`frontend/README-mockup.md`](frontend/README-mockup.md).
+Conflictos) con el ciclo `pending → syncing → synced` animado. Es una **PWA instalable** (TSK-WS-004:
+manifest + service worker Workbox con precache del shell: funciona sin red tras la primera carga) y,
+desde **TSK-WS-005**, la captura **persiste en el dispositivo**: cada ítem de la inspección se
+autoguarda en Dexie/IndexedDB (el borrador se restaura al reabrir, FR-014), los hallazgos y la
+bitácora se guardan localmente, y todo queda encolado en un **outbox real** con IDs **UUIDv7** de
+cliente (FR-013, FR-015) y orden de dependencia FR-020. La cola la consume la capa de sync
+(TSK-WS-007/008); lo que aún no está es la API.
 
 **Prerrequisitos:** Node.js 22 LTS. Nada más — no necesita Docker ni base de datos.
 

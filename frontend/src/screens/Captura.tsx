@@ -36,7 +36,8 @@ const OPCIONES = [
 ]
 
 export function Captura() {
-  const { respuestas, responder, crearHallazgo, pendientes, online, usuario } = useEstado()
+  const { respuestas, responder, responderTexto, crearHallazgo, pendientes, enviarInspeccion, online, usuario } =
+    useEstado()
   const [sheetItem, setSheetItem] = useState<ItemPlantilla | null>(null)
   const reducir = useReducedMotion()
 
@@ -122,12 +123,14 @@ export function Captura() {
                 key={item.id}
                 item={item}
                 valor={respuestas[item.id]?.valor ?? null}
+                texto={respuestas[item.id]?.texto ?? ''}
                 conHallazgo={!!respuestas[item.id]?.hallazgoId}
                 onElegir={(v) => {
                   responder(item.id, v)
                   // FR-032: un nok con hallazgoObligatorio abre el registro.
                   if (v === 'nok' && item.hallazgoObligatorio) setSheetItem(item)
                 }}
+                onTexto={(t) => responderTexto(item.id, t)}
                 onAbrirHallazgo={() => setSheetItem(item)}
               />
             ))}
@@ -159,7 +162,7 @@ export function Captura() {
           <Boton tamano="sm" variante="secundaria">
             Guardar borrador
           </Boton>
-          <Boton tamano="sm" variante="primaria">
+          <Boton tamano="sm" variante="primaria" onClick={() => void enviarInspeccion()}>
             Enviar inspección
           </Boton>
         </div>
@@ -185,14 +188,18 @@ export function Captura() {
 function FilaItem({
   item,
   valor,
+  texto,
   conHallazgo,
   onElegir,
+  onTexto,
   onAbrirHallazgo,
 }: {
   item: ItemPlantilla
   valor: 'ok' | 'nok' | 'na' | null
+  texto: string
   conHallazgo: boolean
   onElegir: (v: 'ok' | 'nok' | 'na') => void
+  onTexto: (t: string) => void
   onAbrirHallazgo: () => void
 }) {
   const reducir = useReducedMotion()
@@ -216,6 +223,8 @@ function FilaItem({
             al lado del texto quedaban ~140px útiles, insuficiente para escribir
             un valor numérico con guante. */}
         <input
+          value={texto}
+          onChange={(e) => onTexto(e.target.value)}
           placeholder={item.tipo === 'numerico' ? '0,00' : 'Escribir…'}
           inputMode={item.tipo === 'numerico' ? 'decimal' : 'text'}
           className="h-11 w-full sm:w-auto sm:max-w-[190px] px-3 rounded-[10px] bg-s0 border border-line-soft text-[14px] placeholder:text-ink-3 focus:border-beam transition-colors duration-150 shrink-0"
