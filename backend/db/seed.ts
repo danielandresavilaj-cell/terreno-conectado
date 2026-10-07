@@ -1,4 +1,5 @@
 import { Pool } from 'pg'
+import { hash } from '@node-rs/argon2'
 
 /**
  * Datos semilla de la demo académica (data-model.md §5, FR-006).
@@ -10,9 +11,12 @@ import { Pool } from 'pg'
  * El seed debe ejecutarse con la conexión **admin/owner** (bypassa RLS). El rol
  * de aplicación `tc_app` no puede sembrar datos cross-tenant por diseño.
  *
- * Los `password_hash` reales (argon2id, NFR-06) los genera TSK-WS-003; aquí se
- * usa un marcador no utilizable para poder sembrar usuarios demo.
+ * Contraseña demo (solo desarrollo académico, NFR-06): argon2id real vía
+ * @node-rs/argon2. Se puede sobreescribir con `DEMO_PASSWORD` en el entorno.
  */
+
+/** Contraseña de todas las cuentas demo (documentada en el README). */
+export const DEMO_PASSWORD = process.env.DEMO_PASSWORD ?? 'TcDemo2026!'
 
 export const TENANT_A_ID = '01890000-0000-7000-8000-0000000000a1'
 export const TENANT_B_ID = '01890000-0000-7000-8000-0000000000b1'
@@ -20,13 +24,13 @@ export const SITE_A_ID = '01890000-0000-7000-8000-0000000000a2'
 export const SITE_B_ID = '01890000-0000-7000-8000-0000000000b2'
 export const PLATFORM_ADMIN_ID = '01890000-0000-7000-8000-0000000000c1'
 
-const PASSWORD_HASH_PLACEHOLDER = 'argon2id:pending-tsk-ws-003'
-
 interface SeedQueryable {
   query: (text: string, values?: unknown[]) => Promise<unknown>
 }
 
 export async function seedDatabase(db: SeedQueryable): Promise<void> {
+  const passwordHash = await hash(DEMO_PASSWORD)
+
   const tenants: Array<[string, string, string]> = [
     [TENANT_A_ID, 'Minera El Cobre SpA', 'minera-el-cobre'],
     [TENANT_B_ID, 'Constructora Andes SpA', 'constructora-andes'],
@@ -63,8 +67,11 @@ export async function seedDatabase(db: SeedQueryable): Promise<void> {
     await db.query(
       `INSERT INTO app_user (id, tenant_id, email, password_hash, role, full_name)
        VALUES ($1, $2, $3, $4, $5, $6)
-       ON CONFLICT (id) DO NOTHING`,
-      [id, tenantId, email, PASSWORD_HASH_PLACEHOLDER, role, fullName],
+       ON CONFLICT (id) DO UPDATE
+         SET password_hash = EXCLUDED.password_hash,
+             failed_login_count = 0,
+             locked_until = NULL`,
+      [id, tenantId, email, passwordHash, role, fullName],
     )
   }
 }
