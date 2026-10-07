@@ -111,10 +111,11 @@ terreno-conectado/
 
 ## Cómo ejecutar localmente
 
-> **Estado real:** el monorepo, el backend base (NestJS), la base de datos (PostgreSQL 16 + RLS), la
-> **auth** y la **PWA instalable** ya existen. Desde **TSK-WS-005** el `frontend/` **persiste de
-> verdad** en Dexie/IndexedDB (inspección, hallazgos, bitácora y outbox local con UUIDv7 de cliente);
-> los endpoints de datos de la app (sync, dashboard) llegan en TSK-WS-007+.
+> **Estado real:** el monorepo, la base de datos (PostgreSQL 16 + RLS), la **auth** y la **PWA
+> instalable** ya existen. Desde **TSK-WS-005** el `frontend/` **persiste de verdad** en
+> Dexie/IndexedDB (inspección, hallazgos, bitácora y outbox local con UUIDv7 de cliente) y desde
+> **TSK-WS-007** el backend expone `POST /api/v1/sync/batch` (ingesta idempotente); el **worker**
+> que dispara la cola del cliente llega en TSK-WS-008 y el dashboard en TSK-WS-011.
 
 ### Frontend — funciona hoy
 
@@ -126,7 +127,8 @@ autoguarda en Dexie/IndexedDB (el borrador se restaura al reabrir, FR-014), los 
 bitácora se guardan localmente, y todo queda encolado en un **outbox real** con IDs **UUIDv7** de
 cliente (FR-013, FR-015) y orden de dependencia FR-020. Desde **TSK-WS-006** la foto del hallazgo
 se **comprime en el dispositivo** antes de encolarse (canvas ≤1280 px, q0.7, FR-012). La cola la
-consume la capa de sync (TSK-WS-007/008); lo que aún no está es la API.
+consume la capa de sync: la API ya existe (**TSK-WS-007**, `POST /api/v1/sync/batch` idempotente);
+falta el **worker** de cliente que la dispara sola al reconectar (TSK-WS-008).
 
 **Prerrequisitos:** Node.js 22 LTS. Nada más — no necesita Docker ni base de datos.
 
@@ -192,8 +194,8 @@ fallidas (423 por 15 min). El acceso a datos usa el rol `tc_app` + `SET LOCAL ap
 
 | Servicio | URL | Estado |
 | :--- | :--- | :--- |
-| Frontend (Vite) | http://localhost:5173 | funciona (mockup) |
-| Backend (NestJS, auth lista) | http://localhost:3000 | funciona (auth + RLS; datos de app en TSK-WS-007+) |
+| Frontend (Vite) | http://localhost:5173 | funciona (mockup navegable + captura offline real) |
+| Backend (NestJS, auth + sync) | http://localhost:3000 | funciona (auth, RLS e ingesta `POST /api/v1/sync/batch`) |
 | PostgreSQL 16 | localhost:5432 | funciona (Docker Compose) |
 | Health check | http://localhost:3000/health | pendiente (TSK-WS-012) |
 
