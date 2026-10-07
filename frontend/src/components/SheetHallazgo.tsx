@@ -31,19 +31,20 @@ export function SheetHallazgo({
 }: {
   item: ItemPlantilla | null
   onClose: () => void
-  onGuardar: (sev: Severidad, descripcion: string, foto: boolean) => void
+  onGuardar: (sev: Severidad, descripcion: string, foto: File | null) => void
 }) {
   const reducir = useReducedMotion()
   const [sev, setSev] = useState<Severidad>('media')
   const [desc, setDesc] = useState('')
-  const [foto, setFoto] = useState(false)
+  const [foto, setFoto] = useState<File | null>(null)
+  const inputFoto = useRef<HTMLInputElement | null>(null)
   const origen = useRef<HTMLElement | null>(null)
 
   useEffect(() => {
     if (item) {
       setSev('media')
       setDesc('')
-      setFoto(false)
+      setFoto(null)
       // Guardamos el disparador para fijar transform-origin: el panel debe
       // crecer desde el botón que lo abrió, no desde el centro de la pantalla.
       origen.current = document.activeElement as HTMLElement
@@ -182,13 +183,25 @@ export function SheetHallazgo({
               />
             </label>
 
-            {/* FR-012: foto comprimida en el dispositivo. */}
+            {/* FR-011/012: evidencia fotográfica capturada en el dispositivo.
+                Se guarda el blob sin comprimir acá; la compresión (≤1280px q0.7)
+                llega con TSK-WS-006. */}
+            <input
+              ref={inputFoto}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              className="hidden"
+              onChange={(e) => setFoto(e.target.files?.[0] ?? null)}
+            />
             <button
-              onClick={() => setFoto((v) => !v)}
+              onClick={() => inputFoto.current?.click()}
               className={[
                 'mt-4 w-full flex items-center gap-3 rounded-[10px] border px-3.5 py-3 text-left cursor-pointer',
                 'transition-colors duration-200 ease-out',
-                foto ? 'border-beam/45 bg-beam/10' : 'border-line-soft bg-s1 hover:border-line',
+                foto
+                  ? 'border-beam/45 bg-beam/10'
+                  : 'border-line-soft bg-s1 hover:border-line',
               ].join(' ')}
             >
               <span
@@ -203,12 +216,16 @@ export function SheetHallazgo({
                 </svg>
               </span>
               <div className="min-w-0 flex-1">
-                <p className="text-[13px] font-medium">Adjuntar evidencia fotográfica</p>
-                <p className="text-[11px] text-ink-3 mt-0.5">
-                  Se comprime a 1280 px · q0.7 · ~200 KB (FR-012)
+                <p className="text-[13px] font-medium">
+                  {foto ? foto.name : 'Adjuntar evidencia fotográfica'}
+                </p>
+                <p className="text-[11px] text-ink-3 mt-0.5 truncate">
+                  {foto
+                    ? `${Math.round(foto.size / 1024)} KB · guardada en el dispositivo`
+                    : 'Captura con la cámara (FR-011); se comprime en TSK-WS-006'}
                 </p>
               </div>
-              {/* Checkmark */}
+              {/* Checkmark del archivo elegido */}
               <motion.span
                 animate={{ scale: foto ? 1 : 0.6, opacity: foto ? 1 : 0 }}
                 transition={reducir ? { duration: 0 } : { type: 'spring', duration: 0.32, bounce: 0.32 }}

@@ -1,11 +1,13 @@
 # Mockup funcional y animado — Terreno Conectado
 
 Prototipo navegable de la PWA para validar el diseño antes de escribir la lógica de negocio.
-**Los botones reaccionan y las transiciones se ven, pero no hay persistencia, API, IndexedDB ni
-cola real.** El único ciclo simulado de verdad es el de la cola de sincronización
-(`pending → syncing → synced`), porque es el momento que demuestra la propuesta de valor
-(spec maestro §9, paso 3) y sin él el mockup no cuenta la historia. Desde TSK-WS-004 es
-**instalable** (manifest + service worker) y funciona sin red tras la primera carga (FR-010).
+Desde **TSK-WS-005** la captura **persiste de verdad** en Dexie/IndexedDB: inspecciones, hallazgos y
+bitácora se guardan localmente con IDs **UUIDv7** generados en el cliente (FR-015) y quedan
+encoladas en un **outbox real** (FR-013) con orden de dependencia FR-020. El borrador se restaura al
+reabrir la app (FR-014). Lo que sigue **simulado**: el paso `pending → syncing → synced` (el
+worker de cola llega en TSK-WS-008) y las fotos (se guardan como blob sin comprimir; la compresión
+a ≤1280 px q0.7 llega en TSK-WS-006). Desde TSK-WS-004 es **instalable** (manifest + service
+worker) y funciona sin red tras la primera carga (FR-010).
 
 ## Correr
 
@@ -95,9 +97,10 @@ src/
   index.css               Tokens de diseño (@theme) y keyframes
   lib/
     types.ts              Tipos del dominio (espejo de data-model.md)
+    db.ts                 Capa Dexie/IndexedDB: schema + repos + outbox + seed (TSK-WS-005)
     seed.ts               Datos semilla es-CL del tenant demo
     motion.ts             Tokens de movimiento compartidos
-    store.tsx             Estado del mockup + ciclo de la cola
+    store.tsx             Estado + persistencia (Dexie) + cola real
   components/
     Shell.tsx             Barra superior, navegación, interruptor de señal
     ui.tsx                Botón y Tarjeta (primitivas de presión/selección)
@@ -108,9 +111,14 @@ src/
     Login.tsx  Captura.tsx  Bitacora.tsx  Cola.tsx  Dashboard.tsx  Conflictos.tsx
 ```
 
+Los registros de la cola viven en IndexedDB (tabla `outbox`); la BD local la crea y siembra
+`lib/db.ts` (`seedDemoDataIfNeeded`) en el primer arranque, y `npm run build` genera `dist/sw.js`
++ `dist/manifest.webmanifest` para la PWA.
+
 ## Qué falta para el producto real
 
 Todo lo que el mockup no es, y que el ciclo `spec → plan → tasks → código → tests → evidencia`
-de la constitución exige antes de implementarse: Dexie e IndexedDB, Workbox y service worker,
-compresión de imagen en canvas, cola idempotente con backoff, endpoints NestJS, RLS en
-PostgreSQL, y la suite de pruebas del `test-plan.md` (caos offline, intrusión cross-tenant).
+de la constitución exige antes de implementarse: compresión de imagen en canvas (TSK-WS-006),
+cola idempotente con backoff y disparo por `online` (TSK-WS-007/008), endpoints NestJS, RLS en
+PostgreSQL ya operando, y la suite de pruebas del `test-plan.md` (caos offline, intrusión
+cross-tenant).

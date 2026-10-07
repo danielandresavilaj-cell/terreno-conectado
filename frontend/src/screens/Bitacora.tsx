@@ -18,61 +18,22 @@ import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { Boton } from '../components/ui'
 import { CountUp } from '../components/CountUp'
 import { FAENAS } from '../lib/seed'
+import { useEstado } from '../lib/store'
 import { EASE } from '../lib/motion'
 
 const TAGS = ['Turno B', 'Relevo', 'Clima', 'Transporte', 'Incidencia']
 
-const ENTRADAS_INICIALES = [
-  {
-    id: 'b1',
-    hora: '14:02',
-    autor: 'Carla Ñanco',
-    texto:
-      'Relevo de turno con el jefe Jh. Salas. Se deja faena nivelada y barricada en el acceso al rajo. Queda pendiente la señalización de la ruta de evacuación por falta de conos.',
-    tags: ['Turno B', 'Relevo'],
-    geo: '23.4461°S · 69.8742°W',
-  },
-  {
-    id: 'b2',
-    hora: '09:15',
-    autor: 'Carla Ñanco',
-    texto:
-      'Viento sostenido del este, visibilidad buena. Se postergó el movimiento de la shovel por polvo en la rampa de acceso.',
-    tags: ['Clima'],
-    geo: '23.4461°S · 69.8742°W',
-  },
-  {
-    id: 'b3',
-    hora: '06:58',
-    autor: 'Javiera Molina',
-    texto:
-      'Llegada del equipo de transporte. Se registró el cambio de conductor del turno noche: sin observaciones.',
-    tags: ['Transporte'],
-    geo: '23.4502°S · 69.8701°W',
-  },
-]
-
 export function Bitacora() {
+  const { entradasBitacora, agregarBitacora } = useEstado()
   const [abierto, setAbierto] = useState(false)
   const [texto, setTexto] = useState('')
   const [tags, setTags] = useState<string[]>(['Turno B'])
   const [faena, setFaena] = useState(FAENAS[0].id)
-  const [entradas, setEntradas] = useState(ENTRADAS_INICIALES)
   const reducir = useReducedMotion()
 
   const agregar = () => {
     if (!texto.trim()) return
-    setEntradas((e) => [
-      {
-        id: `b${Date.now()}`,
-        hora: new Date().toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' }),
-        autor: 'Carla Ñanco',
-        texto: texto.trim(),
-        tags,
-        geo: '23.4461°S · 69.8742°W',
-      },
-      ...e,
-    ])
+    agregarBitacora(texto.trim(), tags, faena)
     setTexto('')
     setAbierto(false)
   }
@@ -188,12 +149,12 @@ export function Bitacora() {
       <div className="space-y-2.5">
         <div className="flex items-center gap-3 px-0.5">
           <h2 className="label-inst">
-            <CountUp valor={entradas.length} className="text-ink-3" /> entradas cronológicas
+            <CountUp valor={entradasBitacora.length} className="text-ink-3" /> entradas cronológicas
           </h2>
           <div className="flex-1 rule" />
         </div>
 
-        {entradas.map((e, i) => (
+        {entradasBitacora.map((e, i) => (
           <motion.article
             key={e.id}
             initial={reducir ? { opacity: 1 } : { opacity: 0, y: 8 }}
@@ -206,7 +167,7 @@ export function Bitacora() {
             <div className="shrink-0 w-[52px] text-right">
               <p className="num-inst text-[15px] font-semibold">{e.hora}</p>
               <div className="mt-2 flex items-center justify-end gap-0">
-                {i < entradas.length - 1 && (
+                {i < entradasBitacora.length - 1 && (
                   <span className="w-px h-full bg-line-soft -mr-[9px]" aria-hidden />
                 )}
               </div>
