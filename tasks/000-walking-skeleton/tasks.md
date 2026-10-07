@@ -1,6 +1,6 @@
 # TASKS — Iteración 0: Walking skeleton (MVP vertical)
 
-**Versión:** 0.1.0 · **Fecha:** 2026-09-24 · **Autor:** Raúl González
+**Versión:** 0.1.1 · **Fecha:** 2026-10-07 · **Autor:** Raúl González
 **Padre:** `plans/000-walking-skeleton/plan.md` · **Spec de referencia:** `specs/000-master/spec.md` §9 (MVP)
 
 > **Regla (Artículo II):** cada task referencia al menos un ID de requisito; cada commit referencia al menos un task. Estado de iteración: los criterios de aceptación de la demo (§13 spec maestro) dependen de que esta iteración complete el guion §9.
@@ -9,7 +9,7 @@
 
 | ID | Tarea | Requisito(s) | Depende de | Criterio de aceptación | Estado |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| TSK-WS-001 | Bootstrap monorepo pnpm: workspaces `frontend/` · `backend/` · `infra/` + toolchain TS + lint | NFR-11, ADR-001 | — | `pnpm install` resuelve los 3 workspaces; lint pasa en CI | ⏳ Pendiente |
+| TSK-WS-001 | Bootstrap monorepo **npm workspaces**: `shared/` · `frontend/` · `backend/` · `infra/` + toolchain TS + lint | NFR-11, ADR-001 | — | `npm install` resuelve los workspaces; `npm run lint` + `typecheck` + `build` pasan en CI | ✅ Hecho |
 | TSK-WS-002 | PostgreSQL 16 + migraciones + seed tenants A/B con RLS habilitado | FR-002, FR-006, NFR-05 | 001 | Migraciones aplican en Testcontainers; consulta autenticada como tenant A no devuelve filas del B (rechazo a nivel DB) | ⏳ Pendiente |
 | TSK-WS-003 | Auth: `POST /auth/login`, `POST /auth/refresh`, `GET /me` — JWT con claims, roles, rate-limit | FR-001, FR-003, FR-004, FR-005 | 002 | Login emite JWT 15 min + refresh con `user_id/tenant_id/rol`; 5 fallos → bloqueo 15 min; refresh no pierde cola local | ⏳ Pendiente |
 | TSK-WS-004 | PWA mínima instalable: manifest + service worker (Workbox) + shell precache | FR-010, NFR-01 | 001 | Instalable y funcional sin red tras primera carga | ⏳ Pendiente |
@@ -32,4 +32,5 @@
 
 | Versión | Fecha | Cambio | Autor |
 | :--- | :--- | :--- | :--- |
+| 0.1.1 | 2026-10-07 | TSK-WS-001: pnpm → npm workspaces (enmienda ADR-001 001.1); incluye `shared/` como 4º workspace | Daniel Ávila |
 | 0.1.0 | 2026-09-24 | Iteración 0 inicial: tareas del walking skeleton derivadas del plan homónimo y del spec maestro §9 | Raúl González (con IA) |
