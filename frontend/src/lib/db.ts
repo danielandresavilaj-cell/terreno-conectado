@@ -10,7 +10,7 @@
  */
 
 import Dexie, { type EntityTable } from 'dexie'
-import { uuidv7 } from '@terreno/shared'
+import { uuidv7, type SyncRecord } from '@terreno/shared'
 import { PLANTILLA } from './seed'
 
 export type SyncEstado = 'pending' | 'syncing' | 'synced' | 'failed'
@@ -410,6 +410,171 @@ export async function contadorPendientes(): Promise<number> {
 
 export async function contadorFallidos(): Promise<number> {
   return db.outbox.where('status').equals('failed').count()
+}
+
+/* ----------------------------------------------- capa de sync (TSK-WS-008)
+ *
+ * El worker (`lib/sync.ts`) lee del outbox vía `sincronizables`, arma el
+ * `SyncBatchRequest` con `aSyncRecord` y escribe el desenlace con
+ * `marcar*`. Concurrencia 1 y backoff los controla el propio worker.
+ */
+
+/** Filas listas para enviar: pendientes y fallidas, en orden de dependencia (FR-020). */
+export async function sincronizables(): Promise<OutboxRow[]> {
+  const rows = await db.outbox.where('status').anyOf('pending', 'failed').toArray()
+  return rows.sort((a, b) => a.batchOrder - b.batchOrder || a.entityId.localeCompare(b.entityId))
+}
+
+/** Fila del outbox → SyncRecord wire (contrato de `shared/src/sync.ts`). */
+export async function aSyncRecord(o: OutboxRow): Promise<SyncRecord> {
+  const payload = await payloadDe(o)
+  return {
+    entity_type: o.entityType,
+    id: o.entityId,
+    tenant_id: o.tenantId,
+    client_version: payload.client_version,
+    captured_at: payload.captured_at,
+    payload: payload.body,
+  }
+}
+
+async function payloadDe(o: OutboxRow): Promise<{
+  client_version: number
+  captured_at: string
+  body: SyncRecord['payload']
+}> {
+  switch (o.entityType) {
+    case 'inspection': {
+      const r = await db.inspections.get(o.entityId)
+      if (!r) throw new Error(`inspection ${o.entityId} no existe`)
+      return {
+        client_version: r.clientVersion,
+        captured_at: r.capturedAt,
+        body: {
+          site_id: r.siteId,
+          template_id: r.templateId,
+          template_version: r.templateVersion,
+          executed_by: r.executedBy,
+          status: r.status,
+        },
+      }
+    }
+    case 'response': {
+      const r = await db.responses.get(o.entityId)
+      if (!r) throw new Error(`response ${o.entityId} no existe`)
+      return {
+        client_version: r.clientVersion,
+        captured_at: r.capturedAt,
+        body: {
+          inspection_id: r.inspectionId,
+          template_item_id: r.templateItemId,
+          value_ok: r.valueOk,
+          value_text: r.valueText,
+          value_number: r.valueNumber,
+        },
+      }
+    }
+    case 'finding': {
+      const r = await db.findings.get(o.entityId)
+      if (!r) throw new Error(`finding ${o.entityId} no existe`)
+      return {
+        client_version: r.clientVersion,
+        captured_at: r.capturedAt,
+        body: {
+          inspection_id: r.inspectionId,
+          response_id: r.responseId,
+          severity: r.severity,
+          description: r.description,
+          status: r.status,
+        },
+      }
+    }
+    case 'log_entry': {
+      const r = await db.logEntries.get(o.entityId)
+      if (!r) throw new Error(`log_entry ${o.entityId} no existe`)
+      return {
+        client_version: r.clientVersion,
+        captured_at: r.capturedAt,
+        body: {
+          site_id: r.siteId,
+          author_id: r.authorId,
+          entry_text: r.entryText,
+          tags: r.tags,
+          shift_date: r.shiftDate,
+        },
+      }
+    }
+    case 'attachment': {
+      const r = await db.attachments.get(o.entityId)
+      if (!r) throw new Error(`attachment ${o.entityId} no existe`)
+      return {
+        client_version: r.clientVersion,
+        captured_at: r.capturedAt,
+        body: {
+          owner_type: r.ownerType,
+          owner_id: r.ownerId,
+          mime: r.mime,
+          bytes: r.bytes,
+          width: r.ancho,
+          height: r.alto,
+          data: await blobABase64(r.blob),
+        },
+      }
+    }
+  }
+}
+
+/** Blob → base64 para el campo `data` del adjunto (V1, volumen Docker). */
+function blobABase64(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => {
+      const result = reader.result
+      if (typeof result !== 'string') return reject(new Error('lectura del blob falló'))
+      // FileReader entrega data URLs; extraemos solo el base64.
+      resolve(result.slice(result.indexOf(',') + 1))
+    }
+    reader.onerror = () => reject(reader.error)
+    reader.readAsDataURL(blob)
+  })
+}
+
+/** FR-026: marca los envíos exitosos → `synced` (y `syncedAt` en las inspecciones). */
+export async function marcarSincronizado(filas: OutboxRow[]): Promise<void> {
+  if (filas.length === 0) return
+  const ts = ahoraIso()
+  await db.transaction('rw', db.outbox, db.inspections, async () => {
+    for (const f of filas) {
+      await db.outbox.update(f.id as number, {
+        status: 'synced',
+        retries: 0,
+        lastError: undefined,
+        updatedAt: ts,
+      })
+      if (f.entityType === 'inspection') {
+        await db.inspections.where('id').equals(f.entityId).modify({ syncedAt: ts })
+      }
+    }
+  })
+}
+
+/** FR-022: un fallo suma un intento, deja el error y vuelve la fila a `failed`. */
+export async function marcarFallido(fila: OutboxRow, mensaje: string): Promise<void> {
+  await db.outbox.update(fila.id as number, {
+    status: 'failed',
+    retries: (fila.retries ?? 0) + 1,
+    lastError: mensaje.slice(0, 300),
+    updatedAt: ahoraIso(),
+  })
+}
+
+/** Durante el envío la fila pasa a `syncing` (transición visible en la cola). */
+export async function marcarEnviando(filas: OutboxRow[]): Promise<void> {
+  if (filas.length === 0) return
+  const ts = ahoraIso()
+  for (const f of filas) {
+    await db.outbox.update(f.id as number, { status: 'syncing', updatedAt: ts })
+  }
 }
 
 /* ------------------------------------------------------------ seed demo */

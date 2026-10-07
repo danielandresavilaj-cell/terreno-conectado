@@ -37,6 +37,7 @@ import {
   type OutboxRow,
 } from './db'
 import { comprimirImagen } from './compresor'
+import { sincronizarCola } from './sync'
 
 export type Pantalla = 'captura' | 'bitacora' | 'cola' | 'dashboard' | 'conflictos'
 
@@ -62,6 +63,8 @@ interface Ctx {
   ir: (p: Pantalla) => void
   setOnline: (v: boolean) => void
   toggleOnline: () => void
+  sincronizarAhora: () => void
+  sincronizando: boolean
 
   pendientes: number
   fallidos: number
@@ -108,6 +111,9 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
   const [pendientes, setPendientes] = useState(0)
   const [fallidos, setFallidos] = useState(0)
   const [entradasBitacora, setEntradasBitacora] = useState<Ctx['entradasBitacora']>([])
+  const [recienSincronizado, setRecienSincronizado] = useState<string | null>(null)
+  const [sincronizando, setSincronizando] = useState(false)
+  const [cuotaAviso, setCuotaAviso] = useState(false)
   const deviceRef = useRef<string>('')
 
   const refrescar = useCallback(async () => {
@@ -168,6 +174,25 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
     (Object.values(TENANTS).find((t) => t.nombre === u.tenant) ?? DEFAULT_TENANT).id
   const faenaDe = (u: Usuario) => FAENAS.find((f) => f.nombre === u.faena) ?? DEFAULT_FAENA
 
+  /* TSK-WS-008: executa el worker una vez y refleja el desenlace en la UI.
+   * El worker ya es singleton (concurrencia 1) y programa solo sus backoffs. */
+  const sincronizarAhora = useCallback(() => {
+    void (async () => {
+      setSincronizando(true)
+      try {
+        const r = await sincronizarCola()
+        if (r.estado === 'ok' || r.estado === 'parcial') {
+          const ultimo = r.sincronizados[r.sincronizados.length - 1]
+          if (ultimo) setRecienSincronizado(ultimo)
+        }
+        if (r.estado === 'fallo' && r.error) setCuotaAviso(true)
+      } finally {
+        setSincronizando(false)
+        await refrescar()
+      }
+    })()
+  }, [refrescar])
+
   const entrar = useCallback(
     (u: Usuario) => {
       setUsuario(u)
@@ -175,8 +200,10 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
       void getDeviceId().then((id) => {
         deviceRef.current = id
       })
+      // FR-004: al entrar se intenta drenar la cola pendiente.
+      void sincronizarAhora()
     },
-    [],
+    [sincronizarAhora],
   )
 
   const salir = useCallback(() => {
@@ -186,8 +213,32 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
 
   const toggleOnline = useCallback(() => {
     setOnline((v) => !v)
-    void refrescar()
-  }, [refrescar])
+    // El valor del cierre es el estado previo: si estaba offline, al encender
+    // la señal se inicia el flush (FR-016, FR-022).
+    if (!online) {
+      void sincronizarAhora()
+    } else {
+      void refrescar()
+    }
+  }, [online, refrescar, sincronizarAhora])
+
+  /* FR-016: el evento `online` del navegador dispara la sincronización sin
+   * intervención del usuario; `offline` apaga el indicador. El toggle del
+   * mockup sigue siendo útil en el demo (simular señal). */
+  useEffect(() => {
+    const conectar = () => {
+      setOnline(true)
+      void sincronizarAhora()
+    }
+    const desconectar = () => setOnline(false)
+    window.addEventListener('online', conectar)
+    window.addEventListener('offline', desconectar)
+    setOnline(navigator.onLine)
+    return () => {
+      window.removeEventListener('online', conectar)
+      window.removeEventListener('offline', desconectar)
+    }
+  }, [sincronizarAhora])
 
   const resolverDraft = useCallback(
     async (u: Usuario) => {
@@ -300,8 +351,10 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
       if (draftId) await submitInspection(draftId)
       setRespuestas({})
       await refrescar()
+      // FR-004: apenas se encola, si hay señal se intenta el flush.
+      void sincronizarAhora()
     })()
-  }, [usuario, refrescar])
+  }, [usuario, refrescar, sincronizarAhora])
 
   const agregarBitacora = useCallback(
     (texto: string, tags: string[], faenaId: string) => {
@@ -341,8 +394,8 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
     online,
     pantalla,
     cola,
-    recienSincronizado: null,
-    cuotaAviso: false,
+    recienSincronizado,
+    cuotaAviso,
     respuestas,
     entradasBitacora,
     entrar,
@@ -350,6 +403,8 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
     ir: setPantalla,
     setOnline,
     toggleOnline,
+    sincronizarAhora,
+    sincronizando,
     pendientes,
     fallidos,
     enCola: cola,
