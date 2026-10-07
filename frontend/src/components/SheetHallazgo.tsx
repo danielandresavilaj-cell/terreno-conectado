@@ -221,8 +221,8 @@ export function SheetHallazgo({
                 </p>
                 <p className="text-[11px] text-ink-3 mt-0.5 truncate">
                   {foto
-                    ? `${Math.round(foto.size / 1024)} KB · guardada en el dispositivo`
-                    : 'Captura con la cámara (FR-011); se comprime en TSK-WS-006'}
+                    ? `${Math.round(foto.size / 1024)} KB original · se comprime en el dispositivo`
+                    : 'Captura con la cámara; se comprime a 1280 px · q0.7 antes de encolar'}
                 </p>
               </div>
               {/* Checkmark del archivo elegido */}

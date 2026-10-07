@@ -96,6 +96,9 @@ export interface AttachmentRow {
   mime: string
   bytes: number
   blob: Blob
+  /** FR-012: la foto se comprime a ≤1280 px q0.7 ANTES de encolarse. */
+  ancho: number
+  alto: number
   capturedAt: string
   clientVersion: number
 }
@@ -311,8 +314,8 @@ export async function addFinding(params: {
   severity: Severity
   description: string
   detalle: string
-  foto: Blob | null
-  mime: string
+  /** FR-012: blob ya comprimido (≤1280 px, q0.7) por `comprimirImagen`. */
+  foto: { blob: Blob; ancho: number; alto: number; mime: string } | null
 }): Promise<void> {
   const ts = ahoraIso()
   const findingId = uuidv7()
@@ -343,9 +346,11 @@ export async function addFinding(params: {
         tenantId: params.tenantId,
         ownerType: 'finding',
         ownerId: findingId,
-        mime: params.mime,
-        bytes: params.foto.size,
-        blob: params.foto,
+        mime: params.foto.mime,
+        bytes: params.foto.blob.size,
+        blob: params.foto.blob,
+        ancho: params.foto.ancho,
+        alto: params.foto.alto,
         capturedAt: ts,
         clientVersion: 0,
       })
@@ -353,7 +358,7 @@ export async function addFinding(params: {
         'attachment',
         attachmentId,
         'Evidencia fotográfica',
-        `${Math.round(params.foto.size / 1024)} KB · offline (compresión en TSK-WS-006)`,
+        `${params.foto.ancho}×${params.foto.alto} · ${Math.round(params.foto.blob.size / 1024)} KB comprimida (FR-012)`,
         params.tenantId,
       )
     }
@@ -516,6 +521,8 @@ export async function seedDemoDataIfNeeded(cola: Array<{ uuid: string; titulo: s
         mime: 'image/png',
         bytes: blob.size,
         blob,
+        ancho: 1,
+        alto: 1,
         capturedAt: ts,
         clientVersion: 0,
       })

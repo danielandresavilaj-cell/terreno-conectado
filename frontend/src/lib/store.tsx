@@ -36,6 +36,7 @@ import {
   upsertResponse,
   type OutboxRow,
 } from './db'
+import { comprimirImagen } from './compresor'
 
 export type Pantalla = 'captura' | 'bitacora' | 'cola' | 'dashboard' | 'conflictos'
 
@@ -252,6 +253,23 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
       void (async () => {
         const draft = await resolverDraft(usuario)
         const respuesta = await respuestaDelItem(draft.id, itemId)
+        // FR-012: la foto se comprime ANTES de encolarse (canvas ≤1280 px, q0.7).
+        // Si la compresión falla, el hallazgo se guarda igual sin foto: la
+        // captura nunca depende de la evidencia fotográfica.
+        let fotoComprimida: { blob: Blob; ancho: number; alto: number; mime: string } | null = null
+        if (foto) {
+          try {
+            const comp = await comprimirImagen(foto)
+            fotoComprimida = {
+              blob: comp.blob,
+              ancho: comp.ancho,
+              alto: comp.alto,
+              mime: comp.blob.type || 'image/jpeg',
+            }
+          } catch {
+            fotoComprimida = null
+          }
+        }
         await addFinding({
           inspectionId: draft.id,
           responseId: respuesta?.id ?? null,
@@ -259,8 +277,7 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
           severity: SEV_TO_EN[sev],
           description: descripcion.trim() || 'Sin descripción',
           detalle: descripcion.trim().slice(0, 42) || 'Sin descripción',
-          foto: foto,
-          mime: foto?.type || 'image/png',
+          foto: fotoComprimida,
         })
         setRespuestas((r) => ({
           ...r,

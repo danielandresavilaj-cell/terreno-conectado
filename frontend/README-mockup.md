@@ -4,10 +4,11 @@ Prototipo navegable de la PWA para validar el diseño antes de escribir la lógi
 Desde **TSK-WS-005** la captura **persiste de verdad** en Dexie/IndexedDB: inspecciones, hallazgos y
 bitácora se guardan localmente con IDs **UUIDv7** generados en el cliente (FR-015) y quedan
 encoladas en un **outbox real** (FR-013) con orden de dependencia FR-020. El borrador se restaura al
-reabrir la app (FR-014). Lo que sigue **simulado**: el paso `pending → syncing → synced` (el
-worker de cola llega en TSK-WS-008) y las fotos (se guardan como blob sin comprimir; la compresión
-a ≤1280 px q0.7 llega en TSK-WS-006). Desde TSK-WS-004 es **instalable** (manifest + service
-worker) y funciona sin red tras la primera carga (FR-010).
+reabrir la app (FR-014). Desde **TSK-WS-006** la foto del hallazgo se **comprime en el dispositivo**
+antes de encolarse (canvas ≤1280 px lado mayor, JPEG q0.7, FR-012) y se guarda como blob con su
+ancho/alto. Lo que sigue **simulado**: el paso `pending → syncing → synced` (el worker de cola
+llega en TSK-WS-008). Desde TSK-WS-004 es **instalable** (manifest + service worker) y funciona
+sin red tras la primera carga (FR-010).
 
 ## Correr
 
@@ -98,6 +99,7 @@ src/
   lib/
     types.ts              Tipos del dominio (espejo de data-model.md)
     db.ts                 Capa Dexie/IndexedDB: schema + repos + outbox + seed (TSK-WS-005)
+    compresor.ts          Compresión de foto en el dispositivo (canvas ≤1280px q0.7, FR-012)
     seed.ts               Datos semilla es-CL del tenant demo
     motion.ts             Tokens de movimiento compartidos
     store.tsx             Estado + persistencia (Dexie) + cola real
@@ -118,7 +120,6 @@ Los registros de la cola viven en IndexedDB (tabla `outbox`); la BD local la cre
 ## Qué falta para el producto real
 
 Todo lo que el mockup no es, y que el ciclo `spec → plan → tasks → código → tests → evidencia`
-de la constitución exige antes de implementarse: compresión de imagen en canvas (TSK-WS-006),
-cola idempotente con backoff y disparo por `online` (TSK-WS-007/008), endpoints NestJS, RLS en
-PostgreSQL ya operando, y la suite de pruebas del `test-plan.md` (caos offline, intrusión
-cross-tenant).
+de la constitución exige antes de implementarse: cola idempotente con backoff y disparo por
+`online` (TSK-WS-007/008), endpoints NestJS, RLS en PostgreSQL ya operando, y la suite de pruebas
+del `test-plan.md` (caos offline, intrusión cross-tenant).

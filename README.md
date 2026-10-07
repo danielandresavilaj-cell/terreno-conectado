@@ -124,8 +124,9 @@ manifest + service worker Workbox con precache del shell: funciona sin red tras 
 desde **TSK-WS-005**, la captura **persiste en el dispositivo**: cada ítem de la inspección se
 autoguarda en Dexie/IndexedDB (el borrador se restaura al reabrir, FR-014), los hallazgos y la
 bitácora se guardan localmente, y todo queda encolado en un **outbox real** con IDs **UUIDv7** de
-cliente (FR-013, FR-015) y orden de dependencia FR-020. La cola la consume la capa de sync
-(TSK-WS-007/008); lo que aún no está es la API.
+cliente (FR-013, FR-015) y orden de dependencia FR-020. Desde **TSK-WS-006** la foto del hallazgo
+se **comprime en el dispositivo** antes de encolarse (canvas ≤1280 px, q0.7, FR-012). La cola la
+consume la capa de sync (TSK-WS-007/008); lo que aún no está es la API.
 
 **Prerrequisitos:** Node.js 22 LTS. Nada más — no necesita Docker ni base de datos.
 
