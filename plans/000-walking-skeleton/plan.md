@@ -36,7 +36,7 @@ TSK-007 ingest batch (backend) ◄────────── TSK-008 worker 
 ## 3. Decisiones técnicas previas (se cierran aquí, antes de codificar — Artículo II)
 
 1. **Tie-breaker LWW determinista (TSK-009):** ante `captured_at` iguales, gana el mayor `client_version`; si también empatan, mayor UUIDv7 (orden lexicográfico). Esto hace la resolución **reproducible** ante relojes desviados (test-plan §5, caso adversarial). Queda documentado como criterio en el spec 003 cuando se detalle.
-2. **Refresh token en PWA (TSK-003):** decisión pendiente de elegir — las opciones (cookie httpOnly + CSRF vs storage cifrado vs SW-only) se documentarán en el spec 001 antes de implementar; esta iteración puede comenzar con access-token en memoria + refresh en storage temporal, marcado explícito en el plan.
+2. **Refresh token en PWA (TSK-003):** **decidido 2026-10-06 (D5, spec 001 "Decisión D5")** — cookie httpOnly (`SameSite=Strict`, `Path=/api/v1/auth`) con rotación y detección de reuso, access token de 15 min solo en memoria, CSRF double-submit. La cola outbox (Dexie) no depende del token: al reconectar con access expirado, silent refresh y luego flush (FR-004). Ya no es una decisión pendiente; pendiente solo la ratificación de Raúl en el PR (issue #11).
 3. **Solo un idioma y toolchain (TSK-001):** pnpm workspaces, TypeScript en ambos extremos, DTOs compartidos en un paquete `shared/` — coherente con ADR-001.
 4. **El orden de dependencias del batch (TSK-007):** `site → inspection → responses → findings → attachments` fijo (data-model.md §4.2, FR-020).
 
