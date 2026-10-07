@@ -29,6 +29,9 @@ test-results/
 *.sqlite
 pgdata/
 
+# Bytes de adjuntos sincronizados (TSK-WS-007, SYNC_VOLUME)
+.vol/
+
 # Nota: `.github/` ya NO se excluye.
 # Se excluía como rodeo porque el PAT de `git:https://github.com` no tiene el
 # scope `workflow`, y GitHub rechaza el push si un commit toca un archivo de
