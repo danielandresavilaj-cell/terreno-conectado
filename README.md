@@ -150,7 +150,6 @@ npm run build          # build de frontend (Vite) y backend (tsc)
 npm run dev:frontend   # Vite   -> http://localhost:5173
 npm run dev:backend    # NestJS -> http://localhost:3000
 ```
-
 La base de datos local ya existe (**TSK-WS-002**): PostgreSQL 16 con **Row-Level Security**,
 migraciones versionadas (`node-pg-migrate`) y seed de tenants A/B. El backend base arranca pero
 **aún no persiste** datos de la app (la conexión de la app llega en TSK-WS-003).
