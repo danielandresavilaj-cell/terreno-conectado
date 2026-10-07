@@ -80,6 +80,33 @@ export interface SyncBatchRequest {
 
 export type SyncBatchStatus = 'ok' | 'partial' | 'failed'
 
+/** Estado interno del registro de batch en sync_log (fase pending → final). */
+export type SyncLogStatus = 'pending' | SyncBatchStatus
+
+/** Tie-breaker determinista del LWW (plan §3.1): única resolución existente. */
+export type ConflictResolution = 'lww'
+
+/**
+ * Conflicto registrado (FR-023, Artículo III): ambas versiones conservadas.
+ * `winner_payload`/`loser_payload` son el payload del contrato (sin `data`
+ * para attachments: los bytes viven en el volumen, data-model §2.2).
+ */
+export interface ConflictRecordDto {
+  id: string
+  entity_type: SyncEntityType
+  entity_id: string
+  winner_payload: Record<string, unknown>
+  loser_payload: Record<string, unknown>
+  resolution: ConflictResolution
+  resolved_at: string
+}
+
+/** `GET /api/v1/conflicts` — lectura para supervisor/admin (consumo TSK-WS-011). */
+export interface ListConflictsResponse {
+  items: ConflictRecordDto[]
+  total: number
+}
+
 export interface SyncBatchResponse {
   batch_id: string
   status: SyncBatchStatus

@@ -24,10 +24,10 @@ Requisitos que este spec detallará: **FR-020 → FR-026** y soporte a **NFR-03,
 
 ## Secciones a completar en el ciclo del módulo
 
-- [ ] Contratos de API de ingesta: `POST /api/v1/sync/batch` (request/response, códigos de error parciales)
-- [ ] Semántica exacta de upsert + condición de versión (SQL) — ver data-model.md §4.1
-- [ ] Algoritmo del worker de cola cliente (concurrencia 1, tamaño de lote, reanudación)
-- [x] Definición determinista de LWW ante `captured_at` iguales: **decidida** en `plans/000-walking-skeleton/plan.md` §3.1 — gana mayor `client_version`; si empatan, mayor `captured_at`; si aún empatan, mayor UUIDv7 (orden lexicográfico). Resolución reproducible ante relojes desviados (caso adversarial §5 test-plan).
+- [x] Contratos de API de ingesta: `POST /api/v1/sync/batch` (request/response, códigos de error parciales) — implementado en `shared/src/sync.ts` + `backend/src/sync` (TSK-WS-007/009)
+- [x] Semántica exacta de upsert + condición de versión (SQL) — ver data-model.md §4.1 e implementación en `backend/src/sync/sync.service.ts` (TSK-WS-007/009)
+- [x] Algoritmo del worker de cola cliente (concurrencia 1, tamaño de lote, reanudación) — implementado en `frontend/src/lib/sync.ts` (TSK-WS-008)
+- [x] Definición determinista de LWW ante `captured_at`/`client_version` iguales: **implementada** en `backend/src/sync/sync.service.ts` (TSK-WS-009) — ganador = mayor `captured_at`; si empatan, mayor `client_version`; si aún empatan, mayor UUIDv7 (orden lexicográfico), según `plans/000-walking-skeleton/plan.md` §3.1. Resolución reproducible ante relojes desviados (caso adversarial §5 test-plan).
 - [ ] Descarga incremental hacia el cliente (plantillas y datos de referencia para offline)
 - [ ] Criterios de aceptación = escenarios de caos 1–7 pasando (test-plan.md §4)
 - [ ] Plan técnico → `plans/003-motor-sincronizacion/plan.md`
@@ -36,4 +36,5 @@ Requisitos que este spec detallará: **FR-020 → FR-026** y soporte a **NFR-03,
 
 | Versión | Fecha | Cambio | Autor |
 | :--- | :--- | :--- | :--- |
+| 0.2.0 | 2026-10-07 | TSK-WS-007/008/009 implementados: contrato de ingesta (`SyncBatchRequest/Response`), upsert versión-condicionado e idempotente, LWW determinista + `CONFLICT_RECORD` append-only (worst/winner payload), `sync_log` en dos fases, `GET /api/v1/conflicts` (supervisor/admin), worker de cola cliente | Daniel Ávila |
 | 0.1.0 | 2026-09-14 | Esqueleto inicial desde spec maestro v1.0.0 | Daniel Ávila (con IA) |

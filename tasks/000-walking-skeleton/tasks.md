@@ -1,6 +1,6 @@
 # TASKS — Iteración 0: Walking skeleton (MVP vertical)
 
-**Versión:** 0.1.8 · **Fecha:** 2026-10-07 · **Autor:** Raúl González
+**Versión:** 0.1.9 · **Fecha:** 2026-10-07 · **Autor:** Raúl González
 **Padre:** `plans/000-walking-skeleton/plan.md` · **Spec de referencia:** `specs/000-master/spec.md` §9 (MVP)
 
 > **Regla (Artículo II):** cada task referencia al menos un ID de requisito; cada commit referencia al menos un task. Estado de iteración: los criterios de aceptación de la demo (§13 spec maestro) dependen de que esta iteración complete el guion §9.
@@ -17,7 +17,7 @@
 | TSK-WS-006 | Compresión de foto en cliente (canvas ≤ 1280 px, q 0.7) y blob en IndexedDB | FR-012 | 005 | Foto 8 MP → ≤ 1280 px lado mayor, q 0.7, antes de encolar | ✅ Hecho |
 | TSK-WS-007 | Ingesta idempotente `POST /api/v1/sync/batch`: upsert por UUID cliente + orden de dependencias + SYNC_LOG | FR-020, FR-021, FR-024 | 003, 005 | Replay del mismo batch → cero duplicados; batch respeta orden site→inspection→responses→findings→attachments; `synced_at − captured_at` registrado | ✅ Hecho |
 | TSK-WS-008 | Worker de cola cliente: disparo en `online`, backoff exponencial, marcado `synced` | FR-016, FR-022, FR-026 | 007 | Al reconectar inicia sola sin clic; backoff 1 s→5 min; contador de pendientes actualizado | ✅ Hecho |
-| TSK-WS-009 | Resolución LWW + `CONFLICT_RECORD` (tie-breaker determinista) | FR-023 | 007, 008 | Dos dispositivos editan el mismo registro offline → gana mayor `client_version`; ambas versiones conservadas y visibles al supervisor | ⏳ Pendiente |
+| TSK-WS-009 | Resolución LWW + `CONFLICT_RECORD` (tie-breaker determinista) | FR-023 | 007, 008 | Dos dispositivos editan el mismo registro offline → gana mayor `client_version`; ambas versiones conservadas y visibles al supervisor | ✅ Hecho |
 | TSK-WS-010 | Rechazo de lote cross-tenant + incidente en AUDIT_LOG | FR-025, FR-051 | 007 | JWT tenant A + payload tenant B → 4xx, lote completo rechazado, incidente auditado (defensa en profundidad sobre RLS) | ✅ Hecho (en 007) |
 | TSK-WS-011 | Dashboard mínimo: hallazgo alto/crítico visible tras sincronizar | FR-035, FR-040, FR-043 | 008, 009 | Tras sync, hallazgo `alta/crítica` destacado en el dashboard del supervisor en ≤ 60 s | ⏳ Pendiente |
 | TSK-WS-012 | `/health` (uptime, versión, estado DB) + logs estructurados | FR-052, NFR-09 | 002 | `/health` responde 200 con estado DB; logs JSON con `tenant_id` y `request_id` | ⏳ Pendiente |
@@ -32,6 +32,7 @@
 
 | Versión | Fecha | Cambio | Autor |
 | :--- | :--- | :--- | :--- |
+| 0.1.9 | 2026-10-07 | TSK-WS-009 completo: LWW determinista `captured_at` → `client_version` → mayor UUIDv7 (plan §3.1) en la ingesta; `conflict_record` conserva winner/loser payload (Artículo III, dedupe de reintentos), `sync_log` en dos fases (pending→final) y `sync_log_id` enlaza cada conflicto al batch; aplicar ganador + auditar conflicto en UNA transacción (`withTenantTransaction`); `GET /api/v1/conflicts` para supervisor/admin; bytes de foto solo para la versión ganadora (sin huérfanos) | Daniel Ávila |
 | 0.1.8 | 2026-10-07 | TSK-WS-008 completo: worker de cola en `frontend/src/lib/sync.ts` — arma `SyncBatchRequest` desde el outbox (concurrencia 1, lotes ≤500, orden FR-020), mapa `aSyncRecord`+base64 de foto, backoff 1 s→5 min auto-reprogramado (FR-022), marcado `synced/failed` con `lastError` y contadores (FR-026); disparo por evento `online` real + flush al entrar/encolar (FR-016/FR-004); `VITE_API_URL` configurable | Daniel Ávila |
 | 0.1.7 | 2026-10-07 | TSK-WS-007 completo: migración `sync` (6 tablas + RLS), `POST /api/v1/sync/batch` con upsert `ON CONFLICT` (idempotencia FR-021), orden de dependencias FR-020, `sync_log` (FR-024), validación de referencias dentro del tenant, bytes de adjunto a `SYNC_VOLUME`; **incluye TSK-WS-010** (rechazo cross-tenant 409 previo a escritura + incidente `sync_tenant_mismatch` en `audit_log`); contrato cliente en `shared/src/sync.ts` | Daniel Ávila |
 | 0.1.6 | 2026-10-07 | TSK-WS-006 completo: compresión de foto en cliente (canvas ≤1280 px, q0.7, JPEG, `imageSmoothingQuality: high`) ANTES de encolar; `ATTACHMENT` guarda ancho/alto; hallazgo no depende de la foto (fallback sin imagen) | Daniel Ávila |
