@@ -35,24 +35,46 @@ export class DbService implements OnModuleDestroy {
     return result.rows as T[]
   }
 
+  /**
+   * Ejecuta `fn` dentro de UNA transacción con `app.tenant_id` fijado
+   * (SET LOCAL + RLS, Artículo IV). Permite encadenar varias escrituras
+   * atómicas bajo el tenant (p. ej. aplicar el ganador LWW Y auditar el
+   * conflicto en el MISMO commit — evita sobrescrituras silenciosas).
+   */
+  async withTenantTransaction<T>(
+    tenantId: string,
+    fn: (run: <R = Record<string, unknown>>(sql: string, params?: unknown[]) => Promise<R[]>) => Promise<T>,
+  ): Promise<T> {
+    const client = await this.app.connect()
+    try {
+      await client.query('BEGIN')
+      await client.query('SELECT set_config($1, $2, true)', ['app.tenant_id', tenantId])
+      try {
+        const run = async <R = Record<string, unknown>>(
+          sql: string,
+          params: unknown[] = [],
+        ): Promise<R[]> => {
+          const result = await client.query(sql, params)
+          return result.rows as R[]
+        }
+        const result = await fn(run)
+        await client.query('COMMIT')
+        return result
+      } catch (err) {
+        await client.query('ROLLBACK')
+        throw err
+      }
+    } finally {
+      client.release()
+    }
+  }
+
   async queryAsTenant<T = Record<string, unknown>>(
     tenantId: string,
     sql: string,
     params: unknown[] = [],
   ): Promise<T[]> {
-    const client = await this.app.connect()
-    try {
-      await client.query('BEGIN')
-      await client.query('SELECT set_config($1, $2, true)', ['app.tenant_id', tenantId])
-      const result = await client.query(sql, params)
-      await client.query('COMMIT')
-      return result.rows as T[]
-    } catch (err) {
-      await client.query('ROLLBACK')
-      throw err
-    } finally {
-      client.release()
-    }
+    return this.withTenantTransaction<T[]>(tenantId, (run) => run<T>(sql, params))
   }
 
   async onModuleDestroy(): Promise<void> {

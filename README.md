@@ -114,8 +114,9 @@ terreno-conectado/
 > **Estado real:** el monorepo, la base de datos (PostgreSQL 16 + RLS), la **auth** y la **PWA
 > instalable** ya existen. Desde **TSK-WS-005** el `frontend/` **persiste de verdad** en
 > Dexie/IndexedDB (inspección, hallazgos, bitácora y outbox local con UUIDv7 de cliente), desde
-> **TSK-WS-007** el backend expone `POST /api/v1/sync/batch` (ingesta idempotente) y desde
-> **TSK-WS-008** el **worker** de cola del cliente dispara la sincronización sola al reconectar;
+> **TSK-WS-007** el backend expone `POST /api/v1/sync/batch` (ingesta idempotente + LWW con
+> `CONFLICT_RECORD`, **TSK-WS-009**) y desde **TSK-WS-008** el **worker** de cola del cliente
+> dispara la sincronización sola al reconectar;
 > el dashboard llega en TSK-WS-011.
 
 ### Frontend — funciona hoy
@@ -182,6 +183,20 @@ rotación y detección de reuso (decisión D5), CSRF double-submit, y bloqueo tr
 fallidas (423 por 15 min). El acceso a datos usa el rol `tc_app` + `SET LOCAL app.tenant_id`
 (Row-Level Security, TSK-WS-002).
 
+### Sincronización (TSK-WS-007 / 008 / 009)
+
+En `specs/003-motor-sincronizacion/` vive el módulo central. Ingesta por lote en
+`POST /api/v1/sync/batch` con orden de dependencias FR-020, **idempotencia** por UUIDv7 cliente +
+`client_version` (FR-021) y validación de referencias dentro del tenant. Si dos dispositivos editaron
+el mismo registro, gana el **mayor `captured_at`**; si empatan, **mayor `client_version`**; si aún
+empatan, **mayor UUIDv7** (tie-breaker determinista §3.1 del plan) — y **las dos versiones se
+conservan** en `CONFLICT_RECORD` (winner/loser payload, Artículo III): nunca hay sobrescritura
+silenciosa. `sync_log` registra cada batch (`synced_at - captured_at`, FR-024) y `conflict_record`
+queda enlazada al batch que la originó. Los bytes de adjunto solo se materializan si esa versión
+gana (sin huérfanos). El supervisor/admin consulta los conflictos sin resolver desde
+`GET /api/v1/conflicts` (paginated, `limit` 1–100, default 20). El **worker** del cliente (TSK-WS-008)
+dispara el flush solo al reconectar, con concurrencia 1 y backoff 1 s→5 min (FR-022).
+
 **Usuarios demo** (seed, password `TcDemo2026!`):
 
 | Tenant | Rol | Email |
@@ -199,7 +214,7 @@ fallidas (423 por 15 min). El acceso a datos usa el rol `tc_app` + `SET LOCAL ap
 | Servicio | URL | Estado |
 | :--- | :--- | :--- |
 | Frontend (Vite) | http://localhost:5173 | funciona (mockup navegable + captura offline real) |
-| Backend (NestJS, auth + sync) | http://localhost:3000 | funciona (auth, RLS e ingesta `POST /api/v1/sync/batch`) |
+| Backend (NestJS, auth + sync) | http://localhost:3000 | funciona (auth, RLS, ingesta idempotente, LWW + conflictos) |
 | PostgreSQL 16 | localhost:5432 | funciona (Docker Compose) |
 | Health check | http://localhost:3000/health | pendiente (TSK-WS-012) |
 
