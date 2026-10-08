@@ -8,7 +8,7 @@
 | **Depende de** | 001 (roles/tenant), 004 (dominio inspecciones), ADR-003, data-model.md v1.1.0 |
 | **Bloquea a** | 005 (reportes por lote consumen export de plantillas) |
 
-> **Nota de desbloqueo:** este spec detalla FR que viven en `main` **recién tras el merge de la Enmienda 002 (PR #63)**. No codificar antes (Artículo II); el plan técnico y las tasks están en `plans/007-formularios-dinamicos/` y `tasks/007-formularios-dinamicos/` (TSK-FORM-001→012).
+> **Nota de desbloqueo:** este spec detalla FR que ya viven en `main` — la **Enmienda 002 (PR #63)** y toda la documentación del módulo (#62, #64, #65, #67–#70) se mergearon el **2026-10-08**. El plan técnico y las tasks están en `plans/007-formularios-dinamicos/` y `tasks/007-formularios-dinamicos/` (TSK-FORM-001→012; 002/003 ya completados vía PRs #71/#74).
 
 ## Alcance heredado del spec maestro
 
@@ -60,4 +60,5 @@ Requisitos que este spec detallará: **FR-007–009, 018–019, 027–029, 036�
 
 | Versión | Fecha | Cambio | Autor |
 | :--- | :--- | :--- | :--- |
+| 0.1.1 | 2026-10-08 | Nota de desbloqueo actualizada: Enmienda 002 y docs del módulo en `main` (PRs #62–#70); TSK-FORM-002/003 completados (PRs #71/#74) | Daniel Ávila |
 | 0.1.0 | 2026-10-08 | Esqueleto inicial del spec 007 desde la Enmienda 002, ADR-003 y data-model v1.1.0; espeja TSK-FORM-001→012 | Raúl González (con IA) |

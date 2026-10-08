@@ -3,7 +3,7 @@
 **Versión:** 0.1.0 · **Fecha:** 2026-10-08 · **Autor:** Raúl González (con IA)
 **Derivado de:** `specs/000-master/spec.md` §4/§5/§10 (Enmienda 002) · **Relacionado:** ADR-003, `data-model.md` v1.1.0, specs 002/003/004 (0.2.0/0.3.0), spec `007-formularios-dinamicos` (por crear)
 **Tareas:** `tasks/007-formularios-dinamicos/tasks.md` (TSK-FORM-001 → 012)
-**Arranque:** condicionado al merge de la compuerta (PRs #63–#66); este plan y sus tasks se entregan **antes** de codificar (Artículo II)
+**Arranque:** compuerta **cerrada** — la documentación (PRs #62–#70) está en `main` desde 2026-10-08; este plan y sus tasks se entregaron **antes** de codificar (Artículo II) y TSK-FORM-002/003 ya codificaron sobre ella (PRs #71/#74)
 
 > **Qué es este módulo:** transformar documentos `.xlsx` estructurados en **plantillas versionadas con revisión humana obligatoria**, que el `field_worker` captura **offline y data-driven** (8 tipos de campo, FR-036) y puede exportar como **el Excel original rellenado + hoja Evidencias** — tanto en el dispositivo (FR-019) como desde el dashboard del supervisor (FR-044–046). El OCR/docx/PDF/IA queda en V2 opcional (Enmienda 002 §10).
 
@@ -53,7 +53,7 @@ TSK-FORM-011 pruebas integrales (libros reales, caos) · TSK-FORM-012 [V2, fuera
 | Fidelidad de estilos del `.xlsx` rellenado limitada | Media | Artefacto válido con estilos mínimos + hoja Evidencias; evolución documentada (ADR-003) |
 | Libros reales de cliente inconsistentes rompen el parser | Alta | Convención de columnas documentada en spec 007 + preview + confirmación humana (FR-029); pruebas con libros reales desde TSK-FORM-005 |
 | Aislamiento RLS de plantillas roto entre tenants | Baja | Test de aislamiento desde TSK-FORM-002 (patrón TSK-WS-002) |
-| Codificar sobre docs sin mergear (gate abierto) | — | **Arranque condicionado**: TSK-FORM-001+ recién tras merge de PRs #63–66 |
+| Codificar sobre docs sin mergear (gate abierto) | — | **Cerrado 2026-10-08**: compuerta mergeada (PRs #62–#70 en `main`) antes de TSK-FORM-001+ |
 
 ## 5. Definición de "hecho" para el módulo
 
@@ -66,4 +66,5 @@ TSK-FORM-011 pruebas integrales (libros reales, caos) · TSK-FORM-012 [V2, fuera
 
 | Versión | Fecha | Cambio | Autor |
 | :--- | :--- | :--- | :--- |
+| 0.1.1 | 2026-10-08 | Compuerta cerrada: docs del módulo en `main` (PRs #62–#70); TSK-FORM-002/003 completados (PRs #71/#74) | Daniel Ávila |
 | 0.1.0 | 2026-10-08 | Plan inicial del módulo 007 (formularios dinámicos) derivado de la Enmienda 002, ADR-003 y data-model v1.1.0 | Raúl González (con IA) |
