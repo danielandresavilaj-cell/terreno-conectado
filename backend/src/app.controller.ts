@@ -1,4 +1,5 @@
 import { Controller, Get } from '@nestjs/common'
+import { appVersion } from './app.version'
 
 @Controller()
 export class AppController {
@@ -7,7 +8,7 @@ export class AppController {
     return {
       service: 'terreno-conectado-backend',
       status: 'ok',
-      version: '0.1.0',
+      version: appVersion(),
     }
   }
 }

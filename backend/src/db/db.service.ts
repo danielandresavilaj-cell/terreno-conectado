@@ -77,6 +77,14 @@ export class DbService implements OnModuleDestroy {
     return this.withTenantTransaction<T[]>(tenantId, (run) => run<T>(sql, params))
   }
 
+  /**
+   * Estado de la conexion de la aplicacion (FR-052): un SELECT 1 fallido
+   * significa DB caida -> /health devuelve 503.
+   */
+  async ping(): Promise<void> {
+    await this.app.query('SELECT 1')
+  }
+
   async onModuleDestroy(): Promise<void> {
     await Promise.all([this.owner.end(), this.app.end()])
   }

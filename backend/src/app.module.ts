@@ -4,6 +4,7 @@ import { AppController } from './app.controller'
 import { AuthModule } from './auth/auth.module'
 import { DashboardModule } from './dashboard/dashboard.module'
 import { DbModule } from './db/db.module'
+import { HealthModule } from './health/health.module'
 import { SyncModule } from './sync/sync.module'
 
 @Module({
@@ -13,6 +14,7 @@ import { SyncModule } from './sync/sync.module'
     AuthModule,
     SyncModule,
     DashboardModule,
+    HealthModule,
   ],
   controllers: [AppController],
 })
