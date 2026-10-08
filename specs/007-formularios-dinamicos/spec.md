@@ -37,7 +37,7 @@ Requisitos que este spec detallará: **FR-007–009, 018–019, 027–029, 036�
 - [x] Contrato de 8 tipos de campo + `props` + validación Zod (FR-036, FR-039) → TSK-FORM-003 (PR #74)
 - [x] `TEMPLATE_REVISION` + estados inmutables + RLS multi-tenant con test de aislamiento (FR-007, FR-049) → TSK-FORM-002 (PR #71)
 - [x] Renderer data-driven en la captura (FR-036) → TSK-FORM-001 (PR #79)
-- [ ] `INSPECTION_RESPONSE` híbrido (`value_*` + `value_json`) + `ATTACHMENT` de respuesta (FR-037, FR-038) → TSK-FORM-004
+- [x] `INSPECTION_RESPONSE` híbrido (`value_*` + `value_json`) + `ATTACHMENT` de respuesta (FR-037, FR-038) → TSK-FORM-004 (PR #80)
 - [ ] **Spike escolta xlsx** (ExcelJS vs SheetJS CE; criterios: bundle ≤ ~500 KB, fidelidad de estilos, worker/offline, licencia CE) → cierra 3.2 + enmienda ADR-003
 - [ ] Importador `.xlsx`: convención de columnas/secciones/ítems y celda destino, parser → propuesta (FR-029) → TSK-FORM-005
 - [ ] UX de importación asistida: preview, edición, confirmación, publicar; flag `ai` propone el mapeo (FR-048) → TSK-FORM-006
@@ -60,6 +60,7 @@ Requisitos que este spec detallará: **FR-007–009, 018–019, 027–029, 036�
 
 | Versión | Fecha | Cambio | Autor |
 | :--- | :--- | :--- | :--- |
+| 0.1.3 | 2026-10-08 | Checklist: TSK-FORM-004 completado (PR #80): respuesta híbrida `value_json` + ATTACHMENT de respuesta; sección FR-037/FR-038 marcada | Daniel Ávila |
 | 0.1.2 | 2026-10-08 | Checklist: TSK-FORM-001 renderer data-driven completado (PR #79); se marcan también 002/003 (PRs #71/#74) | Daniel Ávila |
 | 0.1.1 | 2026-10-08 | Nota de desbloqueo actualizada: Enmienda 002 y docs del módulo en `main` (PRs #62–#70); TSK-FORM-002/003 completados (PRs #71/#74) | Daniel Ávila |
 | 0.1.0 | 2026-10-08 | Esqueleto inicial del spec 007 desde la Enmienda 002, ADR-003 y data-model v1.1.0; espeja TSK-FORM-001→012 | Raúl González (con IA) |
