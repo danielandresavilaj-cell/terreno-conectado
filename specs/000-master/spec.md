@@ -3,11 +3,11 @@
 | | |
 | :--- | :--- |
 | **ID** | 000-master |
-| **Versión** | 1.0.1 |
-| **Estado** | APROBADO — Raúl González (2026-09-24) y Daniel Ávila (2026-10-06) |
+| **Versión** | 1.1.0 · Enmienda 002 (formularios dinámicos, 2026-10-07) |
+| **Estado** | APROBADO — Raúl González (2026-09-24) y Daniel Ávila (2026-10-06) · Enmienda 002 en revisión (PR) |
 | **Autores** | Daniel Ávila (datos/negocio) · Raúl González (infra/plataforma) |
 | **Fuente** | Informe de Definición APT, Fase 1 (2026-09-04) |
-| **Specs derivados** | 001-auth-tenancy · 002-captura-offline · 003-motor-sincronizacion · 004-dominio-inspecciones · 005-reportes-gerencia · 006-admin-plataforma |
+| **Specs derivados** | 001-auth-tenancy · 002-captura-offline · 003-motor-sincronizacion · 004-dominio-inspecciones · 005-reportes-gerencia · 006-admin-plataforma · 007-formularios-dinamicos |
 
 > Este documento concentra ~70–80% de la definición del proyecto: visión, actores, módulos, requisitos funcionales (EARS), requisitos no funcionales, modelo multi-tenant, límites de alcance, MVP, criterios de aceptación de la demo y mapeo a evidencias APT. Los specs de módulo profundizan el 20–30% restante.
 
@@ -68,12 +68,13 @@ flowchart LR
 | 004 | Dominio inspecciones | `specs/004-dominio-inspecciones/` | Daniel | Plantillas, inspecciones, hallazgos, bitácoras, faenas |
 | 005 | Reportes y gerencia | `specs/005-reportes-gerencia/` | Daniel | Dashboards, latencia captura→disponibilidad, export CSV |
 | 006 | Administración plataforma | `specs/006-admin-plataforma/` | Raúl | Gestión de tenants, usuarios, auditoría, health |
+| 007 | Formularios dinámicos desde documentos | `specs/007-formularios-dinamicos/` *(por crear)* | Pair | Import de plantillas desde `.xlsx` con revisión humana, asignación por faena/rol, captura offline data-driven y export del documento rellenado |
 
 ## 5. Requisitos funcionales (formato EARS)
 
 Convención EARS en español: ubicuo (`EL SISTEMA DEBERÁ…`), evento (`CUANDO…`), estado (`MIENTRAS…`), no deseado (`SI… ENTONCES…`), opcional (`DONDE…`).
 
-> **Nota de numeración:** los IDs FR se numeran por bloques de módulo (001–006, 010–017, 020–026, 030–035, 040–043, 050–052). Los espacios (007–009, 018–019, 027–029, 036–039, 044–049) están **reservados a propósito** para ampliaciones futuras sin renumerar.
+> **Nota de numeración:** los IDs FR se numeran por bloques de módulo, dejando huecos **reservados** a propósito para ampliaciones futuras sin renumerar. La **Enmienda 002** (módulo 007 — formularios dinámicos) ocupó los bloques **007–009, 018–019, 027–029, 036–039 y 044–049**; el bloque **053–059** queda reservado para futuras ampliaciones.
 
 ### 5.1 Módulo 001 — Autenticación y tenancy
 
@@ -83,6 +84,9 @@ Convención EARS en español: ubicuo (`EL SISTEMA DEBERÁ…`), evento (`CUANDO�
 - **FR-004** CUANDO el JWT expira, EL SISTEMA DEBERÁ permitir renovación con refresh token sin perder la cola de sync local pendiente.
 - **FR-005** SI las credenciales son inválidas 5 veces consecutivas, ENTONCES EL SISTEMA DEBERÁ aplicar un bloqueo temporal de 15 minutos (rate-limit por cuenta e IP).
 - **FR-006** EL SISTEMA DEBERÁ incluir un tenant demo sembrado (empresa ficticia, faena ficticia, usuarios de cada rol) para la demostración académica.
+- **FR-007** EL SISTEMA DEBERÁ aislar las plantillas de formularios y sus versiones por tenant (Row-Level Security, Artículo IV), de modo que un tenant jamás vea plantillas de otro.
+- **FR-008** EL SISTEMA DEBERÁ permitir al `tenant_admin` asignar plantillas publicadas a combinaciones de faena y rol (`TEMPLATE_ASSIGNMENT`) y desasignarlas.
+- **FR-009** CUANDO un `field_worker` autenticado consulta plantillas, EL SISTEMA DEBERÁ devolver únicamente las plantillas publicadas asignadas a su faena y su rol.
 
 ### 5.2 Módulo 002 — Captura offline (PWA)
 
@@ -94,6 +98,8 @@ Convención EARS en español: ubicuo (`EL SISTEMA DEBERÁ…`), evento (`CUANDO�
 - **FR-015** EL SISTEMA DEBERÁ generar identificadores UUIDv7 en el cliente para cada registro, de modo que la sincronización posterior no dependa de IDs asignados por el servidor.
 - **FR-016** CUANDO el navegador recupera conectividad (evento `online`), EL SISTEMA DEBERÁ iniciar la sincronización automáticamente sin acción del usuario.
 - **FR-017** SI el almacenamiento local supera el 80% de la cuota estimada, ENTONCES EL SISTEMA DEBERÁ advertir al trabajador y priorizar la subida de fotos ya sincronizables.
+- **FR-018** EL SISTEMA DEBERÁ mantener una caché local de las plantillas publicadas asignadas al trabajador, de modo que la captura de formularios funcione 100% sin conexión (Artículo I).
+- **FR-019** CUANDO el trabajador exporta una inspección en el dispositivo, EL SISTEMA DEBERÁ generar el `.xlsx` original rellenado más una hoja "Evidencias" con los adjuntos, sin depender del servidor (Artículo I).
 
 ### 5.3 Módulo 003 — Motor de sincronización
 
@@ -104,6 +110,9 @@ Convención EARS en español: ubicuo (`EL SISTEMA DEBERÁ…`), evento (`CUANDO�
 - **FR-024** EL SISTEMA DEBERÁ registrar cada sincronización (éxito/fallo/conflicto) en un log auditable por tenant con métrica de latencia `captured_at → synced_at`.
 - **FR-025** SI un intento de sync incluye datos de un tenant distinto al del JWT, ENTONCES EL SISTEMA DEBERÁ rechazar el lote completo y registrar el incidente (defensa en profundidad sobre RLS).
 - **FR-026** CUANDO la sincronización termina, EL SISTEMA DEBERÁ marcar los registros locales como `synced` y actualizar el contador de pendientes.
+- **FR-027** CUANDO el worker de sincronización ejecuta el ciclo, EL SISTEMA DEBERÁ sincronizar plantillas por delta mediante `GET /api/v1/templates?since=<template_version>`, subiendo solo los cambios posteriores a la última versión conocida.
+- **FR-028** SI una inspección está en curso y su plantilla cambia, ENTONCES EL SISTEMA DEBERÁ conservar la `template_version` congelada de la inspección (no se re-encuadra ni se re-valida contra la plantilla nueva); el cambio aplica solo a inspecciones nuevas.
+- **FR-029** EL SISTEMA DEBERÁ sincronizar los imports de plantilla (`TEMPLATE_IMPORT`: uploaded → parsed → proposed → confirmed/failed) con UUIDv7 de cliente y el mismo motor idempotente de batch, de modo que reintentar nunca duplique (Artículo III).
 
 ### 5.4 Módulo 004 — Dominio inspecciones
 
@@ -113,6 +122,10 @@ Convención EARS en español: ubicuo (`EL SISTEMA DEBERÁ…`), evento (`CUANDO�
 - **FR-033** EL SISTEMA DEBERÁ permitir registrar bitácoras de turno: entradas cronológicas con autor, texto, tags y faena asociada.
 - **FR-034** EL SISTEMA DEBERÁ asociar cada captura (inspección/bitácora/hallazgo) a una faena u obra del tenant, con geolocalización opcional si el dispositivo la provee.
 - **FR-035** CUANDO un hallazgo de severidad `alta` o `crítica` se sincroniza, EL SISTEMA DEBERÁ destacarlo inmediatamente en el dashboard del supervisor (sin notificaciones push en V1 — fuera de alcance).
+- **FR-036** EL SISTEMA DEBERÁ soportar respuestas dinámicas por ítem mediante `value_json` en `INSPECTION_RESPONSE` para los 8 tipos de campo de V1: `texto`, `numérico`, `fecha`, `hora`, `selección única`, `selección múltiple`, `ok/nok/na` y `foto`.
+- **FR-037** CUANDO un ítem de tipo foto se responde, EL SISTEMA DEBERÁ comprimir el adjunto (FR-012) y asociarlo a la respuesta (`ATTACHMENT` referenciando `INSPECTION_RESPONSE`).
+- **FR-038** EL SISTEMA DEBERÁ congelar en cada inspección la `template_version` utilizada y conservarla en el historial para reproductibilidad de la respuesta.
+- **FR-039** SI la respuesta a un ítem no cumple el tipo definido por la plantilla, ENTONCES EL SISTEMA DEBERÁ rechazarla en el dispositivo y mostrar el error de validación antes de encolar.
 
 ### 5.5 Módulo 005 — Reportes y gerencia
 
@@ -120,6 +133,12 @@ Convención EARS en español: ubicuo (`EL SISTEMA DEBERÁ…`), evento (`CUANDO�
 - **FR-041** EL SISTEMA DEBERÁ permitir filtrar por faena, rango de fechas, severidad y autor.
 - **FR-042** EL SISTEMA DEBERÁ exportar las vistas del dashboard y el listado de inspecciones/hallazgos a CSV.
 - **FR-043** CUANDO un dato se sincroniza, EL SISTEMA DEBERÁ hacerlo visible en el dashboard en ≤ 60 segundos (ver NFR-03).
+- **FR-044** EL SISTEMA DEBERÁ permitir al supervisor descargar una inspección como el `.xlsx` original rellenado más la hoja "Evidencias", generado en servidor (mismo formato que FR-019).
+- **FR-045** EL SISTEMA DEBERÁ exportar en lote las inspecciones del período a un `.xlsx` con el formato de su plantilla.
+- **FR-046** CUANDO se exporta un lote, EL SISTEMA DEBERÁ incluir la hoja "Evidencias" con los adjuntos de los ítems de evidencia (fotos), referenciados o embebidos según tamaño.
+- **FR-047** EL SISTEMA DEBERÁ registrar en el audit log (FR-051) cada import de plantilla confirmado y cada exportación por lote (autor, timestamp, tenant, identificadores).
+- **FR-048** DONDE el feature flag `ai` esté activado, EL SISTEMA DEBERÁ proponer mapeos de columnas automáticos en la revisión humana del import, ejecutándose solo en backend; el `tenant_admin` conserva la decisión final.
+- **FR-049** CUANDO una plantilla se publica, EL SISTEMA DEBERÁ congelar su `template_version` e impedir modificar ítems ya inspeccionados; cualquier cambio requiere una nueva revisión (`draft` → `published`).
 
 ### 5.6 Módulo 006 — Administración plataforma
 
@@ -188,10 +207,12 @@ Fuera de alcance explícito — cualquier inclusión requiere enmienda a este sp
 - SSO corporativo (SAML/OIDC con el IdP del cliente).
 - Notificaciones push.
 - Colaboración en tiempo real (edición simultánea con merge fino/CRDT — V1 usa LWW + auditoría).
-- Analítica con IA, OCR de formularios de papel.
+- OCR/docx/PDF de formularios de papel y analítica con IA — **V2 opcional** tras feature flag `ai` (off por defecto, ejecución solo en backend; ver FR-048 y ADR-003).
 - Integración con ERPs mineros reales.
 - Despliegue productivo multi-región, alta disponibilidad, backups gestionados (se documentan como diseño "real" en ADRs, no se pagan).
 - Más de 2 tenants demo.
+
+> **Enmienda 002 (2026-10-07, módulo 007):** incorpora a V1 la **importación asistida de plantillas** desde `.xlsx` estructurado con **revisión humana obligatoria** y la **exportación del documento rellenado** (FR-007–009, 018–019, 027–029, 036–039, 044–049; spec `007-formularios-dinamicos`). El OCR/IA queda en V2 opcional (bala anterior).
 
 ## 11. Supuestos y restricciones
 
@@ -248,3 +269,4 @@ La demo se considera exitosa si, en vivo ante el docente:
 | 1.0.1 | 2026-09-23 | Título: "Decisiones en Tiempo Real" → "Datos al día donde no hay señal" (Opción A — alinear la promesa con la realidad offline-first) | Raúl González (con IA) |
 | 1.0.1 | 2026-09-24 | Firmado por Raúl González; pendiente firma de Daniel Ávila | Raúl González (con IA) |
 | 1.0.1 | 2026-10-06 | Firmado por Daniel Ávila — firma delegada con autorización explícita del titular, registrada por el agente del equipo | Daniel Ávila |
+| 1.1.0 | 2026-10-07 | **Enmienda 002** — módulo 007 formularios dinámicos: §4 nueva fila 007; §5 18 FR nuevos en bloques reservados (007–009, 018–019, 027–029, 036–039, 044–049) sin renumerar; §10 importación asistida de `.xlsx` pasa a V1 y OCR/IA quedan en V2 opcional | Raúl González / Daniel Ávila (PR AMD-002) |
