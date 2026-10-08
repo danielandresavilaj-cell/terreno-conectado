@@ -26,8 +26,8 @@ Proyecto Capstone (PTY4614) — Duoc UC, Ingeniería en Informática, Sede Alame
 | Sincronización | Cola propia + ingesta idempotente por lotes | el corazón del proyecto, no se delega a un BaaS |
 | Fotos | Compresión en cliente (canvas) + volumen Docker | $0; evolución a S3 documentada |
 | Infra demo | 1 VPS + Docker Compose + Caddy | TLS automático, ~US$5/mes |
-| CI/CD | GitHub Actions | lint + typecheck + build del monorepo en cada push y PR (`.github/workflows/ci.yml`); tests y deploy pendientes |
-| Tests | Vitest + Playwright + Testcontainers | `context.setOffline` simula el offline real |
+| CI/CD | GitHub Actions | 3 jobs en cada push y PR (`.github/workflows/ci.yml`): lint + typecheck + build + check de PWA, tests de integración con Testcontainers, y escaneo de secretos (gitleaks). Deploy pendiente |
+| Tests | Vitest + Testcontainers | e2e con supertest contra NestJS + PostgreSQL 16 real: RLS, auth, sync, conflictos, dashboard y `/health` |
 
 Evaluación completa y alternativas descartadas con criterios: [research.md](research.md) · Decisiones firmadas: [adr/](adr/)
 
@@ -93,11 +93,11 @@ terreno-conectado/
 ├── docs/                 ← Guías de trabajo del equipo (tablero, convenciones)
 ├── Fase 1/
 │   └── Evidencias Grupales/    ← Informe de Definición del Proyecto APT (el resto vive en el repo Capstone)
-├── frontend/             ← PWA React 18 + Vite (hoy: mockup navegable; Dexie/IndexedDB en TSK-WS-004+)
-├── backend/              ← API NestJS (base lista; PostgreSQL 16 + RLS en TSK-WS-002+)
+├── frontend/             ← PWA React 18 + Vite instalable; captura offline persistida en Dexie + worker de cola
+├── backend/              ← API NestJS: auth JWT, sync idempotente + LWW, conflictos, dashboard y /health
 ├── shared/               ← Tipos y contratos compartidos entre frontend y backend (ADR-001)
-├── infra/                ← Docker Compose, Caddy, scripts de deploy (TSK-WS-002+)
-└── .github/workflows/    ← CI: lint + typecheck + build del monorepo
+├── infra/                ← Docker Compose (PostgreSQL 16 + RLS local); Caddy y deploy pendientes
+└── .github/workflows/    ← CI: 3 jobs - lint+typecheck+build, tests de integración (Testcontainers), gitleaks
 ```
 
 ## Ciclo de trabajo por módulo
