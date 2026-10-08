@@ -39,6 +39,18 @@ Cada promesa del spec maestro tiene una prueba que la verifica (NFR-12). Las pru
 | FR-052, NFR-09 | `/health` responde 200 con estado de DB; uptime monitor lo consume | Integración + manual |
 | NFR-02 | Script: 200 registros + 100 fotos en offline simulado de 72 h (reloj adelantado) → sync completo sin pérdida | Caos |
 | NFR-07 | Lighthouse CI mobile ≥ 80; interacción de formulario < 200 ms | Rendimiento |
+| FR-007, NFR-05 | Plantillas/revisiones de tenant A jamás visibles para B (fixture B sembrada) | Integración (RLS, Testcontainers) |
+| FR-008/009 | Asignación faena+rol: el worker solo ve revisiones publicadas asignadas a su faena y rol | Integración |
+| FR-018 | Plantillas en caché local → captura de formulario 100% sin red (Artículo I) | E2E |
+| FR-027/028 | Delta `since=<template_version>` trae solo cambios; inspección en curso conserva su versión congelada | Integración |
+| FR-036/039 | Respuesta de los 8 tipos de campo; valor inválido rechazado en el dispositivo antes de encolar | Unit + E2E |
+| FR-037 + FR-012 | Foto de ítem comprimida y asociada a la respuesta (`ATTACHMENT`) | Unit + E2E |
+| FR-029 | Reintentar un import sincronizado 3 veces → cero duplicados (idempotencia del motor batch) | Integración |
+| FR-019/044 | Export rellenado + hoja "Evidencias" idéntico en dispositivo y en servidor | E2E + Integración |
+| FR-045/046 | Lote del período con formato de su plantilla + hoja "Evidencias" (adjuntos referenciados/embebidos) | Integración |
+| FR-047 + FR-051 | Import confirmado y export por lote registrados en el audit log (autor, timestamp, tenant) | Integración |
+| FR-048 | Flag `ai` OFF: el mapeo propuesto por IA no aplica cambios sin la confirmación del `tenant_admin` | Integración |
+| FR-049 | Revisión publicada inmutable: ítems ya inspeccionados no se modifican; el cambio exige revisión nueva | Integración |
 
 ## 4. Pruebas de caos offline-first (protocolo)
 
@@ -53,6 +65,17 @@ Escenarios ejecutados con Playwright (offline automático) y manualmente en la d
 7. **Cross-tenant hostil:** JWT A + payload B → rechazo + auditoría (FR-025).
 
 **Criterio de éxito global:** los escenarios 1–7 con `0 pérdidas ∧ 0 duplicados ∧ 0 fugas cross-tenant`. Cualquier fallo bloquea la demo (Artículo III).
+
+### 4.1 Pruebas de caos del módulo 007 (TSK-FORM-011)
+
+Extienden la sección 4 con los invariantes del módulo (spec 007): libros `.xlsx` reales, versionado inmutable y delta de plantillas.
+
+8. **Corte a mitad de delta de plantillas:** offline durante `GET /api/v1/templates?since=` → reconectar: caché consistente y la inspección en curso conserva su versión congelada (FR-027/028).
+9. **Doble import de plantilla:** reenviar el mismo `.xlsx` (replay de red) → un único `TEMPLATE_IMPORT` confirmado, cero duplicación (FR-029).
+10. **Edición concurrente de revisión:** dos `tenant_admin` editan el mismo borrador → se publica una sola versión y queda auditada (FR-047/049).
+11. **Versión en vuelo:** inspección iniciada con v1 mientras se publica v2 → la inspección re-exporta con v1 y no se re-valida contra v2 (FR-028/038).
+
+**Criterio de éxito del módulo:** escenarios 8–11 con `0 duplicados ∧ 0 versiones inconsistentes ∧ 0 fugas cross-tenant`; import/export probados con libros reales (fixtures del spike xlsx, plan 007 §3).
 
 ## 5. Testing adversarial cross-model (red-team)
 
@@ -80,6 +103,7 @@ Escenarios ejecutados con Playwright (offline automático) y manualmente en la d
 ## 8. Criterios de salida por fase (alineado al Gantt APT)
 
 - **Fase 2 (sem. 13–16, "Pruebas de validación"):** matriz §3 ≥ 90% verde en CI; caos 1–7 pasando; informe de resultados por módulo.
+- **Módulo 007 (ciclo del módulo, issues #34–#45):** matriz §3 (módulo 007) verde; caos 8–11 (TSK-FORM-011) pasando; spike xlsx cerrado con enmienda a ADR-003.
 - **Fase 3:** demo en vivo ejecuta §13 del spec maestro sin fallos; informe final cita resultados de este plan.
 
 ## Control de cambios
@@ -87,3 +111,4 @@ Escenarios ejecutados con Playwright (offline automático) y manualmente en la d
 | Versión | Fecha | Cambio | Autor |
 | :--- | :--- | :--- | :--- |
 | 1.0.0 | 2026-09-14 | Plan inicial derivado del spec maestro v1.0.0 | Raúl González (con IA) |
+| 1.0.1 | 2026-10-08 | Cobertura del módulo 007: matriz §3 (FR-007/008/009, 018/019, 027/028/029, 036/037/038/039, 044–049) y caos 8–11 (TSK-FORM-011) | Raúl González (con IA) |
