@@ -77,6 +77,16 @@ export class DbService implements OnModuleDestroy {
     return this.withTenantTransaction<T[]>(tenantId, (run) => run<T>(sql, params))
   }
 
+  /** Verificación de conectividad para `/health` (FR-052): TRUE si la DB responde. */
+  async ping(): Promise<boolean> {
+    try {
+      await this.owner.query('SELECT 1')
+      return true
+    } catch {
+      return false
+    }
+  }
+
   async onModuleDestroy(): Promise<void> {
     await Promise.all([this.owner.end(), this.app.end()])
   }
