@@ -214,7 +214,7 @@ describe('Materialización del catálogo al publicar (FR-036)', () => {
 
     const sections = await queryAsTenant<{ id: string; title: string; position: number }>(
       TENANT_A_ID,
-      `SELECT id, title, position FROM template_section`,
+      `SELECT id, title, position FROM template_section WHERE revision_id = '${revisionId}'`,
     )
     expect(sections).toHaveLength(1)
     expect(sections[0]).toMatchObject({ title: 'Inspección de seguridad', position: 0 })
@@ -238,8 +238,18 @@ describe('RLS e inmutabilidad del catálogo (FR-007/FR-049)', () => {
     expect(await templates.listItemsByRevision(TENANT_A_ID, revisionId)).toHaveLength(8)
     expect(await templates.listItemsByRevision(TENANT_B_ID, revisionId)).toHaveLength(0)
 
-    const bRows = await queryAsTenant<{ id: string }>(TENANT_B_ID, 'SELECT id FROM template_item')
+    // Las filas de la revisión publicada en A no se ven desde B (RLS), aunque
+    // B tenga su propio fixture materializado por el seed.
+    const bRows = await queryAsTenant<{ id: string }>(
+      TENANT_B_ID,
+      `SELECT i.id FROM template_item i
+       JOIN template_section s ON s.id = i.section_id
+       WHERE s.revision_id = '${revisionId}'`,
+    )
     expect(bRows).toHaveLength(0)
+
+    const bPropias = await queryAsTenant<{ id: string }>(TENANT_B_ID, 'SELECT id FROM template_item')
+    expect(bPropias.length).toBeGreaterThan(0)
 
     const noTenant = await queryAsTenant<{ id: string }>(null, 'SELECT id FROM template_item')
     expect(noTenant).toHaveLength(0)

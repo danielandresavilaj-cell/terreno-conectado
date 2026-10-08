@@ -12,6 +12,7 @@
  * db:seed`, ver `backend/db/seed.ts`: mismas passwords para el demo).
  */
 
+import type { TemplateDefinition } from '@terreno/shared'
 import type { ItemPlantilla, RegistroCola, Rol, Usuario } from './types'
 
 /** Login demo (TSK-WS-011): cuentas sembradas en el backend, misma password. */
@@ -99,6 +100,33 @@ export const PLANTILLA: ItemPlantilla[] = [
     tipo: 'ok_nok_na',
   },
 ]
+
+/**
+ * La definición de la plantilla local PLANTILLA en el formato del motor de
+ * render data-driven (TSK-FORM-001 / FR-036). El dispositivo la usa como
+ * fallback cuando no hay revisión publicada en caché ni red (offline-first).
+ * NOTA: los `id` son los ids legados 'i-01'… y NO son UUIDs; este objeto no
+ * se valida con `parseTemplateDefinition` (el Zod exige uuid).
+ */
+const TIPO_DEMO: Record<ItemPlantilla['tipo'], TemplateDefinition['sections'][number]['items'][number]['response_type']> = {
+  ok_nok_na: 'ok_nok_na',
+  numerico: 'numeric',
+  texto: 'text',
+  foto: 'photo',
+}
+
+export const DEFINICION_DEMO: TemplateDefinition = {
+  sections: [...new Set(PLANTILLA.map((i) => i.seccion))].map((seccion) => ({
+    title: seccion,
+    items: PLANTILLA.filter((i) => i.seccion === seccion).map((i) => ({
+      id: i.id,
+      prompt: i.texto,
+      response_type: TIPO_DEMO[i.tipo],
+      require_finding_on_nok: i.hallazgoObligatorio || undefined,
+      props: {},
+    })),
+  })),
+}
 
 /** Cola local inicial: mezcla de estados para que el outbox tenga contenido
  *  realista desde el primer frame (FR-013, FR-020). El `tenantId` lo fija la

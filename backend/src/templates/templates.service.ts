@@ -1,7 +1,11 @@
 import { randomUUID } from 'node:crypto'
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common'
 import { ZodError } from 'zod'
-import { parseTemplateDefinition, type TemplateDefinition } from '@terreno/shared'
+import {
+  parseTemplateDefinition,
+  type TemplateDefinition,
+  type TemplatesDeltaResponse,
+} from '@terreno/shared'
 import { DbService } from '../db/db.service'
 import type {
   CreateDraftInput,
@@ -236,5 +240,42 @@ export class TemplatesService {
       throw new NotFoundException('revisión no encontrada para este tenant')
     }
     return row
+  }
+
+  /**
+   * Revisiones publicadas del tenant para la captura (TSK-FORM-001, FR-018)
+   * con delta opcional `since` (FR-027): devuelve sólo `version > since`.
+   * `latest_version` es el techo publicado del tenant — el cliente lo guarda
+   * como próximo `since` del delta (TSK-FORM-009).
+   */
+  async listPublishedRevisions(tenantId: string, since?: number): Promise<TemplatesDeltaResponse> {
+    const [rows, [{ max }]] = await Promise.all([
+      this.db.queryAsTenant<TemplateRevisionRow & { name: string }>(
+        tenantId,
+        `SELECT r.*, t.name
+           FROM template_revision r
+           JOIN template t ON t.id = r.template_id
+          WHERE r.status = 'published'
+            AND ($1::int IS NULL OR r.version > $1)
+          ORDER BY r.version DESC, r.published_at DESC, r.id`,
+        [since ?? null],
+      ),
+      this.db.queryAsTenant<{ max: number | null }>(
+        tenantId,
+        `SELECT MAX(version) AS max FROM template_revision WHERE status = 'published'`,
+      ),
+    ])
+    return {
+      items: rows.map((r) => ({
+        template_id: r.template_id,
+        revision_id: r.id,
+        tenant_id: r.tenant_id,
+        name: r.name,
+        version: r.version as number,
+        published_at: r.published_at,
+        definition: r.definition as unknown as TemplateDefinition,
+      })),
+      latest_version: max,
+    }
   }
 }
