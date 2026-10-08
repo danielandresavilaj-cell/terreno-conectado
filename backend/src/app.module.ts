@@ -6,6 +6,7 @@ import { DashboardModule } from './dashboard/dashboard.module'
 import { DbModule } from './db/db.module'
 import { HealthModule } from './health/health.module'
 import { SyncModule } from './sync/sync.module'
+import { TemplatesModule } from './templates/templates.module'
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { SyncModule } from './sync/sync.module'
     SyncModule,
     DashboardModule,
     HealthModule,
+    TemplatesModule,
   ],
   controllers: [AppController],
 })
