@@ -23,7 +23,7 @@ import {
   useState,
   type ReactNode,
 } from 'react'
-import { COLA_INICIAL, PLANTILLA } from './seed'
+import { COLA_INICIAL, DEFINICION_DEMO } from './seed'
 import type { Identidad, RegistroCola, Rol, Severidad, Usuario } from './types'
 import {
   addFinding,
@@ -34,9 +34,13 @@ import {
   ensureDraftInspection,
   getDeviceId,
   getDraftInspectionId,
+  getInspection,
+  getTemplateId,
+  guardarPlantillasCache,
   guardarSesionCaché,
   listLogEntries,
   listOutbox,
+  plantillasCacheadas,
   respuestaDelItem,
   seedDemoDataIfNeeded,
   sesionCaché,
@@ -44,17 +48,46 @@ import {
   upsertResponse,
   type OutboxRow,
 } from './db'
-import { ApiError, clearToken, EVENTO_LOGOUT, getSites, getToken, login, me, setToken } from './api'
+import {
+  ApiError,
+  clearToken,
+  EVENTO_LOGOUT,
+  getPlantillas,
+  getSites,
+  getToken,
+  login,
+  me,
+  setToken,
+} from './api'
 import { comprimirImagen } from './compresor'
 import { sincronizarCola } from './sync'
+import {
+  validateValorCampo,
+  type CampoValor,
+  type TemplateDefinition,
+  type TemplatePublicadaDto,
+} from '@terreno/shared'
+import { columnasDesdeValor, esOkNokNa, itemsDe, valorDesdeColumnas } from './valores'
 
 export type Pantalla = 'captura' | 'bitacora' | 'cola' | 'dashboard' | 'conflictos'
 
 export interface RespuestaItem {
   itemId: string
+  /** Valor tipado del campo según `response_type` (FR-036); null = vacío. */
+  campo: CampoValor | null
+  /** Solo para el marcador visual ok/nok/na (legend del botón). */
   valor: 'ok' | 'nok' | 'na' | null
   hallazgoId?: string
-  texto?: string
+}
+
+/** Plantilla activa de la captura: server/caché o demo local (FR-036). */
+export interface PlantillaActual {
+  templateId: string
+  revisionId: string | null
+  nombre: string
+  version: number | null
+  origen: 'servidor' | 'caché' | 'demo'
+  definition: TemplateDefinition
 }
 
 interface Ctx {
@@ -69,6 +102,11 @@ interface Ctx {
   respuestas: Record<string, RespuestaItem>
   entradasBitacora: Array<{ id: string; hora: string; autor: string; texto: string; tags: string[]; geo: string }>
 
+  /** Plantilla activa (FR-036); null sólo durante la hidratación inicial. */
+  plantilla: PlantillaActual | null
+  /** Errores de validación por ítem (FR-039); vacío = todo válido. */
+  erroresCampo: Record<string, string>
+
   loginInApp: (email: string, password: string) => Promise<void>
   salir: () => void
   ir: (p: Pantalla) => void
@@ -80,8 +118,9 @@ interface Ctx {
   pendientes: number
   fallidos: number
   enCola: RegistroCola[]
-  responder: (itemId: string, valor: 'ok' | 'nok' | 'na') => void
-  responderTexto: (itemId: string, texto: string) => void
+  /** Única vía de escritura de la captura: valida contra `props` (FR-039)
+   *  y persiste el valor en las columnas naturales del borrador. */
+  responderCampo: (itemId: string, valor: CampoValor, adjunto?: { foto: File }) => void
   crearHallazgo: (itemId: string, sev: Severidad, descripcion: string, foto: File | null) => void
   enviarInspeccion: () => void
   agregarBitacora: (texto: string, tags: string[], faenaId: string) => void
@@ -158,6 +197,8 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
   const [recienSincronizado, setRecienSincronizado] = useState<string | null>(null)
   const [sincronizando, setSincronizando] = useState(false)
   const [cuotaAviso, setCuotaAviso] = useState(false)
+  const [plantilla, setPlantilla] = useState<PlantillaActual | null>(null)
+  const [erroresCampo, setErroresCampo] = useState<Record<string, string>>({})
 
   const refrescar = useCallback(async () => {
     setCola((await listOutbox()).map(mapaCola))
@@ -182,26 +223,106 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
     })()
   }, [refrescar])
 
+  /* TSK-FORM-001 / FR-036: hidrata la plantilla activa — caché local del
+   * dispositivo → red (`GET /templates` con delta) → definición demo. Si hay
+   * borrador en curso, prefiere la revisión publicada que coincide con su
+   * `template_id`+versión (FR-038: el borrador conserva su versión). */
+  const cargarPlantilla = useCallback(async (tenantId: string): Promise<PlantillaActual> => {
+    // La caché local es multi-tenant en el mismo dispositivo: se filtra por
+    // el tenant de la sesión activa (FR-007).
+    let items: TemplatePublicadaDto[] = (await plantillasCacheadas()).filter(
+      (i) => i.tenant_id === tenantId,
+    )
+    let enRed = false
+    if (getToken()) {
+      try {
+        const desde = items.length ? Math.max(...items.map((i) => i.version)) : undefined
+        const r = await getPlantillas(desde)
+        if (r.items.length) {
+          await guardarPlantillasCache(r.items)
+          const porRevision = new Map<string, TemplatePublicadaDto>()
+          for (const i of [...items, ...r.items]) porRevision.set(i.revision_id, i)
+          items = [...porRevision.values()]
+        }
+        enRed = true
+      } catch {
+        /* sin red o sin sesión: manda la caché local (offline-first). */
+      }
+    }
+    let mejor: TemplatePublicadaDto | null = null
+    const draftId = await getDraftInspectionId()
+    if (draftId) {
+      const ins = await getInspection(draftId)
+      if (ins) {
+        mejor =
+          items.find((i) => i.template_id === ins.templateId && i.version === ins.templateVersion) ??
+          null
+      }
+    }
+    if (!mejor && items.length) mejor = items.reduce((a, b) => (b.version > a.version ? b : a))
+    let p: PlantillaActual
+    if (mejor) {
+      p = {
+        templateId: mejor.template_id,
+        revisionId: mejor.revision_id,
+        nombre: mejor.name,
+        version: mejor.version,
+        origen: enRed ? 'servidor' : 'caché',
+        definition: mejor.definition,
+      }
+    } else {
+      p = {
+        templateId: await getTemplateId(),
+        revisionId: null,
+        nombre: 'Seguridad en rajo',
+        version: null,
+        origen: 'demo',
+        definition: DEFINICION_DEMO,
+      }
+    }
+    setPlantilla(p)
+    setErroresCampo({})
+    return p
+  }, [])
+
   const arrancarSesión = useCallback(
     async (perfil: { id: string; tenant_id: string | null; email: string; role: string; full_name: string }, i: Identidad) => {
       const u = usuarioDe(perfil, i)
       await seedDemoDataIfNeeded(COLA_INICIAL, i, u)
+      // FR-038: la plantilla activa se hidrata ANTES de tocar el borrador, así
+      // el borrador queda ligado al marco de la plantilla vigente.
+      const activa = await cargarPlantilla(u.tenantId)
       if (u.faenaId && (u.rol === 'field_worker' || u.rol === 'supervisor')) {
         // FR-014: al reabrir, se restaura el borrador en curso y sus respuestas.
         const ins = await ensureDraftInspection({
           tenantId: u.tenantId,
           siteId: u.faenaId,
           executedBy: u.id,
-          templateName: 'Seguridad en rajo',
+          templateName: activa.nombre,
           siteName: u.faena,
-          totalItems: PLANTILLA.length,
+          totalItems: itemsDe(activa.definition).length,
+          templateId: activa.templateId,
+          templateVersion: activa.version ?? undefined,
         })
         const draftRespuestas: Record<string, RespuestaItem> = {}
-        for (const item of PLANTILLA) {
+        for (const item of itemsDe(activa.definition)) {
           const r = await respuestaDelItem(ins.id, item.id)
-          if (!r || !r.valueOk) continue
-          const hallazgo = r.valueOk === 'nok' ? r.id : undefined
-          draftRespuestas[item.id] = { itemId: item.id, valor: r.valueOk, hallazgoId: hallazgo }
+          if (!r) continue
+          const campo = valorDesdeColumnas(item, r)
+          if (
+            campo === null &&
+            !r.valueOk &&
+            !r.valueText &&
+            r.valueNumber === null &&
+            !r.valuePhoto
+          )
+            continue
+          draftRespuestas[item.id] = {
+            itemId: item.id,
+            campo,
+            valor: esOkNokNa(campo) ? campo : null,
+            hallazgoId: r.valueOk === 'nok' ? r.id : undefined,
+          }
         }
         setRespuestas(draftRespuestas)
       }
@@ -215,7 +336,7 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
       // FR-004: al entrar se intenta drenar la cola pendiente.
       void sincronizarAhora()
     },
-    [refrescar, sincronizarAhora],
+    [refrescar, sincronizarAhora, cargarPlantilla],
   )
 
   /* FR-006: al arrancar se restaura la sesión. Con token se refresca el perfil
@@ -297,6 +418,7 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
     setUsuario(null)
     setIdentidad(null)
     setRespuestas({})
+    setErroresCampo({})
     setEntradasBitacora([])
     setPantalla('captura')
   }, [])
@@ -343,51 +465,75 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
         tenantId: u.tenantId,
         siteId: u.faenaId,
         executedBy: u.id,
-        templateName: 'Seguridad en rajo',
+        templateName: plantilla?.nombre ?? 'Seguridad en rajo',
         siteName: u.faena,
-        totalItems: PLANTILLA.length,
+        totalItems: plantilla ? itemsDe(plantilla.definition).length : 0,
+        templateId: plantilla?.templateId,
+        templateVersion: plantilla?.version ?? undefined,
       })
     },
-    [],
+    [plantilla],
   )
 
-  const responder = useCallback(
-    (itemId: string, valor: 'ok' | 'nok' | 'na') => {
-      setRespuestas((r) => ({ ...r, [itemId]: { ...r[itemId], itemId, valor } }))
-      if (!usuario) return
+  /* TSK-FORM-001 / FR-036: única vía de escritura de la captura. Valida el
+   * valor contra `props` (FR-039: si falla, no se escribe ni se encola),
+   * limpia/registra el error por ítem y persiste en las columnas naturales.
+   * La foto se comprime (FR-012) y su binario vive en `valuePhoto` local
+   * hasta TSK-FORM-004. */
+  const responderCampo = useCallback(
+    (itemId: string, crudo: CampoValor, adjunto?: { foto: File }) => {
+      if (!usuario || !plantilla) return
+      const item = itemsDe(plantilla.definition).find((i) => i.id === itemId)
+      if (!item) return
+      const v = validateValorCampo(item, crudo)
+      if (!v.ok) {
+        setErroresCampo((e) => ({ ...e, [itemId]: v.error }))
+        return
+      }
+      setErroresCampo((e) => {
+        if (!(itemId in e)) return e
+        const resto = { ...e }
+        delete resto[itemId]
+        return resto
+      })
+      const campo = v.valor
+      setRespuestas((r) => ({
+        ...r,
+        [itemId]: { ...r[itemId], itemId, campo, valor: esOkNokNa(campo) ? campo : null },
+      }))
       void (async () => {
         const draft = await resolverDraft(usuario)
-        await upsertResponse({
-          inspectionId: draft.id,
-          templateItemId: itemId,
-          tenantId: usuario.tenantId,
-          valueOk: valor,
-        })
+        const cols = columnasDesdeValor(item, campo)
+        if (item.response_type === 'photo') {
+          let valuePhoto: Blob | null | undefined = undefined
+          if (campo === null) valuePhoto = null
+          else if (adjunto?.foto) {
+            try {
+              valuePhoto = (await comprimirImagen(adjunto.foto)).blob
+            } catch {
+              valuePhoto = null
+            }
+          }
+          await upsertResponse({
+            inspectionId: draft.id,
+            templateItemId: itemId,
+            tenantId: usuario.tenantId,
+            ...cols,
+            valueText: campo === null ? null : 'capturada',
+            valuePhoto,
+          })
+        } else {
+          await upsertResponse({
+            inspectionId: draft.id,
+            templateItemId: itemId,
+            tenantId: usuario.tenantId,
+            ...cols,
+          })
+        }
         await refrescar()
       })()
     },
-    [usuario, refrescar, resolverDraft],
-  )
-
-  const responderTexto = useCallback(
-    (itemId: string, texto: string) => {
-      setRespuestas((r) => ({ ...r, [itemId]: { ...r[itemId], itemId, texto } }))
-      if (!usuario) return
-      void (async () => {
-        const item = PLANTILLA.find((i) => i.id === itemId)
-        const draft = await resolverDraft(usuario)
-        await upsertResponse({
-          inspectionId: draft.id,
-          templateItemId: itemId,
-          tenantId: usuario.tenantId,
-          valueOk: null,
-          valueText: item?.tipo === 'numerico' ? null : texto,
-          valueNumber: item?.tipo === 'numerico' && texto ? Number(texto.replace(',', '.')) : null,
-        })
-        void refrescar()
-      })()
-    },
-    [usuario, refrescar, resolverDraft],
+    [usuario, plantilla, refrescar, resolverDraft],
   )
 
   const crearHallazgo = useCallback(
@@ -425,7 +571,9 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
         setRespuestas((r) => ({
           ...r,
           [itemId]: {
+            ...r[itemId],
             itemId,
+            campo: 'nok',
             valor: 'nok',
             hallazgoId: respuesta?.id,
           },
@@ -480,6 +628,8 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
     cuotaAviso,
     respuestas,
     entradasBitacora,
+    plantilla,
+    erroresCampo,
     loginInApp,
     salir,
     ir: setPantalla,
@@ -490,8 +640,7 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
     pendientes,
     fallidos,
     enCola: cola,
-    responder,
-    responderTexto,
+    responderCampo,
     crearHallazgo,
     enviarInspeccion,
     agregarBitacora,

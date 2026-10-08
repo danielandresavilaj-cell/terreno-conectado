@@ -1,15 +1,15 @@
 # TASKS — Módulo 007: Formularios dinámicos desde documentos
 
-**Versión:** 0.1.1 · **Fecha:** 2026-10-08 · **Autor:** Raúl González (con IA)
+**Versión:** 0.1.2 · **Fecha:** 2026-10-08 · **Autor:** Raúl González (con IA)
 **Padre:** `plans/007-formularios-dinamicos/plan.md` · **Spec de referencia:** `specs/000-master/spec.md` §5 (Enmienda 002, FR-007–009/018–019/027–029/036–039/044–049) · **Board:** issues #34–#45 (TSK-FORM-001→012)
 
-> **Regla (Artículo II):** cada task referencia al menos un ID de requisito; cada commit referencia al menos un task. **Compuerta cerrada:** los PRs de la Enmienda 002 (#63–#66) y el resto de la documentación del módulo (#62, #64, #65, #67–#70) están en `main` desde el 2026-10-08; TSK-FORM-002/003 ya codificaron sobre ella.
+> **Regla (Artículo II):** cada task referencia al menos un ID de requisito; cada commit referencia al menos un task. **Compuerta cerrada:** los PRs de la Enmienda 002 (#63–#66) y el resto de la documentación del módulo (#62, #64, #65, #67–#70) están en `main` desde el 2026-10-08; TSK-FORM-002/003 ya codificaron sobre ella; TSK-FORM-001 (renderer) cerró en el PR #79.
 
 ## Tareas
 
 | ID | Tarea | Requisito(s) | Depende de | Criterio de aceptación | Estado |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| TSK-FORM-001 | Motor de render data-driven: la captura dibuja desde la definición de plantilla (`definition` JSONB) | FR-036 | 002, 003 | Una revisión publicada renderiza sus 8 tipos de campo sin HTML hardcodeado; borrador autoguardado por ítem | ⏳ Pendiente |
+| TSK-FORM-001 | Motor de render data-driven: la captura dibuja desde la definición de plantilla (`definition` JSONB) | FR-036 | 002, 003 | Una revisión publicada renderiza sus 8 tipos de campo sin HTML hardcodeado; borrador autoguardado por ítem | ✅ Hecho (PR #79) |
 | TSK-FORM-002 | Persistencia `TEMPLATE_REVISION` + estados inmutables `draft/published/archived` + RLS | FR-007, FR-049 | — | Migración + test de aislamiento (2 tenants, patrón TSK-WS-002); una revisión publicada no admite UPDATE/DELETE desde `tc_app` | ✅ Hecho (PR #71) |
 | TSK-FORM-003 | Catálogo de 8 tipos de campo + validación Zod + `props` JSONB en `TEMPLATE_ITEM` | FR-036, FR-039 | 002 | Schema compartido en `shared/`; respuesta inválida se rechaza en el dispositivo antes de encolar | ✅ Hecho (PR #74) |
 | TSK-FORM-004 | `INSPECTION_RESPONSE` híbrido (columnas tipadas + `value_json`) + `ATTACHMENT` de respuesta | FR-036, FR-037 | 003 | Foto de ítem se persiste asociada a la respuesta; `value_json` validado contra `props` | ⏳ Pendiente |
@@ -33,5 +33,6 @@
 
 | Versión | Fecha | Cambio | Autor |
 | :--- | :--- | :--- | :--- |
+| 0.1.2 | 2026-10-08 | TSK-FORM-001 → ✅ Hecho (PR #79): renderer data-driven en la captura (8 tipos), endpoints de lectura de plantillas con delta `since`, caché Dexie por tenant y seed con definiciones reales; issue #34 cerrado | Daniel Ávila |
 | 0.1.1 | 2026-10-08 | Compuerta cerrada: documentación del módulo en `main` (PRs #62–#70) y TSK-FORM-002 → ✅ Hecho (PR #71) · TSK-FORM-003 → ✅ Hecho (PR #74); issues #35/#36 cerrados y tarjetas en Done | Daniel Ávila |
 | 0.1.0 | 2026-10-08 | Tasks del módulo 007 (TSK-FORM-001→012) derivadas del plan homónimo y de la Enmienda 002; espejan issues #34–#45 del board | Raúl González (con IA) |

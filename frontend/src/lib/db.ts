@@ -10,7 +10,7 @@
  */
 
 import Dexie, { type EntityTable } from 'dexie'
-import { uuidv7, type SyncRecord } from '@terreno/shared'
+import { uuidv7, type SyncRecord, type TemplatePublicadaDto } from '@terreno/shared'
 import { PLANTILLA } from './seed'
 import type { Identidad, Usuario } from './types'
 
@@ -61,6 +61,9 @@ export interface ResponseRow {
   valueOk: ResponseValor | null
   valueText: string | null
   valueNumber: number | null
+  /** Foto de ítem comprimida (FR-012) — borrador local hasta TSK-FORM-004
+   *  (ATTACHMENT de respuesta): el outbox aún no la encola. */
+  valuePhoto?: Blob | null
   capturedAt: string
   clientVersion: number
 }
@@ -106,6 +109,12 @@ export interface AttachmentRow {
 
 export type MetaValue = string | number | null
 
+/** Revisión publicada cacheada en el dispositivo (FR-018, TSK-FORM-001/009).
+ *  La captura renderiza desde acá aunque no haya red. */
+export interface PlantillaCacheRow extends TemplatePublicadaDto {
+  cachedAt: string
+}
+
 export const ORDEN_BATCH: Record<OutboxRow['entityType'], number> = {
   inspection: 1,
   response: 2,
@@ -129,6 +138,7 @@ export const db = new Dexie('terreno-conectado') as Dexie & {
   findings: EntityTable<FindingRow, 'id'>
   logEntries: EntityTable<LogEntryRow, 'id'>
   attachments: EntityTable<AttachmentRow, 'id'>
+  plantillas: EntityTable<PlantillaCacheRow, 'revision_id'>
   meta: EntityTable<{ key: string; value: MetaValue }, 'key'>
 }
 
@@ -140,6 +150,11 @@ db.version(1).stores({
   logEntries: 'id, siteId, authorId, [tenantId+capturedAt]',
   attachments: 'id, ownerId, ownerType',
   meta: 'key',
+})
+
+// v2 (TSK-FORM-001): caché local de revisiones publicadas para render offline.
+db.version(2).stores({
+  plantillas: 'revision_id, template_id, version',
 })
 
 /* ------------------------------------------------------------------ util */
@@ -229,9 +244,28 @@ export async function getDraftInspectionId(): Promise<string | null> {
   return row?.value ? String(row.value) : null
 }
 
+export async function getInspection(id: string): Promise<InspectionRow | undefined> {
+  return db.inspections.get(id)
+}
+
 export async function setDraftInspectionId(id: string | null): Promise<void> {
   if (id) await db.meta.put({ key: 'draftInspectionId', value: id })
   else await db.meta.delete('draftInspectionId')
+}
+
+/* ------------------------------------------------ plantillas cacheadas */
+
+/** Guarda revisiones publicadas descargadas (upsert por revisión). */
+export async function guardarPlantillasCache(items: TemplatePublicadaDto[]): Promise<void> {
+  if (items.length === 0) return
+  const ts = ahoraIso()
+  await db.plantillas.bulkPut(items.map((i) => ({ ...i, cachedAt: ts })))
+}
+
+/** Revisiones publicadas cacheadas en el dispositivo, más nueva primero. */
+export async function plantillasCacheadas(): Promise<PlantillaCacheRow[]> {
+  const rows = await db.plantillas.toArray()
+  return rows.sort((a, b) => b.version - a.version)
 }
 
 /* ------------------------------------------------------ draft de captura */
@@ -243,6 +277,11 @@ export async function ensureDraftInspection(params: {
   templateName: string
   siteName: string
   totalItems: number
+  /** FR-038: congelamiento — si la plantilla activa lo define, el borrador
+   *  nace con su `template_id`/`version` y conserva ese marco aunque la
+   *  plantilla publicada cambie después. */
+  templateId?: string
+  templateVersion?: number
 }): Promise<{ id: string; answeredCount: number }> {
   const existing = await getDraftInspectionId()
   if (existing) {
@@ -258,8 +297,8 @@ export async function ensureDraftInspection(params: {
     id,
     tenantId: params.tenantId,
     siteId: params.siteId,
-    templateId: await getTemplateId(),
-    templateVersion: 3,
+    templateId: params.templateId ?? (await getTemplateId()),
+    templateVersion: params.templateVersion ?? 3,
     executedBy: params.executedBy,
     status: 'draft',
     capturedAt: ahoraIso(),
@@ -275,13 +314,20 @@ export async function ensureDraftInspection(params: {
   return { id, answeredCount: 0 }
 }
 
+/**
+ * Upsert de la respuesta de un ítem. Los valores opcionales con `undefined`
+ * NO tocan la columna existente; `null` la limpia (así un campo se puede
+ * vaciar). `valuePhoto` guarda el binario comprimido localmente: el outbox
+ * aún no lo sube (TSK-FORM-004).
+ */
 export async function upsertResponse(params: {
   inspectionId: string
   templateItemId: string
   tenantId: string
-  valueOk: ResponseValor | null
+  valueOk?: ResponseValor | null
   valueText?: string | null
   valueNumber?: number | null
+  valuePhoto?: Blob | null
 }): Promise<string> {
   const existing = await db.responses
     .where('[inspectionId+templateItemId]')
@@ -289,9 +335,10 @@ export async function upsertResponse(params: {
     .first()
   if (existing) {
     await db.responses.update(existing.id, {
-      valueOk: params.valueOk,
-      valueText: params.valueText ?? existing.valueText,
-      valueNumber: params.valueNumber ?? existing.valueNumber,
+      ...(params.valueOk !== undefined ? { valueOk: params.valueOk } : {}),
+      ...(params.valueText !== undefined ? { valueText: params.valueText } : {}),
+      ...(params.valueNumber !== undefined ? { valueNumber: params.valueNumber } : {}),
+      ...(params.valuePhoto !== undefined ? { valuePhoto: params.valuePhoto } : {}),
       capturedAt: ahoraIso(),
       clientVersion: existing.clientVersion + 1,
     })
@@ -303,9 +350,10 @@ export async function upsertResponse(params: {
     inspectionId: params.inspectionId,
     templateItemId: params.templateItemId,
     tenantId: params.tenantId,
-    valueOk: params.valueOk,
+    valueOk: params.valueOk ?? null,
     valueText: params.valueText ?? null,
     valueNumber: params.valueNumber ?? null,
+    valuePhoto: params.valuePhoto ?? null,
     capturedAt: ahoraIso(),
     clientVersion: 0,
   })

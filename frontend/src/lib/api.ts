@@ -18,6 +18,8 @@ import type {
   DashboardSummary,
   ListConflictsResponse,
   SitesResponse,
+  TemplateRevisionDetailDto,
+  TemplatesDeltaResponse,
 } from '@terreno/shared'
 
 export const API_BASE: string =
@@ -141,6 +143,16 @@ export function getFindings(f: FindingsFiltros = {}): Promise<DashboardFindingsR
 
 export function getConflicts(): Promise<ListConflictsResponse> {
   return apiFetch<ListConflictsResponse>('/conflicts')
+}
+
+/** Revisiones publicadas con su definición; `since` pedida = delta (FR-027). */
+export function getPlantillas(since?: number): Promise<TemplatesDeltaResponse> {
+  const suffix = since !== undefined ? `?since=${encodeURIComponent(String(since))}` : ''
+  return apiFetch<TemplatesDeltaResponse>(`/templates${suffix}`)
+}
+
+export function getRevisionPlantilla(revisionId: string): Promise<TemplateRevisionDetailDto> {
+  return apiFetch<TemplateRevisionDetailDto>(`/templates/revisions/${encodeURIComponent(revisionId)}`)
 }
 
 export type { ConflictRecordDto }
