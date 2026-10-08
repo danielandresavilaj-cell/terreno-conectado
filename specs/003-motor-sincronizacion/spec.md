@@ -12,7 +12,7 @@
 
 ## Alcance heredado del spec maestro
 
-Requisitos que este spec detallará: **FR-020 → FR-026** y soporte a **NFR-03, NFR-04**.
+Requisitos que este spec detallará: **FR-020 → FR-029** y soporte a **NFR-03, NFR-04**.
 
 - Subida por lotes con orden de dependencias (site → inspection → responses → findings → attachments) (FR-020).
 - Idempotencia: upsert por UUIDv7 cliente + `client_version` (FR-021).
@@ -21,6 +21,9 @@ Requisitos que este spec detallará: **FR-020 → FR-026** y soporte a **NFR-03,
 - SYNC_LOG auditable + métrica de latencia `captured_at → synced_at` (FR-024).
 - Rechazo de lote completo ante cruce de tenant (FR-025).
 - Marcado `synced` y actualización de contador (FR-026).
+- **Delta de plantillas:** `GET /api/v1/templates?since=<template_version>` devuelve solo revisiones posteriores a la última versión conocida del cliente (FR-027, módulo 007).
+- **Versión congelada:** una inspección en curso conserva su `template_revision_id`; el delta nunca re-encuadra ni re-valida lo ya capturado (FR-028, módulo 007).
+- **Imports idempotentes:** `TEMPLATE_IMPORT` (uploaded → parsed → proposed → confirmed/failed) viaja con UUIDv7 de cliente y el mismo upsert versión-condicionado → reintentar jamás duplica (FR-029, módulo 007).
 
 ## Secciones a completar en el ciclo del módulo
 
@@ -28,7 +31,7 @@ Requisitos que este spec detallará: **FR-020 → FR-026** y soporte a **NFR-03,
 - [x] Semántica exacta de upsert + condición de versión (SQL) — ver data-model.md §4.1 e implementación en `backend/src/sync/sync.service.ts` (TSK-WS-007/009)
 - [x] Algoritmo del worker de cola cliente (concurrencia 1, tamaño de lote, reanudación) — implementado en `frontend/src/lib/sync.ts` (TSK-WS-008)
 - [x] Definición determinista de LWW ante `captured_at`/`client_version` iguales: **implementada** en `backend/src/sync/sync.service.ts` (TSK-WS-009) — ganador = mayor `captured_at`; si empatan, mayor `client_version`; si aún empatan, mayor UUIDv7 (orden lexicográfico), según `plans/000-walking-skeleton/plan.md` §3.1. Resolución reproducible ante relojes desviados (caso adversarial §5 test-plan).
-- [ ] Descarga incremental hacia el cliente (plantillas y datos de referencia para offline)
+- [ ] Descarga incremental hacia el cliente: contrato del delta `GET /api/v1/templates?since=` (FR-027), versión congelada en inspección en curso (FR-028), imports idempotentes `TEMPLATE_IMPORT` (FR-029) y datos de referencia para offline
 - [ ] Criterios de aceptación = escenarios de caos 1–7 pasando (test-plan.md §4)
 - [ ] Plan técnico → `plans/003-motor-sincronizacion/plan.md`
 
@@ -36,5 +39,6 @@ Requisitos que este spec detallará: **FR-020 → FR-026** y soporte a **NFR-03,
 
 | Versión | Fecha | Cambio | Autor |
 | :--- | :--- | :--- | :--- |
+| 0.3.0 | 2026-10-07 | **Módulo 007 (Enmienda 002):** alcance +FR-027–029 — delta de plantillas `GET /api/v1/templates?since=`, versión congelada, imports idempotentes (`TEMPLATE_IMPORT`) | Raúl González (con IA) |
 | 0.2.0 | 2026-10-07 | TSK-WS-007/008/009 implementados: contrato de ingesta (`SyncBatchRequest/Response`), upsert versión-condicionado e idempotente, LWW determinista + `CONFLICT_RECORD` append-only (worst/winner payload), `sync_log` en dos fases, `GET /api/v1/conflicts` (supervisor/admin), worker de cola cliente | Daniel Ávila |
 | 0.1.0 | 2026-09-14 | Esqueleto inicial desde spec maestro v1.0.0 | Daniel Ávila (con IA) |
