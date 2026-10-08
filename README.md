@@ -118,7 +118,11 @@ terreno-conectado/
 > `CONFLICT_RECORD`, **TSK-WS-009**) y desde **TSK-WS-008** el **worker** de cola del cliente
 > dispara la sincronización sola al reconectar; el **dashboard del supervisor con datos reales**
 > y la **sesión** (login por credenciales, restauración offline de la identidad) llegan en
-> **TSK-WS-011**.
+> **TSK-WS-011**, y **TSK-WS-012** añade `GET /health` + **logs JSON** correlacionados
+> (`request_id`/`tenant_id`). Del **Módulo 007** (formularios dinámicos) ya está en `main` su
+> documentación completa (Enmienda 002, ADR-003, data-model 1.1.0, spec/plan/tasks 007) y el
+> backend de **TSK-FORM-002/003** (plantillas versionadas inmutable + catálogo tipado con Zod en
+> `shared/`); el resto de tareas TSK-FORM sigue en curso.
 
 ### Frontend — funciona hoy
 
@@ -241,10 +245,28 @@ dispara el flush solo al reconectar, con concurrencia 1 y backoff 1 s→5 min (F
   emite un **access log** `{"level":"info","context":"http","message":"HTTP GET /health 200 …"}`
   con método, ruta, status y duración.
 
+### Plantillas dinámicas — Módulo 007 (Enmienda 002, en curso)
+
+Ciclo `tenant_admin` importa `.xlsx` → revisión humana → publica `TEMPLATE_REVISION` inmutable →
+asigna por faena/rol → el worker captura offline → export del documento rellenado. Ya en `main`:
+
+- **Documentación completa**: `specs/000-master/spec.md` v1.1.0 (Enmienda 002, FR-007–049),
+  `specs/007-formularios-dinamicos/spec.md`, `adr/003-formularios-dinamicos.md`,
+  `data-model.md` v1.1.0, `plans/007-formularios-dinamicos/` (plan + tasks + spike xlsx) y
+  cobertura en `test-plan.md` (FR-007–049, caos 8–11).
+- **TSK-FORM-002**: `template` + `template_revision` con RLS por comando y **inmutabilidad en el
+  motor** — `tc_app` solo toca revisiones `draft` (FR-007/049); `publish` asigna `version`
+  max+1 atómica (base del delta, FR-027).
+- **TSK-FORM-003**: contrato **Zod en `shared/src/templates.ts`** (fuente única frontend/backend,
+  ADR-003 d2) con los **8 `response_type`** y `props` *strict* por tipo (FR-036/039).
+
+Pendiente (issues #34, #37–#45): renderer data-driven, respuestas híbridas, importador `.xlsx`,
+UX de import, asignaciones, delta sync y export.
+
 | Servicio | URL | Estado |
 | :--- | :--- | :--- |
 | Frontend (Vite) | http://localhost:5173 | funciona (login real + captura offline + dashboard/conflictos) |
-| Backend (NestJS, auth + sync) | http://localhost:3000 | funciona (auth, RLS, ingesta idempotente, LWW + conflictos) |
+| Backend (NestJS, auth + sync) | http://localhost:3000 | funciona (auth, RLS, ingesta idempotente, LWW + conflictos, plantillas versionadas) |
 | PostgreSQL 16 | localhost:5432 | funciona (Docker Compose) |
 | Health check | http://localhost:3000/health | funciona (TSK-WS-012: 200 `db:up` / 503 `db:down`) |
 

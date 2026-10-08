@@ -67,7 +67,7 @@
 | IDs | UUIDv7 generados en cliente | Orden temporal + creación offline sin servidor (FR-015) |
 | Fotos V1 | Disco del VPS vía volume Docker | $0; evolución a S3-compatible (MinIO/B2) documentada en ADR |
 | Auth | JWT propio (access 15 min + refresh) | Simple, claims de tenant; Auth0/Clerk = costo/lock-in |
-| Monorepo | pnpm workspaces | Tipos compartidos frontend/backend, un solo CI |
+| Monorepo | npm workspaces (enmienda ADR-001.1) | Tipos compartidos frontend/backend, un solo CI |
 | E2E | Playwright | Simulación de offline de primera clase (`context.setOffline`) |
 | Unit | Vitest | Velocidad + nativo en ecosistema Vite |
 | Monitoreo | Uptime Kuma self-hosted o betterstack free | $0; cubre NFR-09 |
