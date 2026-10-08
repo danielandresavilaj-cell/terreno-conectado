@@ -42,11 +42,38 @@ export interface CreateTemplateInput {
 export interface CreateDraftInput {
   tenantId: string
   templateId: string
-  definition: Record<string, unknown>
+  /** Definición sin validar (la valida el contrato Zod, FR-039). */
+  definition: unknown
 }
 
 export interface UpdateDraftInput {
   tenantId: string
   revisionId: string
-  definition: Record<string, unknown>
+  definition: unknown
+}
+
+/** Fila de `template_section` (catálogo tipado, migration 005). */
+export interface TemplateSectionRow {
+  id: string
+  revision_id: string
+  tenant_id: string
+  position: number
+  title: string
+  created_at: string
+  updated_at: string
+}
+
+/** Fila de `template_item` (catálogo tipado, migration 005, FR-036). */
+export interface TemplateItemRow {
+  id: string
+  section_id: string
+  tenant_id: string
+  position: number
+  prompt: string
+  response_type: string
+  require_finding_on_nok: boolean
+  props: Record<string, unknown> | null
+  help: string | null
+  created_at: string
+  updated_at: string
 }
