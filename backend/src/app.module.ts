@@ -5,6 +5,7 @@ import { AuthModule } from './auth/auth.module'
 import { DashboardModule } from './dashboard/dashboard.module'
 import { DbModule } from './db/db.module'
 import { SyncModule } from './sync/sync.module'
+import { TemplatesModule } from './templates/templates.module'
 
 @Module({
   imports: [
@@ -13,6 +14,7 @@ import { SyncModule } from './sync/sync.module'
     AuthModule,
     SyncModule,
     DashboardModule,
+    TemplatesModule,
   ],
   controllers: [AppController],
 })
