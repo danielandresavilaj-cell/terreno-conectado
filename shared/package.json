@@ -2,7 +2,6 @@
   "name": "@terreno/shared",
   "version": "0.1.0",
   "private": true,
-  "type": "module",
   "description": "Tipos y contratos compartidos entre frontend y backend (ADR-001)",
   "main": "./src/index.ts",
   "types": "./src/index.ts",
