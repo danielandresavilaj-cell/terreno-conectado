@@ -1,25 +1,34 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common'
+import { randomUUID } from 'node:crypto'
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common'
+import { ZodError } from 'zod'
+import { parseTemplateDefinition, type TemplateDefinition } from '@terreno/shared'
 import { DbService } from '../db/db.service'
 import type {
   CreateDraftInput,
   CreateTemplateInput,
+  TemplateItemRow,
   TemplateRevisionRow,
   TemplateRow,
+  TemplateSectionRow,
   UpdateDraftInput,
 } from './templates.types'
 
 /**
- * DS del módulo 007 (TSK-FORM-002): plantillas versionadas e inmutables.
+ * DS del módulo 007: plantillas versionadas e inmutables + catálogo tipado.
  *
  * Requisitos:
  *  - FR-007  aislamiento por tenant (RLS en el motor, Artículo IV).
- *  - FR-049  la revisión `published` es inmutable: solo `draft` se edita/se
- *            borra; todo cambio exige una revisión nueva (draft → published).
- *  - FR-027  `version` se asigna al publicar (max+1 por plantilla) y es la base
- *            del delta `since=<template_version>` de plantillas.
+ *  - FR-027  `version` se asigna al publicar (max+1 por plantilla); base del
+ *            delta `since=<template_version>` de plantillas.
+ *  - FR-036  catálogo de 8 tipos de campo (contrato Zod en `@terreno/shared`).
+ *  - FR-039  la definición se valida con el MISMO contrato que validará la
+ *            respuesta en el dispositivo: una plantilla guardada siempre es
+ *            válida para el render (TSK-FORM-001).
+ *  - FR-049  la revisión `published` es inmutable; su catálogo materializado
+ *            (template_section/template_item) también (políticas RLS).
  *
  * El rol de negocio (field_worker/supervisor/tenant_admin) se validará en los
- * controladores de las tasks siguientes (003+); aquí solo el tenant aísla.
+ * controladores de las tasks siguientes; aquí solo el tenant aísla.
  */
 @Injectable()
 export class TemplatesService {
@@ -54,27 +63,48 @@ export class TemplatesService {
     )
   }
 
-  /** Crea una revisión en `draft` (version NULL; la publica TSK-FORM-006). */
+  /**
+   * Valida la definición con el contrato compartido (FR-036/FR-039) y devuelve
+   * la forma normalizada. Lanza 400 con el detalle del primer error de contrato.
+   */
+  private validateOrThrow(definition: unknown): TemplateDefinition {
+    try {
+      return parseTemplateDefinition(definition)
+    } catch (error) {
+      if (error instanceof ZodError) {
+        const detail = error.issues
+          .slice(0, 3)
+          .map((i) => `${i.path.join('.') || 'definition'}: ${i.message}`)
+          .join('; ')
+        throw new BadRequestException(`definición de plantilla inválida: ${detail}`)
+      }
+      throw error
+    }
+  }
+
+  /** Crea una revisión en `draft` (version NULL; validada, FR-039/FR-049). */
   async createDraftRevision(input: CreateDraftInput): Promise<TemplateRevisionRow> {
+    const definition = this.validateOrThrow(input.definition)
     const [row] = await this.db.queryAsTenant<TemplateRevisionRow>(
       input.tenantId,
       `INSERT INTO template_revision (id, template_id, tenant_id, definition, status)
        VALUES (gen_random_uuid(), $1, $2, $3::jsonb, 'draft')
        RETURNING *`,
-      [input.templateId, input.tenantId, JSON.stringify(input.definition)],
+      [input.templateId, input.tenantId, JSON.stringify(definition)],
     )
     return row
   }
 
   /** Edita SOLO una revisión en `draft` (FR-049: nula para published/archived). */
   async updateDraftRevision(input: UpdateDraftInput): Promise<TemplateRevisionRow> {
+    const definition = this.validateOrThrow(input.definition)
     const [row] = await this.db.queryAsTenant<TemplateRevisionRow>(
       input.tenantId,
       `UPDATE template_revision
        SET definition = $2::jsonb, updated_at = now()
        WHERE id = $1 AND status = 'draft'
        RETURNING *`,
-      [input.revisionId, JSON.stringify(input.definition)],
+      [input.revisionId, JSON.stringify(definition)],
     )
     if (!row) {
       throw new ConflictException('la revisión no existe o ya no está en estado draft (FR-049)')
@@ -84,12 +114,15 @@ export class TemplatesService {
 
   /**
    * Publica un borrador: asigna `version` (max+1 por plantilla, FR-027),
-   * `published_at` y congela el estado (FR-049). Atómico por tenant.
+   * materializa el catálogo tipado (template_section/template_item) y congela
+   * todo el contenido (FR-049). Atómico por tenant — la materialización ocurre
+   * ANTES del cambio de estado porque el RLS exige revisión en `draft`.
    */
   async publishRevision(tenantId: string, revisionId: string): Promise<TemplateRevisionRow> {
     return this.db.withTenantTransaction<TemplateRevisionRow>(tenantId, async (run) => {
-      const [draft] = await run<{ template_id: string }>(
-        `SELECT template_id FROM template_revision WHERE id = $1 AND status = 'draft'`,
+      const [draft] = await run<{ template_id: string; definition: unknown }>(
+        `SELECT template_id, definition
+         FROM template_revision WHERE id = $1 AND status = 'draft'`,
         [revisionId],
       )
       if (!draft) {
@@ -101,6 +134,9 @@ export class TemplatesService {
          FROM template_revision WHERE template_id = $1 AND version IS NOT NULL`,
         [draft.template_id],
       )
+
+      const definition = this.validateOrThrow(draft.definition)
+      await this.materializeCatalog(run, tenantId, revisionId, definition)
 
       const [row] = await run<TemplateRevisionRow>(
         `UPDATE template_revision
@@ -114,6 +150,58 @@ export class TemplatesService {
       }
       return row
     })
+  }
+
+  /** Persiste secciones/ítems tipados de una definición ya validada. */
+  private async materializeCatalog(
+    run: <R = Record<string, unknown>>(sql: string, params?: unknown[]) => Promise<R[]>,
+    tenantId: string,
+    revisionId: string,
+    definition: TemplateDefinition,
+  ): Promise<void> {
+    for (const [sectionIndex, section] of definition.sections.entries()) {
+      const sectionId = section.id ?? randomUUID()
+      await run<TemplateSectionRow>(
+        `INSERT INTO template_section (id, revision_id, tenant_id, position, title)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [sectionId, revisionId, tenantId, section.position ?? sectionIndex, section.title],
+      )
+      for (const [itemIndex, item] of section.items.entries()) {
+        await run<TemplateItemRow>(
+          `INSERT INTO template_item
+             (id, section_id, tenant_id, position, prompt, response_type,
+              require_finding_on_nok, props, help)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9)`,
+          [
+            item.id,
+            sectionId,
+            tenantId,
+            itemIndex,
+            item.prompt,
+            item.response_type,
+            item.require_finding_on_nok ?? false,
+            item.props !== undefined ? JSON.stringify(item.props) : null,
+            item.help ?? null,
+          ],
+        )
+      }
+    }
+  }
+
+  /**
+   * Catálogo de ítems de una revisión (tipos + props), ordenado por
+   * sección/ítem. Usado por import/export (TSK-FORM-005/010) y reportes.
+   */
+  async listItemsByRevision(tenantId: string, revisionId: string): Promise<TemplateItemRow[]> {
+    return this.db.queryAsTenant<TemplateItemRow>(
+      tenantId,
+      `SELECT i.*
+       FROM template_item i
+       JOIN template_section s ON s.id = i.section_id
+       WHERE s.revision_id = $1
+       ORDER BY s.position, i.position`,
+      [revisionId],
+    )
   }
 
   /**
