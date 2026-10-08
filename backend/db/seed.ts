@@ -24,6 +24,15 @@ export const SITE_A_ID = '01890000-0000-7000-8000-0000000000a2'
 export const SITE_B_ID = '01890000-0000-7000-8000-0000000000b2'
 export const PLATFORM_ADMIN_ID = '01890000-0000-7000-8000-0000000000c1'
 
+// Plantillas del módulo 007 (data-model §2.2): cabecera + una revisión
+// publicada y un borrador por tenant (TSK-FORM-002, seed demo).
+export const TEMPLATE_A_ID = '01890000-0000-7000-8000-0000000000a6'
+export const TEMPLATE_B_ID = '01890000-0000-7000-8000-0000000000b6'
+export const TEMPLATE_A_REVISION_DRAFT_ID = '01890000-0000-7000-8000-0000000000a7'
+export const TEMPLATE_A_REVISION_PUBLISHED_ID = '01890000-0000-7000-8000-0000000000a8'
+export const TEMPLATE_B_REVISION_DRAFT_ID = '01890000-0000-7000-8000-0000000000b7'
+export const TEMPLATE_B_REVISION_PUBLISHED_ID = '01890000-0000-7000-8000-0000000000b8'
+
 interface SeedQueryable {
   query: (text: string, values?: unknown[]) => Promise<unknown>
 }
@@ -72,6 +81,41 @@ export async function seedDatabase(db: SeedQueryable): Promise<void> {
              failed_login_count = 0,
              locked_until = NULL`,
       [id, tenantId, email, passwordHash, role, fullName],
+    )
+  }
+
+  // Plantillas del módulo 007 (TSK-FORM-002). Las revisiones publicadas se
+  // insertan directo en `published` (el seed corre como owner, bypassa RLS);
+  // la app solo puede alcanzar ese estado vía draft → publish (FR-049).
+  const templates: Array<[string, string, string, string | null]> = [
+    [TEMPLATE_A_ID, TENANT_A_ID, 'Chequeo de seguridad minera', 'Lista de chequeo diario de seguridad (demo módulo 007)'],
+    [TEMPLATE_B_ID, TENANT_B_ID, 'Inspección de obra', 'Checklist de obra en construcción (demo módulo 007)'],
+  ]
+  for (const [id, tenantId, name, description] of templates) {
+    await db.query(
+      `INSERT INTO template (id, tenant_id, name, description)
+       VALUES ($1, $2, $3, $4)
+       ON CONFLICT (id) DO NOTHING`,
+      [id, tenantId, name, description],
+    )
+  }
+
+  // `definition` = secciones + ítems (ADR-003). Los ítems reales del catálogo
+  // de 8 tipos se cargan con TSK-FORM-003; aquí quedan vacíos y trazables al
+  // fixture.
+  const revisions: Array<[string, string, string, number | null, string]> = [
+    [TEMPLATE_A_REVISION_DRAFT_ID, TEMPLATE_A_ID, TENANT_A_ID, null, 'draft'],
+    [TEMPLATE_A_REVISION_PUBLISHED_ID, TEMPLATE_A_ID, TENANT_A_ID, 1, 'published'],
+    [TEMPLATE_B_REVISION_DRAFT_ID, TEMPLATE_B_ID, TENANT_B_ID, null, 'draft'],
+    [TEMPLATE_B_REVISION_PUBLISHED_ID, TEMPLATE_B_ID, TENANT_B_ID, 1, 'published'],
+  ]
+  for (const [id, templateId, tenantId, version, status] of revisions) {
+    await db.query(
+      `INSERT INTO template_revision (id, template_id, tenant_id, version, definition, status, published_at)
+       VALUES ($1, $2, $3, $4, '{"sections":[]}'::jsonb, $5,
+               CASE WHEN $5 = 'published' THEN now() ELSE NULL END)
+       ON CONFLICT (id) DO NOTHING`,
+      [id, templateId, tenantId, version, status],
     )
   }
 }
