@@ -1,6 +1,6 @@
 # TASKS — Iteración 0: Walking skeleton (MVP vertical)
 
-**Versión:** 0.1.10 · **Fecha:** 2026-10-07 · **Autor:** Raúl González
+**Versión:** 0.1.11 · **Fecha:** 2026-10-07 · **Autor:** Raúl González
 **Padre:** `plans/000-walking-skeleton/plan.md` · **Spec de referencia:** `specs/000-master/spec.md` §9 (MVP)
 
 > **Regla (Artículo II):** cada task referencia al menos un ID de requisito; cada commit referencia al menos un task. Estado de iteración: los criterios de aceptación de la demo (§13 spec maestro) dependen de que esta iteración complete el guion §9.
@@ -20,7 +20,7 @@
 | TSK-WS-009 | Resolución LWW + `CONFLICT_RECORD` (tie-breaker determinista) | FR-023 | 007, 008 | Dos dispositivos editan el mismo registro offline → gana mayor `client_version`; ambas versiones conservadas y visibles al supervisor | ✅ Hecho |
 | TSK-WS-010 | Rechazo de lote cross-tenant + incidente en AUDIT_LOG | FR-025, FR-051 | 007 | JWT tenant A + payload tenant B → 4xx, lote completo rechazado, incidente auditado (defensa en profundidad sobre RLS) | ✅ Hecho (en 007) |
 | TSK-WS-011 | Dashboard mínimo: hallazgo alto/crítico visible tras sincronizar | FR-035, FR-040, FR-043 | 008, 009 | Tras sync, hallazgo `alta/crítica` destacado en el dashboard del supervisor en ≤ 60 s | ✅ Hecho |
-| TSK-WS-012 | `/health` (uptime, versión, estado DB) + logs estructurados | FR-052, NFR-09 | 002 | `/health` responde 200 con estado DB; logs JSON con `tenant_id` y `request_id` | ⏳ Pendiente |
+| TSK-WS-012 | `/health` (uptime, versión, estado DB) + logs estructurados | FR-052, NFR-09 | 002 | `/health` responde 200 con estado DB; logs JSON con `tenant_id` y `request_id` | ✅ Hecho |
 
 ## Criterios de salida de la iteración
 
@@ -32,6 +32,7 @@
 
 | Versión | Fecha | Cambio | Autor |
 | :--- | :--- | :--- | :--- |
+| 0.1.11 | 2026-10-07 | TSK-WS-012 completo: `GET /health` público (fuera del prefijo `/api/v1`) con uptime, versión desde `package.json` y `ping()` a PostgreSQL — 200 `db:up` / 503 `db:down` (FR-052, consumible por uptime monitor); observabilidad (NFR-09): `JsonLogger` intercambia el logger de NestJS por líneas JSON (`ts/level/message/context` + SIEMPRE `request_id`/`tenant_id`), nivel por `LOG_LEVEL` (trace..fatal, `silent` en tests), middleware de correlación con access log (`request_id` UUID + `tenant_id` decodificado del Bearer, AsyncLocalStorage propaga la correlación a los logs de servicios); suite backend 43/43 | Daniel Ávila |
 | 0.1.10 | 2026-10-07 | TSK-WS-011 completo: backend `GET /api/v1/sites` (ahora con `tenant{id,nombre}`), `GET /api/v1/dashboard/summary` (FR-035/040/043), `GET /api/v1/dashboard/findings` caché 30 s, roles supervisor/tenant_admin (RLS, latencia = `synced_at − captured_at`) + `GET /api/v1/conflicts` expuesto; frontend con sesión real (`loginInApp`/boot por token con cache offline FR-006, logout por 401), seed v3 con IDs reales + demo multi-tenant, `api.ts` cliente REST con Bearer, `Dashboard.tsx` real (filtros periodo/faena/severidad, auto-refresh 30 s, highlight FR-035, CSV), `Conflictos.tsx` con datos del servidor, bitácora con faenas de la identidad; suite backend 35/35 | Daniel Ávila |
 | 0.1.9 | 2026-10-07 | TSK-WS-009 completo: LWW determinista `captured_at` → `client_version` → mayor UUIDv7 (plan §3.1) en la ingesta; `conflict_record` conserva winner/loser payload (Artículo III, dedupe de reintentos), `sync_log` en dos fases (pending→final) y `sync_log_id` enlaza cada conflicto al batch; aplicar ganador + auditar conflicto en UNA transacción (`withTenantTransaction`); `GET /api/v1/conflicts` para supervisor/admin; bytes de foto solo para la versión ganadora (sin huérfanos) | Daniel Ávila |
 | 0.1.8 | 2026-10-07 | TSK-WS-008 completo: worker de cola en `frontend/src/lib/sync.ts` — arma `SyncBatchRequest` desde el outbox (concurrencia 1, lotes ≤500, orden FR-020), mapa `aSyncRecord`+base64 de foto, backoff 1 s→5 min auto-reprogramado (FR-022), marcado `synced/failed` con `lastError` y contadores (FR-026); disparo por evento `online` real + flush al entrar/encolar (FR-016/FR-004); `VITE_API_URL` configurable | Daniel Ávila |

@@ -36,7 +36,7 @@ Cada promesa del spec maestro tiene una prueba que la verifica (NFR-12). Las pru
 | FR-005 | 5 logins fallidos → bloqueo temporal 15 min | Integración |
 | FR-031/032 | Ciclo draft→submitted; ítem `nok` exige hallazgo cuando la plantilla lo configura | Unit + E2E |
 | FR-040/043, NFR-03 | Sync de dato → visible en dashboard; medir delta ≤ 60 s (primer lote) | E2E + cronometrado manual en demo |
-| FR-052, NFR-09 | `/health` responde 200 con estado de DB; uptime monitor lo consume | Integración + manual |
+| FR-052, NFR-09 | `/health` responde 200 con estado de DB (503 con DB caída); uptime monitor lo consume; logs JSON con `request_id` y `tenant_id` en cada línea | Integración + manual |
 | NFR-02 | Script: 200 registros + 100 fotos en offline simulado de 72 h (reloj adelantado) → sync completo sin pérdida | Caos |
 | NFR-07 | Lighthouse CI mobile ≥ 80; interacción de formulario < 200 ms | Rendimiento |
 

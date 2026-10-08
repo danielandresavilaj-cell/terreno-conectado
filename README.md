@@ -225,14 +225,28 @@ dispara el flush solo al reconectar, con concurrencia 1 y backoff 1 s→5 min (F
 | — (plataforma) | admin_plataforma | `admin@terreno.local` |
 
 **Variables de entorno:** copia `.env.example` a `.env` (no se versiona). Ningún secreto se versiona
-(constitución, Art. IX).
+(Constitución, Art. IX).
+
+`LOG_LEVEL` (backend): `trace|debug|info|warn|error|fatal` (default `info`; `silent` en tests/demo).
+
+### Observabilidad (TSK-WS-012)
+
+- `GET /health` — público, fuera del prefijo `/api/v1` (fácil para un uptime monitor free-tier,
+  Uptime Kuma/betterstack, `research.md` §6):
+  `200 {"status":"ok","uptime_s":…,"version":"0.1.0","db":"up"}` — `503 {"status":"degraded",…,"db":"down"}`
+  cuando PostgreSQL no responde (ping `SELECT 1`, FR-052).
+- Logs estructurados **JSON** (NFR-09): una línea por evento con `ts`, `level`, `message`,
+  `context` y **SIEMPRE** `request_id` y `tenant_id` (null fuera de un request HTTP). El middleware
+  de correlación asigna un `request_id` (UUID) por petición, decodifica `tenant_id` del Bearer y
+  emite un **access log** `{"level":"info","context":"http","message":"HTTP GET /health 200 …"}`
+  con método, ruta, status y duración.
 
 | Servicio | URL | Estado |
 | :--- | :--- | :--- |
-| Frontend (Vite) | http://localhost:5173 | funciona (mockup navegable + captura offline real) |
+| Frontend (Vite) | http://localhost:5173 | funciona (login real + captura offline + dashboard/conflictos) |
 | Backend (NestJS, auth + sync) | http://localhost:3000 | funciona (auth, RLS, ingesta idempotente, LWW + conflictos) |
 | PostgreSQL 16 | localhost:5432 | funciona (Docker Compose) |
-| Health check | http://localhost:3000/health | pendiente (TSK-WS-012) |
+| Health check | http://localhost:3000/health | funciona (TSK-WS-012: 200 `db:up` / 503 `db:down`) |
 
 ## Enlaces del proyecto
 
