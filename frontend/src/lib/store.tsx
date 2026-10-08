@@ -36,11 +36,14 @@ import {
   getDraftInspectionId,
   getInspection,
   getTemplateId,
+  guardarFotoRespuesta,
   guardarPlantillasCache,
   guardarSesionCaché,
   listLogEntries,
   listOutbox,
+  migrarFotosLegacy,
   plantillasCacheadas,
+  quitarFotoRespuesta,
   respuestaDelItem,
   seedDemoDataIfNeeded,
   sesionCaché,
@@ -289,6 +292,8 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
     async (perfil: { id: string; tenant_id: string | null; email: string; role: string; full_name: string }, i: Identidad) => {
       const u = usuarioDe(perfil, i)
       await seedDemoDataIfNeeded(COLA_INICIAL, i, u)
+      // TSK-FORM-004: borrares previos con la foto en `valuePhoto` → ATTACHMENT.
+      await migrarFotosLegacy()
       // FR-038: la plantilla activa se hidrata ANTES de tocar el borrador, así
       // el borrador queda ligado al marco de la plantilla vigente.
       const activa = await cargarPlantilla(u.tenantId)
@@ -314,7 +319,7 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
             !r.valueOk &&
             !r.valueText &&
             r.valueNumber === null &&
-            !r.valuePhoto
+            (r.valueJson ?? null) === null
           )
             continue
           draftRespuestas[item.id] = {
@@ -477,9 +482,10 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
 
   /* TSK-FORM-001 / FR-036: única vía de escritura de la captura. Valida el
    * valor contra `props` (FR-039: si falla, no se escribe ni se encola),
-   * limpia/registra el error por ítem y persiste en las columnas naturales.
-   * La foto se comprime (FR-012) y su binario vive en `valuePhoto` local
-   * hasta TSK-FORM-004. */
+   * limpia/registra el error por ítem y persiste en las columnas naturales
+   * (híbridas: `value_json` para select/date/time). La foto se comprime
+   * (FR-012) y su binario vive en un ATTACHMENT `owner_type='response'`
+   * (FR-037, TSK-FORM-004); el outbox la toma al enviar la inspección. */
   const responderCampo = useCallback(
     (itemId: string, crudo: CampoValor, adjunto?: { foto: File }) => {
       if (!usuario || !plantilla) return
@@ -505,23 +511,43 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
         const draft = await resolverDraft(usuario)
         const cols = columnasDesdeValor(item, campo)
         if (item.response_type === 'photo') {
-          let valuePhoto: Blob | null | undefined = undefined
-          if (campo === null) valuePhoto = null
-          else if (adjunto?.foto) {
+          // Invariante: marcador 'capturada' ⇔ adjunto local existe. Si la
+          // compresión falla, el campo vuelve a no contestado (UI incluida).
+          let foto: { blob: Blob; ancho: number; alto: number; mime: string } | null = null
+          let capturada = campo !== null
+          if (capturada && adjunto?.foto) {
             try {
-              valuePhoto = (await comprimirImagen(adjunto.foto)).blob
+              const c = await comprimirImagen(adjunto.foto)
+              foto = { blob: c.blob, ancho: c.ancho, alto: c.alto, mime: c.blob.type || 'image/jpeg' }
             } catch {
-              valuePhoto = null
+              capturada = false
             }
           }
-          await upsertResponse({
-            inspectionId: draft.id,
-            templateItemId: itemId,
-            tenantId: usuario.tenantId,
-            ...cols,
-            valueText: campo === null ? null : 'capturada',
-            valuePhoto,
-          })
+          if (!capturada) {
+            setRespuestas((r) => ({
+              ...r,
+              [itemId]: { ...r[itemId], itemId, campo: null, valor: null },
+            }))
+            const id = await upsertResponse({
+              inspectionId: draft.id,
+              templateItemId: itemId,
+              tenantId: usuario.tenantId,
+              valueOk: null,
+              valueText: null,
+              valueNumber: null,
+              valueJson: null,
+            })
+            await quitarFotoRespuesta(id)
+          } else {
+            const id = await upsertResponse({
+              inspectionId: draft.id,
+              templateItemId: itemId,
+              tenantId: usuario.tenantId,
+              ...cols, // valueText = marcador 'capturada'
+            })
+            // Sin adjunto nuevo se conserva el que ya existía (recaptura nula).
+            if (foto) await guardarFotoRespuesta({ responseId: id, tenantId: usuario.tenantId, foto })
+          }
         } else {
           await upsertResponse({
             inspectionId: draft.id,

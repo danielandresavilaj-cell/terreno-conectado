@@ -61,8 +61,11 @@ export interface ResponseRow {
   valueOk: ResponseValor | null
   valueText: string | null
   valueNumber: number | null
-  /** Foto de ítem comprimida (FR-012) — borrador local hasta TSK-FORM-004
-   *  (ATTACHMENT de respuesta): el outbox aún no la encola. */
+  /** Forma híbrida FR-036: date/time/select_single → string;
+   *  select_multiple → string[]; null en los demás tipos. */
+  valueJson?: string | string[] | null
+  /** @deprecated Borradores previos a TSK-FORM-004: el binario ahora vive en un
+   *  ATTACHMENT `owner_type='response'` (FR-037); se migra en `migrarFotosLegacy`. */
   valuePhoto?: Blob | null
   capturedAt: string
   clientVersion: number
@@ -95,7 +98,8 @@ export interface LogEntryRow {
 export interface AttachmentRow {
   id: string
   tenantId: string
-  ownerType: 'inspection' | 'finding' | 'log_entry'
+  /** FR-037: 'response' = foto de ítem photo; owner_id → inspection_response.id. */
+  ownerType: 'inspection' | 'finding' | 'log_entry' | 'response'
   ownerId: string
   mime: string
   bytes: number
@@ -317,8 +321,9 @@ export async function ensureDraftInspection(params: {
 /**
  * Upsert de la respuesta de un ítem. Los valores opcionales con `undefined`
  * NO tocan la columna existente; `null` la limpia (así un campo se puede
- * vaciar). `valuePhoto` guarda el binario comprimido localmente: el outbox
- * aún no lo sube (TSK-FORM-004).
+ * vaciar). `valueJson` guarda la forma híbrida de select/date/time (FR-036);
+ * la foto de respuesta NO va acá: se persiste con `guardarFotoRespuesta`
+ * (ATTACHMENT, FR-037).
  */
 export async function upsertResponse(params: {
   inspectionId: string
@@ -327,7 +332,7 @@ export async function upsertResponse(params: {
   valueOk?: ResponseValor | null
   valueText?: string | null
   valueNumber?: number | null
-  valuePhoto?: Blob | null
+  valueJson?: string | string[] | null
 }): Promise<string> {
   const existing = await db.responses
     .where('[inspectionId+templateItemId]')
@@ -338,7 +343,7 @@ export async function upsertResponse(params: {
       ...(params.valueOk !== undefined ? { valueOk: params.valueOk } : {}),
       ...(params.valueText !== undefined ? { valueText: params.valueText } : {}),
       ...(params.valueNumber !== undefined ? { valueNumber: params.valueNumber } : {}),
-      ...(params.valuePhoto !== undefined ? { valuePhoto: params.valuePhoto } : {}),
+      ...(params.valueJson !== undefined ? { valueJson: params.valueJson } : {}),
       capturedAt: ahoraIso(),
       clientVersion: existing.clientVersion + 1,
     })
@@ -353,7 +358,7 @@ export async function upsertResponse(params: {
     valueOk: params.valueOk ?? null,
     valueText: params.valueText ?? null,
     valueNumber: params.valueNumber ?? null,
-    valuePhoto: params.valuePhoto ?? null,
+    valueJson: params.valueJson ?? null,
     capturedAt: ahoraIso(),
     clientVersion: 0,
   })
@@ -367,7 +372,7 @@ export async function submitInspection(inspectionId: string): Promise<void> {
     status: 'submitted',
     answeredCount: await db.responses.where('inspectionId').equals(inspectionId).count(),
   })
-  await db.transaction('rw', db.outbox, async () => {
+  await db.transaction('rw', [db.outbox, db.responses, db.attachments], async () => {
     await encolar(
       'inspection',
       inspectionId,
@@ -385,6 +390,21 @@ export async function submitInspection(inspectionId: string): Promise<void> {
         ins.tenantId,
       )
     }
+    // FR-037: la foto de respuesta viaja como ATTACHMENT `owner_type='response'`.
+    // Se encola acá (y no al capturar) para que el lote traiga primero la
+    // respuesta referenciada: orden FR-020 (response=2 < attachment=4).
+    const ids = new Set(respuestas.map((r) => r.id))
+    const fotos = await db.attachments.where('ownerType').equals('response').toArray()
+    for (const a of fotos) {
+      if (!ids.has(a.ownerId)) continue
+      await encolar(
+        'attachment',
+        a.id,
+        'Foto de respuesta',
+        `${a.ancho}×${a.alto} · ${Math.round(a.bytes / 1024)} KB comprimida (FR-012)`,
+        ins.tenantId,
+      )
+    }
   })
   await setDraftInspectionId(null)
 }
@@ -397,6 +417,122 @@ export async function respuestaDelItem(
     .where('[inspectionId+templateItemId]')
     .equals([inspectionId, templateItemId])
     .first()
+}
+
+/** Foto de un ítem photo → ATTACHMENT `owner_type='response'` (FR-037). No se
+ *  encola: el outbox la toma en `submitInspection`, junto a su respuesta. */
+export async function guardarFotoRespuesta(params: {
+  responseId: string
+  tenantId: string
+  /** Blob ya comprimido (≤1280 px, q0.7) por `comprimirImagen` (FR-012). */
+  foto: { blob: Blob; ancho: number; alto: number; mime: string }
+}): Promise<void> {
+  const ts = ahoraIso()
+  const existente = await db.attachments
+    .where('ownerId')
+    .equals(params.responseId)
+    .and((a) => a.ownerType === 'response')
+    .first()
+  if (existente) {
+    await db.attachments.update(existente.id, {
+      mime: params.foto.mime,
+      bytes: params.foto.blob.size,
+      blob: params.foto.blob,
+      ancho: params.foto.ancho,
+      alto: params.foto.alto,
+      capturedAt: ts,
+      clientVersion: existente.clientVersion + 1,
+    })
+    return
+  }
+  await db.attachments.add({
+    id: uuidv7(),
+    tenantId: params.tenantId,
+    ownerType: 'response',
+    ownerId: params.responseId,
+    mime: params.foto.mime,
+    bytes: params.foto.blob.size,
+    blob: params.foto.blob,
+    ancho: params.foto.ancho,
+    alto: params.foto.alto,
+    capturedAt: ts,
+    clientVersion: 0,
+  })
+}
+
+/** Vaciar el campo photo: borra el ATTACHMENT local, su fila de outbox (si el
+ *  envío ya la encoló) y el binario legado `valuePhoto`. */
+export async function quitarFotoRespuesta(responseId: string): Promise<void> {
+  const adjuntos = await db.attachments
+    .where('ownerId')
+    .equals(responseId)
+    .and((a) => a.ownerType === 'response')
+    .toArray()
+  await db.transaction('rw', [db.responses, db.attachments, db.outbox], async () => {
+    for (const a of adjuntos) {
+      await db.outbox.where('[entityType+entityId]').equals(['attachment', a.id]).delete()
+      await db.attachments.delete(a.id)
+    }
+    await db.responses.update(responseId, { valuePhoto: undefined })
+  })
+}
+
+/**
+ * TSK-FORM-004 (one-shot, marca en `meta`): los borradores previos guardaban
+ * el binario de la foto en `valuePhoto`. Lo migra a un ATTACHMENT
+ * `owner_type='response'` conservando el marcador `valueText='capturada'`;
+ * si la inspección ya fue enviada, la encola de inmediato para que suba en el
+ * próximo lote (las respuestas ya están en outbox o sincronizadas).
+ */
+export async function migrarFotosLegacy(): Promise<void> {
+  const hecho = await db.meta.get('fotosLegacyMigradas')
+  if (hecho?.value === '1') return
+  const conFoto = await db.responses.filter((r) => r.valuePhoto != null).toArray()
+  if (conFoto.length > 0) {
+    const ts = ahoraIso()
+    await db.transaction('rw', [db.responses, db.attachments, db.inspections, db.outbox], async () => {
+      for (const r of conFoto) {
+        const blob = r.valuePhoto
+        if (!blob) continue
+        let ancho = 0
+        let alto = 0
+        try {
+          const bmp = await createImageBitmap(blob)
+          ancho = bmp.width
+          alto = bmp.height
+          bmp.close()
+        } catch {
+          continue // sin dimensiones el servidor la rechaza (width/height ≥ 1)
+        }
+        const attId = uuidv7()
+        await db.attachments.add({
+          id: attId,
+          tenantId: r.tenantId,
+          ownerType: 'response',
+          ownerId: r.id,
+          mime: blob.type || 'image/jpeg',
+          bytes: blob.size,
+          blob,
+          ancho,
+          alto,
+          capturedAt: ts,
+          clientVersion: 0,
+        })
+        await db.responses.update(r.id, { valuePhoto: undefined })
+        const ins = await db.inspections.get(r.inspectionId)
+        if (ins && (ins.status === 'submitted' || ins.status === 'reviewed')) {
+          await encolar(
+            'attachment',
+            attId,
+            'Foto de respuesta',
+            `${ancho}×${alto} · ${Math.round(blob.size / 1024)} KB comprimida (FR-012)`,
+            r.tenantId,
+          )
+        }
+      }
+    })
+  }
+  await db.meta.put({ key: 'fotosLegacyMigradas', value: '1' })
 }
 
 export async function addFinding(params: {
@@ -563,6 +699,7 @@ async function payloadDe(o: OutboxRow): Promise<{
           value_ok: r.valueOk,
           value_text: r.valueText,
           value_number: r.valueNumber,
+          value_json: r.valueJson ?? null,
         },
       }
     }

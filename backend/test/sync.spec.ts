@@ -26,6 +26,8 @@ import { DEMO_PASSWORD, TENANT_A_ID, TENANT_B_ID, seedDatabase } from '../db/see
  *  - registro de OTRO tenant → 409 previo a escritura + incidente en audit_log
  *  - sync_log con totales/estado (FR-024) y inspection.synced_at (latencia NFR-03)
  *  - bytes del adjunto persistidos en SYNC_VOLUME (data-model §2.2 V1)
+ *  - FR-036/FR-037 (TSK-FORM-004): value_json híbrido y ATTACHMENT
+ *    owner_type='response' con su referencia a inspection_response
  */
 
 const MIGRATIONS_DIR = resolve(process.cwd(), 'db', 'migrations')
@@ -354,5 +356,82 @@ describe('aislamiento cross-tenant (FR-025)', () => {
     const { batch } = baseBatch()
     const res = await server().post('/api/v1/sync/batch').send(batch)
     expect(res.status).toBe(401)
+  })
+})
+
+describe('respuesta híbrida (TSK-FORM-004, FR-036/FR-037)', () => {
+  it('value_json (select_multiple) + ATTACHMENT owner_type=response en el mismo lote → ok', async () => {
+    const { batch } = baseBatch()
+    const resp = batch.records[1].payload as Record<string, unknown>
+    resp.value_ok = null
+    resp.value_text = null
+    resp.value_json = ['Opción A', 'Opción C']
+    const att = batch.records[4].payload as Record<string, unknown>
+    att.owner_type = 'response'
+    att.owner_id = batch.records[1].id
+
+    const res = await post(access, batch)
+    expect(res.status).toBe(200)
+    expect(res.body).toMatchObject({
+      status: 'ok',
+      records_total: 5,
+      records_ok: 5,
+      records_failed: 0,
+    })
+
+    const row = await ownerPool.query(
+      'SELECT value_json, value_ok, value_text FROM inspection_response WHERE id = $1',
+      [batch.records[1].id],
+    )
+    expect(row.rowCount).toBe(1)
+    expect(row.rows[0].value_json).toEqual(['Opción A', 'Opción C'])
+    expect(row.rows[0].value_ok).toBeNull()
+    expect(row.rows[0].value_text).toBeNull()
+
+    const a = await ownerPool.query(
+      'SELECT owner_type, owner_id FROM attachment WHERE id = $1',
+      [batch.records[4].id],
+    )
+    expect(a.rows[0]).toMatchObject({ owner_type: 'response', owner_id: batch.records[1].id })
+
+    const file = await import('node:fs/promises').then((fs) =>
+      fs.readFile(join(syncVolume, 'sync', TENANT_A_ID, `${batch.records[4].id}.png`)),
+    )
+    expect(file.equals(TINY_PNG)).toBe(true)
+  })
+
+  it('value_json con forma inválida (number) → 400 previo a escritura', async () => {
+    const { batch } = baseBatch()
+    ;(batch.records[1].payload as Record<string, unknown>).value_json = 42
+    const before = await count('SELECT 1 FROM inspection')
+
+    const res = await post(access, batch)
+    expect(res.status).toBe(400)
+    expect(String(res.body.message)).toContain('value_json')
+    expect(await count('SELECT 1 FROM inspection')).toBe(before)
+  })
+
+  it('value_json sobre el tamaño máximo serializado → 400', async () => {
+    const { batch } = baseBatch()
+    ;(batch.records[1].payload as Record<string, unknown>).value_json = 'x'.repeat(16_385)
+
+    const res = await post(access, batch)
+    expect(res.status).toBe(400)
+    expect(String(res.body.message)).toContain('value_json')
+    expect(String(res.body.message)).toContain('demasiado grande')
+  })
+
+  it('ATTACHMENT owner_type=response con respuesta inexistente → partial (assertRefs)', async () => {
+    const { batch } = baseBatch()
+    const att = batch.records[4].payload as Record<string, unknown>
+    att.owner_type = 'response'
+    att.owner_id = uuid()
+
+    const res = await post(access, batch)
+    expect(res.status).toBe(200)
+    expect(res.body.status).toBe('partial')
+    expect(res.body.records_failed).toBe(1)
+    expect(res.body.records_ok).toBe(4)
+    expect(res.body.errors[0]).toContain('attachment:')
   })
 })

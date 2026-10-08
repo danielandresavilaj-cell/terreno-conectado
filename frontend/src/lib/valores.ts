@@ -1,14 +1,16 @@
 /* Mapeo entre el valor tipado de un campo (FR-036) y las columnas de
- * `responses` (data-model §2.4: `value_ok`/`value_text`/`value_number`).
+ * `responses` (data-model §2.4: `value_ok`/`value_text`/`value_number`/
+ * `value_json` — contrato híbrido de TSK-FORM-004):
+ *  · ok/nok/na → `value_ok`        · numérico → `value_number`
+ *  · texto → `value_text`
+ *  · fecha/hora/select_single → `value_json` (string)
+ *  · select_multiple → `value_json` (string[])
+ *  · foto → `value_text` con el marcador 'capturada' y el binario en un
+ *    ATTACHMENT `owner_type='response'` (FR-037)
  *
- * El contrato híbrido `value_json` llega con TSK-FORM-004; hasta entonces
- * cada tipo se persiste en la columna natural:
- *  · ok/nok/na → `value_ok`      · numérico → `value_number`
- *  · texto/fecha/hora/selects → `value_text` (select_multiple como JSON)
- *  · foto → `value_text` con el marcador y el binario en `valuePhoto`
- *    (local; la subida como ATTACHMENT es TSK-FORM-004).
- *
- * El módulo de sync NO cambia: sigue leyendo las tres columnas de siempre.
+ * La validación contra `template_item.props` es previa (FR-039, en el device);
+ * acá sólo se persiste/lee. Al leer se cae a las columnas legadas de los
+ * borradores previos a FORM-004 (select_multiple JSON y texto en `value_text`).
  */
 
 import type { CampoValor, TemplateDefinition, TemplateItem } from '@terreno/shared'
@@ -40,8 +42,10 @@ export function valorDesdeColumnas(item: TemplateItem, row: ResponseRow): CampoV
     case 'numeric':
       return row.valueNumber
     case 'photo':
-      return row.valuePhoto ? (row.valueText ?? 'capturada') : null
+      return row.valueText === 'capturada' ? 'capturada' : null
     case 'select_multiple': {
+      if (Array.isArray(row.valueJson)) return row.valueJson
+      // Legado (previo a FORM-004): select_multiple persistido en value_text.
       if (!row.valueText) return null
       try {
         const v: unknown = JSON.parse(row.valueText)
@@ -50,7 +54,11 @@ export function valorDesdeColumnas(item: TemplateItem, row: ResponseRow): CampoV
         return null
       }
     }
+    case 'text':
+      return row.valueText
     default:
+      // date/time/select_single: value_json, con caída al value_text legado.
+      if (typeof row.valueJson === 'string') return row.valueJson
       return row.valueText
   }
 }
@@ -59,23 +67,56 @@ export function valorDesdeColumnas(item: TemplateItem, row: ResponseRow): CampoV
 export function columnasDesdeValor(
   item: TemplateItem,
   valor: CampoValor,
-): { valueOk: ResponseValor | null; valueText: string | null; valueNumber: number | null } {
+): {
+  valueOk: ResponseValor | null
+  valueText: string | null
+  valueNumber: number | null
+  valueJson: string | string[] | null
+} {
   switch (item.response_type) {
     case 'ok_nok_na':
-      return { valueOk: esOkNokNa(valor) ? valor : null, valueText: null, valueNumber: null }
+      return {
+        valueOk: esOkNokNa(valor) ? valor : null,
+        valueText: null,
+        valueNumber: null,
+        valueJson: null,
+      }
     case 'numeric':
-      return { valueOk: null, valueText: null, valueNumber: typeof valor === 'number' ? valor : null }
+      return {
+        valueOk: null,
+        valueText: null,
+        valueNumber: typeof valor === 'number' ? valor : null,
+        valueJson: null,
+      }
     case 'select_multiple':
       return {
         valueOk: null,
-        valueText: Array.isArray(valor) ? JSON.stringify(valor) : null,
+        valueText: null,
         valueNumber: null,
+        valueJson: Array.isArray(valor) ? valor : null,
       }
-    default:
+    case 'photo':
+      // El binario lo persiste `guardarFotoRespuesta`; acá va solo el marcador.
+      return {
+        valueOk: null,
+        valueText: typeof valor === 'string' && valor.length > 0 ? valor : null,
+        valueNumber: null,
+        valueJson: null,
+      }
+    case 'text':
       return {
         valueOk: null,
         valueText: typeof valor === 'string' ? valor : null,
         valueNumber: null,
+        valueJson: null,
+      }
+    default:
+      // date/time/select_single
+      return {
+        valueOk: null,
+        valueText: null,
+        valueNumber: null,
+        valueJson: typeof valor === 'string' ? valor : null,
       }
   }
 }

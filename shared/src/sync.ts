@@ -19,7 +19,16 @@ export type SyncInspectionStatus = 'draft' | 'in_progress' | 'submitted' | 'revi
 export type SyncOkNokNa = 'ok' | 'nok' | 'na'
 export type SyncSeverity = 'low' | 'medium' | 'high' | 'critical'
 export type SyncFindingStatus = 'open' | 'in_progress' | 'resolved'
-export type SyncOwnerType = 'inspection' | 'finding' | 'log_entry'
+export type SyncOwnerType = 'inspection' | 'finding' | 'log_entry' | 'response'
+
+/**
+ * Forma híbrida de `inspection_response.value_json` (FR-036, data-model §2.2):
+ * string para date/time/select_single, string[] para select_multiple.
+ * ok_nok_na/numeric/text siguen en sus columnas escalares; photo deja el
+ * marcador en `value_text` y los bytes en un ATTACHMENT `owner_type='response'`
+ * (FR-037).
+ */
+export type SyncValorJson = string | string[]
 
 export interface SyncInspectionPayload {
   site_id: string
@@ -35,6 +44,8 @@ export interface SyncResponsePayload {
   value_ok: SyncOkNokNa | null
   value_text: string | null
   value_number: number | null
+  /** JSON del campo (forma + tamaño validados en servidor, FR-039 es device-side). */
+  value_json?: SyncValorJson | null
 }
 
 export interface SyncFindingPayload {
