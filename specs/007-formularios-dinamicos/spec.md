@@ -8,7 +8,7 @@
 | **Depende de** | 001 (roles/tenant), 004 (dominio inspecciones), ADR-003, data-model.md v1.1.0 |
 | **Bloquea a** | 005 (reportes por lote consumen export de plantillas) |
 
-> **Nota de desbloqueo:** este spec detalla FR que ya viven en `main` — la **Enmienda 002 (PR #63)** y toda la documentación del módulo (#62, #64, #65, #67–#70) se mergearon el **2026-10-08**. El plan técnico y las tasks están en `plans/007-formularios-dinamicos/` y `tasks/007-formularios-dinamicos/` (TSK-FORM-001→012; 002/003 ya completados vía PRs #71/#74).
+> **Nota de desbloqueo:** este spec detalla FR que ya viven en `main` — la **Enmienda 002 (PR #63)** y toda la documentación del módulo (#62, #64, #65, #67–#70) se mergearon el **2026-10-08**. El plan técnico y las tasks están en `plans/007-formularios-dinamicos/` y `tasks/007-formularios-dinamicos/` (TSK-FORM-001→012; 001/002/003 ya completados vía PRs #79/#71/#74).
 
 ## Alcance heredado del spec maestro
 
@@ -34,9 +34,9 @@ Requisitos que este spec detallará: **FR-007–009, 018–019, 027–029, 036�
 
 ## Secciones a completar en el ciclo del módulo
 
-- [ ] Contrato de 8 tipos de campo + `props` + validación Zod (FR-036, FR-039) → TSK-FORM-003
-- [ ] `TEMPLATE_REVISION` + estados inmutables + RLS multi-tenant con test de aislamiento (FR-007, FR-049) → TSK-FORM-002
-- [ ] Renderer data-driven en la captura (FR-036) → TSK-FORM-001
+- [x] Contrato de 8 tipos de campo + `props` + validación Zod (FR-036, FR-039) → TSK-FORM-003 (PR #74)
+- [x] `TEMPLATE_REVISION` + estados inmutables + RLS multi-tenant con test de aislamiento (FR-007, FR-049) → TSK-FORM-002 (PR #71)
+- [x] Renderer data-driven en la captura (FR-036) → TSK-FORM-001 (PR #79)
 - [ ] `INSPECTION_RESPONSE` híbrido (`value_*` + `value_json`) + `ATTACHMENT` de respuesta (FR-037, FR-038) → TSK-FORM-004
 - [ ] **Spike escolta xlsx** (ExcelJS vs SheetJS CE; criterios: bundle ≤ ~500 KB, fidelidad de estilos, worker/offline, licencia CE) → cierra 3.2 + enmienda ADR-003
 - [ ] Importador `.xlsx`: convención de columnas/secciones/ítems y celda destino, parser → propuesta (FR-029) → TSK-FORM-005
@@ -60,5 +60,6 @@ Requisitos que este spec detallará: **FR-007–009, 018–019, 027–029, 036�
 
 | Versión | Fecha | Cambio | Autor |
 | :--- | :--- | :--- | :--- |
+| 0.1.2 | 2026-10-08 | Checklist: TSK-FORM-001 renderer data-driven completado (PR #79); se marcan también 002/003 (PRs #71/#74) | Daniel Ávila |
 | 0.1.1 | 2026-10-08 | Nota de desbloqueo actualizada: Enmienda 002 y docs del módulo en `main` (PRs #62–#70); TSK-FORM-002/003 completados (PRs #71/#74) | Daniel Ávila |
 | 0.1.0 | 2026-10-08 | Esqueleto inicial del spec 007 desde la Enmienda 002, ADR-003 y data-model v1.1.0; espeja TSK-FORM-001→012 | Raúl González (con IA) |

@@ -122,7 +122,8 @@ terreno-conectado/
 > (`request_id`/`tenant_id`). Del **Módulo 007** (formularios dinámicos) ya está en `main` su
 > documentación completa (Enmienda 002, ADR-003, data-model 1.1.0, spec/plan/tasks 007) y el
 > backend de **TSK-FORM-002/003** (plantillas versionadas inmutable + catálogo tipado con Zod en
-> `shared/`); el resto de tareas TSK-FORM sigue en curso.
+> `shared/`) y el **renderer data-driven de TSK-FORM-001** (la captura dibuja desde la definición
+> de la plantilla activa, con caché offline por tenant); el resto de tareas TSK-FORM sigue en curso.
 
 ### Frontend — funciona hoy
 
@@ -259,8 +260,11 @@ asigna por faena/rol → el worker captura offline → export del documento rell
   max+1 atómica (base del delta, FR-027).
 - **TSK-FORM-003**: contrato **Zod en `shared/src/templates.ts`** (fuente única frontend/backend,
   ADR-003 d2) con los **8 `response_type`** y `props` *strict* por tipo (FR-036/039).
+- **TSK-FORM-001**: **render data-driven** en la captura — `FormRenderer` + un control por tipo,
+  validación en dispositivo (FR-039), autoguardado por ítem y **caché local de plantillas**
+  (`GET /api/v1/templates?since=`, Dexie por tenant); sin red cae a la definición demo.
 
-Pendiente (issues #34, #37–#45): renderer data-driven, respuestas híbridas, importador `.xlsx`,
+Pendiente (issues #37–#45): respuestas híbridas, importador `.xlsx`,
 UX de import, asignaciones, delta sync y export.
 
 | Servicio | URL | Estado |
