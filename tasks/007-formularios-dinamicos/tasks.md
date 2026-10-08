@@ -1,0 +1,36 @@
+# TASKS — Módulo 007: Formularios dinámicos desde documentos
+
+**Versión:** 0.1.0 · **Fecha:** 2026-10-08 · **Autor:** Raúl González (con IA)
+**Padre:** `plans/007-formularios-dinamicos/plan.md` · **Spec de referencia:** `specs/000-master/spec.md` §5 (Enmienda 002, FR-007–009/018–019/027–029/036–039/044–049) · **Board:** issues #34–#45 (TSK-FORM-001→012)
+
+> **Regla (Artículo II):** cada task referencia al menos un ID de requisito; cada commit referencia al menos un task. **Arranque condicionado al merge de la compuerta (PRs #63–66)**: los FR referenciados viven en `main` recién tras la Enmienda 002.
+
+## Tareas
+
+| ID | Tarea | Requisito(s) | Depende de | Criterio de aceptación | Estado |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| TSK-FORM-001 | Motor de render data-driven: la captura dibuja desde la definición de plantilla (`definition` JSONB) | FR-036 | 002, 003 | Una revisión publicada renderiza sus 8 tipos de campo sin HTML hardcodeado; borrador autoguardado por ítem | ⏳ Pendiente |
+| TSK-FORM-002 | Persistencia `TEMPLATE_REVISION` + estados inmutables `draft/published/archived` + RLS | FR-007, FR-049 | — | Migración + test de aislamiento (2 tenants, patrón TSK-WS-002); una revisión publicada no admite UPDATE/DELETE desde `tc_app` | ⏳ Pendiente |
+| TSK-FORM-003 | Catálogo de 8 tipos de campo + validación Zod + `props` JSONB en `TEMPLATE_ITEM` | FR-036, FR-039 | 002 | Schema compartido en `shared/`; respuesta inválida se rechaza en el dispositivo antes de encolar | ⏳ Pendiente |
+| TSK-FORM-004 | `INSPECTION_RESPONSE` híbrido (columnas tipadas + `value_json`) + `ATTACHMENT` de respuesta | FR-036, FR-037 | 003 | Foto de ítem se persiste asociada a la respuesta; `value_json` validado contra `props` | ⏳ Pendiente |
+| TSK-FORM-005 | Importador `.xlsx` — parser, detección de secciones/ítems y celda destino (**incluye spike escolta xlsx**, plan §3.2) | FR-029, ADR-003 | 002, 003 | `.xlsx` estructurado → propuesta `proposed_schema` con secciones/ítems; spike cerrado con elección documentada (enmienda ADR-003) | ⏳ Pendiente |
+| TSK-FORM-006 | UX de importación asistida — preview, edición, confirmación y publicar (`tenant_admin`) | FR-029, FR-048 | 005 | El `tenant_admin` revisa/edita la propuesta y confirma antes de publicar; nunca publica automático; con flag `ai` el backend propone el mapeo | ⏳ Pendiente |
+| TSK-FORM-007 | Entidad `TEMPLATE_IMPORT` + guardar documento fuente (`ATTACHMENT`) + auditoría | FR-029, FR-047 | 005 | Cada import guarda el `.xlsx` fuente y su estado (`uploaded/parsed/proposed/confirmed/failed`); confirmación/export auditadas (FR-051) | ⏳ Pendiente |
+| TSK-FORM-008 | Asignación de plantillas por faena/rol + filtrado y búsqueda en cliente | FR-008, FR-009 | 002 | El `field_worker` solo ve revisiones publicadas asignadas a su faena y rol (FR-009); el `tenant_admin` asigna/desasigna | ⏳ Pendiente |
+| TSK-FORM-009 | Sync delta de plantillas publicadas + Excel original para uso offline | FR-018, FR-027 | 001, 002, 008 | `GET /api/v1/templates?since=<template_version>` devuelve solo el delta; caché local permite capturar 100% offline; inspección en curso conserva su versión (FR-028) | ⏳ Pendiente |
+| TSK-FORM-010 | Exportación — Excel original rellenado + hoja Evidencias, generado en el dispositivo | FR-019, FR-044, FR-045, FR-046 | 004, 005 | En el dispositivo y desde el dashboard se descarga el `.xlsx` rellenado con hoja Evidencias; lote exportado con formato de plantilla | ⏳ Pendiente |
+| TSK-FORM-011 | Pruebas import/export con libros reales, offline, RLS de plantillas y versionado inmutable | FR-029, FR-036–039, FR-049 | 001–010 | Libros reales importan y exportan; caos: corte a mitad de delta, doble import, edición concurrente — cero duplicación (Artículo III) | ⏳ Pendiente |
+| TSK-FORM-012 | **[V2 — fuera de corte]** Word/PDF/OCR, catálogo de plantillas de plataforma e IA opcional | FR-048 | 011 | Fuera del alcance del ciclo 007 (Enmienda 002 §10) | ⏳ Pendiente (V2) |
+
+## Criterios de salida del módulo
+
+1. Ciclo completo en vivo: import → revisión → publicación → asignación → captura offline → delta sync → export rellenado + Evidencias (dispositivo y dashboard).
+2. Aislamiento de plantillas verificado con 2 tenants (FR-007/009).
+3. TSK-FORM-011 verde con libros reales y escenarios de caos; idempotencia sin duplicar (Artículo III).
+4. Cada commit referencia su TSK (Artículo II).
+
+## Control de cambios
+
+| Versión | Fecha | Cambio | Autor |
+| :--- | :--- | :--- | :--- |
+| 0.1.0 | 2026-10-08 | Tasks del módulo 007 (TSK-FORM-001→012) derivadas del plan homónimo y de la Enmienda 002; espejan issues #34–#45 del board | Raúl González (con IA) |
