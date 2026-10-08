@@ -71,6 +71,8 @@ const MAX_RECORDS = 500
 const MAX_ATTACHMENT_BYTES = 4 * 1024 * 1024
 const MAX_ERRORS = 5
 const MAX_CONFLICTS_VIEW = 100
+/** Tamaño máximo serializado de `value_json` (forma híbrida FR-036, data-model §2.2). */
+const MAX_VALUE_JSON = 16_384
 
 /** Orden de dependencias fijo (FR-020, data-model §4.2). */
 const BATCH_ORDER: SyncEntityType[] = [
@@ -91,7 +93,7 @@ const INSPECTION_STATUSES = new Set(['draft', 'in_progress', 'submitted', 'revie
 const OK_NOK_NA = new Set(['ok', 'nok', 'na'])
 const SEVERITIES = new Set(['low', 'medium', 'high', 'critical'])
 const FINDING_STATUSES = new Set(['open', 'in_progress', 'resolved'])
-const OWNER_TYPES = new Set(['inspection', 'finding', 'log_entry'])
+const OWNER_TYPES = new Set(['inspection', 'finding', 'log_entry', 'response'])
 const MIME_EXT: Record<string, string> = {
   'image/jpeg': 'jpg',
   'image/png': 'png',
@@ -280,6 +282,22 @@ export class SyncService {
         if (x.value_number !== null && typeof x.value_number !== 'number') {
           throw new BadRequestException(`${at}.payload.value_number inválido`)
         }
+        // Forma híbrida (FR-036): string (date/time/select_single) o string[]
+        // (select_multiple); ausente ≡ null. La validación contra template_item.props
+        // es device-side antes de encolar (FR-039); acá sólo forma y tamaño.
+        const vj = x.value_json
+        if (vj !== undefined && vj !== null) {
+          const esCadena = typeof vj === 'string'
+          const esLista = Array.isArray(vj) && vj.every((v) => typeof v === 'string')
+          if (!esCadena && !esLista) {
+            throw new BadRequestException(`${at}.payload.value_json inválido (string | string[])`)
+          }
+          if (JSON.stringify(vj).length > MAX_VALUE_JSON) {
+            throw new BadRequestException(
+              `${at}.payload.value_json demasiado grande (máx. ${MAX_VALUE_JSON} caracteres)`,
+            )
+          }
+        }
         break
       }
       case 'finding': {
@@ -441,6 +459,9 @@ export class SyncService {
       }
       case 'response': {
         const p = rec.payload as unknown as SyncResponsePayload
+        // node-postgres serializa los arrays JS como literal de array PG ({…}),
+        // que no es jsonb: la forma híbrida va serializada (string | string[]).
+        const valueJson = p.value_json == null ? null : JSON.stringify(p.value_json)
         return this.db.withTenantTransaction(tenantId, (run) =>
           this.applyAny(run, tenantId, syncLogId, rec, {
             table: 'inspection_response',
@@ -453,17 +474,18 @@ export class SyncService {
               p.value_ok,
               p.value_text,
               p.value_number,
+              valueJson,
               rec.captured_at,
               rec.client_version,
             ],
             insertSql: `INSERT INTO inspection_response
               (id, tenant_id, inspection_id, template_item_id, value_ok, value_text,
-               value_number, captured_at, client_version)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+               value_number, value_json, captured_at, client_version)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
              RETURNING id`,
             updateSql: `UPDATE inspection_response SET
               inspection_id = $3, template_item_id = $4, value_ok = $5, value_text = $6,
-              value_number = $7, captured_at = $8, client_version = $9,
+              value_number = $7, value_json = $8, captured_at = $9, client_version = $10,
               updated_at = now()
              WHERE id = $1 AND tenant_id = $2`,
             updateValues: () => [
@@ -474,6 +496,7 @@ export class SyncService {
               p.value_ok,
               p.value_text,
               p.value_number,
+              valueJson,
               rec.captured_at,
               rec.client_version,
             ],
@@ -483,6 +506,7 @@ export class SyncService {
               value_ok: r.value_ok,
               value_text: r.value_text,
               value_number: r.value_number == null ? null : Number(r.value_number),
+              value_json: r.value_json ?? null,
             }),
           }),
         )
@@ -590,7 +614,12 @@ export class SyncService {
       }
       case 'attachment': {
         const p = rec.payload as unknown as SyncAttachmentPayload
-        const ownerTable = { inspection: 'inspection', finding: 'finding', log_entry: 'log_entry' } as const
+        const ownerTable = {
+          inspection: 'inspection',
+          finding: 'finding',
+          log_entry: 'log_entry',
+          response: 'inspection_response',
+        } as const
         return this.db.withTenantTransaction(tenantId, async (run) => {
           await this.assertRefs(run, [[ownerTable[p.owner_type], p.owner_id]])
           const row = await this.selectExisting(run, 'attachment', rec.id)
@@ -829,6 +858,7 @@ export class SyncService {
           value_ok: row.value_ok,
           value_text: row.value_text,
           value_number: row.value_number == null ? null : Number(row.value_number),
+          value_json: row.value_json ?? null,
         }
       case 'finding':
         return {

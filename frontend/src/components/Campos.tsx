@@ -230,8 +230,9 @@ export function CampoSeleccionMultiple({ valor, onCambio, item }: PropsCampo) {
 
 /* ── foto ────────────────────────────────────────────────────────────────
  * `capture="environment"` abre la cámara trasera en móvil. El binario se
- * comprime (FR-012) y vive en `valuePhoto` local hasta TSK-FORM-004; el
- * valor del campo queda como referencia no vacía ('capturada'). */
+ * comprime (FR-012) y vive en un ATTACHMENT `owner_type='response'` (FR-037,
+ * TSK-FORM-004); el valor del campo queda como referencia no vacía
+ * ('capturada'). */
 export function CampoFoto({ valor, onCambio, onFoto, error }: PropsCampo & {
   onFoto: (archivo: File) => void
 }) {

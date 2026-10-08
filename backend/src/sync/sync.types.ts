@@ -14,7 +14,10 @@ export type SyncInspectionStatus = 'draft' | 'in_progress' | 'submitted' | 'revi
 export type SyncOkNokNa = 'ok' | 'nok' | 'na'
 export type SyncSeverity = 'low' | 'medium' | 'high' | 'critical'
 export type SyncFindingStatus = 'open' | 'in_progress' | 'resolved'
-export type SyncOwnerType = 'inspection' | 'finding' | 'log_entry'
+export type SyncOwnerType = 'inspection' | 'finding' | 'log_entry' | 'response'
+
+/** Forma híbrida de `inspection_response.value_json` (FR-036): string | string[]. */
+export type SyncValorJson = string | string[]
 
 export interface SyncInspectionPayload {
   site_id: string
@@ -30,6 +33,8 @@ export interface SyncResponsePayload {
   value_ok: SyncOkNokNa | null
   value_text: string | null
   value_number: number | null
+  /** JSON del campo; ausente ≡ null (tolerancia a clientes V1 previos). */
+  value_json?: SyncValorJson | null
 }
 
 export interface SyncFindingPayload {

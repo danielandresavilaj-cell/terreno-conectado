@@ -123,7 +123,9 @@ terreno-conectado/
 > documentación completa (Enmienda 002, ADR-003, data-model 1.1.0, spec/plan/tasks 007) y el
 > backend de **TSK-FORM-002/003** (plantillas versionadas inmutable + catálogo tipado con Zod en
 > `shared/`) y el **renderer data-driven de TSK-FORM-001** (la captura dibuja desde la definición
-> de la plantilla activa, con caché offline por tenant); el resto de tareas TSK-FORM sigue en curso.
+> de la plantilla activa, con caché offline por tenant) y la **respuesta híbrida de TSK-FORM-004**
+> (columnas tipadas + `value_json` JSONB para los tipos date/time/select y **`ATTACHMENT` de
+> respuesta** para la foto de ítem); el resto de tareas TSK-FORM sigue en curso.
 
 ### Frontend — funciona hoy
 
@@ -263,8 +265,13 @@ asigna por faena/rol → el worker captura offline → export del documento rell
 - **TSK-FORM-001**: **render data-driven** en la captura — `FormRenderer` + un control por tipo,
   validación en dispositivo (FR-039), autoguardado por ítem y **caché local de plantillas**
   (`GET /api/v1/templates?since=`, Dexie por tenant); sin red cae a la definición demo.
+- **TSK-FORM-004**: **respuesta híbrida** `INSPECTION_RESPONSE` — conserva `value_ok`/`value_text`/
+  `value_number` y añade `value_json` JSONB (dates, selects y multi-select) con validación server-side
+  (forma + tope 16 384 chars); la **foto de ítem** se asocia a la respuesta como `ATTACHMENT`
+  (`owner_type='response'`) encolado en `submitInspection`, con migración idempotente de las fotos
+  legacy (`valuePhoto` → ATTACHMENT).
 
-Pendiente (issues #37–#45): respuestas híbridas, importador `.xlsx`,
+Pendiente (issues #38–#45): importador `.xlsx`,
 UX de import, asignaciones, delta sync y export.
 
 | Servicio | URL | Estado |
