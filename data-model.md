@@ -92,7 +92,7 @@ erDiagram
 | created_at | TIMESTAMPTZ | |
 
 **TEMPLATE_IMPORT** — importación de documento (módulo 007, FR-029).
-`id, tenant_id, uploaded_by UUID FK→USER, file_key TEXT, file_name TEXT, status ENUM(uploaded, parsed, proposed, confirmed, failed), proposed_schema JSONB NULL (mapeo columnas→ítems; lo propone el backend — con flag `ai` activo lo refina, FR-048), error TEXT NULL, created_at, confirmed_at TIMESTAMPTZ NULL`. La revisión `draft` nacida del import se asocia por `source_import_id` y **solo se publica tras confirmación humana** (FR-029); RLS por `tenant_id`.
+`id, tenant_id, uploaded_by UUID FK→USER, file_key TEXT, file_name TEXT, status TEXT (uploaded, parsed, proposed, confirmed, failed), proposed_schema JSONB NULL (propuesta TemplateImportProposal validada con Zod compartido), error TEXT NULL, created_at TIMESTAMPTZ, updated_at TIMESTAMPTZ`. La revisión `draft` nacida del import se asocia por `source_import_id` y **solo se publica tras confirmación humana** (FR-029); RLS por `tenant_id`. `ATTACHMENT.owner_type` incluye `'template_import'`.
 
 **TEMPLATE_ASSIGNMENT** — asignación faena+rol (FR-008/009).
 `id, tenant_id, template_revision_id UUID FK→TEMPLATE_REVISION (published), site_id UUID FK→SITE NULL (NULL = todas las faenas), role ENUM(field_worker, supervisor), active BOOLEAN, assigned_by UUID FK→USER, assigned_at`. UNIQUE `(template_revision_id, site_id, role)`. El `field_worker` consulta solo revisiones publicadas asignadas a su faena y rol (FR-009); RLS por `tenant_id`.
