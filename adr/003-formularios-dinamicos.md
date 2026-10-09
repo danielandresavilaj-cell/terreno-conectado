@@ -41,6 +41,15 @@ Restricciones que pesan en la decisión:
 **Negativas/riesgos:** el renderer propio es más código a mantener (se acota a 8 tipos y a la validación Zod como contrato); la fidelidad de estilos del `.xlsx` rellenado es limitada en V1 (evolución documentada); la hoja Evidencias embebida vs referenciada según tamaño (FR-046) es una decisión de implementación menor que se resolverá en el TSK.
 **Neutral:** la escolta de xlsx se decide por spike y cualquier cambio queda registrado como enmienda a este ADR.
 
+## Enmienda 1 (2026-10-08) — decisión 4 cerrada: escolta de xlsx = **ExcelJS**
+
+El spike procedimental (`plans/007-formularios-dinamicos/spike-xlsx.md`) se ejecutó con un libro de referencia real y **se cerró** (`plans/007-formularios-dinamicos/spike-xlsx-result.md`):
+
+- **ExcelJS** (MIT): bundle 266 KB gzip (≤ ~500 KB ✓), fidelidad de estilos **6/6** al rellenar y re-exportar (negritas, fondos, bordes, anchos, fusiones, tipos de celda), corre en worker/offline.
+- **SheetJS CE** (0.18.5, Apache-2.0): bundle 109 KB gzip ✓ y algo más rápido, pero **pierde los estilos al reescribir** (edición de estilos fuera de la Community Edition) → falla la fidelidad (2/6), requisito literal de FR-019/044 ("el `.xlsx` **original** rellenado").
+
+**ADO:** V1 usa **ExcelJS** como única escolta de `.xlsx`, compartida entre el import (TSK-FORM-005) y el export en dispositivo/servidor (TSK-FORM-010) vía módulo en `shared/` (d5). El wrapper (`shared/src/xlsx/escolta.ts`) aísla la API para correr igual en Web Worker (cliente) y Node (servidor). La decisión "Evidencias embebida vs referenciada" (FR-046) queda para el TSK-FORM-010.
+
 ---
 
 **Firmas:** Raúl González (2026-10-07) · Daniel Ávila (pendiente — aprobación del PR).

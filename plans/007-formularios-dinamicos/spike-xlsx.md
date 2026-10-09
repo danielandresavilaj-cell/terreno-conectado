@@ -4,7 +4,7 @@
 **Padre:** `plans/007-formularios-dinamicos/plan.md` §3.2 · **ADR:** ADR-003 decisión d4 (elección diferida a spike)
 **Dispara:** TSK-FORM-005 (importador) y TSK-FORM-010 (export rellenado) · **Cierra:** enmienda a ADR-003
 
-> **Qué es:** procedimiento ejecutable para elegir la escolta de `.xlsx` (leer/parsear y escribir/rellenar el documento original) en V1. Si el resultado cambia la elección, se registra como **enmienda a ADR-003** antes de codificar TSK-FORM-005/010.
+> **Qué es:** procedimiento ejecutable para elegir la escolta de `.xlsx` (leer/parsear y escribir/rellenar el documento original) en V1. **ESTADO: CERRADO (2026-10-08)** — métricas y ADO en `spike-xlsx-result.md`; enmienda a ADR-003. Si el resultado cambia la elección, se registra como **enmienda a ADR-003** antes de codificar TSK-FORM-005/010.
 
 ## 1. Candidatas (ADR-003 d4)
 
@@ -74,4 +74,5 @@ La elegida se fija en TSK-FORM-005 y **se reutiliza igual para el export** (TSK-
 
 | Versión | Fecha | Cambio | Autor |
 | :--- | :--- | :--- | :--- |
+| 0.1.1 | 2026-10-08 | **CERRADO** — resultado y ADO en `spike-xlsx-result.md` (ExcelJS); enmienda ADR-003 | Daniel Ávila |
 | 0.1.0 | 2026-10-08 | Procedimiento del spike xlsx (ADR-003 d4): criterios, libro de referencia, harness y formato de decisión | Raúl González (con IA) |

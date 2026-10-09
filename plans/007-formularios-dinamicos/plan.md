@@ -40,7 +40,7 @@ TSK-FORM-011 pruebas integrales (libros reales, caos) · TSK-FORM-012 [V2, fuera
 ## 3. Decisiones técnicas previas (se cierran antes de codificar — Artículo II)
 
 1. **Formato interno y validación:** plantilla = JSON validado con **Zod** en `shared/` (única fuente de verdad, frontend/backend); `props` de cada ítem define opciones/validación (ADR-003 d1/d2).
-2. **PENDIENTE — spike escolta de xlsx (ADR-003 d4):** **ExcelJS vs SheetJS CE** — probar ambas con un libro real antes de TSK-FORM-005/010. Criterios: **bundle ≤ ~500 KB**, fidelidad de estilos al rellenar el original, ejecución en worker/offline, licencia CE compatible. Resultado = enmienda a ADR-003 y elección fija para import y export.
+2. **CERRADO — escolta de xlsx = ExcelJS (enmienda ADR-003, spike-xlsx-result.md):** probadas ambas con un libro real — **ExcelJS 266 KB gzip y 6/6 fidelidad de estilos** vs SheetJS CE 109 KB gzip pero estilos perdidos al rellenar (requisito FR-019/044). Criterios: bundle ≤ ~500 KB ✓, fidelidad ✓, worker/offline ✓, licencia MIT ✓. Elección **única** para import (TSK-FORM-005) y export (TSK-FORM-010), módulo en `shared/` (wd5).
 3. **Renderer data-driven:** contrato `definition` JSONB ↔ componente por `response_type`; validación Zod **antes de encolar** (FR-039); borrador autoguardado por ítem (patrón TSK-WS-005).
 4. **Versionado inmutable:** `TEMPLATE_REVISION` `draft → published → archived` (FR-049); toda inspección congela su `template_revision_id` (FR-028/038); el cliente sincroniza por delta `since=<template_version>` (FR-027).
 5. **Revisión humana siempre:** el import nunca publica automático; con flag `ai` activo el backend solo *propone* el mapeo (FR-048), el `tenant_admin` confirma.
@@ -66,5 +66,6 @@ TSK-FORM-011 pruebas integrales (libros reales, caos) · TSK-FORM-012 [V2, fuera
 
 | Versión | Fecha | Cambio | Autor |
 | :--- | :--- | :--- | :--- |
+| 0.1.2 | 2026-10-08 | 3.2 CERADO: escolta de xlsx = **ExcelJS** (spike ejecutado, `spike-xlsx-result.md`, enmienda ADR-003) | Daniel Ávila |
 | 0.1.1 | 2026-10-08 | Compuerta cerrada: docs del módulo en `main` (PRs #62–#70); TSK-FORM-002/003 completados (PRs #71/#74) | Daniel Ávila |
 | 0.1.0 | 2026-10-08 | Plan inicial del módulo 007 (formularios dinámicos) derivado de la Enmienda 002, ADR-003 y data-model v1.1.0 | Raúl González (con IA) |
