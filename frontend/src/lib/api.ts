@@ -18,7 +18,6 @@ import type {
   DashboardSummary,
   ListConflictsResponse,
   SitesResponse,
-  TemplateRevisionDetailDto,
   TemplatesDeltaResponse,
 } from '@terreno/shared'
 
@@ -149,10 +148,6 @@ export function getConflicts(): Promise<ListConflictsResponse> {
 export function getPlantillas(since?: number): Promise<TemplatesDeltaResponse> {
   const suffix = since !== undefined ? `?since=${encodeURIComponent(String(since))}` : ''
   return apiFetch<TemplatesDeltaResponse>(`/templates${suffix}`)
-}
-
-export function getRevisionPlantilla(revisionId: string): Promise<TemplateRevisionDetailDto> {
-  return apiFetch<TemplateRevisionDetailDto>(`/templates/revisions/${encodeURIComponent(revisionId)}`)
 }
 
 export type { ConflictRecordDto }

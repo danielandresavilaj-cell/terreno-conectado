@@ -5,6 +5,10 @@
   "description": "Tipos y contratos compartidos entre frontend y backend (ADR-001)",
   "main": "./src/index.ts",
   "types": "./src/index.ts",
+  "exports": {
+    ".": { "types": "./src/index.ts", "default": "./src/index.ts" },
+    "./xlsx": { "types": "./src/xlsx/index.ts", "default": "./src/xlsx/index.ts" }
+  },
   "scripts": {
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run"

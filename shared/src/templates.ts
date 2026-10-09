@@ -156,11 +156,6 @@ export const templateDefinitionSchema = z.object({
   sections: z.array(templateSectionSchema).default([]),
 })
 
-/** Valida y normaliza un ítem (lanza ZodError si no cumple el contrato). */
-export function parseTemplateItem(input: unknown): TemplateItem {
-  return templateItemSchema.parse(input)
-}
-
 /** Valida y normaliza una definición completa (lanza ZodError si no cumple). */
 export function parseTemplateDefinition(input: unknown): TemplateDefinition {
   return templateDefinitionSchema.parse(input)

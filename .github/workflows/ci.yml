@@ -12,6 +12,8 @@ jobs:
   verify:
     name: Lint + typecheck + build (monorepo)
     runs-on: ubuntu-latest
+    env:
+      VITE_DEMO_PASSWORD: TcDemo2026!
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -27,6 +29,8 @@ jobs:
   integration:
     name: Integración — PostgreSQL 16 + RLS (Testcontainers)
     runs-on: ubuntu-latest
+    env:
+      DEMO_PASSWORD: TcDemo2026!
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

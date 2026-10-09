@@ -15,8 +15,13 @@ import { hash } from '@node-rs/argon2'
  * @node-rs/argon2. Se puede sobreescribir con `DEMO_PASSWORD` en el entorno.
  */
 
-/** Contraseña de todas las cuentas demo (documentada en el README). */
-export const DEMO_PASSWORD = process.env.DEMO_PASSWORD ?? 'TcDemo2026!'
+/** Contraseña de todas las cuentas demo (documentada en el README).
+ *  Obligatoriamente desde variables de entorno; nunca hardcodeada en el fuente. */
+const DEMO_PASSWORD_RAW = process.env.DEMO_PASSWORD
+if (!DEMO_PASSWORD_RAW) {
+  throw new Error('DEMO_PASSWORD requerido (ver .env.example)')
+}
+export const DEMO_PASSWORD = DEMO_PASSWORD_RAW
 
 export const TENANT_A_ID = '01890000-0000-7000-8000-0000000000a1'
 export const TENANT_B_ID = '01890000-0000-7000-8000-0000000000b1'

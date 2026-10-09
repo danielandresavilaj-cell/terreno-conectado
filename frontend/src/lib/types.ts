@@ -12,9 +12,6 @@ export type Severidad = 'baja' | 'media' | 'alta' | 'critica'
 /** FR-031: ciclo de vida de una inspección. */
 export type InspeccionEstado = 'draft' | 'in_progress' | 'submitted' | 'reviewed'
 
-/** FR-030: tipos de respuesta de un ítem de plantilla. */
-export type Respuesta = 'ok' | 'nok' | 'na'
-
 export interface Usuario {
   id: string
   nombre: string
@@ -71,20 +68,6 @@ export interface RegistroCola {
   /** FR-024: latencia captura→disponibilidad en segundos. */
   latenciaSeg?: number
   intentos?: number
-}
-
-export interface Hallazgo {
-  id: string
-  titulo: string
-  descripcion: string
-  severidad: Severidad
-  estado: 'open' | 'in_progress' | 'resolved'
-  faena: string
-  autor: string
-  autorId: string
-  /** FR-012: la foto se comprime a ≤1280px q0.7 antes de encolarse. */
-  foto?: { ancho: number; alto: number; kb: number }
-  capturadoEn: string
 }
 
 export interface Conflicto {

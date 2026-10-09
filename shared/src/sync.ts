@@ -76,7 +76,7 @@ export interface SyncAttachmentPayload {
   data?: string
 }
 
-export type SyncPayload =
+type SyncPayload =
   | SyncInspectionPayload
   | SyncResponsePayload
   | SyncFindingPayload

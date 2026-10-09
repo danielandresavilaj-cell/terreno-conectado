@@ -15,8 +15,14 @@
 import type { TemplateDefinition } from '@terreno/shared'
 import type { ItemPlantilla, RegistroCola, Rol, Usuario } from './types'
 
-/** Login demo (TSK-WS-011): cuentas sembradas en el backend, misma password. */
-export const DEMO_PASSWORD = 'TcDemo2026!'
+/** Login demo (TSK-WS-011): cuentas sembradas en el backend, misma password.
+ *  Obligatoriamente desde variables de entorno (Vite expone solo VITE_*).
+ *  Nunca hardcodeada en el fuente. */
+const DEMO_PASSWORD_RAW = import.meta.env.VITE_DEMO_PASSWORD
+if (!DEMO_PASSWORD_RAW) {
+  throw new Error('VITE_DEMO_PASSWORD requerido (ver .env.example)')
+}
+export const DEMO_PASSWORD = DEMO_PASSWORD_RAW
 
 export const DEMO_CUENTAS: Array<Pick<Usuario, 'nombre' | 'rol'> & { email: string }> = [
   { nombre: 'Pedro Trabajador', rol: 'field_worker', email: 'trabajador@minera.cl' },
