@@ -125,7 +125,9 @@ terreno-conectado/
 > `shared/`) y el **renderer data-driven de TSK-FORM-001** (la captura dibuja desde la definición
 > de la plantilla activa, con caché offline por tenant) y la **respuesta híbrida de TSK-FORM-004**
 > (columnas tipadas + `value_json` JSONB para los tipos date/time/select y **`ATTACHMENT` de
-> respuesta** para la foto de ítem); el resto de tareas TSK-FORM sigue en curso.
+> respuesta** para la foto de ítem) y el **importador `.xlsx` de TSK-FORM-005** (escolta ExcelJS en
+> `shared/`, parser determinístico → propuesta `proposed_schema` con secciones/ítems); el resto de
+> tareas TSK-FORM sigue en curso.
 
 ### Frontend — funciona hoy
 
@@ -270,9 +272,14 @@ asigna por faena/rol → el worker captura offline → export del documento rell
   (forma + tope 16 384 chars); la **foto de ítem** se asocia a la respuesta como `ATTACHMENT`
   (`owner_type='response'`) encolado en `submitInspection`, con migración idempotente de las fotos
   legacy (`valuePhoto` → ATTACHMENT).
+- **TSK-FORM-005**: **importador `.xlsx` determinístico** en `shared/` — la escolta **ExcelJS**
+  (`escolta.ts`) normaliza a cuadrícula agnóstica (`CellValueType` real: número/fecha/hora/texto) y el
+  parser puro (`import.ts`) propone secciones/ítems con `proposed_schema`, tipo, `props`, `required` y
+  origen hoja+celda (FR-029/036/039, export FR-019/044); se consume por subpath (ExcelJS no entra al
+  bundle del frontend); autodetección documentada y spike cerrado (enmienda ADR-003,
+  `spike-xlsx-result.md`); scripts `npm run spike:xlsx` cableados.
 
-Pendiente (issues #38–#45): importador `.xlsx`,
-UX de import, asignaciones, delta sync y export.
+Pendiente (issues #39–#45): UX de import, asignaciones, delta sync y export.
 
 | Servicio | URL | Estado |
 | :--- | :--- | :--- |

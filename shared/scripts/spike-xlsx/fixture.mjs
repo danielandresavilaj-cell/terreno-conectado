@@ -8,7 +8,7 @@
 import ExcelJS from 'exceljs'
 import { writeFileSync, mkdirSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
-import { dirname, join } from 'node:path'
+import { dirname } from 'node:path'
 
 const outFile = fileURLToPath(new URL('../../fixtures/xlsx/spike-referencia.xlsx', import.meta.url))
 
@@ -49,7 +49,7 @@ const headers = [
   ['J', 'Evidencia (foto)', 'photo'],
 ]
 const headerRow = 2
-for (const [col, label, tipo] of headers) {
+for (const [col, label] of headers) {
   const cell = ws.getCell(`${col}${headerRow}`)
   cell.value = label
   cell.font = { bold: true, color: { argb: 'FFFFFFFF' } }
