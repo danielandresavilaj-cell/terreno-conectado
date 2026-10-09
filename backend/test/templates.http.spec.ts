@@ -195,10 +195,9 @@ describe('TSK-FORM-006: ciclo write de plantillas (solo tenant_admin)', () => {
         position: 0,
         items: [
           {
-            id: 'it-1',
+            id: '0f8fad5b-d9cb-469f-a165-70867728950e',
             prompt: '¿Cumple?',
-            response_type: 'si_no',
-            position: 0,
+            response_type: 'ok_nok_na',
             props: {},
           },
         ],
@@ -253,10 +252,9 @@ describe('TSK-FORM-006: ciclo write de plantillas (solo tenant_admin)', () => {
           position: 0,
           items: [
             {
-              id: 'it-2',
+              id: '11111111-1111-4111-8111-111111111111',
               prompt: '¿Ok?',
-              response_type: 'si_no',
-              position: 0,
+              response_type: 'ok_nok_na',
               props: {},
             },
           ],
