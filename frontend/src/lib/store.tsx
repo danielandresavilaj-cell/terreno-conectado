@@ -72,7 +72,13 @@ import {
 } from '@terreno/shared'
 import { columnasDesdeValor, esOkNokNa, itemsDe, valorDesdeColumnas } from './valores'
 
-export type Pantalla = 'captura' | 'bitacora' | 'cola' | 'dashboard' | 'conflictos'
+export type Pantalla =
+  | 'captura'
+  | 'bitacora'
+  | 'cola'
+  | 'dashboard'
+  | 'conflictos'
+  | 'importar'
 
 export interface RespuestaItem {
   itemId: string
