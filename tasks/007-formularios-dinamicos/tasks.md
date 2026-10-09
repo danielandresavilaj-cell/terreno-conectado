@@ -1,9 +1,9 @@
 # TASKS — Módulo 007: Formularios dinámicos desde documentos
 
-**Versión:** 0.1.3 · **Fecha:** 2026-10-08 · **Autor:** Raúl González (con IA)
+**Versión:** 0.1.4 · **Fecha:** 2026-10-08 · **Autor:** Raúl González (con IA)
 **Padre:** `plans/007-formularios-dinamicos/plan.md` · **Spec de referencia:** `specs/000-master/spec.md` §5 (Enmienda 002, FR-007–009/018–019/027–029/036–039/044–049) · **Board:** issues #34–#45 (TSK-FORM-001→012)
 
-> **Regla (Artículo II):** cada task referencia al menos un ID de requisito; cada commit referencia al menos un task. **Compuerta cerrada:** los PRs de la Enmienda 002 (#63–#66) y el resto de la documentación del módulo (#62, #64, #65, #67–#70) están en `main` desde el 2026-10-08; TSK-FORM-002/003 ya codificaron sobre ella; TSK-FORM-001 (renderer) cerró en el PR #79.
+> **Regla (Artículo II):** cada task referencia al menos un ID de requisito; cada commit referencia al menos un task. **Compuerta cerrada:** los PRs de la Enmienda 002 (#63–#66) y el resto de la documentación del módulo (#62, #64, #65, #67–#70) están en `main` desde el 2026-10-08; TSK-FORM-002/003 ya codificaron sobre ella; TSK-FORM-001 (renderer) cerró en el PR #79; TSK-FORM-004 (respuesta híbrida) cerró en el PR #80; TSK-FORM-005 (importador `.xlsx`) cerró en el PR #82.
 
 ## Tareas
 
@@ -13,7 +13,7 @@
 | TSK-FORM-002 | Persistencia `TEMPLATE_REVISION` + estados inmutables `draft/published/archived` + RLS | FR-007, FR-049 | — | Migración + test de aislamiento (2 tenants, patrón TSK-WS-002); una revisión publicada no admite UPDATE/DELETE desde `tc_app` | ✅ Hecho (PR #71) |
 | TSK-FORM-003 | Catálogo de 8 tipos de campo + validación Zod + `props` JSONB en `TEMPLATE_ITEM` | FR-036, FR-039 | 002 | Schema compartido en `shared/`; respuesta inválida se rechaza en el dispositivo antes de encolar | ✅ Hecho (PR #74) |
 | TSK-FORM-004 | `INSPECTION_RESPONSE` híbrido (columnas tipadas + `value_json`) + `ATTACHMENT` de respuesta | FR-036, FR-037 | 003 | Foto de ítem se persiste asociada a la respuesta; `value_json` validado contra `props` | ✅ Hecho (PR #80) |
-| TSK-FORM-005 | Importador `.xlsx` — parser, detección de secciones/ítems y celda destino (**incluye spike escolta xlsx**, plan §3.2) | FR-029, ADR-003 | 002, 003 | `.xlsx` estructurado → propuesta `proposed_schema` con secciones/ítems; spike cerrado con elección documentada (enmienda ADR-003) | ⏳ Pendiente |
+| TSK-FORM-005 | Importador `.xlsx` — parser, detección de secciones/ítems y celda destino (**incluye spike escolta xlsx**, plan §3.2) | FR-029, ADR-003 | 002, 003 | `.xlsx` estructurado → propuesta `proposed_schema` con secciones/ítems; spike cerrado con elección documentada (enmienda ADR-003) | ✅ Hecho (PR #82) |
 | TSK-FORM-006 | UX de importación asistida — preview, edición, confirmación y publicar (`tenant_admin`) | FR-029, FR-048 | 005 | El `tenant_admin` revisa/edita la propuesta y confirma antes de publicar; nunca publica automático; con flag `ai` el backend propone el mapeo | ⏳ Pendiente |
 | TSK-FORM-007 | Entidad `TEMPLATE_IMPORT` + guardar documento fuente (`ATTACHMENT`) + auditoría | FR-029, FR-047 | 005 | Cada import guarda el `.xlsx` fuente y su estado (`uploaded/parsed/proposed/confirmed/failed`); confirmación/export auditadas (FR-051) | ⏳ Pendiente |
 | TSK-FORM-008 | Asignación de plantillas por faena/rol + filtrado y búsqueda en cliente | FR-008, FR-009 | 002 | El `field_worker` solo ve revisiones publicadas asignadas a su faena y rol (FR-009); el `tenant_admin` asigna/desasigna | ⏳ Pendiente |
@@ -33,6 +33,7 @@
 
 | Versión | Fecha | Cambio | Autor |
 | :--- | :--- | :--- | :--- |
+| 0.1.4 | 2026-10-08 | TSK-FORM-005 → ✅ Hecho (PR #82): importador `.xlsx` determinístico — escolta ExcelJS normaliza a cuadrícula agnóstica con `ValueType` real (número/fecha/hora/texto) y parser puro propone secciones/ítems con `proposed_schema`, origen hoja+celda (FR-019/044) y autodetección documentada; `npm ci` y 10/10 tests de `shared` verdes; scripts `spike:xlsx` cableados; spike cerrado (enmienda ADR-003, `spike-xlsx-result.md`); issue #38 → revisiones | Raúl González (con IA) |
 | 0.1.3 | 2026-10-08 | TSK-FORM-004 → ✅ Hecho (PR #80): `INSPECTION_RESPONSE` híbrido `value_json` (JSONB) para date/time/select_single/select_multiple + `ATTACHMENT` de respuesta (`owner_type='response'`); validación server-side (forma 400, tope 16 384 chars); sync wire y frontend (IDB `valueJson`, `guardarFotoRespuesta`/`quitarFotoRespuesta`, migración de fotos legacy); 84/84 tests | Daniel Ávila |
 | 0.1.2 | 2026-10-08 | TSK-FORM-001 → ✅ Hecho (PR #79): renderer data-driven en la captura (8 tipos), endpoints de lectura de plantillas con delta `since`, caché Dexie por tenant y seed con definiciones reales; issue #34 cerrado | Daniel Ávila |
 | 0.1.1 | 2026-10-08 | Compuerta cerrada: documentación del módulo en `main` (PRs #62–#70) y TSK-FORM-002 → ✅ Hecho (PR #71) · TSK-FORM-003 → ✅ Hecho (PR #74); issues #35/#36 cerrados y tarjetas en Done | Daniel Ávila |

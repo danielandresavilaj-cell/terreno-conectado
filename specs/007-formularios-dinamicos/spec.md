@@ -8,7 +8,7 @@
 | **Depende de** | 001 (roles/tenant), 004 (dominio inspecciones), ADR-003, data-model.md v1.1.0 |
 | **Bloquea a** | 005 (reportes por lote consumen export de plantillas) |
 
-> **Nota de desbloqueo:** este spec detalla FR que ya viven en `main` — la **Enmienda 002 (PR #63)** y toda la documentación del módulo (#62, #64, #65, #67–#70) se mergearon el **2026-10-08**. El plan técnico y las tasks están en `plans/007-formularios-dinamicos/` y `tasks/007-formularios-dinamicos/` (TSK-FORM-001→012; 001/002/003 ya completados vía PRs #79/#71/#74).
+> **Nota de desbloqueo:** este spec detalla FR que ya viven en `main` — la **Enmienda 002 (PR #63)** y toda la documentación del módulo (#62, #64, #65, #67–#70) se mergearon el **2026-10-08**. El plan técnico y las tasks están en `plans/007-formularios-dinamicos/` y `tasks/007-formularios-dinamicos/` (TSK-FORM-001→012; 001/002/003/004/005 ya completados vía PRs #79/#71/#74/#80/#82).
 
 ## Alcance heredado del spec maestro
 
@@ -30,7 +30,7 @@ Requisitos que este spec detallará: **FR-007–009, 018–019, 027–029, 036�
 2. **Revisión humana obligatoria:** el import nunca publica automático; el `tenant_admin` confirma la propuesta.
 3. **Renderer data-driven:** la captura dibuja desde `definition` JSONB; contrato de tipos y `props` validado con **Zod en `shared/`** (única fuente: frontend y backend).
 4. **Versionado inmutable:** toda inspección congela `template_revision_id`; cambios requieren nueva revisión.
-5. **Escolta de xlsx (ExcelJS vs SheetJS CE):** PENDIENTE — decisión 3.2 del plan 007, cierra antes de TSK-FORM-005/010.
+5. **Escolta de xlsx = ExcelJS (CERRADO — enmienda ADR-003 d4/d5, `spike-xlsx-result.md`):** única escolta de V1 para import (TSK-FORM-005) y export (TSK-FORM-010); probada contra SheetJS CE con un libro real (266 KB gzip y 6/6 fidelidad de estilos vs 109 KB gzip con estilos perdidos).
 
 ## Secciones a completar en el ciclo del módulo
 
@@ -38,8 +38,8 @@ Requisitos que este spec detallará: **FR-007–009, 018–019, 027–029, 036�
 - [x] `TEMPLATE_REVISION` + estados inmutables + RLS multi-tenant con test de aislamiento (FR-007, FR-049) → TSK-FORM-002 (PR #71)
 - [x] Renderer data-driven en la captura (FR-036) → TSK-FORM-001 (PR #79)
 - [x] `INSPECTION_RESPONSE` híbrido (`value_*` + `value_json`) + `ATTACHMENT` de respuesta (FR-037, FR-038) → TSK-FORM-004 (PR #80)
-- [ ] **Spike escolta xlsx** (ExcelJS vs SheetJS CE; criterios: bundle ≤ ~500 KB, fidelidad de estilos, worker/offline, licencia CE) → cierra 3.2 + enmienda ADR-003
-- [ ] Importador `.xlsx`: convención de columnas/secciones/ítems y celda destino, parser → propuesta (FR-029) → TSK-FORM-005
+- [x] **Spike escolta xlsx** (ExcelJS vs SheetJS CE; criterios: bundle ≤ ~500 KB, fidelidad de estilos, worker/offline, licencia CE) — **CERRADO: ExcelJS** (enmienda ADR-003, `spike-xlsx-result.md`)
+- [x] Importador `.xlsx`: convención de columnas/secciones/ítems y celda destino, parser → propuesta (FR-029) → TSK-FORM-005 (PR #82)
 - [ ] UX de importación asistida: preview, edición, confirmación, publicar; flag `ai` propone el mapeo (FR-048) → TSK-FORM-006
 - [ ] `TEMPLATE_IMPORT` persistido con documento fuente y auditoría (FR-029, FR-047) → TSK-FORM-007
 - [ ] Asignación faena/rol + filtrado y búsqueda en cliente (FR-008, FR-009) → TSK-FORM-008
@@ -60,6 +60,7 @@ Requisitos que este spec detallará: **FR-007–009, 018–019, 027–029, 036�
 
 | Versión | Fecha | Cambio | Autor |
 | :--- | :--- | :--- | :--- |
+| 0.1.4 | 2026-10-08 | Checklist: TSK-FORM-005 completado (PR #82) — importador `.xlsx` determinístico (escolta ExcelJS + parser → propuesta `proposed_schema`); spike escolta xlsx marcado cerrado (enmienda ADR-003, `spike-xlsx-result.md`); decisión 5 actualizada | Raúl González (con IA) |
 | 0.1.3 | 2026-10-08 | Checklist: TSK-FORM-004 completado (PR #80): respuesta híbrida `value_json` + ATTACHMENT de respuesta; sección FR-037/FR-038 marcada | Daniel Ávila |
 | 0.1.2 | 2026-10-08 | Checklist: TSK-FORM-001 renderer data-driven completado (PR #79); se marcan también 002/003 (PRs #71/#74) | Daniel Ávila |
 | 0.1.1 | 2026-10-08 | Nota de desbloqueo actualizada: Enmienda 002 y docs del módulo en `main` (PRs #62–#70); TSK-FORM-002/003 completados (PRs #71/#74) | Daniel Ávila |
