@@ -85,6 +85,23 @@ const NAV: Array<{ id: Pantalla; label: string; roles: Rol[]; icono: ReactNode }
       </svg>
     ),
   },
+  {
+    id: 'importar',
+    label: 'Importar',
+    roles: ['tenant_admin'],
+    icono: (
+      <svg width="17" height="17" viewBox="0 0 17 17" fill="none" aria-hidden>
+        <path d="M3 2.5h8l3 3v9H3v-12Z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" />
+        <path
+          d="M8.5 6v4.3M6.6 8.4l1.9 1.9 1.9-1.9"
+          stroke="currentColor"
+          strokeWidth="1.3"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+    ),
+  },
 ]
 
 export function Shell({ children }: { children: ReactNode }) {

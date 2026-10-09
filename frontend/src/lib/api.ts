@@ -18,6 +18,8 @@ import type {
   DashboardSummary,
   ListConflictsResponse,
   SitesResponse,
+  TemplateDefinition,
+  TemplateRevisionDetailDto,
   TemplatesDeltaResponse,
 } from '@terreno/shared'
 
@@ -148,6 +150,36 @@ export function getConflicts(): Promise<ListConflictsResponse> {
 export function getPlantillas(since?: number): Promise<TemplatesDeltaResponse> {
   const suffix = since !== undefined ? `?since=${encodeURIComponent(String(since))}` : ''
   return apiFetch<TemplatesDeltaResponse>(`/templates${suffix}`)
+}
+
+/* ---------------------------------------------- plantillas (escritura) */
+
+/* Importación asistida (TSK-FORM-006, FR-029/048): crear borrador → editar →
+ * publicar. La respuesta es la revisión (`TemplateRevisionDetailDto`, ya
+ * exportado por `@terreno/shared`), así el wizard no inventa una forma propia.
+ * Publicar NUNCA es automático: `publicarRevision` sólo se llama desde el
+ * botón explícito de confirmación del paso 5 (FR-048). */
+
+/** Crea el template + su primer borrador (`POST /templates`). */
+export function crearPlantillaConBorrador(payload: {
+  name: string
+  description?: string
+  definition: TemplateDefinition
+}): Promise<TemplateRevisionDetailDto> {
+  return apiFetch('/templates', { method: 'POST', body: payload })
+}
+
+/** Actualiza la definición de un borrador existente (PATCH de la revisión). */
+export function actualizarBorrador(
+  revisionId: string,
+  definition: TemplateDefinition,
+): Promise<TemplateRevisionDetailDto> {
+  return apiFetch(`/templates/revisions/${revisionId}`, { method: 'PATCH', body: { definition } })
+}
+
+/** Publica una revisión ya guardada: acción explícita del admin (FR-048). */
+export function publicarRevision(revisionId: string): Promise<TemplateRevisionDetailDto> {
+  return apiFetch(`/templates/revisions/${revisionId}/publish`, { method: 'POST' })
 }
 
 export type { ConflictRecordDto }
