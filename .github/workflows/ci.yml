@@ -25,6 +25,13 @@ jobs:
       - run: npm run typecheck
       - run: npm run build
       - run: node frontend/scripts/check-pwa.mjs
+      - name: Smoke — shared compilado + arranque de producción (issue #77)
+        run: |
+          node -e "const s = require('@terreno/shared'); if (!s.parseTemplateDefinition) { console.error('contrato Zod no exportado por @terreno/shared'); process.exit(1) }"
+          (cd backend && PORT=3100 DATABASE_URL=postgres://smoke:smoke@127.0.0.1:1/terreno APP_DATABASE_URL=postgres://tc_app:smoke@127.0.0.1:1/terreno JWT_ACCESS_SECRET=ci-access-secret-32bytes-long!!!! timeout 10 node dist/main.js >/tmp/smoke.log 2>&1 &)
+          sleep 4
+          if grep -q "ERR_MODULE_NOT_FOUND\|Cannot find module" /tmp/smoke.log; then cat /tmp/smoke.log; exit 1; fi
+          if ! grep -qi "successfully started\|Nest application" /tmp/smoke.log; then cat /tmp/smoke.log; exit 1; fi
 
   integration:
     name: Integración — PostgreSQL 16 + RLS (Testcontainers)
