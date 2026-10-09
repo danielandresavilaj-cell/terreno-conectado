@@ -23,6 +23,7 @@ import {
   Controller,
   ForbiddenException,
   Get,
+  HttpCode,
   Inject,
   Param,
   Patch,
@@ -176,6 +177,7 @@ export class TemplatesController {
 
   @UseGuards(AuthGuard)
   @Post('revisions/:revisionId/publish')
+  @HttpCode(200)
   async publish(
     @Req() req: AuthedRequest,
     @Param('revisionId') revisionId: string,

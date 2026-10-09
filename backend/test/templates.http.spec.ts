@@ -1,4 +1,5 @@
 import 'reflect-metadata'
+import { randomUUID } from 'node:crypto'
 import { resolve } from 'node:path'
 import { PostgreSqlContainer } from '@testcontainers/postgresql'
 import type { StartedPostgreSqlContainer } from '@testcontainers/postgresql'
@@ -188,34 +189,36 @@ describe('catálogo materializado del seed (fixture TSK-FORM-001)', () => {
 })
 
 describe('TSK-FORM-006: ciclo write de plantillas (solo tenant_admin)', () => {
-  const validDef = {
-    sections: [
-      {
-        title: 'Sección 1',
-        position: 0,
-        items: [
-          {
-            id: '0f8fad5b-d9cb-469f-a165-70867728950e',
-            prompt: '¿Cumple?',
-            response_type: 'ok_nok_na',
-            props: {},
-          },
-        ],
-      },
-    ],
+  function validDef() {
+    return {
+      sections: [
+        {
+          title: 'Sección 1',
+          position: 0,
+          items: [
+            {
+              id: randomUUID(),
+              prompt: '¿Cumple?',
+              response_type: 'ok_nok_na',
+              props: {},
+            },
+          ],
+        },
+      ],
+    }
   }
 
   it('tenant_admin crea template + borrador con POST /templates (201 o 200 según patrón; ver estado)', async () => {
     const res = await server()
       .post('/api/v1/templates')
       .set('Authorization', `Bearer ${adminToken}`)
-      .send({ name: 'Nueva plantilla', description: 'desc', definition: validDef })
+      .send({ name: 'Nueva plantilla', description: 'desc', definition: validDef() })
     expect([200, 201]).toContain(res.status)
     expect(res.body.status).toBe('draft')
     expect(res.body.version).toBeNull()
     expect(res.body.template_id).toBeTruthy()
     expect(res.body.id).toBeTruthy()
-    expect(res.body.definition).toMatchObject(validDef)
+    expect(res.body.definition).toMatchObject(validDef())
     expect(res.body.published_at).toBeNull()
   })
 
@@ -223,7 +226,7 @@ describe('TSK-FORM-006: ciclo write de plantillas (solo tenant_admin)', () => {
     const res = await server()
       .post('/api/v1/templates')
       .set('Authorization', `Bearer ${trabajadorToken}`)
-      .send({ name: 'X', definition: validDef })
+      .send({ name: 'X', definition: validDef() })
     expect(res.status).toBe(403)
   })
 
@@ -231,7 +234,7 @@ describe('TSK-FORM-006: ciclo write de plantillas (solo tenant_admin)', () => {
     const created = await server()
       .post('/api/v1/templates')
       .set('Authorization', `Bearer ${adminToken}`)
-      .send({ name: 'A solo', definition: validDef })
+      .send({ name: 'A solo', definition: validDef() })
     expect([200, 201]).toContain(created.status)
     const draftId = created.body.id
     const res = await get(supervisorBToken, `/api/v1/templates/revisions/${draftId}`)
@@ -242,40 +245,42 @@ describe('TSK-FORM-006: ciclo write de plantillas (solo tenant_admin)', () => {
     const created = await server()
       .post('/api/v1/templates')
       .set('Authorization', `Bearer ${adminToken}`)
-      .send({ name: 'Para editar', definition: validDef })
+      .send({ name: 'Para editar', definition: validDef() })
     expect([200, 201]).toContain(created.status)
     const draftId = created.body.id
-    const updatedDef = {
-      sections: [
-        {
-          title: 'Editada',
-          position: 0,
-          items: [
-            {
-              id: '11111111-1111-4111-8111-111111111111',
-              prompt: '¿Ok?',
-              response_type: 'ok_nok_na',
-              props: {},
-            },
-          ],
-        },
-      ],
+    function updatedDef() {
+      return {
+        sections: [
+          {
+            title: 'Editada',
+            position: 0,
+            items: [
+              {
+                id: randomUUID(),
+                prompt: '¿Ok?',
+                response_type: 'ok_nok_na',
+                props: {},
+              },
+            ],
+          },
+        ],
+      }
     }
     const patch = await server()
       .patch(`/api/v1/templates/revisions/${draftId}`)
       .set('Authorization', `Bearer ${adminToken}`)
-      .send({ definition: updatedDef })
+      .send({ definition: updatedDef() })
     expect(patch.status).toBe(200)
     expect(patch.body.status).toBe('draft')
     expect(patch.body.version).toBeNull()
-    expect(patch.body.definition).toMatchObject(updatedDef)
+    expect(patch.body.definition).toMatchObject(updatedDef())
   })
 
   it('POST /publish publica draft y asigna version=1, published_at no nulo', async () => {
     const created = await server()
       .post('/api/v1/templates')
       .set('Authorization', `Bearer ${adminToken}`)
-      .send({ name: 'Para publicar', definition: validDef })
+      .send({ name: 'Para publicar', definition: validDef() })
     expect([200, 201]).toContain(created.status)
     const draftId = created.body.id
     const pub = await server()
@@ -291,7 +296,7 @@ describe('TSK-FORM-006: ciclo write de plantillas (solo tenant_admin)', () => {
     const created = await server()
       .post('/api/v1/templates')
       .set('Authorization', `Bearer ${adminToken}`)
-      .send({ name: 'Para re-publish', definition: validDef })
+      .send({ name: 'Para re-publish', definition: validDef() })
     expect([200, 201]).toContain(created.status)
     const draftId = created.body.id
     const pub = await server()
@@ -308,7 +313,7 @@ describe('TSK-FORM-006: ciclo write de plantillas (solo tenant_admin)', () => {
     const created = await server()
       .post('/api/v1/templates')
       .set('Authorization', `Bearer ${adminToken}`)
-      .send({ name: 'Para patch-pub', definition: validDef })
+      .send({ name: 'Para patch-pub', definition: validDef() })
     expect([200, 201]).toContain(created.status)
     const pub = await server()
       .post(`/api/v1/templates/revisions/${created.body.id}/publish`)
@@ -317,7 +322,7 @@ describe('TSK-FORM-006: ciclo write de plantillas (solo tenant_admin)', () => {
     const patch = await server()
       .patch(`/api/v1/templates/revisions/${pub.body.id}`)
       .set('Authorization', `Bearer ${adminToken}`)
-      .send({ definition: validDef })
+      .send({ definition: validDef() })
     expect(patch.status).toBe(409)
   })
 
@@ -333,7 +338,7 @@ describe('TSK-FORM-006: ciclo write de plantillas (solo tenant_admin)', () => {
     const created = await server()
       .post('/api/v1/templates')
       .set('Authorization', `Bearer ${adminToken}`)
-      .send({ name: 'Para bad-patch', definition: validDef })
+      .send({ name: 'Para bad-patch', definition: validDef() })
     expect([200, 201]).toContain(created.status)
     const patch = await server()
       .patch(`/api/v1/templates/revisions/${created.body.id}`)
