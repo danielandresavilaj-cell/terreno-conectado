@@ -19,7 +19,10 @@
     "build": "npm run build --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
     "dev:frontend": "npm run dev --workspace @terreno/frontend",
-    "dev:backend": "npm run start:dev --workspace @terreno/backend"
+    "dev:backend": "npm run start:dev --workspace @terreno/backend",
+    "spike:xlsx": "node shared/scripts/spike-xlsx/bench.mjs",
+    "spike:xlsx:report": "node shared/scripts/spike-xlsx/report.mjs",
+    "spike:xlsx:fixture": "node shared/scripts/spike-xlsx/fixture.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^9.17.0",
