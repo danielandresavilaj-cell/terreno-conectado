@@ -40,6 +40,19 @@ export interface CambioCelda {
 
 const RE_HORA = /^([01]\d|2[0-3]):[0-5]\d(:[0-5]\d)?$/
 
+/** Rellena con ceros a la izquierda hasta dos dígitos (hora/fecha). */
+function dos(n: number): string {
+  return String(n).padStart(2, '0')
+}
+
+/** Hora `HH:MM` desde la fracción de día de Excel (0.5 → `12:00`). */
+function horaDeFraccion(frac: number): string {
+  const totalMin = Math.round(frac * 24 * 60)
+  const h = Math.floor(totalMin / 60)
+  const m = totalMin % 60
+  return `${dos(h % 24)}:${dos(m)}`
+}
+
 function textoDe(valor: unknown): string | null {
   if (typeof valor === 'string') {
     const t = valor.trim()
@@ -63,12 +76,11 @@ function textoDe(valor: unknown): string | null {
 }
 
 function normalizarCelda(celda: ExcelJS.Cell): CeldaLibro | null {
+  // ExcelJS expone `cell.type` como `ValueType` (enum numérico, no string).
   const type = celda.type
   const fmt = (celda.numFmt ?? '').toLowerCase()
 
-  // Algunos libros guardan valores numéricos/fechas como texto (ExcelJS puede dar 's' con texto).
-  // Intentamos coaccionar antes de rechazar como texto puro.
-  if (type === 'n') {
+  if (type === ExcelJS.ValueType.Number) {
     const n = celda.value as number
     if (Number.isFinite(n) && fmt.includes('h') && fmt.includes('m')) {
       const h = horaDeFraccion(n)
@@ -78,8 +90,11 @@ function normalizarCelda(celda: ExcelJS.Cell): CeldaLibro | null {
       return { texto: String(n), numero: n }
     }
   }
-  if (type === 'd' || celda.value instanceof Date) {
-    const d = celda.value instanceof Date ? celda.value : new Date(celda.value as Date)
+
+  if (type === ExcelJS.ValueType.Date || celda.value instanceof Date) {
+    const raw = celda.value
+    const d = raw instanceof Date ? raw : new Date(typeof raw === 'number' ? raw : Date.parse(String(raw)))
+    if (Number.isNaN(d.getTime())) return null
     if (fmt.includes('h') && !fmt.includes('y') && !fmt.includes('d')) {
       const h = `${dos(d.getHours())}:${dos(d.getMinutes())}`
       return { texto: h, hora: h }
@@ -87,11 +102,19 @@ function normalizarCelda(celda: ExcelJS.Cell): CeldaLibro | null {
     const fecha = `${d.getFullYear()}-${dos(d.getMonth() + 1)}-${dos(d.getDate())}`
     return { texto: fecha, fecha }
   }
-  // Intentos de coacción para 's'
-  if (type === 's' || type === 'b' || type === 'f') {
+
+  // Celdas de texto, rich text, booleanos y fórmulas resueltas: coaccionamos
+  // a texto y detectamos numérico/fecha/hora si aplica (evita rechazar libros
+  // que guardan valores como texto).
+  if (
+    type === ExcelJS.ValueType.String ||
+    type === ExcelJS.ValueType.RichText ||
+    type === ExcelJS.ValueType.Boolean ||
+    type === ExcelJS.ValueType.Formula
+  ) {
     const t = textoDe(celda.value)
     if (!t) return null
-    // numérico
+    // numérico (acepta coma o punto decimal)
     if (/^-?\d+(?:[.,]\d+)?$/.test(t.replace(',', '.'))) {
       const n = parseFloat(t.replace(',', '.'))
       if (Number.isFinite(n)) return { texto: t, numero: n }
@@ -109,7 +132,7 @@ function normalizarCelda(celda: ExcelJS.Cell): CeldaLibro | null {
 /** Lee un libro desde un buffer y lo normaliza a cuadrículas (`HojaLibro[]`). */
 export async function leerCuadricula(buffer: Uint8Array): Promise<HojaLibro[]> {
   const wb = new ExcelJS.Workbook()
-  await wb.xlsx.load(Buffer.from(buffer))
+  await wb.xlsx.load(Buffer.from(buffer) as unknown as Parameters<typeof wb.xlsx.load>[0])
   return wb.worksheets.map((hoja) => {
     const filas: (CeldaLibro | null)[][] = []
     for (let r = 1; r <= hoja.rowCount; r++) {
@@ -129,7 +152,7 @@ export async function leerCuadricula(buffer: Uint8Array): Promise<HojaLibro[]> {
  */
 export async function escribirLibro(buffer: Uint8Array, cambios: CambioCelda[]): Promise<Buffer> {
   const wb = new ExcelJS.Workbook()
-  await wb.xlsx.load(Buffer.from(buffer))
+  await wb.xlsx.load(Buffer.from(buffer) as unknown as Parameters<typeof wb.xlsx.load>[0])
   for (const cambio of cambios) {
     const hoja = wb.getWorksheet(cambio.hoja)
     if (!hoja) throw new Error(`hoja '${cambio.hoja}' no existe en el libro`)

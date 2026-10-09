@@ -10,7 +10,6 @@
 import { describe, expect, it } from 'vitest'
 import ExcelJS from 'exceljs'
 import { readFileSync } from 'node:fs'
-import { createReadStream } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { proponerImport } from './import'
 
@@ -22,17 +21,11 @@ async function aBuffer(wb: ExcelJS.Workbook): Promise<Uint8Array> {
 function nuevaHoja(nombre: string, titulo?: string): ExcelJS.Workbook {
   const wb = new ExcelJS.Workbook()
   const ws = wb.addWorksheet(nombre)
-  const r = 1
   if (titulo) {
     ws.mergeCells(`A1:H1`)
     ws.getCell('A1').value = titulo
   }
   return wb
-}
-
-const filaEncabezado = (ws: ExcelJS.Worksheet, celdas: Record<string, string>, fila = 2) => {
-  for (const [col, valor] of Object.entries(celdas)) ws.getCell(`${col}${fila}`).value = valor
-  return ws
 }
 
 describe('proponerImport — detección automática de tipos', () => {

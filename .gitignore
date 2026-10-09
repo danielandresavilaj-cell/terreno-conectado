@@ -18,6 +18,9 @@ build/
 
 # Logs
 *.log
+
+# Harness del spike xlsx — entradas temporales de bundle que genera bench.mjs
+shared/scripts/spike-xlsx/.spike-entry-*
 logs/
 
 # Test artifacts

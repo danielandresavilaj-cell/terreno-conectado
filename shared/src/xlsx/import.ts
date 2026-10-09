@@ -10,8 +10,10 @@
  * ## Convención (documentada en spec 007 — "Importación asistida")
  *
  * - Cada **hoja** = una **sección** (título = nombre de la hoja).
- * - **Encabezado** = primera fila con ≥ 2 celdas pobladas (las filas previas
- *   se ignoran: títulos fusionados, parámetros, etc.).
+ * - **Encabezado** = primera fila poblada: con varias columnas se exigen
+ *   **≥ 2 celdas** (las filas previas se ignoran: títulos fusionados,
+ *   parámetros, etc.); con una sola columna de datos basta la primera fila
+ *   poblada.
  * - Cada **columna con encabezado** = un **ítem** propuesto; el prompt es el
  *   encabezado (sin el hint de tipo).
  * - Las **filas siguientes** son datos: se usan para detectar el tipo y para
@@ -19,7 +21,8 @@
  * - Hints opcionales de tipo en el encabezado `(foto)`, `(ok/nok/na)`,
  *   `(fecha)`, `(hora)`, `(número)`, `(texto)`, `(lista)`, `(multi)`.
  * - Detección automática (sin hint): ok/nok/n/a → numeric → fecha → hora →
- *   multi (valores con `;`) → lista única (≤ 12 valores) → texto.
+ *   multi (valores con `;`) → lista única (2–12 valores, tokens simples de
+ *   ≥ 2 caracteres sin espacios) → texto.
  *
  * La propuesta se valida contra el contrato Zod (`FIELD_PROPS_SCHEMA`) antes de
  * devolverse: **propuesta válida ⇒ se puede poblar `definition` con ids y
@@ -34,7 +37,6 @@ import type {
   ParseResult,
   ProposedItem,
   ProposedSection,
-  TemplateImportProposal,
 } from './types'
 
 const HINTS: Record<string, ResponseType> = {
@@ -148,7 +150,7 @@ function detectarCampo(hint: ResponseType | null, celdas: (CeldaLibro | null)[])
   }
 
   const unicos = obtenerUnicos(datos)
-  if (unicos.length > 0 && unicos.length <= UMBRAL_SELECT) {
+  if (esListaCandidata(unicos)) {
     return { type: 'select_single', props: { required: requerido, options: unicos } }
   }
 
@@ -195,6 +197,17 @@ function opcionesDeMulti(datos: CeldaLibro[]): string[] {
 }
 
 /**
+ * ¿La columna parece una lista categórica? (autodetección, sin hint).
+ * Exige 2–12 valores únicos, cada uno un token simple (≥ 2 caracteres, sin
+ * espacios ni numeral — por eso `Responsable`/"Juan Pérez" y `Subsector`/"A"
+ * caen a texto; `Turno`/"Día Tarde Noche" sale como lista).
+ */
+function esListaCandidata(unicos: string[]): boolean {
+  if (unicos.length < 2 || unicos.length > UMBRAL_SELECT) return false
+  return unicos.every((v) => v.trim().length >= 2 && !/\s/.test(v) && !/^[\d.]+$/.test(v))
+}
+
+/**
  * Núcleo puro y determinístico: cuadrículas → propuesta. Exportado para tests
  * y para correr igual sinon la librería (Web Worker, Art. I).
  */
@@ -207,10 +220,18 @@ export function proponerDesdeCuadriculas(hojas: HojaLibro[], nombre_archivo: str
       const titulo = hoja.nombre.trim()
       const items: ProposedItem[] = []
 
-      // Encabezado: primera fila con ≥ 2 celdas pobladas.
-      const encabezadoIdx = hoja.filas.findIndex(
-        (fila) => conDato(fila).length >= 2,
-      )
+      // Encabezado: primera fila poblada. Con varias columnas se exigen ≥ 2
+      // celdas (salta títulos fusionados); con una sola columna de datos basta
+      // la primera fila poblada.
+      const maxCeldasEnFila = hoja.filas.reduce((acc, fila) => {
+        const n = conDato(fila).length
+        return n > acc ? n : acc
+      }, 0)
+      const encabezadoIdx = hoja.filas.findIndex((fila) => {
+        const n = conDato(fila).length
+        if (n === 0) return false
+        return maxCeldasEnFila === 1 ? n === 1 : n >= 2
+      })
       if (encabezadoIdx === -1) continue
 
       const filaEncabezado = hoja.filas[encabezadoIdx]
