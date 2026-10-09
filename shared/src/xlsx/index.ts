@@ -6,3 +6,4 @@
 export * from './types'
 export * from './escolta'
 export * from './import'
+export * from './to-definition'
