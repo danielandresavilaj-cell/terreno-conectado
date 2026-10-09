@@ -208,6 +208,32 @@ export class TemplatesService {
     )
   }
 
+  /** Crea plantilla + borrador de forma atómica (para POST /templates, TSK-FORM-006). */
+  async createTemplateWithDraft(input: {
+    tenantId: string
+    name: string
+    description?: string
+    definition: unknown
+  }): Promise<TemplateRevisionRow> {
+    const definition = this.validateOrThrow(input.definition)
+    return this.db.withTenantTransaction<TemplateRevisionRow>(input.tenantId, async (run) => {
+      const [template] = await run<TemplateRow>(
+        `INSERT INTO template (id, tenant_id, name, description)
+         VALUES (gen_random_uuid(), $1, $2, $3)
+         RETURNING *`,
+        [input.tenantId, input.name, input.description ?? null],
+      )
+
+      const [row] = await run<TemplateRevisionRow>(
+        `INSERT INTO template_revision (id, template_id, tenant_id, definition, status)
+         VALUES (gen_random_uuid(), $1, $2, $3::jsonb, 'draft')
+         RETURNING *`,
+        [template.id, input.tenantId, JSON.stringify(definition)],
+      )
+      return row
+    })
+  }
+
   /**
    * Archiva una revisión en `draft` (descarte). Una revisión `published` es
    * inmutable también para archivarse desde `tc_app` (FR-049 estricto); la vía
