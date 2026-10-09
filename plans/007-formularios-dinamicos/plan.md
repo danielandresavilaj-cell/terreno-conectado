@@ -66,6 +66,7 @@ TSK-FORM-011 pruebas integrales (libros reales, caos) · TSK-FORM-012 [V2, fuera
 
 | Versión | Fecha | Cambio | Autor |
 | :--- | :--- | :--- | :--- |
+| 0.1.3 | 2026-10-09 | TSK-FORM-006 ✓ completado (PR #85): UX de importación asistida — preview/edición/confirmación/publicar, human-in-the-loop (FR-048), endpoints write de revisión | Raúl González (con IA) |
 | 0.1.2 | 2026-10-08 | 3.2 CERADO: escolta de xlsx = **ExcelJS** (spike ejecutado, `spike-xlsx-result.md`, enmienda ADR-003) | Daniel Ávila |
 | 0.1.1 | 2026-10-08 | Compuerta cerrada: docs del módulo en `main` (PRs #62–#70); TSK-FORM-002/003 completados (PRs #71/#74) | Daniel Ávila |
 | 0.1.0 | 2026-10-08 | Plan inicial del módulo 007 (formularios dinámicos) derivado de la Enmienda 002, ADR-003 y data-model v1.1.0 | Raúl González (con IA) |

@@ -40,7 +40,7 @@ Requisitos que este spec detallará: **FR-007–009, 018–019, 027–029, 036�
 - [x] `INSPECTION_RESPONSE` híbrido (`value_*` + `value_json`) + `ATTACHMENT` de respuesta (FR-037, FR-038) → TSK-FORM-004 (PR #80)
 - [x] **Spike escolta xlsx** (ExcelJS vs SheetJS CE; criterios: bundle ≤ ~500 KB, fidelidad de estilos, worker/offline, licencia CE) — **CERRADO: ExcelJS** (enmienda ADR-003, `spike-xlsx-result.md`)
 - [x] Importador `.xlsx`: convención de columnas/secciones/ítems y celda destino, parser → propuesta (FR-029) → TSK-FORM-005 (PR #82)
-- [ ] UX de importación asistida: preview, edición, confirmación, publicar; flag `ai` propone el mapeo (FR-048) → TSK-FORM-006
+- [x] UX de importación asistida: preview, edición, confirmación, publicar; flag `ai` propone el mapeo (FR-048) → TSK-FORM-006 (PR #85)
 - [ ] `TEMPLATE_IMPORT` persistido con documento fuente y auditoría (FR-029, FR-047) → TSK-FORM-007
 - [ ] Asignación faena/rol + filtrado y búsqueda en cliente (FR-008, FR-009) → TSK-FORM-008
 - [ ] Delta sync + caché local + congelado de versión en inspecciones en curso (FR-018, FR-027, FR-028) → TSK-FORM-009
@@ -60,6 +60,7 @@ Requisitos que este spec detallará: **FR-007–009, 018–019, 027–029, 036�
 
 | Versión | Fecha | Cambio | Autor |
 | :--- | :--- | :--- | :--- |
+| 0.1.5 | 2026-10-09 | Checklist: TSK-FORM-006 completado (PR #85) — UX de importación asistida (wizard 5 pasos subir→preview→editar→guardar draft→publicar explícito, solo `tenant_admin`, nunca automático FR-048); endpoints write `POST /templates`, `PATCH revisions/:id`, `POST revisions/:id/publish` con aislamiento RLS; mapper `propuestaADefinicion` en shared (FR-029/036/039) | Raúl González (con IA) |
 | 0.1.4 | 2026-10-08 | Checklist: TSK-FORM-005 completado (PR #82) — importador `.xlsx` determinístico (escolta ExcelJS + parser → propuesta `proposed_schema`); spike escolta xlsx marcado cerrado (enmienda ADR-003, `spike-xlsx-result.md`); decisión 5 actualizada | Raúl González (con IA) |
 | 0.1.3 | 2026-10-08 | Checklist: TSK-FORM-004 completado (PR #80): respuesta híbrida `value_json` + ATTACHMENT de respuesta; sección FR-037/FR-038 marcada | Daniel Ávila |
 | 0.1.2 | 2026-10-08 | Checklist: TSK-FORM-001 renderer data-driven completado (PR #79); se marcan también 002/003 (PRs #71/#74) | Daniel Ávila |
