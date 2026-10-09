@@ -1,15 +1,15 @@
 {
   "extends": "../tsconfig.base.json",
   "compilerOptions": {
-    "module": "commonjs",
-    "moduleResolution": "node",
+    "module": "node16",
+    "moduleResolution": "node16",
     "target": "ES2021",
     "lib": ["ES2021"],
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
     "verbatimModuleSyntax": false,
     "isolatedModules": false,
-    "types": ["node"]
+    "types": ["node", "multer"]
   },
   "include": ["src", "db", "test", "vitest.config.ts"]
 }

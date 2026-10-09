@@ -77,3 +77,41 @@ export interface TemplateItemRow {
   created_at: string
   updated_at: string
 }
+
+/** Estados del ciclo de vida de un import (FR-047). */
+export type TemplateImportStatus = 'uploaded' | 'parsed' | 'proposed' | 'confirmed' | 'failed'
+
+/** Fila de `template_imports` (documento fuente .xlsx, FR-029/047/051). */
+export interface TemplateImportRow {
+  id: string
+  tenant_id: string
+  uploaded_by: string
+  file_key: string
+  file_name: string
+  status: TemplateImportStatus
+  proposed_schema: Record<string, unknown> | null
+  error: string | null
+  confirmed_at: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface UploadTemplateImportInput {
+  tenantId: string
+  uploadedBy: string
+  fileKey: string
+  fileName: string
+}
+
+export interface ParseTemplateImportInput {
+  tenantId: string
+  importId: string
+  proposal: Record<string, unknown>
+}
+
+export interface ConfirmTemplateImportInput {
+  tenantId: string
+  importId: string
+  /** Si se provee, publica inmediatamente; si no, deja el borrador para edición manual. */
+  publish?: boolean
+}
