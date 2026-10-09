@@ -1,20 +1,30 @@
 import { randomUUID } from 'node:crypto'
+import { mkdir, writeFile } from 'node:fs/promises'
+import { dirname, join, resolve } from 'node:path'
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common'
+import { ConfigService } from '@nestjs/config'
 import { ZodError } from 'zod'
 import {
   parseTemplateDefinition,
+  templateImportProposalSchema,
   type TemplateDefinition,
   type TemplatesDeltaResponse,
+  type TemplateImportProposal,
 } from '@terreno/shared'
+import { proponerImport } from '@terreno/shared/xlsx'
 import { DbService } from '../db/db.service'
 import type {
+  ConfirmTemplateImportInput,
   CreateDraftInput,
   CreateTemplateInput,
+  ParseTemplateImportInput,
+  TemplateImportRow,
   TemplateItemRow,
   TemplateRevisionRow,
   TemplateRow,
   TemplateSectionRow,
   UpdateDraftInput,
+  UploadTemplateImportInput,
 } from './templates.types'
 
 /**
@@ -36,7 +46,10 @@ import type {
  */
 @Injectable()
 export class TemplatesService {
-  constructor(private readonly db: DbService) {}
+  constructor(
+    private readonly db: DbService,
+    private readonly config: ConfigService,
+  ) {}
 
   /** Crea la cabecera de una plantilla (tenant_admin). */
   async createTemplate(input: CreateTemplateInput): Promise<TemplateRow> {
@@ -302,6 +315,269 @@ export class TemplatesService {
         definition: r.definition as unknown as TemplateDefinition,
       })),
       latest_version: max,
+    }
+  }
+
+  /* ── Importación de plantillas desde .xlsx (TSK-FORM-007) ──────────────── */
+
+  /** Crea un registro `uploaded` para un .xlsx recién subido (FR-029/047). */
+  async uploadTemplateImport(input: UploadTemplateImportInput): Promise<TemplateImportRow> {
+    const [row] = await this.db.queryAsTenant<TemplateImportRow>(
+      input.tenantId,
+      `INSERT INTO template_imports
+         (id, tenant_id, uploaded_by, file_key, file_name, status)
+       VALUES (gen_random_uuid(), $1, $2, $3, $4, 'uploaded')
+       RETURNING *`,
+      [input.tenantId, input.uploadedBy, input.fileKey, input.fileName],
+    )
+    return row
+  }
+
+  /**
+   * Recibe el buffer de un .xlsx, crea el import, guarda el archivo fuente como
+   * ATTACHMENT (`owner_type='template_import'`), lo parsea y deja el import en
+   * estado `proposed` (éxito) o `failed` (error). Todo en una transacción por
+   * tenant (FR-029/047/051).
+   */
+  async uploadAndParseTemplateImport(
+    tenantId: string,
+    uploadedBy: string,
+    fileName: string,
+    buffer: Buffer,
+  ): Promise<TemplateImportRow> {
+    return this.db.withTenantTransaction<TemplateImportRow>(tenantId, async (run) => {
+      const [imp] = await run<TemplateImportRow>(
+        `INSERT INTO template_imports
+           (id, tenant_id, uploaded_by, file_key, file_name, status)
+         VALUES (gen_random_uuid(), $1, $2, '', $3, 'uploaded')
+         RETURNING *`,
+        [tenantId, uploadedBy, fileName],
+      )
+
+      const fileKey = await this.writeImportFile(tenantId, imp.id, buffer)
+      await run(
+        `INSERT INTO attachment
+           (id, tenant_id, owner_type, owner_id, file_key, mime, bytes,
+            width, height, captured_at, client_version)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, NULL, NULL, now(), 0)`,
+        [randomUUID(), tenantId, 'template_import', imp.id, fileKey, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', buffer.length],
+      )
+
+      await run(
+        `UPDATE template_imports SET file_key = $2 WHERE id = $1`,
+        [imp.id, fileKey],
+      )
+
+      const parsed = await proponerImport(new Uint8Array(buffer), fileName)
+      if (!parsed.ok) {
+        await run(
+          `UPDATE template_imports
+           SET status = 'failed', error = $2, updated_at = now()
+           WHERE id = $1`,
+          [imp.id, parsed.error],
+        )
+        const [failed] = await run<TemplateImportRow>(`SELECT * FROM template_imports WHERE id = $1`, [imp.id])
+        return failed
+      }
+
+      let proposal: TemplateImportProposal
+      try {
+        proposal = templateImportProposalSchema.parse(parsed.propuesta)
+      } catch (error) {
+        if (error instanceof ZodError) {
+          const detail = error.issues
+            .slice(0, 3)
+            .map((i) => `${i.path.join('.') || 'proposal'}: ${i.message}`)
+            .join('; ')
+          await run(
+            `UPDATE template_imports
+             SET status = 'failed', error = $2, updated_at = now()
+             WHERE id = $1`,
+            [imp.id, `propuesta inválida: ${detail}`],
+          )
+          const [failed] = await run<TemplateImportRow>(`SELECT * FROM template_imports WHERE id = $1`, [imp.id])
+          return failed
+        }
+        throw error
+      }
+
+      const [row] = await run<TemplateImportRow>(
+        `UPDATE template_imports
+         SET status = 'proposed', proposed_schema = $2::jsonb, updated_at = now()
+         WHERE id = $1
+         RETURNING *`,
+        [imp.id, JSON.stringify(proposal)],
+      )
+      return row
+    })
+  }
+
+  private async writeImportFile(tenantId: string, importId: string, buffer: Buffer): Promise<string> {
+    const volume = resolve(this.config.get<string>('SYNC_VOLUME') ?? join(process.cwd(), '.vol'))
+    const key = `template_imports/${tenantId}/${importId}.xlsx`
+    const path = join(volume, key)
+    await mkdir(dirname(path), { recursive: true })
+    await writeFile(path, buffer)
+    return key
+  }
+
+  /** Obtiene un import del tenant o 404. */
+  async getTemplateImport(tenantId: string, importId: string): Promise<TemplateImportRow> {
+    const [row] = await this.db.queryAsTenant<TemplateImportRow>(
+      tenantId,
+      `SELECT * FROM template_imports WHERE id = $1`,
+      [importId],
+    )
+    if (!row) {
+      throw new NotFoundException('import no encontrado para este tenant')
+    }
+    return row
+  }
+
+  /** Lista imports del tenant, más recientes primero. */
+  async listTemplateImports(tenantId: string): Promise<TemplateImportRow[]> {
+    return this.db.queryAsTenant<TemplateImportRow>(
+      tenantId,
+      `SELECT * FROM template_imports ORDER BY created_at DESC`,
+    )
+  }
+
+  /**
+   * Guarda la propuesta parseada por el importador (TSK-FORM-005) y pasa el
+   * import a estado `proposed`. Valida el contrato Zod compartido (FR-039).
+   */
+  async parseTemplateImport(input: ParseTemplateImportInput): Promise<TemplateImportRow> {
+    let proposal: TemplateImportProposal
+    try {
+      proposal = templateImportProposalSchema.parse(input.proposal)
+    } catch (error) {
+      if (error instanceof ZodError) {
+        const detail = error.issues
+          .slice(0, 3)
+          .map((i) => `${i.path.join('.') || 'proposal'}: ${i.message}`)
+          .join('; ')
+        throw new BadRequestException(`propuesta de import inválida: ${detail}`)
+      }
+      throw error
+    }
+
+    const [row] = await this.db.queryAsTenant<TemplateImportRow>(
+      input.tenantId,
+      `UPDATE template_imports
+       SET status = 'proposed', proposed_schema = $2::jsonb, updated_at = now()
+       WHERE id = $1 AND status IN ('uploaded', 'parsed', 'proposed')
+       RETURNING *`,
+      [input.importId, JSON.stringify(proposal)],
+    )
+    if (!row) {
+      throw new ConflictException('el import no existe o ya fue confirmado/fallido')
+    }
+    return row
+  }
+
+  /**
+   * Marca un import como fallido (parseo inválido, .xlsx corrupto, etc.).
+   * Deja traza en `error` para auditoría (FR-051).
+   */
+  async failTemplateImport(
+    tenantId: string,
+    importId: string,
+    error: string,
+  ): Promise<TemplateImportRow> {
+    const [row] = await this.db.queryAsTenant<TemplateImportRow>(
+      tenantId,
+      `UPDATE template_imports
+       SET status = 'failed', error = $2, updated_at = now()
+       WHERE id = $1 AND status IN ('uploaded', 'parsed', 'proposed')
+       RETURNING *`,
+      [importId, error],
+    )
+    if (!row) {
+      throw new ConflictException('el import no existe o ya fue confirmado/fallido')
+    }
+    return row
+  }
+
+  /**
+   * Confirma la propuesta y genera una plantilla + borrador (FR-048).
+   * Si `publish=true`, publica inmediatamente (solo si la definición es válida).
+   * Nunca publica automáticamente sin el flag explícito.
+   */
+  async confirmTemplateImport(input: ConfirmTemplateImportInput): Promise<TemplateRevisionRow> {
+    return this.db.withTenantTransaction<TemplateRevisionRow>(input.tenantId, async (run) => {
+      const [imp] = await run<TemplateImportRow>(
+        `SELECT * FROM template_imports
+         WHERE id = $1 AND status = 'proposed'`,
+        [input.importId],
+      )
+      if (!imp) {
+        throw new ConflictException('el import no está en estado proposed')
+      }
+
+      const proposal = templateImportProposalSchema.parse(imp.proposed_schema)
+      const definition = this.proposalToDefinition(proposal)
+      const validated = this.validateOrThrow(definition)
+
+      const [template] = await run<TemplateRow>(
+        `INSERT INTO template (id, tenant_id, name, description, status)
+         VALUES (gen_random_uuid(), $1, $2, $3, 'active')
+         RETURNING *`,
+        [input.tenantId, imp.file_name, `Importado desde ${proposal.nombre_archivo}`],
+      )
+
+      const [revision] = await run<TemplateRevisionRow>(
+        `INSERT INTO template_revision
+           (id, template_id, tenant_id, definition, status, source_import_id)
+         VALUES (gen_random_uuid(), $1, $2, $3::jsonb, 'draft', $4)
+         RETURNING *`,
+        [template.id, input.tenantId, JSON.stringify(validated), imp.id],
+      )
+
+      await run(
+        `UPDATE template_imports
+         SET status = 'confirmed', confirmed_at = now(), updated_at = now()
+         WHERE id = $1`,
+        [imp.id],
+      )
+
+      if (input.publish) {
+        await this.materializeCatalog(run, input.tenantId, revision.id, validated)
+        const [published] = await run<TemplateRevisionRow>(
+          `UPDATE template_revision
+           SET status = 'published', version = (
+             SELECT COALESCE(MAX(version), 0) + 1
+             FROM template_revision WHERE template_id = $2 AND version IS NOT NULL
+           ), published_at = now(), updated_at = now()
+           WHERE id = $1 AND status = 'draft'
+           RETURNING *`,
+          [revision.id, template.id],
+        )
+        if (!published) {
+          throw new ConflictException('no se pudo publicar la revisión importada')
+        }
+        return published
+      }
+
+      return revision
+    })
+  }
+
+  /** Convierte la propuesta del parser en una `TemplateDefinition` validable. */
+  private proposalToDefinition(proposal: TemplateImportProposal): TemplateDefinition {
+    return {
+      sections: proposal.secciones.map((section, sidx) => ({
+        id: randomUUID(),
+        title: section.titulo,
+        position: sidx,
+        items: section.items.map((item) => ({
+          id: randomUUID(),
+          prompt: item.prompt,
+          response_type: item.response_type,
+          require_finding_on_nok: false,
+          props: item.props,
+          help: undefined,
+        })),
+      })),
     }
   }
 }

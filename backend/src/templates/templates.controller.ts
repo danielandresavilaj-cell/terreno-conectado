@@ -21,17 +21,23 @@ import {
   BadRequestException,
   Body,
   Controller,
+  FileTypeValidator,
   ForbiddenException,
   Get,
   HttpCode,
   Inject,
+  MaxFileSizeValidator,
   Param,
+  ParseFilePipe,
   Patch,
   Post,
   Query,
   Req,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common'
+import { FileInterceptor } from '@nestjs/platform-express'
 import type { Request } from 'express'
 import { z } from 'zod'
 import type {
@@ -41,6 +47,11 @@ import type {
 import { AuthGuard } from '../auth/auth.guard'
 import type { JwtClaims } from '../auth/auth.types'
 import { TemplatesService } from './templates.service'
+import type { TemplateImportRow } from './templates.types'
+
+interface ConfirmImportBody {
+  publish?: boolean
+}
 
 type AuthedRequest = Request & { user?: JwtClaims }
 
@@ -185,5 +196,77 @@ export class TemplatesController {
     requireTenantAdmin(req)
     const rev = await this.templates.publishRevision(tenantDe(req), revisionId)
     return toRevisionDto(rev)
+  }
+
+  /* ── Importación de plantillas desde .xlsx (TSK-FORM-006/007) ──────────── */
+
+  @UseGuards(AuthGuard)
+  @Post('imports')
+  @UseInterceptors(FileInterceptor('file'))
+  async uploadImport(
+    @Req() req: AuthedRequest,
+    @UploadedFile(
+      new ParseFilePipe({
+        validators: [
+          new MaxFileSizeValidator({ maxSize: 5 * 1024 * 1024 }),
+          new FileTypeValidator({ fileType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }),
+        ],
+      }),
+    )
+    file: Express.Multer.File,
+  ): Promise<TemplateImportRow> {
+    const claims = req.user as JwtClaims
+    if (claims.rol !== 'tenant_admin') {
+      throw new ForbiddenException('Sólo tenant_admin puede importar plantillas')
+    }
+    return this.templates.uploadAndParseTemplateImport(
+      tenantDe(req),
+      claims.sub,
+      file.originalname,
+      file.buffer,
+    )
+  }
+
+  @UseGuards(AuthGuard)
+  @Get('imports')
+  listImports(@Req() req: AuthedRequest): Promise<TemplateImportRow[]> {
+    return this.templates.listTemplateImports(tenantDe(req))
+  }
+
+  @UseGuards(AuthGuard)
+  @Get('imports/:importId')
+  async getImport(
+    @Req() req: AuthedRequest,
+    @Param('importId') importId: string,
+  ): Promise<TemplateImportRow> {
+    return this.templates.getTemplateImport(tenantDe(req), importId)
+  }
+
+  @UseGuards(AuthGuard)
+  @Post('imports/:importId/confirm')
+  async confirmImport(
+    @Req() req: AuthedRequest,
+    @Param('importId') importId: string,
+    @Body() body: ConfirmImportBody,
+  ): Promise<TemplateRevisionDetailDto> {
+    const claims = req.user as JwtClaims
+    if (claims.rol !== 'tenant_admin') {
+      throw new ForbiddenException('Sólo tenant_admin puede confirmar imports')
+    }
+    const rev = await this.templates.confirmTemplateImport({
+      tenantId: tenantDe(req),
+      importId,
+      publish: body.publish,
+    })
+    return {
+      id: rev.id,
+      template_id: rev.template_id,
+      version: rev.version,
+      status: rev.status,
+      definition: rev.definition as unknown as TemplateRevisionDetailDto['definition'],
+      published_at: rev.published_at,
+      created_at: rev.created_at,
+      updated_at: rev.updated_at,
+    }
   }
 }

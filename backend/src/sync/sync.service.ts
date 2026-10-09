@@ -93,7 +93,7 @@ const INSPECTION_STATUSES = new Set(['draft', 'in_progress', 'submitted', 'revie
 const OK_NOK_NA = new Set(['ok', 'nok', 'na'])
 const SEVERITIES = new Set(['low', 'medium', 'high', 'critical'])
 const FINDING_STATUSES = new Set(['open', 'in_progress', 'resolved'])
-const OWNER_TYPES = new Set(['inspection', 'finding', 'log_entry', 'response'])
+const OWNER_TYPES = new Set(['inspection', 'finding', 'log_entry', 'response', 'template_import'])
 const MIME_EXT: Record<string, string> = {
   'image/jpeg': 'jpg',
   'image/png': 'png',
@@ -619,6 +619,7 @@ export class SyncService {
           finding: 'finding',
           log_entry: 'log_entry',
           response: 'inspection_response',
+          template_import: 'template_imports',
         } as const
         return this.db.withTenantTransaction(tenantId, async (run) => {
           await this.assertRefs(run, [[ownerTable[p.owner_type], p.owner_id]])

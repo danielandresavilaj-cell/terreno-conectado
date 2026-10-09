@@ -312,3 +312,86 @@ export interface TemplateRevisionDetailDto {
   created_at: string
   updated_at: string
 }
+
+/* ── Importación de plantillas desde .xlsx (TSK-FORM-007, FR-029/047/051) ──
+ * Estos schemas modelan el ciclo de vida del import y la propuesta parseada.
+ * No importan de `./xlsx` para mantener el barrel libre de tipos Node/Buffer.
+ */
+
+export const TEMPLATE_IMPORT_STATUSES = [
+  'uploaded',
+  'parsed',
+  'proposed',
+  'confirmed',
+  'failed',
+] as const
+
+export type TemplateImportStatus = (typeof TEMPLATE_IMPORT_STATUSES)[number]
+
+export const importSourceOriginSchema = z.object({
+  sheet: z.string().trim().min(1),
+  column: z.string().trim().min(1),
+  headerCell: z.string().trim().min(1),
+  headerRow: z.number().int().positive(),
+  firstDataRow: z.number().int().positive(),
+})
+
+export type ImportSourceOrigin = z.infer<typeof importSourceOriginSchema>
+
+export const proposedItemSchema = z
+  .object({
+    prompt: z.string().trim().min(1),
+    response_type: z.enum(RESPONSE_TYPES),
+    required: z.boolean(),
+    props: z.record(z.string(), z.unknown()),
+    source: importSourceOriginSchema,
+  })
+  .superRefine((item, ctx) => {
+    const parsedProps = FIELD_PROPS_SCHEMA[item.response_type].safeParse(item.props ?? {})
+    if (!parsedProps.success) {
+      for (const issue of parsedProps.error.issues) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['props', ...issue.path],
+          message: `${item.response_type}: ${issue.message}`,
+        })
+      }
+    }
+  })
+
+export type ProposedItem = z.infer<typeof proposedItemSchema>
+
+export const proposedSectionSchema = z.object({
+  titulo: z.string().trim().min(1),
+  items: z.array(proposedItemSchema),
+})
+
+export type ProposedSection = z.infer<typeof proposedSectionSchema>
+
+export const templateImportProposalSchema = z.object({
+  nombre_archivo: z.string().min(1),
+  secciones: z.array(proposedSectionSchema),
+  resumen: z.object({
+    secciones: z.number().int().nonnegative(),
+    items: z.number().int().nonnegative(),
+    filasDatos: z.number().int().nonnegative(),
+  }),
+})
+
+export type TemplateImportProposal = z.infer<typeof templateImportProposalSchema>
+
+export const templateImportSchema = z.object({
+  id: z.string().uuid(),
+  tenant_id: z.string().uuid(),
+  uploaded_by: z.string().uuid(),
+  file_key: z.string().min(1),
+  file_name: z.string().min(1),
+  status: z.enum(TEMPLATE_IMPORT_STATUSES),
+  proposed_schema: templateImportProposalSchema.nullable(),
+  error: z.string().nullable().optional(),
+  confirmed_at: z.string().datetime().nullable().optional(),
+  created_at: z.string().datetime(),
+  updated_at: z.string().datetime(),
+})
+
+export type TemplateImport = z.infer<typeof templateImportSchema>
