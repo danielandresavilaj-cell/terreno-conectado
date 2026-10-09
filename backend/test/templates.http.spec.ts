@@ -1,4 +1,5 @@
 import 'reflect-metadata'
+import { randomUUID } from 'node:crypto'
 import { resolve } from 'node:path'
 import { PostgreSqlContainer } from '@testcontainers/postgresql'
 import type { StartedPostgreSqlContainer } from '@testcontainers/postgresql'
@@ -184,5 +185,167 @@ describe('catálogo materializado del seed (fixture TSK-FORM-001)', () => {
       [TEMPLATE_A_REVISION_PUBLISHED_ID],
     )
     expect(rows[0].n).toBe(9)
+  })
+})
+
+describe('TSK-FORM-006: ciclo write de plantillas (solo tenant_admin)', () => {
+  function validDef() {
+    return {
+      sections: [
+        {
+          title: 'Sección 1',
+          position: 0,
+          items: [
+            {
+              id: randomUUID(),
+              prompt: '¿Cumple?',
+              response_type: 'ok_nok_na',
+              props: {},
+            },
+          ],
+        },
+      ],
+    }
+  }
+
+  it('tenant_admin crea template + borrador con POST /templates (201 o 200 según patrón; ver estado)', async () => {
+    const def = validDef()
+    const res = await server()
+      .post('/api/v1/templates')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ name: 'Nueva plantilla', description: 'desc', definition: def })
+    expect([200, 201]).toContain(res.status)
+    expect(res.body.status).toBe('draft')
+    expect(res.body.version).toBeNull()
+    expect(res.body.template_id).toBeTruthy()
+    expect(res.body.id).toBeTruthy()
+    expect(res.body.definition).toMatchObject(def)
+    expect(res.body.published_at).toBeNull()
+  })
+
+  it('field_worker no puede crear plantilla (403)', async () => {
+    const res = await server()
+      .post('/api/v1/templates')
+      .set('Authorization', `Bearer ${trabajadorToken}`)
+      .send({ name: 'X', definition: validDef() })
+    expect(res.status).toBe(403)
+  })
+
+  it('otro tenant no ve el draft creado por admin de A (GET borrador por otro tenant -> 404)', async () => {
+    const created = await server()
+      .post('/api/v1/templates')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ name: 'A solo', definition: validDef() })
+    expect([200, 201]).toContain(created.status)
+    const draftId = created.body.id
+    const res = await get(supervisorBToken, `/api/v1/templates/revisions/${draftId}`)
+    expect(res.status).toBe(404)
+  })
+
+  it('PATCH /templates/revisions/:id actualiza draft', async () => {
+    const created = await server()
+      .post('/api/v1/templates')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ name: 'Para editar', definition: validDef() })
+    expect([200, 201]).toContain(created.status)
+    const draftId = created.body.id
+    function updatedDef() {
+      return {
+        sections: [
+          {
+            title: 'Editada',
+            position: 0,
+            items: [
+              {
+                id: randomUUID(),
+                prompt: '¿Ok?',
+                response_type: 'ok_nok_na',
+                props: {},
+              },
+            ],
+          },
+        ],
+      }
+    }
+    const patchDef = updatedDef()
+    const patch = await server()
+      .patch(`/api/v1/templates/revisions/${draftId}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ definition: patchDef })
+    expect(patch.status).toBe(200)
+    expect(patch.body.status).toBe('draft')
+    expect(patch.body.version).toBeNull()
+    expect(patch.body.definition).toMatchObject(patchDef)
+  })
+
+  it('POST /publish publica draft y asigna version=1, published_at no nulo', async () => {
+    const created = await server()
+      .post('/api/v1/templates')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ name: 'Para publicar', definition: validDef() })
+    expect([200, 201]).toContain(created.status)
+    const draftId = created.body.id
+    const pub = await server()
+      .post(`/api/v1/templates/revisions/${draftId}/publish`)
+      .set('Authorization', `Bearer ${adminToken}`)
+    expect(pub.status).toBe(200)
+    expect(pub.body.status).toBe('published')
+    expect(pub.body.version).toBe(1)
+    expect(pub.body.published_at).not.toBeNull()
+  })
+
+  it('re-publish de revisión publicada retorna 409', async () => {
+    const created = await server()
+      .post('/api/v1/templates')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ name: 'Para re-publish', definition: validDef() })
+    expect([200, 201]).toContain(created.status)
+    const draftId = created.body.id
+    const pub = await server()
+      .post(`/api/v1/templates/revisions/${draftId}/publish`)
+      .set('Authorization', `Bearer ${adminToken}`)
+    expect(pub.status).toBe(200)
+    const pub2 = await server()
+      .post(`/api/v1/templates/revisions/${pub.body.id}/publish`)
+      .set('Authorization', `Bearer ${adminToken}`)
+    expect(pub2.status).toBe(409)
+  })
+
+  it('PATCH a revisión publicada retorna 409', async () => {
+    const created = await server()
+      .post('/api/v1/templates')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ name: 'Para patch-pub', definition: validDef() })
+    expect([200, 201]).toContain(created.status)
+    const pub = await server()
+      .post(`/api/v1/templates/revisions/${created.body.id}/publish`)
+      .set('Authorization', `Bearer ${adminToken}`)
+    expect(pub.status).toBe(200)
+    const patch = await server()
+      .patch(`/api/v1/templates/revisions/${pub.body.id}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ definition: validDef() })
+    expect(patch.status).toBe(409)
+  })
+
+  it('definition inválida en POST /templates retorna 400', async () => {
+    const res = await server()
+      .post('/api/v1/templates')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ name: 'Mala', definition: { sections: null } })
+    expect(res.status).toBe(400)
+  })
+
+  it('definition inválida en PATCH retorna 400', async () => {
+    const created = await server()
+      .post('/api/v1/templates')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ name: 'Para bad-patch', definition: validDef() })
+    expect([200, 201]).toContain(created.status)
+    const patch = await server()
+      .patch(`/api/v1/templates/revisions/${created.body.id}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ definition: { sections: null } })
+    expect(patch.status).toBe(400)
   })
 })
