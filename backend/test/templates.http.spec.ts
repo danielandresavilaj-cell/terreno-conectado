@@ -209,16 +209,17 @@ describe('TSK-FORM-006: ciclo write de plantillas (solo tenant_admin)', () => {
   }
 
   it('tenant_admin crea template + borrador con POST /templates (201 o 200 según patrón; ver estado)', async () => {
+    const def = validDef()
     const res = await server()
       .post('/api/v1/templates')
       .set('Authorization', `Bearer ${adminToken}`)
-      .send({ name: 'Nueva plantilla', description: 'desc', definition: validDef() })
+      .send({ name: 'Nueva plantilla', description: 'desc', definition: def })
     expect([200, 201]).toContain(res.status)
     expect(res.body.status).toBe('draft')
     expect(res.body.version).toBeNull()
     expect(res.body.template_id).toBeTruthy()
     expect(res.body.id).toBeTruthy()
-    expect(res.body.definition).toMatchObject(validDef())
+    expect(res.body.definition).toMatchObject(def)
     expect(res.body.published_at).toBeNull()
   })
 
@@ -266,14 +267,15 @@ describe('TSK-FORM-006: ciclo write de plantillas (solo tenant_admin)', () => {
         ],
       }
     }
+    const patchDef = updatedDef()
     const patch = await server()
       .patch(`/api/v1/templates/revisions/${draftId}`)
       .set('Authorization', `Bearer ${adminToken}`)
-      .send({ definition: updatedDef() })
+      .send({ definition: patchDef })
     expect(patch.status).toBe(200)
     expect(patch.body.status).toBe('draft')
     expect(patch.body.version).toBeNull()
-    expect(patch.body.definition).toMatchObject(updatedDef())
+    expect(patch.body.definition).toMatchObject(patchDef)
   })
 
   it('POST /publish publica draft y asigna version=1, published_at no nulo', async () => {
