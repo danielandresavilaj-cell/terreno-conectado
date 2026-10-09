@@ -6,7 +6,9 @@
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "start": "node dist/main.js",
+    "prestart": "npm run build --workspace @terreno/shared",
     "start:dev": "node --watch -r ts-node/register src/main.ts",
+    "prestart:dev": "npm run build --workspace @terreno/shared",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "db:migrate": "node-pg-migrate -m db/migrations up",
     "db:rollback": "node-pg-migrate -m db/migrations down",
@@ -20,6 +22,7 @@
     "@nestjs/core": "^10.4.15",
     "@nestjs/platform-express": "^10.4.15",
     "@node-rs/argon2": "^2.2.2",
+    "@terreno/shared": "0.1.0",
     "cookie-parser": "^1.4.7",
     "jose": "^5.10.0",
     "pg": "^8.13.1",
