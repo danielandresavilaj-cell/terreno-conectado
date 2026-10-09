@@ -279,7 +279,7 @@ asigna por faena/rol → el worker captura offline → export del documento rell
   bundle del frontend); autodetección documentada y spike cerrado (enmienda ADR-003,
   `spike-xlsx-result.md`); scripts `npm run spike:xlsx` cableados.
 
-Pendiente (issues #39–#45): UX de import (#39, en progreso), TEMPLATE_IMPORT + auditoría (#40, en progreso), asignaciones (#41), delta sync (#42), export (#43), pruebas (#44), V2 (#45).
+Pendiente (issues #39–#45): UX de import (#39, en progreso), TEMPLATE_IMPORT + auditoría (#40, completado), asignaciones (#41), delta sync (#42), export (#43), pruebas (#44), V2 (#45).
 
 | Servicio | URL | Estado |
 | :--- | :--- | :--- |
