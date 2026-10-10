@@ -115,3 +115,38 @@ export interface ConfirmTemplateImportInput {
   /** Si se provee, publica inmediatamente; si no, deja el borrador para edición manual. */
   publish?: boolean
 }
+
+/* ── Asignación por faena y rol (TSK-FORM-008, FR-008/009) ───────────────── */
+
+export type TemplateAssignmentRole = 'field_worker' | 'supervisor'
+
+/** Fila de `template_assignment` (data-model §2.2). */
+export interface TemplateAssignmentRow {
+  id: string
+  tenant_id: string
+  template_revision_id: string
+  site_id: string | null
+  role: TemplateAssignmentRole
+  active: boolean
+  assigned_by: string
+  assigned_at: string
+  created_at: string
+  updated_at: string
+}
+
+export interface AssignTemplateInput {
+  tenantId: string
+  revisionId: string
+  /** `null` = asignación global (todas las faenas). */
+  siteId: string | null
+  role: TemplateAssignmentRole
+  active?: boolean
+  assignedBy: string
+}
+
+/** Filtro de lectura de plantillas para un rol operativo (FR-009). */
+export interface WorkerTemplateFilter {
+  role: TemplateAssignmentRole
+  /** Faena activa del dispositivo; `null` = sin filtro de faena (todas las suyas). */
+  siteId: string | null
+}

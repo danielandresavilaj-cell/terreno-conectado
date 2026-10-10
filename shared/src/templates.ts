@@ -394,4 +394,41 @@ export const templateImportSchema = z.object({
   updated_at: z.string().datetime(),
 })
 
+/* ── Asignación de plantillas por faena y rol (TSK-FORM-008, FR-008/009) ──
+ * Una revisión publicada se asigna a una combinación faena + rol. `site_id`
+ * NULL = todas las faenas del tenant. El worker sólo ve lo asignado a su
+ * faena y rol (FR-009).
+ */
+
+export const TEMPLATE_ASSIGNMENT_ROLES = ['field_worker', 'supervisor'] as const
+export type TemplateAssignmentRole = (typeof TEMPLATE_ASSIGNMENT_ROLES)[number]
+
+export const assignTemplateSchema = z.object({
+  revision_id: z.string().uuid(),
+  /** `null` = asignación global (todas las faenas); ausente = global. */
+  site_id: z.string().uuid().nullable().optional(),
+  role: z.enum(TEMPLATE_ASSIGNMENT_ROLES),
+  /** `false` desactiva una asignación existente sin borrarla. */
+  active: z.boolean().optional(),
+})
+
+export type AssignTemplateBody = z.infer<typeof assignTemplateSchema>
+
+export interface TemplateAssignmentDto {
+  id: string
+  template_revision_id: string
+  tenant_id: string
+  site_id: string | null
+  role: TemplateAssignmentRole
+  active: boolean
+  assigned_by: string
+  assigned_at: string
+  created_at: string
+  updated_at: string
+}
+
+export interface TemplateAssignmentsResponse {
+  items: TemplateAssignmentDto[]
+}
+
 export type TemplateImport = z.infer<typeof templateImportSchema>

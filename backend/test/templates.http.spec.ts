@@ -14,6 +14,8 @@ import { AppModule } from '../src/app.module'
 import { configureApp } from '../src/app.setup'
 import {
   DEMO_PASSWORD,
+  SITE_A_ID,
+  SITE_B_ID,
   TEMPLATE_A_REVISION_DRAFT_ID,
   TEMPLATE_A_REVISION_PUBLISHED_ID,
   TEMPLATE_B_REVISION_PUBLISHED_ID,
@@ -149,6 +151,118 @@ describe('GET /api/v1/templates', () => {
     expect(plat.status).toBe(403)
     const anon = await get(null, '/api/v1/templates')
     expect(anon.status).toBe(401)
+  })
+})
+
+describe('GET /api/v1/templates — filtrado por rol y faena (TSK-FORM-008, FR-009)', () => {
+  it('el field_worker con su faena ve la revisión asignada', async () => {
+    const res = await get(trabajadorToken, `/api/v1/templates?site_id=${SITE_A_ID}`)
+    expect(res.status).toBe(200)
+    expect(res.body.items).toHaveLength(1)
+    expect(res.body.items[0].revision_id).toBe(TEMPLATE_A_REVISION_PUBLISHED_ID)
+    expect(res.body.latest_version).toBe(1)
+  })
+
+  it('el field_worker con otra faena no ve nada (asignación por faena)', async () => {
+    const res = await get(trabajadorToken, `/api/v1/templates?site_id=${SITE_B_ID}`)
+    expect(res.status).toBe(200)
+    expect(res.body.items).toHaveLength(0)
+    expect(res.body.latest_version).toBeNull()
+  })
+
+  it('sin site_id el worker ve las asignaciones de su rol (todas sus faenas)', async () => {
+    const res = await get(trabajadorToken, '/api/v1/templates')
+    expect(res.status).toBe(200)
+    expect(res.body.items).toHaveLength(1)
+  })
+
+  it('rechaza un site_id que no es UUID (400)', async () => {
+    const res = await get(trabajadorToken, '/api/v1/templates?site_id=no-uuid')
+    expect(res.status).toBe(400)
+  })
+
+  it('el tenant_admin no se filtra por faena (ve todo lo publicado)', async () => {
+    const res = await get(adminToken, `/api/v1/templates?site_id=${SITE_B_ID}`)
+    expect(res.status).toBe(200)
+    expect(res.body.items).toHaveLength(1)
+    expect(res.body.items[0].revision_id).toBe(TEMPLATE_A_REVISION_PUBLISHED_ID)
+  })
+})
+
+describe('asignaciones faena+rol (TSK-FORM-008, FR-008)', () => {
+  it('el tenant_admin lista las asignaciones del seed', async () => {
+    const res = await get(adminToken, '/api/v1/templates/assignments')
+    expect(res.status).toBe(200)
+    expect(res.body.items).toHaveLength(2)
+    const roles = res.body.items.map((a: { role: string }) => a.role).sort()
+    expect(roles).toEqual(['field_worker', 'supervisor'])
+    expect(res.body.items.every((a: { site_id: string }) => a.site_id === SITE_A_ID)).toBe(true)
+  })
+
+  it('rechaza asignar un borrador (FR-049) con 400', async () => {
+    const res = await server()
+      .post('/api/v1/templates/assignments')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ revision_id: TEMPLATE_A_REVISION_DRAFT_ID, site_id: SITE_A_ID, role: 'field_worker' })
+    expect(res.status).toBe(400)
+  })
+
+  it('el worker no puede listar ni crear asignaciones (403)', async () => {
+    expect((await get(trabajadorToken, '/api/v1/templates/assignments')).status).toBe(403)
+    const crear = await server()
+      .post('/api/v1/templates/assignments')
+      .set('Authorization', `Bearer ${trabajadorToken}`)
+      .send({ revision_id: TEMPLATE_A_REVISION_PUBLISHED_ID, role: 'field_worker' })
+    expect(crear.status).toBe(403)
+  })
+
+  it('asignar la misma combinación es idempotente (una sola fila)', async () => {
+    const body = {
+      revision_id: TEMPLATE_A_REVISION_PUBLISHED_ID,
+      site_id: SITE_A_ID,
+      role: 'field_worker',
+    }
+    const first = await server()
+      .post('/api/v1/templates/assignments')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send(body)
+    expect(first.status).toBe(200)
+    const second = await server()
+      .post('/api/v1/templates/assignments')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send(body)
+    expect(second.status).toBe(200)
+    expect(second.body.id).toBe(first.body.id)
+    const list = await get(adminToken, '/api/v1/templates/assignments')
+    expect(list.body.items.filter((a: { role: string }) => a.role === 'field_worker')).toHaveLength(1)
+  })
+
+  it('desasignar oculta la plantilla al worker; reasignar global la vuelve a mostrar', async () => {
+    const list = await get(adminToken, '/api/v1/templates/assignments')
+    const workerAsg = list.body.items.find((a: { role: string }) => a.role === 'field_worker')
+    const del = await server()
+      .delete(`/api/v1/templates/assignments/${workerAsg.id}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+    expect(del.status).toBe(204)
+    expect((await get(trabajadorToken, `/api/v1/templates?site_id=${SITE_A_ID}`)).body.items).toHaveLength(0)
+
+    const global = await server()
+      .post('/api/v1/templates/assignments')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ revision_id: TEMPLATE_A_REVISION_PUBLISHED_ID, role: 'field_worker' })
+    expect(global.status).toBe(200)
+    expect(global.body.site_id).toBeNull()
+    expect((await get(trabajadorToken, `/api/v1/templates?site_id=${SITE_A_ID}`)).body.items).toHaveLength(1)
+
+    // Restaura el fixture de faena para no filtrar a otros casos.
+    await server()
+      .delete(`/api/v1/templates/assignments/${global.body.id}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+    const restore = await server()
+      .post('/api/v1/templates/assignments')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ revision_id: TEMPLATE_A_REVISION_PUBLISHED_ID, site_id: SITE_A_ID, role: 'field_worker' })
+    expect(restore.status).toBe(200)
   })
 })
 

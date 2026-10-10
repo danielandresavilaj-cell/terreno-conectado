@@ -38,6 +38,13 @@ export const TEMPLATE_A_REVISION_PUBLISHED_ID = '01890000-0000-7000-8000-0000000
 export const TEMPLATE_B_REVISION_DRAFT_ID = '01890000-0000-7000-8000-0000000000b7'
 export const TEMPLATE_B_REVISION_PUBLISHED_ID = '01890000-0000-7000-8000-0000000000b8'
 
+// Asignaciones faena+rol de la demo (TSK-FORM-008, FR-008/009): cada revisión
+// publicada queda asignada a la faena del tenant para los dos roles operativos.
+export const TEMPLATE_A_ASSIGNMENT_WORKER_ID = '01890000-0000-7000-8000-0000000000a9'
+export const TEMPLATE_A_ASSIGNMENT_SUPERVISOR_ID = '01890000-0000-7000-8000-0000000000aa'
+export const TEMPLATE_B_ASSIGNMENT_WORKER_ID = '01890000-0000-7000-8000-0000000000b9'
+export const TEMPLATE_B_ASSIGNMENT_SUPERVISOR_ID = '01890000-0000-7000-8000-0000000000ba'
+
 interface SeedQueryable {
   query: (text: string, values?: unknown[]) => Promise<unknown>
 }
@@ -343,6 +350,25 @@ export async function seedDatabase(db: SeedQueryable): Promise<void> {
     [TEMPLATE_B_REVISION_PUBLISHED_ID, TENANT_B_ID, DEFINICION_OBRA],
   ] as const) {
     await materializarCatalogo(db, revisionId, tenantId, definition)
+  }
+
+  // Asignaciones faena+rol (TSK-FORM-008): la revisión publicada queda ligada a
+  // la faena del tenant para `field_worker` y `supervisor`, de modo que la
+  // captura la vea (FR-009). `assigned_by` es el admin del tenant.
+  const assignments: Array<[string, string, string, string, string, string]> = [
+    [TEMPLATE_A_ASSIGNMENT_WORKER_ID, TEMPLATE_A_REVISION_PUBLISHED_ID, TENANT_A_ID, SITE_A_ID, 'field_worker', '01890000-0000-7000-8000-0000000000a5'],
+    [TEMPLATE_A_ASSIGNMENT_SUPERVISOR_ID, TEMPLATE_A_REVISION_PUBLISHED_ID, TENANT_A_ID, SITE_A_ID, 'supervisor', '01890000-0000-7000-8000-0000000000a5'],
+    [TEMPLATE_B_ASSIGNMENT_WORKER_ID, TEMPLATE_B_REVISION_PUBLISHED_ID, TENANT_B_ID, SITE_B_ID, 'field_worker', '01890000-0000-7000-8000-0000000000b4'],
+    [TEMPLATE_B_ASSIGNMENT_SUPERVISOR_ID, TEMPLATE_B_REVISION_PUBLISHED_ID, TENANT_B_ID, SITE_B_ID, 'supervisor', '01890000-0000-7000-8000-0000000000b4'],
+  ]
+  for (const [id, revisionId, tenantId, siteId, role, assignedBy] of assignments) {
+    await db.query(
+      `INSERT INTO template_assignment
+         (id, tenant_id, template_revision_id, site_id, role, active, assigned_by)
+       VALUES ($1, $2, $3, $4, $5, true, $6)
+       ON CONFLICT (id) DO NOTHING`,
+      [id, tenantId, revisionId, siteId, role, assignedBy],
+    )
   }
 }
 
