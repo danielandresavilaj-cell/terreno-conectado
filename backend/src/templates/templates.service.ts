@@ -14,10 +14,12 @@ import {
 import { proponerImport } from '@terreno/shared/xlsx'
 import { DbService } from '../db/db.service'
 import type {
+  AssignTemplateInput,
   ConfirmTemplateImportInput,
   CreateDraftInput,
   CreateTemplateInput,
   ParseTemplateImportInput,
+  TemplateAssignmentRow,
   TemplateImportRow,
   TemplateItemRow,
   TemplateRevisionRow,
@@ -25,6 +27,7 @@ import type {
   TemplateSectionRow,
   UpdateDraftInput,
   UploadTemplateImportInput,
+  WorkerTemplateFilter,
 } from './templates.types'
 
 /**
@@ -287,7 +290,27 @@ export class TemplatesService {
    * `latest_version` es el techo publicado del tenant — el cliente lo guarda
    * como próximo `since` del delta (TSK-FORM-009).
    */
-  async listPublishedRevisions(tenantId: string, since?: number): Promise<TemplatesDeltaResponse> {
+  async listPublishedRevisions(
+    tenantId: string,
+    since?: number,
+    worker?: WorkerTemplateFilter,
+  ): Promise<TemplatesDeltaResponse> {
+    // FR-009: un rol operativo (field_worker/supervisor) sólo ve las revisiones
+    // publicadas asignadas a su rol y, si el dispositivo informa su faena, a esa
+    // faena o a una asignación global (`site_id IS NULL`). El admin ve todo.
+    const role = worker?.role ?? null
+    const siteId = worker?.siteId ?? null
+    // El mismo criterio de visibilidad se reusa en las dos consultas (items y
+    // techo de versión) con placeholders distintos según sus parámetros.
+    const visibility = (rp: string, sp: string): string =>
+      `(${rp}::text IS NULL OR EXISTS (
+        SELECT 1 FROM template_assignment a
+         WHERE a.template_revision_id = r.id
+           AND a.tenant_id = r.tenant_id
+           AND a.active
+           AND a.role = ${rp}
+           AND (${sp}::uuid IS NULL OR a.site_id IS NULL OR a.site_id = ${sp})
+      ))`
     const [rows, [{ max }]] = await Promise.all([
       this.db.queryAsTenant<TemplateRevisionRow & { name: string }>(
         tenantId,
@@ -296,12 +319,17 @@ export class TemplatesService {
            JOIN template t ON t.id = r.template_id
           WHERE r.status = 'published'
             AND ($1::int IS NULL OR r.version > $1)
+            AND ${visibility('$2', '$3')}
           ORDER BY r.version DESC, r.published_at DESC, r.id`,
-        [since ?? null],
+        [since ?? null, role, siteId],
       ),
       this.db.queryAsTenant<{ max: number | null }>(
         tenantId,
-        `SELECT MAX(version) AS max FROM template_revision WHERE status = 'published'`,
+        `SELECT MAX(r.version) AS max
+           FROM template_revision r
+          WHERE r.status = 'published'
+            AND ${visibility('$1', '$2')}`,
+        [role, siteId],
       ),
     ])
     return {
@@ -316,6 +344,83 @@ export class TemplatesService {
       })),
       latest_version: max,
     }
+  }
+
+  /* ── Asignación por faena y rol (TSK-FORM-008, FR-008/009) ─────────────── */
+
+  /** Todas las asignaciones del tenant (para el asignador del `tenant_admin`). */
+  async listAssignments(tenantId: string): Promise<TemplateAssignmentRow[]> {
+    return this.db.queryAsTenant<TemplateAssignmentRow>(
+      tenantId,
+      `SELECT * FROM template_assignment ORDER BY assigned_at DESC, id`,
+    )
+  }
+
+  /**
+   * Asigna (o reactiva) una revisión publicada a una faena+rol. Idempotente por
+   * el único lógico: repetir la misma combinación actualiza `active` y auditoría
+   * en vez de duplicar (FR-008). Sólo acepta revisiones `published` (FR-049).
+   */
+  async assignTemplate(input: AssignTemplateInput): Promise<TemplateAssignmentRow> {
+    const [rev] = await this.db.queryAsTenant<TemplateRevisionRow>(
+      input.tenantId,
+      `SELECT * FROM template_revision WHERE id = $1`,
+      [input.revisionId],
+    )
+    if (!rev) throw new NotFoundException('Revisión no encontrada')
+    if (rev.status !== 'published') {
+      throw new BadRequestException('Sólo se asignan revisiones publicadas (FR-008/049)')
+    }
+    if (input.siteId) {
+      const [site] = await this.db.queryAsTenant<{ id: string }>(
+        input.tenantId,
+        `SELECT id FROM site WHERE id = $1`,
+        [input.siteId],
+      )
+      if (!site) throw new BadRequestException('La faena no pertenece al tenant')
+    }
+
+    const active = input.active ?? true
+    if (input.siteId === null) {
+      const [row] = await this.db.queryAsTenant<TemplateAssignmentRow>(
+        input.tenantId,
+        `INSERT INTO template_assignment
+           (id, tenant_id, template_revision_id, site_id, role, active, assigned_by)
+         VALUES (gen_random_uuid(), $1, $2, NULL, $3, $4, $5)
+         ON CONFLICT (template_revision_id, role) WHERE site_id IS NULL
+         DO UPDATE SET active = EXCLUDED.active,
+                       assigned_by = EXCLUDED.assigned_by,
+                       assigned_at = now(),
+                       updated_at = now()
+         RETURNING *`,
+        [input.tenantId, input.revisionId, input.role, active, input.assignedBy],
+      )
+      return row
+    }
+    const [row] = await this.db.queryAsTenant<TemplateAssignmentRow>(
+      input.tenantId,
+      `INSERT INTO template_assignment
+         (id, tenant_id, template_revision_id, site_id, role, active, assigned_by)
+       VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6)
+       ON CONFLICT (template_revision_id, site_id, role) WHERE site_id IS NOT NULL
+       DO UPDATE SET active = EXCLUDED.active,
+                     assigned_by = EXCLUDED.assigned_by,
+                     assigned_at = now(),
+                     updated_at = now()
+       RETURNING *`,
+      [input.tenantId, input.revisionId, input.siteId, input.role, active, input.assignedBy],
+    )
+    return row
+  }
+
+  /** Quita una asignación del tenant (FR-008). 404 si no existe o es de otro tenant. */
+  async deleteAssignment(tenantId: string, assignmentId: string): Promise<void> {
+    const rows = await this.db.queryAsTenant<{ id: string }>(
+      tenantId,
+      `DELETE FROM template_assignment WHERE id = $1 RETURNING id`,
+      [assignmentId],
+    )
+    if (!rows.length) throw new NotFoundException('Asignación no encontrada')
   }
 
   /* ── Importación de plantillas desde .xlsx (TSK-FORM-007) ──────────────── */

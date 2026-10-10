@@ -79,6 +79,7 @@ export type Pantalla =
   | 'dashboard'
   | 'conflictos'
   | 'importar'
+  | 'plantillas'
 
 export interface RespuestaItem {
   itemId: string
@@ -236,7 +237,7 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
    * dispositivo → red (`GET /templates` con delta) → definición demo. Si hay
    * borrador en curso, prefiere la revisión publicada que coincide con su
    * `template_id`+versión (FR-038: el borrador conserva su versión). */
-  const cargarPlantilla = useCallback(async (tenantId: string): Promise<PlantillaActual> => {
+  const cargarPlantilla = useCallback(async (tenantId: string, siteId?: string | null): Promise<PlantillaActual> => {
     // La caché local es multi-tenant en el mismo dispositivo: se filtra por
     // el tenant de la sesión activa (FR-007).
     let items: TemplatePublicadaDto[] = (await plantillasCacheadas()).filter(
@@ -246,7 +247,9 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
     if (getToken()) {
       try {
         const desde = items.length ? Math.max(...items.map((i) => i.version)) : undefined
-        const r = await getPlantillas(desde)
+        // FR-009: el worker pide sólo lo asignado a su faena y rol; el admin
+        // pasa siteId nulo/indefinido y ve todo lo publicado.
+        const r = await getPlantillas(desde, siteId ?? null)
         if (r.items.length) {
           await guardarPlantillasCache(r.items)
           const porRevision = new Map<string, TemplatePublicadaDto>()
@@ -302,7 +305,7 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
       await migrarFotosLegacy()
       // FR-038: la plantilla activa se hidrata ANTES de tocar el borrador, así
       // el borrador queda ligado al marco de la plantilla vigente.
-      const activa = await cargarPlantilla(u.tenantId)
+      const activa = await cargarPlantilla(u.tenantId, u.faenaId || null)
       if (u.faenaId && (u.rol === 'field_worker' || u.rol === 'supervisor')) {
         // FR-014: al reabrir, se restaura el borrador en curso y sus respuestas.
         const ins = await ensureDraftInspection({

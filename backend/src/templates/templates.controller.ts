@@ -21,6 +21,7 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Delete,
   FileTypeValidator,
   ForbiddenException,
   Get,
@@ -40,9 +41,11 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express'
 import type { Request } from 'express'
 import { z } from 'zod'
-import type {
-  TemplateRevisionDetailDto,
-  TemplatesDeltaResponse,
+import {
+  assignTemplateSchema,
+  type TemplateAssignmentDto,
+  type TemplateRevisionDetailDto,
+  type TemplatesDeltaResponse,
 } from '@terreno/shared'
 import { AuthGuard } from '../auth/auth.guard'
 import type { JwtClaims } from '../auth/auth.types'
@@ -79,6 +82,23 @@ function requireTenantAdmin(req: AuthedRequest): void {
   }
 }
 
+const ROLES_OPERATIVOS = ['field_worker', 'supervisor'] as const
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+/**
+ * FR-009: los roles operativos ven sólo lo asignado a su rol/faena; el admin
+ * ve todo (sin filtro). `site_id` es la faena activa del dispositivo.
+ */
+function workerFilter(
+  claims: JwtClaims,
+  siteId: string | undefined,
+): { role: 'field_worker' | 'supervisor'; siteId: string | null } | undefined {
+  if (!(ROLES_OPERATIVOS as readonly string[]).includes(claims.rol)) return undefined
+  if (siteId === undefined || siteId === '') return { role: claims.rol as 'field_worker' | 'supervisor', siteId: null }
+  if (!UUID_RE.test(siteId)) throw new BadRequestException('site_id debe ser un UUID')
+  return { role: claims.rol as 'field_worker' | 'supervisor', siteId }
+}
+
 function toRevisionDto(rev: {
   id: string
   template_id: string
@@ -101,6 +121,32 @@ function toRevisionDto(rev: {
   }
 }
 
+function toAssignmentDto(row: {
+  id: string
+  template_revision_id: string
+  tenant_id: string
+  site_id: string | null
+  role: 'field_worker' | 'supervisor'
+  active: boolean
+  assigned_by: string
+  assigned_at: string
+  created_at: string
+  updated_at: string
+}): TemplateAssignmentDto {
+  return {
+    id: row.id,
+    template_revision_id: row.template_revision_id,
+    tenant_id: row.tenant_id,
+    site_id: row.site_id,
+    role: row.role,
+    active: row.active,
+    assigned_by: row.assigned_by,
+    assigned_at: row.assigned_at,
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+  }
+}
+
 const CreateTemplateSchema = z.object({
   name: z
     .string({ required_error: 'name es requerido' })
@@ -120,8 +166,17 @@ export class TemplatesController {
 
   @UseGuards(AuthGuard)
   @Get()
-  list(@Req() req: AuthedRequest, @Query('since') since?: string): Promise<TemplatesDeltaResponse> {
-    return this.templates.listPublishedRevisions(tenantDe(req), parseSince(since))
+  list(
+    @Req() req: AuthedRequest,
+    @Query('since') since?: string,
+    @Query('site_id') siteId?: string,
+  ): Promise<TemplatesDeltaResponse> {
+    const claims = req.user as JwtClaims
+    return this.templates.listPublishedRevisions(
+      tenantDe(req),
+      parseSince(since),
+      workerFilter(claims, siteId),
+    )
   }
 
   @UseGuards(AuthGuard)
@@ -196,6 +251,55 @@ export class TemplatesController {
     requireTenantAdmin(req)
     const rev = await this.templates.publishRevision(tenantDe(req), revisionId)
     return toRevisionDto(rev)
+  }
+
+  /* ── Asignación por faena y rol (TSK-FORM-008, FR-008/009) ─────────────── */
+
+  @UseGuards(AuthGuard)
+  @Get('assignments')
+  async listAssignments(@Req() req: AuthedRequest): Promise<{ items: TemplateAssignmentDto[] }> {
+    requireTenantAdmin(req)
+    const rows = await this.templates.listAssignments(tenantDe(req))
+    return { items: rows.map(toAssignmentDto) }
+  }
+
+  @UseGuards(AuthGuard)
+  @Post('assignments')
+  @HttpCode(200)
+  async assign(
+    @Req() req: AuthedRequest,
+    @Body() body: unknown,
+  ): Promise<TemplateAssignmentDto> {
+    requireTenantAdmin(req)
+    const claims = req.user as JwtClaims
+    const parsed = assignTemplateSchema.safeParse(body)
+    if (!parsed.success) {
+      const detail = parsed.error.issues
+        .slice(0, 3)
+        .map((i) => `${i.path.join('.') || 'body'}: ${i.message}`)
+        .join('; ')
+      throw new BadRequestException(`body inválido: ${detail}`)
+    }
+    const row = await this.templates.assignTemplate({
+      tenantId: tenantDe(req),
+      revisionId: parsed.data.revision_id,
+      siteId: parsed.data.site_id ?? null,
+      role: parsed.data.role,
+      active: parsed.data.active,
+      assignedBy: claims.sub,
+    })
+    return toAssignmentDto(row)
+  }
+
+  @UseGuards(AuthGuard)
+  @Delete('assignments/:assignmentId')
+  @HttpCode(204)
+  async unassign(
+    @Req() req: AuthedRequest,
+    @Param('assignmentId') assignmentId: string,
+  ): Promise<void> {
+    requireTenantAdmin(req)
+    await this.templates.deleteAssignment(tenantDe(req), assignmentId)
   }
 
   /* ── Importación de plantillas desde .xlsx (TSK-FORM-006/007) ──────────── */

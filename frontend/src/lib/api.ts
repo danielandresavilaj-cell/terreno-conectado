@@ -18,6 +18,9 @@ import type {
   DashboardSummary,
   ListConflictsResponse,
   SitesResponse,
+  TemplateAssignmentDto,
+  TemplateAssignmentRole,
+  TemplateAssignmentsResponse,
   TemplateDefinition,
   TemplateRevisionDetailDto,
   TemplatesDeltaResponse,
@@ -146,10 +149,35 @@ export function getConflicts(): Promise<ListConflictsResponse> {
   return apiFetch<ListConflictsResponse>('/conflicts')
 }
 
-/** Revisiones publicadas con su definición; `since` pedida = delta (FR-027). */
-export function getPlantillas(since?: number): Promise<TemplatesDeltaResponse> {
-  const suffix = since !== undefined ? `?since=${encodeURIComponent(String(since))}` : ''
+/** Revisiones publicadas con su definición; `since` pedida = delta (FR-027).
+ *  `siteId` es la faena activa del dispositivo: un rol operativo sólo recibe lo
+ *  asignado a su rol y faena (FR-009); el admin lo ignora (ve todo). */
+export function getPlantillas(since?: number, siteId?: string | null): Promise<TemplatesDeltaResponse> {
+  const q = new URLSearchParams()
+  if (since !== undefined) q.set('since', String(since))
+  if (siteId) q.set('site_id', siteId)
+  const suffix = q.size ? `?${q}` : ''
   return apiFetch<TemplatesDeltaResponse>(`/templates${suffix}`)
+}
+
+/** Asignaciones faena+rol del tenant (sólo `tenant_admin`, FR-008). */
+export function getAsignaciones(): Promise<TemplateAssignmentsResponse> {
+  return apiFetch<TemplateAssignmentsResponse>('/templates/assignments')
+}
+
+/** Asigna (o reactiva) una revisión publicada a faena+rol; `site_id` null = global. */
+export function crearAsignacion(payload: {
+  revision_id: string
+  site_id?: string | null
+  role: TemplateAssignmentRole
+  active?: boolean
+}): Promise<TemplateAssignmentDto> {
+  return apiFetch('/templates/assignments', { method: 'POST', body: payload })
+}
+
+/** Quita una asignación (FR-008). */
+export function eliminarAsignacion(assignmentId: string): Promise<void> {
+  return apiFetch(`/templates/assignments/${assignmentId}`, { method: 'DELETE' })
 }
 
 /* ---------------------------------------------- plantillas (escritura) */

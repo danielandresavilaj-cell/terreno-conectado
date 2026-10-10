@@ -8,6 +8,7 @@ import { Cola } from './screens/Cola'
 import { Dashboard } from './screens/Dashboard'
 import { Conflictos } from './screens/Conflictos'
 import { Importar } from './screens/Importar'
+import { Plantillas } from './screens/Plantillas'
 import { ProveedorEstado, useEstado, type Pantalla } from './lib/store'
 
 /* Permisos por rol (FR-003: permisos crecientes).
@@ -19,7 +20,7 @@ import { ProveedorEstado, useEstado, type Pantalla } from './lib/store'
 const POR_ROL: Record<string, Pantalla[]> = {
   field_worker: ['captura', 'bitacora', 'cola'],
   supervisor: ['captura', 'bitacora', 'cola', 'dashboard', 'conflictos'],
-  tenant_admin: ['cola', 'dashboard', 'conflictos', 'importar'],
+  tenant_admin: ['cola', 'dashboard', 'conflictos', 'plantillas', 'importar'],
   platform_admin: ['dashboard'],
 }
 
@@ -83,6 +84,7 @@ function Raiz() {
       {pantalla === 'dashboard' && <Dashboard />}
       {pantalla === 'conflictos' && <Conflictos />}
       {pantalla === 'importar' && <Importar />}
+      {pantalla === 'plantillas' && <Plantillas />}
     </Shell>
   )
 }
