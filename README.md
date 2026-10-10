@@ -278,8 +278,17 @@ asigna por faena/rol → el worker captura offline → export del documento rell
   origen hoja+celda (FR-029/036/039, export FR-019/044); se consume por subpath (ExcelJS no entra al
   bundle del frontend); autodetección documentada y spike cerrado (enmienda ADR-003,
   `spike-xlsx-result.md`); scripts `npm run spike:xlsx` cableados.
+- **TSK-FORM-006/007**: **importación asistida** — wizard de 5 pasos (subir → preview → editar con
+  validación Zod en vivo → guardar borrador → **publicar explícito, nunca automático**, FR-048) y
+  endpoint `POST /api/v1/templates/imports` que persiste el `.xlsx` fuente en `TEMPLATE_IMPORT`
+  (estados `uploaded/parsed/proposed/confirmed/failed`) con el original como `ATTACHMENT`
+  (`owner_type='template_import'`) y confirmación auditada (FR-029/047).
+- **TSK-FORM-008**: **asignación por faena/rol** — `template_assignment` con RLS por tenant y
+  `site_id NULL` = todas las faenas; `GET /api/v1/templates?site_id=` devuelve al `field_worker`/`supervisor`
+  sólo lo asignado a su rol y faena (FR-009) y la pantalla **Plantillas** deja al `tenant_admin`
+  asignar/desasignar con búsqueda y filtro por rol en cliente.
 
-Pendiente (issues #39–#45): UX de import (#39, completado), TEMPLATE_IMPORT + auditoría (#40, completado), asignaciones (#41), delta sync (#42), export (#43), pruebas (#44), V2 (#45).
+Pendiente (issues #42–#45): delta sync (#42), export (#43), pruebas (#44), V2 (#45). Cerrados en este ciclo: UX de import (#39), TEMPLATE_IMPORT + auditoría (#40), asignaciones (#41).
 
 | Servicio | URL | Estado |
 | :--- | :--- | :--- |
