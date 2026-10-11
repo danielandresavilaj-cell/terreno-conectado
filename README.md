@@ -197,7 +197,12 @@ cp .env.example .env                                # credenciales locales (no s
 docker compose -f infra/docker-compose.yml up -d    # PostgreSQL 16 -> :5432
 npm run db:migrate --workspace @terreno/backend     # aplica esquema + políticas RLS
 npm run db:seed    --workspace @terreno/backend     # tenants A y B + faenas (FR-006)
-npm test --workspace @terreno/backend               # integración: aislamiento RLS + auth (Testcontainers)
+npm test                                            # unit + integración (todos los workspaces)
+```
+
+`npm test` necesita las dos variables de las cuentas demo en el entorno (`DEMO_PASSWORD` para el
+seed del backend y `VITE_DEMO_PASSWORD` para el del frontend, que importan `seed.ts` al cargar);
+nunca están hardcodeadas en el fuente. Ver `.env.example`.
 ```
 
 ### Auth (TSK-WS-003)
