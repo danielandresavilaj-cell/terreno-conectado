@@ -3,10 +3,13 @@
  *
  * Lectura (TSK-FORM-001, FR-018/027/036):
  *  · `GET /api/v1/templates?since=<n>`          — revisiones publicadas del
- *    tenant con su `definition`, filtradas por delta `version > since`
- *    (base del caché offline del worker, FR-018/027).
+ *    tenant con su `definition`, filtradas por delta `published_seq > since`
+ *    (base del caché offline del worker, FR-018/027; TSK-FORM-009 cambia el
+ *    cursor de `version` a la secuencia global de publicación).
  *  · `GET /api/v1/templates/revisions/:id`      — detalle de una revisión;
  *    los borradores sólo los lee `tenant_admin` (FR-048/049).
+ *  · `GET /api/v1/templates/revisions/:id/original` — BYTES del `.xlsx` fuente
+ *    para exportar el documento rellenado sin conexión (FR-019/044).
  *
  * Escritura (TSK-FORM-006, FR-029/FR-047/FR-049):
  *  · `POST /api/v1/templates`                    — crea template + draft (solo `tenant_admin`)
@@ -17,6 +20,7 @@
  * traducen claims HTTP → servicio.
  */
 
+import { createReadStream } from 'node:fs'
 import {
   BadRequestException,
   Body,
@@ -34,15 +38,18 @@ import {
   Post,
   Query,
   Req,
+  Res,
+  StreamableFile,
   UploadedFile,
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common'
 import { FileInterceptor } from '@nestjs/platform-express'
-import type { Request } from 'express'
+import type { Request, Response } from 'express'
 import { z } from 'zod'
 import {
   assignTemplateSchema,
+  XLSX_MIME,
   type TemplateAssignmentDto,
   type TemplateRevisionDetailDto,
   type TemplatesDeltaResponse,
@@ -66,13 +73,32 @@ function tenantDe(req: AuthedRequest): string {
   return claims.tenant_id
 }
 
+/**
+ * Cursor del delta: entero ≥ 0. En la base es `bigint` (secuencia global de
+ * publicación), pero travels como `number` en JSON; fuera del rango seguro de
+ * JS se rechaza en vez de enviar una secuencia redondeada al motor.
+ */
 function parseSince(v: unknown): number | undefined {
   if (v === undefined || v === '') return undefined
-  const n = Number(v)
-  if (!Number.isInteger(n) || n < 0) {
+  if (typeof v !== 'string' || !/^\d+$/.test(v)) {
     throw new BadRequestException('since debe ser un entero ≥ 0')
   }
+  const n = Number(v)
+  if (!Number.isSafeInteger(n)) {
+    throw new BadRequestException('since excede el rango seguro del cursor')
+  }
   return n
+}
+
+/**
+ * `Content-Disposition` con `filename` ASCII de reserva y `filename*` UTF-8: el
+ * nombre viene del archivo que subió el admin (puede traer acentos) y un
+ * header HTTP sólo transporta latin1. Se sanean comillas y saltos de línea
+ * para que el valor no pueda inyectar cabeceras.
+ */
+function contentDisposition(fileName: string): string {
+  const ascii = fileName.replace(/[^\x20-\x7e]/g, '_').replace(/["\\;]/g, '_')
+  return `attachment; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(fileName)}`
 }
 
 function requireTenantAdmin(req: AuthedRequest): void {
@@ -251,6 +277,38 @@ export class TemplatesController {
     requireTenantAdmin(req)
     const rev = await this.templates.publishRevision(tenantDe(req), revisionId)
     return toRevisionDto(rev)
+  }
+
+  /* ── Documento original .xlsx (TSK-FORM-009, FR-018/019) ───────────────── */
+
+  /**
+   * BYTES del `.xlsx` fuente de la revisión (no JSON): el dispositivo lo cachea
+   * para exportar el documento rellenado sin conexión (FR-019/044).
+   *
+   * Mismo criterio de visibilidad que el delta (FR-009): un rol operativo sin
+   * asignación recibe 404 para que no pueda enumerar originales por id, y el
+   * cruce de tenant también cae en 404 por RLS.
+   */
+  @UseGuards(AuthGuard)
+  @Get('revisions/:revisionId/original')
+  async original(
+    @Req() req: AuthedRequest,
+    @Res({ passthrough: true }) res: Response,
+    @Param('revisionId') revisionId: string,
+    @Query('site_id') siteId?: string,
+  ): Promise<StreamableFile> {
+    const claims = req.user as JwtClaims
+    const original = await this.templates.getRevisionOriginal(
+      tenantDe(req),
+      revisionId,
+      workerFilter(claims, siteId),
+    )
+    res.setHeader('Content-Type', XLSX_MIME)
+    res.setHeader('Content-Disposition', contentDisposition(original.fileName))
+    // Nombre percent-encoded: es el valor que el cliente persiste en su caché
+    // (`TemplateOriginalMeta.file_name`) tras `decodeURIComponent`.
+    res.setHeader('X-File-Name', encodeURIComponent(original.fileName))
+    return new StreamableFile(createReadStream(original.path))
   }
 
   /* ── Asignación por faena y rol (TSK-FORM-008, FR-008/009) ─────────────── */

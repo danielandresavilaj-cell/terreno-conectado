@@ -28,17 +28,23 @@ import type { Identidad, RegistroCola, Rol, Severidad, Usuario } from './types'
 import {
   addFinding,
   addLogEntry,
+  aplicarPurgaOriginales,
   borrarSesionCaché,
   contadorFallidos,
   contadorPendientes,
+  descartarBorrador,
   ensureDraftInspection,
   getDeviceId,
   getDraftInspectionId,
   getInspection,
   getTemplateId,
+  guardarCursorPlantilla,
   guardarFotoRespuesta,
+  guardarOriginalPlantilla,
   guardarPlantillasCache,
   guardarSesionCaché,
+  leerCursorPlantilla,
+  listarOriginalesPlantilla,
   listLogEntries,
   listOutbox,
   migrarFotosLegacy,
@@ -55,6 +61,7 @@ import {
   ApiError,
   clearToken,
   EVENTO_LOGOUT,
+  getPlantillaOriginal,
   getPlantillas,
   getSites,
   getToken,
@@ -65,7 +72,18 @@ import {
 import { comprimirImagen } from './compresor'
 import { sincronizarCola } from './sync'
 import {
+  cursorDesdeGuardado,
+  elegirPlantillaActiva,
+  fusionarDelta,
+  planificarPurga,
+  revisionesParaOriginal,
+  type MarcoBorrador,
+  type ResolucionPlantilla,
+} from './plantillas'
+import {
+  PRESUPUESTO_ORIGINALES_BYTES,
   validateValorCampo,
+  XLSX_MIME,
   type CampoValor,
   type TemplateDefinition,
   type TemplatePublicadaDto,
@@ -98,6 +116,14 @@ export interface PlantillaActual {
   version: number | null
   origen: 'servidor' | 'caché' | 'demo'
   definition: TemplateDefinition
+  /**
+   * FR-028: `'no-disponible'` = hay borrador congelado pero su revisión no está
+   * en el dispositivo. La UI lo dice en vez de reencuadrar a otra plantilla
+   * (el trabajador estaría respondiendo un ítem distinto al que leyó).
+   */
+  estado: ResolucionPlantilla['estado']
+  /** Revisión congelada pendiente, para que la UI pueda nombrarla. */
+  revisionPendiente: string | null
 }
 
 interface Ctx {
@@ -114,6 +140,8 @@ interface Ctx {
 
   /** Plantilla activa (FR-036); null sólo durante la hidratación inicial. */
   plantilla: PlantillaActual | null
+  /** Originales `.xlsx` cacheados y avisa de purga (FR-018); 0 = sin purgar. */
+  originales: { cacheados: number; presupuestoBytes: number; purgados: number }
   /** Errores de validación por ítem (FR-039); vacío = todo válido. */
   erroresCampo: Record<string, string>
 
@@ -124,6 +152,10 @@ interface Ctx {
   toggleOnline: () => void
   sincronizarAhora: () => void
   sincronizando: boolean
+  /** Descarta el borrador congelado que no se puede resolver (FR-028).
+   *  Acción explícita del usuario, nunca automática: reencuadrar por la
+   *  espalda invalidaría lo ya respondido. */
+  descartarBorradorYRecargar: () => Promise<void>
 
   pendientes: number
   fallidos: number
@@ -193,6 +225,15 @@ function mapEntradas(rows: Array<{ id: string; capturedAt: string; authorId: str
   }))
 }
 
+/** Revisión congelada del borrador en curso; `null` si no hay borrador (FR-028).
+ *  Es la que la purga de originales nunca puede borrar (FR-018/019). */
+async function revisionActivaId(): Promise<string | null> {
+  const draftId = await getDraftInspectionId()
+  if (!draftId) return null
+  const ins = await getInspection(draftId)
+  return ins?.templateRevisionId ?? null
+}
+
 export function ProveedorEstado({ children }: { children: ReactNode }) {
   const [usuario, setUsuario] = useState<Usuario | null>(null)
   const [identidad, setIdentidad] = useState<Identidad | null>(null)
@@ -208,6 +249,11 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
   const [sincronizando, setSincronizando] = useState(false)
   const [cuotaAviso, setCuotaAviso] = useState(false)
   const [plantilla, setPlantilla] = useState<PlantillaActual | null>(null)
+  const [originales, setOriginales] = useState<Ctx['originales']>({
+    cacheados: 0,
+    presupuestoBytes: PRESUPUESTO_ORIGINALES_BYTES,
+    purgados: 0,
+  })
   const [erroresCampo, setErroresCampo] = useState<Record<string, string>>({})
 
   const refrescar = useCallback(async () => {
@@ -233,69 +279,221 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
     })()
   }, [refrescar])
 
-  /* TSK-FORM-001 / FR-036: hidrata la plantilla activa — caché local del
-   * dispositivo → red (`GET /templates` con delta) → definición demo. Si hay
-   * borrador en curso, prefiere la revisión publicada que coincide con su
-   * `template_id`+versión (FR-038: el borrador conserva su versión). */
-  const cargarPlantilla = useCallback(async (tenantId: string, siteId?: string | null): Promise<PlantillaActual> => {
-    // La caché local es multi-tenant en el mismo dispositivo: se filtra por
-    // el tenant de la sesión activa (FR-007).
-    let items: TemplatePublicadaDto[] = (await plantillasCacheadas()).filter(
-      (i) => i.tenant_id === tenantId,
-    )
-    let enRed = false
-    if (getToken()) {
-      try {
-        const desde = items.length ? Math.max(...items.map((i) => i.version)) : undefined
+/* ── FR-018/027/028 · sincronización de plantillas ─────────────────────────
+   *
+   * Va en pasos explícitos porque cada uno puede fallar sin arrastrar a los
+   * demás: (1) delta por cursor → caché local, (2) descarga de los originales
+   * que faltan, (3) purga por presupuesto. La plantilla activa se resuelve DESPUÉS
+   * contra el borrador congelado: el delta nunca reencuadra un turno en curso.
+   */
+  const purgarOriginales = useCallback(
+    async (tenantId: string, items: TemplatePublicadaDto[]): Promise<number> => {
+      const enCache = await listarOriginalesPlantilla(tenantId)
+      const plan = planificarPurga(
+        enCache,
+        PRESUPUESTO_ORIGINALES_BYTES,
+        await revisionActivaId(),
+        items.map((i) => i.revision_id),
+      )
+      await aplicarPurgaOriginales(plan)
+      return plan.aBorrar.length
+    },
+    [],
+  )
+
+  /* Descarga los originales que faltan y purga por presupuesto (FR-018). Un
+   * 404/403 = "no visible para ti": se descarta sin reintentar. Devuelve
+   * cuántas filas se purgaron, para que la captura pueda avisar del truncado. */
+  const sincronizarOriginales = useCallback(
+    async (
+      tenantId: string,
+      items: TemplatePublicadaDto[],
+      siteId: string | null,
+    ): Promise<number> => {
+      const enCache = await listarOriginalesPlantilla(tenantId)
+      // Tres por pasada: bajar el libro completo de golpe al volver la señal en
+      // una faena con muchas plantillas le comería el presupuesto (FR-018). La
+      // revisión congelada va primera: es la que se exporta (FR-019/044).
+      const pendientes = revisionesParaOriginal(
+        items,
+        enCache.map((o) => o.revision_id),
+        3,
+        await revisionActivaId(),
+      )
+      for (const revisionId of pendientes) {
+        try {
+          const original = await getPlantillaOriginal(revisionId, siteId)
+          await guardarOriginalPlantilla({
+            meta: {
+              revision_id: revisionId,
+              tenant_id: tenantId,
+              file_name: original.fileName,
+              mime: XLSX_MIME,
+              bytes_length: original.bytes.size,
+              cached_at: Date.now(),
+            },
+            bytes: original.bytes,
+          })
+        } catch (err) {
+          // 404/403 = la revisión no está asignada a este rol (FR-009): no es
+          // transitorio y no se reintenta — reintentar sería enumerar originales
+          // ajenos. Un 401 ya cerró la sesión vía `tc:logout`; cualquier otro
+          // fallo (sin señal, caché local llena) corta el lote.
+          if (err instanceof ApiError && (err.status === 404 || err.status === 403)) continue
+          break
+        }
+      }
+      return purgarOriginales(tenantId, items)
+    },
+    [purgarOriginales],
+  )
+
+  const sincronizarPlantillas = useCallback(
+    async (
+      tenantId: string,
+      siteId?: string | null,
+    ): Promise<{ items: TemplatePublicadaDto[]; enRed: boolean; purgados: number }> => {
+      // La caché local es multi-tenant en el mismo dispositivo: se filtra por el
+      // tenant de la sesión activa (FR-007).
+      let items: TemplatePublicadaDto[] = (await plantillasCacheadas()).filter(
+        (i) => i.tenant_id === tenantId,
+      )
+      let enRed = false
+
+      if (getToken()) {
+        // El `since` es el cursor persistido POR TENANT; nunca un umbral
+        // derivado de `version` (éste saltaba revisiones de otras plantillas).
+        const cursorGuardado = await leerCursorPlantilla(tenantId)
         // FR-009: el worker pide sólo lo asignado a su faena y rol; el admin
         // pasa siteId nulo/indefinido y ve todo lo publicado.
-        const r = await getPlantillas(desde, siteId ?? null)
-        if (r.items.length) {
-          await guardarPlantillasCache(r.items)
-          const porRevision = new Map<string, TemplatePublicadaDto>()
-          for (const i of [...items, ...r.items]) porRevision.set(i.revision_id, i)
-          items = [...porRevision.values()]
+        const { items: recibidas, latest_seq: latestSeq } = await getPlantillas(
+          cursorGuardado ?? undefined,
+          siteId ?? null,
+        )
+        // El delta sólo se da por integrado si el caché local acepta TODO lo
+        // recibido: ante un corte a mitad (caos #8) el cursor no avanza y la
+        // siguiente pasada repite el mismo delta en vez de perder revisiones.
+        let completo = true
+        try {
+          await guardarPlantillasCache(recibidas)
+        } catch {
+          completo = false
         }
+        const { cursor } = cursorDesdeGuardado(cursorGuardado, recibidas, latestSeq, completo)
+        if (cursor !== null) await guardarCursorPlantilla(tenantId, cursor)
+        items = completo ? fusionarDelta(items, recibidas) : items
         enRed = true
+      }
+
+      const purgados = await sincronizarOriginales(tenantId, items, siteId ?? null)
+      return { items, enRed, purgados }
+    },
+    [sincronizarOriginales],
+  )
+
+  /* TSK-FORM-001 / FR-036: resuelve la plantilla activa contra el borrador
+   * congelado. Devuelve un estado explícito 'no-disponible' si la revisión del
+   * borrador no está: la UI lo dice en vez de reencuadrar (FR-028). */
+  const elegirActiva = useCallback(
+    async (items: TemplatePublicadaDto[], enRed: boolean): Promise<PlantillaActual> => {
+      const draftId = await getDraftInspectionId()
+      let marco: MarcoBorrador | null = null
+      if (draftId) {
+        const ins = await getInspection(draftId)
+        if (ins) {
+          marco = {
+            templateId: ins.templateId,
+            templateVersion: ins.templateVersion,
+            templateRevisionId: ins.templateRevisionId ?? null,
+          }
+        }
+      }
+      const r = elegirPlantillaActiva(items, marco)
+      let p: PlantillaActual
+      if (r.estado === 'ok') {
+        p = {
+          templateId: r.revision.template_id,
+          revisionId: r.revision.revision_id,
+          nombre: r.revision.name,
+          version: r.revision.version,
+          origen: enRed ? 'servidor' : 'caché',
+          definition: r.revision.definition,
+          estado: 'ok',
+          revisionPendiente: null,
+        }
+      } else if (r.estado === 'no-disponible') {
+        // Sin definición que renderizar: la UI explica el bloqueo en vez de
+        // mostrar otra plantilla (reencuadrar invalidaría lo ya respondido).
+        p = {
+          templateId: r.marco.templateId,
+          revisionId: null,
+          nombre: 'Plantilla no disponible',
+          version: r.marco.templateVersion,
+          origen: 'caché',
+          definition: DEFINICION_DEMO,
+          estado: 'no-disponible',
+          revisionPendiente: r.marco.templateRevisionId,
+        }
+      } else {
+        p = {
+          templateId: await getTemplateId(),
+          revisionId: null,
+          nombre: 'Seguridad en rajo',
+          version: null,
+          origen: 'demo',
+          definition: DEFINICION_DEMO,
+          estado: 'sin-plantillas',
+          revisionPendiente: null,
+        }
+      }
+      setPlantilla(p)
+      setErroresCampo({})
+      return p
+    },
+    [],
+  )
+
+  const cargarPlantilla = useCallback(
+    async (tenantId: string, siteId?: string | null): Promise<PlantillaActual> => {
+      let items: TemplatePublicadaDto[] = []
+      let enRed = false
+      let purgados = 0
+      try {
+        const r = await sincronizarPlantillas(tenantId, siteId)
+        items = r.items
+        enRed = r.enRed
+        purgados = r.purgados
       } catch {
-        /* sin red o sin sesión: manda la caché local (offline-first). */
+        /* sin red o sin sesión: el delta no llegó, manda lo que haya en caché. */
+        items = (await plantillasCacheadas()).filter((i) => i.tenant_id === tenantId)
       }
-    }
-    let mejor: TemplatePublicadaDto | null = null
-    const draftId = await getDraftInspectionId()
-    if (draftId) {
-      const ins = await getInspection(draftId)
-      if (ins) {
-        mejor =
-          items.find((i) => i.template_id === ins.templateId && i.version === ins.templateVersion) ??
-          null
-      }
-    }
-    if (!mejor && items.length) mejor = items.reduce((a, b) => (b.version > a.version ? b : a))
-    let p: PlantillaActual
-    if (mejor) {
-      p = {
-        templateId: mejor.template_id,
-        revisionId: mejor.revision_id,
-        nombre: mejor.name,
-        version: mejor.version,
-        origen: enRed ? 'servidor' : 'caché',
-        definition: mejor.definition,
-      }
-    } else {
-      p = {
-        templateId: await getTemplateId(),
-        revisionId: null,
-        nombre: 'Seguridad en rajo',
-        version: null,
-        origen: 'demo',
-        definition: DEFINICION_DEMO,
-      }
-    }
-    setPlantilla(p)
-    setErroresCampo({})
-    return p
-  }, [])
+      setOriginales({
+        cacheados: (await listarOriginalesPlantilla(tenantId)).length,
+        presupuestoBytes: PRESUPUESTO_ORIGINALES_BYTES,
+        purgados,
+      })
+      return elegirActiva(items, enRed)
+    },
+    [sincronizarPlantillas, elegirActiva],
+  )
+
+  /* Al volver la señal hay que traer el delta igual que al arrancar (FR-027):
+   * el evento `online` y el toggle del mockup disparan esta misma ruta, que
+   * reutiliza el borrador congelado sin tocar su marco (FR-028). */
+  const recargarPlantillas = useCallback(() => {
+    if (!usuario) return
+    void cargarPlantilla(usuario.tenantId, usuario.faenaId || null)
+  }, [usuario, cargarPlantilla])
+
+  /* Salida explícita del bloqueo FR-028. El borrador congelado cuya revisión no
+   * llega (marco demo, o plantilla desasignada) no se puede resolver nunca;
+   * descartarlo es una decisión del usuario y la UI la pide confirmada. */
+  const descartarBorradorYRecargar = useCallback(async () => {
+    if (!usuario) return
+    await descartarBorrador()
+    await refrescar()
+    await cargarPlantilla(usuario.tenantId, usuario.faenaId || null)
+  }, [usuario, refrescar, cargarPlantilla])
 
   const arrancarSesión = useCallback(
     async (perfil: { id: string; tenant_id: string | null; email: string; role: string; full_name: string }, i: Identidad) => {
@@ -317,6 +515,9 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
           totalItems: itemsDe(activa.definition).length,
           templateId: activa.templateId,
           templateVersion: activa.version ?? undefined,
+          // FR-028: se congela la revisión EXACTA, no sólo el par
+          // plantilla+versión (que no desambigua dos revisiones publicadas).
+          templateRevisionId: activa.revisionId,
         })
         const draftRespuestas: Record<string, RespuestaItem> = {}
         for (const item of itemsDe(activa.definition)) {
@@ -447,13 +648,16 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
   const toggleOnline = useCallback(() => {
     setOnline((v) => !v)
     // El valor del cierre es el estado previo: si estaba offline, al encender
-    // la señal se inicia el flush (FR-016, FR-022).
+    // la señal se inicia el flush (FR-016, FR-022) y se trae el delta de
+    // plantillas: sin esto, volver la señal sólo subiría cola y el dispositivo
+    // seguiría capturando contra un caché viejo (FR-027).
     if (!online) {
       void sincronizarAhora()
+      void recargarPlantillas()
     } else {
       void refrescar()
     }
-  }, [online, refrescar, sincronizarAhora])
+  }, [online, refrescar, sincronizarAhora, recargarPlantillas])
 
   /* FR-016: el evento `online` del navegador dispara la sincronización sin
    * intervención del usuario; `offline` apaga el indicador. El toggle del
@@ -462,6 +666,7 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
     const conectar = () => {
       setOnline(true)
       void sincronizarAhora()
+      void recargarPlantillas()
     }
     const desconectar = () => setOnline(false)
     window.addEventListener('online', conectar)
@@ -471,7 +676,7 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
       window.removeEventListener('online', conectar)
       window.removeEventListener('offline', desconectar)
     }
-  }, [sincronizarAhora])
+  }, [sincronizarAhora, recargarPlantillas])
 
   const resolverDraft = useCallback(
     async (u: Usuario) => {
@@ -484,6 +689,7 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
         totalItems: plantilla ? itemsDe(plantilla.definition).length : 0,
         templateId: plantilla?.templateId,
         templateVersion: plantilla?.version ?? undefined,
+        templateRevisionId: plantilla?.revisionId ?? null,
       })
     },
     [plantilla],
@@ -664,6 +870,7 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
     respuestas,
     entradasBitacora,
     plantilla,
+    originales,
     erroresCampo,
     loginInApp,
     salir,
@@ -672,6 +879,7 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
     toggleOnline,
     sincronizarAhora,
     sincronizando,
+    descartarBorradorYRecargar,
     pendientes,
     fallidos,
     enCola: cola,

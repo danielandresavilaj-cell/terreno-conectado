@@ -58,6 +58,23 @@ async function apiFetch<T>(
   path: string,
   opts: { method?: string; body?: unknown; token?: string | null } = {},
 ): Promise<T> {
+  const resp = await apiFetchResp(path, opts)
+  return (await resp.json()) as T
+}
+
+/**
+ * Petición sin tocar el cuerpo de la respuesta.
+ *
+ * `apiFetch` SIEMPRE acaba en `resp.json()`, así que no puede servir el
+ * documento original `.xlsx` (que son bytes, no JSON). Compartir esta parte
+ * garantiza que el cliente binario respete las MISMAS reglas de sesión que el
+ * resto: 401 ⇒ evento `tc:logout`, error ⇒ `ApiError` con el mensaje del
+ * servidor.
+ */
+async function apiFetchResp(
+  path: string,
+  opts: { method?: string; body?: unknown; token?: string | null } = {},
+): Promise<Response> {
   const token = opts.token !== undefined ? opts.token : getToken()
   const headers: Record<string, string> = {}
   if (opts.body !== undefined) headers['Content-Type'] = 'application/json'
@@ -83,7 +100,7 @@ async function apiFetch<T>(
     const body = (await resp.json().catch(() => null)) as { message?: string } | null
     throw new ApiError(resp.status, body?.message ?? `HTTP ${resp.status}`)
   }
-  return (await resp.json()) as T
+  return resp
 }
 
 /* ------------------------------------------------------------- sesión */
@@ -150,14 +167,70 @@ export function getConflicts(): Promise<ListConflictsResponse> {
 }
 
 /** Revisiones publicadas con su definición; `since` pedida = delta (FR-027).
- *  `siteId` es la faena activa del dispositivo: un rol operativo sólo recibe lo
- *  asignado a su rol y faena (FR-009); el admin lo ignora (ve todo). */
+ *  `since` es el cursor `published_seq` persistido (NO `version`: es por
+ *  plantilla y un umbral global saltaba revisiones). `siteId` es la faena
+ *  activa del dispositivo: un rol operativo sólo recibe lo asignado a su
+ *  faena y rol (FR-009); el admin lo ignora (ve todo). */
 export function getPlantillas(since?: number, siteId?: string | null): Promise<TemplatesDeltaResponse> {
   const q = new URLSearchParams()
   if (since !== undefined) q.set('since', String(since))
   if (siteId) q.set('site_id', siteId)
   const suffix = q.size ? `?${q}` : ''
   return apiFetch<TemplatesDeltaResponse>(`/templates${suffix}`)
+}
+
+/** Documento original descargado de una revisión (bytes + nombre real). */
+export interface OriginalDescargado {
+  bytes: Blob
+  fileName: string
+}
+
+/**
+ * Bytes del `.xlsx` fuente de una revisión (FR-018, TSK-FORM-009).
+ *
+ * El nombre llega en `X-File-Name` PERCENT-ENCODED: un header HTTP sólo
+ * transporta latin1, así que un nombre con acentos viajaría corrupto si se
+ * mandara en crudo. El cliente lo decodifica y lo persiste tal cual (FR-019).
+ * `Content-Disposition` es el respaldo (trae `filename*` UTF-8) y, si tampoco
+ * está, se usa un nombre derivado de la revisión: sólo rotula el archivo
+ * exportado, no participa del contrato de la plantilla.
+ *
+ * El MIME no se devuelve: V1 tiene un único formato de original (ADR-003), así
+ * que la fila del caché siempre guarda el literal del contrato.
+ *
+ * Un 404 significa "no visible para ti" (sin asignación o de otro tenant), no
+ * un fallo transitorio: llega como `ApiError` y el llamador lo descarta sin
+ * reintentar — reintentar sería intentar enumerar originales ajenos.
+ */
+export async function getPlantillaOriginal(
+  revisionId: string,
+  siteId?: string | null,
+): Promise<OriginalDescargado> {
+  const q = new URLSearchParams()
+  if (siteId) q.set('site_id', siteId)
+  const suffix = q.size ? `?${q}` : ''
+  const resp = await apiFetchResp(
+    `/templates/revisions/${encodeURIComponent(revisionId)}/original${suffix}`,
+  )
+  return { bytes: await resp.blob(), fileName: nombreArchivoDeHeaders(resp, revisionId) }
+}
+
+function nombreArchivoDeHeaders(resp: Response, revisionId: string): string {
+  const crudo = resp.headers.get('X-File-Name')
+  if (crudo) return decodificarNombre(crudo)
+  const estrella = /filename\*=UTF-8''([^;]+)/i.exec(resp.headers.get('Content-Disposition') ?? '')
+  if (estrella) return decodificarNombre(estrella[1])
+  return `${revisionId}.xlsx`
+}
+
+function decodificarNombre(valor: string): string {
+  try {
+    return decodeURIComponent(valor)
+  } catch {
+    // Header malformado (no es un percent-encoding válido): se conserva en
+    // crudo en vez de tumbar la descarga — el nombre sólo rotula el archivo.
+    return valor
+  }
 }
 
 /** Asignaciones faena+rol del tenant (sólo `tenant_admin`, FR-008). */

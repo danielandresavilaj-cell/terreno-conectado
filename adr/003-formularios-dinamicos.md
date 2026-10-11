@@ -23,7 +23,7 @@ Restricciones que pesan en la decisión:
 4. **Escolta de xlsx: decisión diferida a un spike del TSK de import.** Candidatas: **ExcelJS** y **SheetJS CE** (ambas con read/write de `.xlsx`; difieren en peso de bundle, velocidad de parseo y fidelidad de estilos al rellenar). Criterio del spike: bundle ≤ ~500 KB, fidelidad de estilos al rellenar el original, ejecución en worker/offline y licencia CE compatible. Si el spike cambia la elección, se registra como enmienda a este ADR.
 5. **Export en dispositivo (Art. I).** La generación del `.xlsx` original rellenado + hoja "Evidencias" corre **en el cliente** (FR-019); el servidor produce el mismo artefacto para la descarga del supervisor y los lotes (FR-044–046). Se comparte el máximo código posible entre ambos generadores (módulo en `shared/`), con estilos mínimos (los estilos complejos de Excel original no se replican en V1 — se documenta como evolución).
 6. **Política de IA (V2 opcional).** Feature flag `ai` **off por defecto**; si se activa, corre **solo en backend** y únicamente **propone mapeos de columnas** en la revisión humana del import; el `tenant_admin` conserva la decisión final (FR-048). Cero IA en el dispositivo y cero IA sobre datos de inspección; el demo es autosuficiente sin llamadas externas (Art. VI).
-7. **Versionado y sync.** `TEMPLATE_REVISION` inmutable con ciclo `draft → published → archived` (FR-049). Sincronización por **delta** con `GET /api/v1/templates?since=<template_version>` (FR-027). Las inspecciones **congelan** su `template_version` al iniciarse (FR-028/038): un cambio de plantilla nunca re-encuadra una inspección en curso.
+7. **Versionado y sync.** `TEMPLATE_REVISION` inmutable con ciclo `draft → published → archived` (FR-049). Sincronización por **delta** con `GET /api/v1/templates?since=<template_version>` (FR-027). Las inspecciones **congelan** su `template_version` al iniciarse (FR-028/038): un cambio de plantilla nunca re-encuadra una inspección en curso. *(Enmienda 2: el cursor del delta es la secuencia global de publicación, no `version`.)*
 
 ## Alternativas consideradas
 
@@ -49,6 +49,25 @@ El spike procedimental (`plans/007-formularios-dinamicos/spike-xlsx.md`) se ejec
 - **SheetJS CE** (0.18.5, Apache-2.0): bundle 109 KB gzip ✓ y algo más rápido, pero **pierde los estilos al reescribir** (edición de estilos fuera de la Community Edition) → falla la fidelidad (2/6), requisito literal de FR-019/044 ("el `.xlsx` **original** rellenado").
 
 **ADO:** V1 usa **ExcelJS** como única escolta de `.xlsx`, compartida entre el import (TSK-FORM-005) y el export en dispositivo/servidor (TSK-FORM-010) vía módulo en `shared/` (d5). El wrapper (`shared/src/xlsx/escolta.ts`) aísla la API para correr igual en Web Worker (cliente) y Node (servidor). La decisión "Evidencias embebida vs referenciada" (FR-046) queda para el TSK-FORM-010.
+
+---
+
+## Enmienda 2 (2026-10-10) — decisión 7 precisada: el cursor del delta es una secuencia global
+
+TSK-FORM-009 (#42) construyó el ciclo de sincronización y encontró que la decisión 7, tal como estaba escrita, **no se podía implementar**: el delta perdía revisiones de forma silenciosa.
+
+**El defecto.** `version` se asigna **por plantilla** (`MAX(version)+1` dentro de su `template_id`, data-model §2.2), pero el umbral del delta es **uno solo** para todo el tenant. Con el dispositivo cacheando la plantilla A en v9 y la B en v3, el cursor `since = 9` hace que la v4 de B **nunca llegue**: `9 > 4` y el delta no vuelve a entregarla. El `latest_version` que el propio backend documentaba como "base del próximo `since`" era el mismo número, así que el error se autoalimentaba. La consecuencia práctica es que el delta nunca garantiza una respuesta completa, y un turno abierto en la faena equivocada se queda sin plantilla para siempre.
+
+**ADO:** `template_revision` incorpora `published_seq bigint NULL`, una secuencia **global de publicaciones**. El delta compara `published_seq > since` y devuelve `latest_seq`. Propiedades:
+
+- **Monotónica y con huecos tolerados.** La secuencia es global, así que publicar en el tenant B consume números que el tenant A nunca verá; un hueco no es un error, el delta simplemente no trae nada.
+- **NULL en borradores.** La secuencia significa "publicación", no "fila": no se consumen números en revisiones que quizá nunca se publiquen, y el borrador queda fuera del delta por construcción.
+- **Restricción en el motor.** `CHECK (status <> 'published' OR published_seq IS NOT NULL)`: ninguna revisión puede estar publicada sin secuencia. Cualquier camino futuro que publique sin sellarla —hoy `publishRevision` y `confirmTemplateImport(publish)`— revienta en la base en vez de producir un delta que nunca llega.
+- **El congelado se ata al `revision_id`.** El borrador en curso persiste ahora la revisión exacta (local, sin tocar el contrato de sync), no sólo el par `template_id`+`version`. Si esa revisión no está disponible la captura se bloquea y lo dice, en vez de reencuadrar en silencio; con **salida explícita** (descartar el borrador, previa confirmación), porque hay caminos donde la revisión no vuelve nunca —un borrador nacido del fallback demo, o una plantilla que el supervisor desasignó.
+
+**Qué NO cambia:** `version` sigue siendo por plantilla y sigue siendo lo que ve el usuario ("v3 de la plantilla"). El parámetro `since` conserva su nombre y su semántica de "última versión conocida"; lo que se precisa es **qué** número viaja. La redacción literal de FR-027 (`since=<template_version>`) queda como está —el spec maestro está firmado y no se abre Enmienda 003 para esto—; la desviación se registra aquí y en `data-model.md`, que es donde vive el detalle del esquema.
+
+**Alternativas descartadas:** `since` como timestamp de `published_at` (cambia la semántica del parámetro y colisiona a baja resolución); cursor por plantilla (no cabe en un parámetro escalar); mantener `version` global (rompe el versionado legible por plantilla, que es requisito de FR-027 y de la UI).
 
 ---
 

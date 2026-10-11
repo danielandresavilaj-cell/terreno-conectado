@@ -1,6 +1,6 @@
 # DATA MODEL — Modelo conceptual de datos
 
-**Versión:** 1.1.1 (módulo 007) · **Fecha:** 2026-09-14 · actualizado 2026-10-10 · **Autor:** Daniel Ávila · **Relacionado:** spec maestro §5/§7 (Enmienda 002), specs 001–007, ADR-003
+**Versión:** 1.1.2 (módulo 007) · **Fecha:** 2026-09-14 · actualizado 2026-10-10 · **Autor:** Daniel Ávila · **Relacionado:** spec maestro §5/§7 (Enmienda 002), specs 001–007, ADR-003
 **Evidencia APT:** "Modelo conceptual de datos preliminar" (informe §6).
 **Reglas transversales:** toda tabla de dominio lleva `tenant_id UUID NOT NULL` + política RLS (Artículo IV); IDs `UUIDv7` generados en el cliente cuando el registro nace offline (FR-015); timestamps `created_at`, `updated_at` (servidor) y `captured_at` (cliente, autoridad para LWW — FR-023).
 
@@ -84,12 +84,15 @@ erDiagram
 | id | UUID PK | |
 | template_id | UUID FK→TEMPLATE | |
 | tenant_id | UUID FK→TENANT | RLS |
-| version | INT | incrementa por publicación; base del delta `since=` (FR-027) |
+| version | INT | **por plantilla**: `MAX(version)+1` dentro de su `template_id`. Es lo que ve el usuario ("v3 de la plantilla") |
+| published_seq | BIGINT NULL | **secuencia GLOBAL de publicación** — cursor real del delta `since=` (FR-027). NULL en borradores; `CHECK (status <> 'published' OR published_seq IS NOT NULL)` |
 | definition | JSONB | secciones + ítems completos (render offline, ADR-003) |
 | status | ENUM(draft, published, archived) | se congela al publicar (FR-049) |
 | source_import_id | UUID FK→TEMPLATE_IMPORT NULL | origen `.xlsx` si nació de un import |
 | published_at | TIMESTAMPTZ NULL | |
 | created_at | TIMESTAMPTZ | |
+
+> **Por qué dos números (TSK-FORM-009, ADR-003 Enmienda 2).** `version` es por plantilla y el umbral del delta es uno solo para todo el tenant: con la plantilla A en v9 y la B en v3, comparar por `version` hace que la v4 de B **nunca llegue** al dispositivo. `published_seq` es monotónica global (huecos tolerados entre tenants), así que el delta nunca salta una revisión. El parámetro `since` no cambia de nombre ni de semántica —"última versión conocida"—; cambia el número que viaja. La redacción literal de FR-027 (`since=<template_version>`) se mantiene; la desviación está en ADR-003 Enmienda 2.
 
 **TEMPLATE_IMPORT** — importación de documento (módulo 007, FR-029).
 `id, tenant_id, uploaded_by UUID FK→USER, file_key TEXT, file_name TEXT, status TEXT (uploaded, parsed, proposed, confirmed, failed), proposed_schema JSONB NULL (propuesta TemplateImportProposal validada con Zod compartido), error TEXT NULL, created_at TIMESTAMPTZ, updated_at TIMESTAMPTZ`. La revisión `draft` nacida del import se asocia por `source_import_id` y **solo se publica tras confirmación humana** (FR-029); RLS por `tenant_id`. `ATTACHMENT.owner_type` incluye `'template_import'`.
@@ -173,5 +176,6 @@ CREATE POLICY tenant_isolation ON inspection
 | Versión | Fecha | Cambio |
 | :--- | :--- | :--- |
 | 1.0.0 | 2026-09-14 | Modelo base (specs 001–006) |
+| 1.1.2 | 2026-10-10 | **Módulo 007 (TSK-FORM-009, PR #89):** `TEMPLATE_REVISION.published_seq` (secuencia global de publicación) como cursor del delta FR-027, con backfill determinista, índice parcial y `CHECK (status <> 'published' OR published_seq IS NOT NULL)`; `version` queda documentada como por plantilla. Se registra la desviación respecto de la redacción literal de FR-027 (`since=<template_version>`) — ver ADR-003 Enmienda 2 |
 | 1.1.1 | 2026-10-10 | `TEMPLATE_ASSIGNMENT` materializada (TSK-FORM-008, PR #87): `active` para desactivar sin borrar y único lógico `(template_revision_id, site_id, role)` implementado con dos índices únicos parciales (`site_id IS NULL` / `IS NOT NULL`) para que la asignación global (`site_id NULL` = todas las faenas) también quede protegida |
 | 1.1.0 | 2026-10-07 | **Módulo 007 (Enmienda 002):** `TEMPLATE_REVISION` inmutable (draft/published/archived, `source_import_id`), `TEMPLATE_IMPORT` (uploaded/parsed/proposed/confirmed/failed, `proposed_schema`), `TEMPLATE_ASSIGNMENT` (faena/rol); `TEMPLATE_ITEM` ampliado a 8 `response_type` + `props JSONB`; `INSPECTION_RESPONSE` +`value_json JSONB`; `ATTACHMENT.owner_type` +`response`; inspección congela `template_revision_id` |

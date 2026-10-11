@@ -10,8 +10,15 @@
  */
 
 import Dexie, { type EntityTable } from 'dexie'
-import { uuidv7, type SyncRecord, type TemplatePublicadaDto } from '@terreno/shared'
+import {
+  templateOriginalMetaSchema,
+  uuidv7,
+  type SyncRecord,
+  type TemplateOriginalMeta,
+  type TemplatePublicadaDto,
+} from '@terreno/shared'
 import { PLANTILLA } from './seed'
+import { type PlanPurga } from './plantillas'
 import type { Identidad, Usuario } from './types'
 
 export type SyncEstado = 'pending' | 'syncing' | 'synced' | 'failed'
@@ -42,6 +49,11 @@ export interface InspectionRow {
   siteId: string
   templateId: string
   templateVersion: number
+  /** FR-028: revisión publicada exacta con la que nació el borrador. Antes de
+   *  TSK-FORM-009 el congelado era sólo `templateId`+`templateVersion`, que no
+   *  desambigua dos revisiones publicadas del mismo par; `null` = borrador legado
+   *  (se resuelve por `templateId`+`templateVersion`). */
+  templateRevisionId?: string | null
   executedBy: string
   status: 'draft' | 'in_progress' | 'submitted' | 'reviewed'
   capturedAt: string
@@ -119,6 +131,13 @@ export interface PlantillaCacheRow extends TemplatePublicadaDto {
   cachedAt: string
 }
 
+/** Original `.xlsx` de una revisión en el dispositivo (FR-018, TSK-FORM-009).
+ *  Los BYTES no viajan en el contrato: se suman al download y se guardan como
+ *  `Blob`; la metadata sí se valida con el schema de `@terreno/shared`. */
+export interface PlantillaOriginalRow extends TemplateOriginalMeta {
+  bytes: Blob
+}
+
 export const ORDEN_BATCH: Record<OutboxRow['entityType'], number> = {
   inspection: 1,
   response: 2,
@@ -143,6 +162,7 @@ export const db = new Dexie('terreno-conectado') as Dexie & {
   logEntries: EntityTable<LogEntryRow, 'id'>
   attachments: EntityTable<AttachmentRow, 'id'>
   plantillas: EntityTable<PlantillaCacheRow, 'revision_id'>
+  plantillaOriginales: EntityTable<PlantillaOriginalRow, 'revision_id'>
   meta: EntityTable<{ key: string; value: MetaValue }, 'key'>
 }
 
@@ -159,6 +179,15 @@ db.version(1).stores({
 // v2 (TSK-FORM-001): caché local de revisiones publicadas para render offline.
 db.version(2).stores({
   plantillas: 'revision_id, template_id, version',
+})
+
+// v3 (TSK-FORM-009): documento original de cada revisión (bytes en el
+// dispositivo para exportar el documento rellenado sin conexión, FR-019/044).
+// El cursor del delta NO vive en una tabla: va en `meta` por tenant, porque un
+// dispositivo compartido cambia de sesión y el umbral de un tenant no puede
+// saltarle another's revisiones (ni al revés).
+db.version(3).stores({
+  plantillaOriginales: 'revision_id, tenant_id, cached_at',
 })
 
 /* ------------------------------------------------------------------ util */
@@ -272,6 +301,68 @@ export async function plantillasCacheadas(): Promise<PlantillaCacheRow[]> {
   return rows.sort((a, b) => b.version - a.version)
 }
 
+/* --------------------------------- delta de plantillas (TSK-FORM-009, FR-027)
+ *
+ * El cursor es `published_seq` (secuencia GLOBAL de publicación), guardado POR
+ * TENANT: `version` es por plantilla y un umbral global saltaba revisiones
+ * (ver `lib/plantillas.ts`). Un dispositivo alterna sesiones de distintas
+ * empresas, así que un único cursor compartido dejaría huecos en ambos sentidos.
+ */
+
+const CURSOR_PREFIX = 'tc_plantilla_cursor:'
+
+export async function leerCursorPlantilla(tenantId: string): Promise<number | null> {
+  const row = await db.meta.get(`${CURSOR_PREFIX}${tenantId}`)
+  return typeof row?.value === 'number' ? row.value : null
+}
+
+export async function guardarCursorPlantilla(tenantId: string, seq: number): Promise<void> {
+  await db.meta.put({ key: `${CURSOR_PREFIX}${tenantId}`, value: seq })
+}
+
+/* ------------------------------------- originales .xlsx (FR-018, TSK-FORM-009) */
+
+/**
+ * Cachea el original de una revisión. Idempotente por `revision_id`: volver a
+ * descargar el mismo libro reemplaza la fila, no la duplica. La metadata se
+ * valida con el contrato de `@terreno/shared` antes de tocar IndexedDB — un
+ * original sin `file_name` o con MIME inesperado no sirve para exportar y es
+ * mejor que no entre al caché.
+ */
+export async function guardarOriginalPlantilla(params: {
+  meta: TemplateOriginalMeta
+  bytes: Blob
+}): Promise<void> {
+  const meta = templateOriginalMetaSchema.parse(params.meta)
+  await db.plantillaOriginales.put({ ...meta, bytes: params.bytes })
+}
+
+export async function listarOriginalesPlantilla(
+  tenantId?: string | null,
+): Promise<PlantillaOriginalRow[]> {
+  const rows = tenantId
+    ? await db.plantillaOriginales.where('tenant_id').equals(tenantId).toArray()
+    : await db.plantillaOriginales.toArray()
+  return rows.sort((a, b) => a.cached_at - b.cached_at)
+}
+
+export async function originalDePlantilla(
+  revisionId: string,
+): Promise<PlantillaOriginalRow | undefined> {
+  return db.plantillaOriginales.get(revisionId)
+}
+
+export async function borrarOriginalesPlantilla(revisionIds: readonly string[]): Promise<void> {
+  if (revisionIds.length === 0) return
+  await db.plantillaOriginales.bulkDelete([...revisionIds])
+}
+
+/** Aplica un plan de `planificarPurga` (FR-018). Idempotente: borrar dos veces
+ *  las mismas revisiones no falla ni deja rastro. */
+export async function aplicarPurgaOriginales(plan: PlanPurga): Promise<void> {
+  await borrarOriginalesPlantilla(plan.aBorrar)
+}
+
 /* ------------------------------------------------------ draft de captura */
 
 export async function ensureDraftInspection(params: {
@@ -286,11 +377,22 @@ export async function ensureDraftInspection(params: {
    *  plantilla publicada cambie después. */
   templateId?: string
   templateVersion?: number
+  /** FR-028: la revisión EXACTA con la que se abrió el turno. Es lo que impide
+   *  reencuadrar a otra revisión del mismo template al resolver la plantilla
+   *  activa; los borradores previos arrives sin ella. */
+  templateRevisionId?: string | null
 }): Promise<{ id: string; answeredCount: number }> {
   const existing = await getDraftInspectionId()
   if (existing) {
     const row = await db.inspections.get(existing)
     if (row && (row.status === 'draft' || row.status === 'in_progress')) {
+      // El early-return conserva el marco congelado (FR-028). Sólo se completa
+      // `templateRevisionId` si al borrador aún le falta (nació en un arranque
+      // anterior a TSK-FORM-009): rellenarlo NO reencuadra nada porque la
+      // revisión corresponde al `templateId`/`templateVersion` que ya guarda.
+      if (!row.templateRevisionId && params.templateRevisionId) {
+        await db.inspections.update(existing, { templateRevisionId: params.templateRevisionId })
+      }
       const answered = await db.responses.where('inspectionId').equals(existing).count()
       return { id: existing, answeredCount: answered }
     }
@@ -303,6 +405,7 @@ export async function ensureDraftInspection(params: {
     siteId: params.siteId,
     templateId: params.templateId ?? (await getTemplateId()),
     templateVersion: params.templateVersion ?? 3,
+    templateRevisionId: params.templateRevisionId ?? null,
     executedBy: params.executedBy,
     status: 'draft',
     capturedAt: ahoraIso(),
@@ -363,6 +466,43 @@ export async function upsertResponse(params: {
     clientVersion: 0,
   })
   return id
+}
+
+/**
+ * Descarta el borrador en curso y lo que cuelgue de él (FR-028).
+ *
+ * El bloqueo `'no-disponible'` es correcto —reencuadrar invalidaría lo ya
+ * respondido— pero no puede ser un callejón sin salida: hay caminos en los que
+ * la revisión congelada no vuelve nunca, p. ej. un borrador nacido del fallback
+ * demo (marco inventado) o una plantilla que el supervisor desasignó, donde el
+ * servidor ya no la sirve y el delta no la traerá. Esta función es la salida
+ * EXPLÍCITA: borra el marco y deja crear uno nuevo. Nada se borra en silencio;
+ * la decisión es del usuario y la UI la pide con confirmación.
+ *
+ * No encola nada: un borrador descartado nunca se sincroniza (pertenece al
+ * outbox sólo al enviarse).
+ */
+export async function descartarBorrador(): Promise<void> {
+  const id = await getDraftInspectionId()
+  if (!id) return
+  const respuestas = await db.responses.where('inspectionId').equals(id).toArray()
+  const hallazgos = await db.findings.where('inspectionId').equals(id).toArray()
+  // Los adjuntos cuelgan de la inspección, de sus respuestas o de sus hallazgos
+  // (`owner_type` FR-012/FR-037); borrar por `ownerId` los cubre todos sin
+  // tener que enumerar tipos.
+  const duenos = [id, ...respuestas.map((r) => r.id), ...hallazgos.map((h) => h.id)]
+
+  await db.transaction(
+    'rw',
+    [db.inspections, db.responses, db.findings, db.attachments, db.meta],
+    async () => {
+      await db.attachments.where('ownerId').anyOf(duenos).delete()
+      await db.responses.where('inspectionId').equals(id).delete()
+      await db.findings.where('inspectionId').equals(id).delete()
+      await db.inspections.delete(id)
+      await setDraftInspectionId(null)
+    },
+  )
 }
 
 export async function submitInspection(inspectionId: string): Promise<void> {

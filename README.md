@@ -293,7 +293,16 @@ asigna por faena/rol → el worker captura offline → export del documento rell
   sólo lo asignado a su rol y faena (FR-009) y la pantalla **Plantillas** deja al `tenant_admin`
   asignar/desasignar con búsqueda y filtro por rol en cliente.
 
-Pendiente (issues #42–#45): delta sync (#42), export (#43), pruebas (#44), V2 (#45). Cerrados en este ciclo: UX de import (#39), TEMPLATE_IMPORT + auditoría (#40), asignaciones (#41).
+- **TSK-FORM-009**: **delta y caché local** — el cursor del delta es `published_seq`, una **secuencia
+  global de publicación**, y no `version` (que es por plantilla: con la plantilla A en v9 y la B en v3
+  un umbral global hacía que la v4 de B nunca llegara). La revisión publicada se congela por
+  `revision_id` en el borrador (FR-028) y el documento original `.xlsx` se descarga a
+  `GET /templates/revisions/:id/original` y se cachea en el dispositivo con purga por presupuesto de
+  25 MiB, para poder exportar sin señal (FR-018/019). El delta baja **también al volver la señal**, no
+  sólo al arrancar.
+
+Pendiente (issues #43–#45): export (#43), pruebas (#44), V2 (#45). Cerrados en este ciclo: UX de
+import (#39), TEMPLATE_IMPORT + auditoría (#40), asignaciones (#41), delta sync y caché (#42).
 
 | Servicio | URL | Estado |
 | :--- | :--- | :--- |

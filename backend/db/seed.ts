@@ -331,10 +331,15 @@ export async function seedDatabase(db: SeedQueryable): Promise<void> {
   for (const [id, templateId, tenantId, version, status, definition] of revisions) {
     // DO UPDATE sólo rellena fixtures vacíos: una definición ya cargada (o
     // editada en dev) no se pisa al re-sembrar.
+    // `published_seq` (TSK-FORM-009, FR-027): el seed publica directo como
+    // owner saltándose `publishRevision`, así que sella la secuencia aquí con
+    // el mismo CASE que `published_at` — el CHECK de la migración 009 exige
+    // que toda revisión publicada tenga secuencia.
     await db.query(
-      `INSERT INTO template_revision (id, template_id, tenant_id, version, definition, status, published_at)
+      `INSERT INTO template_revision (id, template_id, tenant_id, version, definition, status, published_at, published_seq)
        VALUES ($1, $2, $3, $4, $5::jsonb, $6,
-               CASE WHEN $6 = 'published' THEN now() ELSE NULL END)
+               CASE WHEN $6 = 'published' THEN now() ELSE NULL END,
+               CASE WHEN $6 = 'published' THEN nextval('template_revision_published_seq') ELSE NULL END)
        ON CONFLICT (id) DO UPDATE
          SET definition = EXCLUDED.definition
        WHERE template_revision.definition = '{"sections":[]}'::jsonb`,

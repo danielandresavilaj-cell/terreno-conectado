@@ -41,8 +41,8 @@ Cada promesa del spec maestro tiene una prueba que la verifica (NFR-12). Las pru
 | NFR-07 | Lighthouse CI mobile ≥ 80; interacción de formulario < 200 ms | Rendimiento |
 | FR-007, NFR-05 | Plantillas/revisiones de tenant A jamás visibles para B (fixture B sembrada) | Integración (RLS, Testcontainers) |
 | FR-008/009 | Asignación faena+rol: el worker solo ve revisiones publicadas asignadas a su faena y rol | Integración |
-| FR-018 | Plantillas en caché local → captura de formulario 100% sin red (Artículo I) | E2E |
-| FR-027/028 | Delta `since=<template_version>` trae solo cambios; inspección en curso conserva su versión congelada | Integración |
+| FR-018 | Plantillas en caché local → captura de formulario 100% sin red (Artículo I). Cubierto en parte por unit del cliente (Dexie + `fake-indexeddb`); el arranque sin red en navegador real sigue siendo **E2E manual** | Unit + E2E |
+| FR-027/028 | Delta `since=` por `published_seq` trae solo cambios y nunca salta una revisión de otra plantilla; inspección en curso conserva su revisión congelada | Integración + Unit |
 | FR-036/039 | Respuesta de los 8 tipos de campo; valor inválido rechazado en el dispositivo antes de encolar | Unit + E2E |
 | FR-037 + FR-012 | Foto de ítem comprimida y asociada a la respuesta (`ATTACHMENT`) | Unit + E2E |
 | FR-029 | Reintentar un import sincronizado 3 veces → cero duplicados (idempotencia del motor batch) | Integración |
@@ -70,10 +70,10 @@ Escenarios ejecutados con Playwright (offline automático) y manualmente en la d
 
 Extienden la sección 4 con los invariantes del módulo (spec 007): libros `.xlsx` reales, versionado inmutable y delta de plantillas.
 
-8. **Corte a mitad de delta de plantillas:** offline durante `GET /api/v1/templates?since=` → reconectar: caché consistente y la inspección en curso conserva su versión congelada (FR-027/028).
+8. **Corte a mitad de delta de plantillas:** offline durante `GET /api/v1/templates?since=` → reconectar: caché consistente y la inspección en curso conserva su versión congelada (FR-027/028). *El invariante crítico —el cursor no avanza si el delta no se integró completo— está cubierto por unit en el cliente* (`plantillas.delta.test.ts`).
 9. **Doble import de plantilla:** reenviar el mismo `.xlsx` (replay de red) → un único `TEMPLATE_IMPORT` confirmado, cero duplicación (FR-029).
 10. **Edición concurrente de revisión:** dos `tenant_admin` editan el mismo borrador → se publica una sola versión y queda auditada (FR-047/049).
-11. **Versión en vuelo:** inspección iniciada con v1 mientras se publica v2 → la inspección re-exporta con v1 y no se re-valida contra v2 (FR-028/038).
+11. **Versión en vuelo:** inspección iniciada con v1 mientras se publica v2 → la inspección re-exporta con v1 y no se re-valida contra v2 (FR-028/038). *Si la revisión congelada no llega, la captura se bloquea y lo dice, con salida explícita confirmada; nunca reencuadra en silencio.*
 
 **Criterio de éxito del módulo:** escenarios 8–11 con `0 duplicados ∧ 0 versiones inconsistentes ∧ 0 fugas cross-tenant`; import/export probados con libros reales (fixtures del spike xlsx, plan 007 §3).
 

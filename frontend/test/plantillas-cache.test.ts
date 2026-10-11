@@ -1,13 +1,12 @@
 /* Caracterización del caché local de plantillas (congelado FR-028 incluido).
  *
- * Estos tests NO cubren código nuevo: fijan el comportamiento que hoy sostiene
- * TSK-FORM-009 antes de que se toque. Sirven de red de seguridad para el
- * refactor del delta y como constancia explícita de lo que cambia después
- * (`templateRevisionId` pasa a persistirse en el borrador).
+ * Estos tests NO cubren código nuevo: fijan el comportamiento que ya sostenía la
+ * captura antes de que TSK-FORM-009 lo tocara, y sirven de red de seguridad para
+ * el refactor del delta.
  *
- * Los casos marcados como "carácter actual" describen limitaciones conocidas:
- * cuando 009 las cambie, este test debe fallar a propósito para que el diff
- * muestre la diferencia.
+ * Los casos marcados como "carácter actual" describen limitaciones conocidas
+ * que 009 todavía no cambió: cuando el cambio llegue, este test debe fallar a
+ * propósito para que el diff muestre la diferencia.
  */
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { TemplatePublicadaDto } from '@terreno/shared'
@@ -21,6 +20,7 @@ function publicada(over: Partial<TemplatePublicadaDto> = {}): TemplatePublicadaD
     tenant_id: '01890000-0000-7000-8000-0000000000a1',
     name: 'Chequeo de seguridad minera',
     version: 1,
+    published_seq: 1,
     published_at: '2026-10-01T00:00:00.000Z',
     definition: {
       sections: [
@@ -127,11 +127,24 @@ describe('borrador de inspección (congelado FR-028)', () => {
     expect(row?.totalItems).toBe(1)
   })
 
-  it('el borrador NO persiste revisionId (carácter actual que 009 cambia)', async () => {
+  it('el borrador persiste la revisión congelada (TSK-FORM-009)', async () => {
     const { ensureDraftInspection } = await import('../src/lib/db')
-    const creado = await ensureDraftInspection({ ...base, templateId: 't-1', templateVersion: 1 })
+    const creado = await ensureDraftInspection({
+      ...base,
+      templateId: 't-1',
+      templateVersion: 1,
+      templateRevisionId: '01890000-0000-7000-8000-0000000000a8',
+    })
     const row = await getInspection(creado.id)
     expect(row).toBeDefined()
-    expect('templateRevisionId' in (row as object)).toBe(false)
+    // Antes daba `false`: 009 añadió la columna porque `template_id`+`version`
+    // no desambigua dos revisiones publicadas del mismo par (FR-028).
+    expect(row?.templateRevisionId).toBe('01890000-0000-7000-8000-0000000000a8')
+  })
+
+  it('el borrador heredado (sin revisionId) queda en null, no se inventa uno', async () => {
+    const { ensureDraftInspection } = await import('../src/lib/db')
+    const creado = await ensureDraftInspection({ ...base, templateId: 't-1', templateVersion: 1 })
+    expect((await getInspection(creado.id))?.templateRevisionId).toBeNull()
   })
 })
