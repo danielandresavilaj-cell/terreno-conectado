@@ -31,7 +31,9 @@ import {
  * definición de 8 tipos + RLS. Verifica:
  *  - `GET /templates` devuelve la revisión publicada del tenant con su
  *    `definition` renderizable y los 8 `response_type` (FR-036);
- *  - el delta `since=` filtra por `version` y reporta `latest_version` (FR-027);
+ *  - el delta `since=` filtra por `published_seq` y reporta `latest_seq`
+ *    (FR-027; TSK-FORM-009 movió el cursor de `version` a la secuencia global
+ *    de publicación — el detalle en `templates.delta.spec.ts`);
  *  - aislamiento por tenant (FR-007) y rol: borradores sólo para
  *    `tenant_admin`; platform_admin/sin sesión → 403/401;
  *  - el catálogo materializado del seed es legible (base de import/export).
@@ -101,6 +103,17 @@ afterAll(async () => {
 })
 
 describe('GET /api/v1/templates', () => {
+  /**
+   * Secuencia de publicación de la revisión publicada del seed de A. El cursor
+   * ya no es 1 (`version`) sino el número global que asigna la secuencia, así
+   * que los asserts lo comparan contra el valor real leído del delta.
+   */
+  async function publishedSeqA(): Promise<number> {
+    const res = await get(adminToken, '/api/v1/templates')
+    const rev = res.body.items.find((i: { revision_id: string }) => i.revision_id === TEMPLATE_A_REVISION_PUBLISHED_ID)
+    return rev.published_seq as number
+  }
+
   it('devuelve la revisión publicada del tenant con los 8 tipos renderizables', async () => {
     const res = await get(trabajadorToken, '/api/v1/templates')
     expect(res.status).toBe(200)
@@ -110,7 +123,7 @@ describe('GET /api/v1/templates', () => {
     expect(pub.name).toBe('Chequeo de seguridad minera')
     expect(pub.version).toBe(1)
     expect(pub.revision_id).toBe(TEMPLATE_A_REVISION_PUBLISHED_ID)
-    expect(res.body.latest_version).toBe(1)
+    expect(res.body.latest_seq).toBe(pub.published_seq)
 
     // La definición pasa por el MISMO contrato que validó al guardarla
     // (FR-039): "plantilla guardada ⇒ render válida" es una invariante.
@@ -120,17 +133,22 @@ describe('GET /api/v1/templates', () => {
     expect(def.sections.flatMap((s) => s.items)).toHaveLength(9)
   })
 
-  it('el delta since= filtra versiones y reporta latest_version', async () => {
-    const desdeCero = await get(trabajadorToken, '/api/v1/templates?since=0')
+  it('el delta since= filtra por published_seq y reporta latest_seq', async () => {
+    // El admin no lleva site_id: sin filtro de rol/faena ve todo lo publicado
+    // del tenant, así que el cursor del delta es el techo real del tenant.
+    const seq = await publishedSeqA()
+
+    const desdeCero = await get(adminToken, '/api/v1/templates?since=0')
     expect(desdeCero.status).toBe(200)
     expect(desdeCero.body.items).toHaveLength(1)
     // El caché offline del dispositivo filtra por este tenant_id (FR-007).
     expect(desdeCero.body.items[0].tenant_id).toBe(TENANT_A_ID)
+    expect(desdeCero.body.latest_seq).toBe(seq)
 
-    const yaDescargado = await get(trabajadorToken, '/api/v1/templates?since=1')
+    const yaDescargado = await get(adminToken, `/api/v1/templates?since=${seq}`)
     expect(yaDescargado.status).toBe(200)
     expect(yaDescargado.body.items).toHaveLength(0)
-    expect(yaDescargado.body.latest_version).toBe(1)
+    expect(yaDescargado.body.latest_seq).toBe(seq)
   })
 
   it('rechaza un since no entero con 400', async () => {
@@ -160,14 +178,14 @@ describe('GET /api/v1/templates — filtrado por rol y faena (TSK-FORM-008, FR-0
     expect(res.status).toBe(200)
     expect(res.body.items).toHaveLength(1)
     expect(res.body.items[0].revision_id).toBe(TEMPLATE_A_REVISION_PUBLISHED_ID)
-    expect(res.body.latest_version).toBe(1)
+    expect(res.body.latest_seq).toBe(res.body.items[0].published_seq)
   })
 
   it('el field_worker con otra faena no ve nada (asignación por faena)', async () => {
     const res = await get(trabajadorToken, `/api/v1/templates?site_id=${SITE_B_ID}`)
     expect(res.status).toBe(200)
     expect(res.body.items).toHaveLength(0)
-    expect(res.body.latest_version).toBeNull()
+    expect(res.body.latest_seq).toBeNull()
   })
 
   it('sin site_id el worker ve las asignaciones de su rol (todas sus faenas)', async () => {

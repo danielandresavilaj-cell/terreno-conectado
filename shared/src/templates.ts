@@ -287,19 +287,46 @@ export interface TemplatePublicadaDto {
   /** Tenant dueño (RLS) — el caché offline lo filtra por tenant activo. */
   tenant_id: string
   name: string
-  /** `version` es asignada al publicar (FR-027) y base del delta `since`. */
+  /** `version` es POR PLANTILLA: max+1 dentro de su `template_id` (FR-027). */
   version: number
+  /** Secuencia GLOBAL de publicación — cursor del delta (FR-027, TSK-FORM-009). */
+  published_seq: number
   published_at: string | null
   definition: TemplateDefinition
 }
 
-/** Respuesta de `GET /api/v1/templates?since=` (delta, FR-027). */
+/** Revisión publicada tal como la consume el cliente (Zod = contrato único). */
+export const templatePublicadaSchema = z.object({
+  template_id: z.string().uuid(),
+  revision_id: z.string().uuid(),
+  tenant_id: z.string().uuid(),
+  name: z.string().min(1),
+  version: z.number().int().positive(),
+  published_seq: z.number().int().nonnegative(),
+  published_at: z.string().datetime().nullable(),
+  definition: templateDefinitionSchema,
+})
+
+/**
+ * Respuesta de `GET /api/v1/templates?since=` (delta, FR-027).
+ *
+ * El cursor es `published_seq`, NO `version`: `version` se asigna por
+ * plantilla (max+1 dentro de su `template_id`), así que un umbral global la
+ * saltaría — con la plantilla A en v9 y la B en v3, `since=9` impide que la v4
+ * de B llegue nunca al dispositivo. `published_seq` es monotónica entre
+ * publicaciones, con huecos tolerados.
+ */
 export interface TemplatesDeltaResponse {
-  /** Revisions con `version > since` (o todas si `since` ausente), más nueva primero. */
+  /** Revisiones con `published_seq > since` (todas si `since` ausente), más nueva primero. */
   items: TemplatePublicadaDto[]
-  /** Mayor versión publicada del tenant — base del próximo `since`. */
-  latest_version: number | null
+  /** Mayor `published_seq` visible — base del próximo `since`. */
+  latest_seq: number | null
 }
+
+export const templatesDeltaResponseSchema = z.object({
+  items: z.array(templatePublicadaSchema),
+  latest_seq: z.number().int().nonnegative().nullable(),
+})
 
 /** Detalle de una revisión (`GET /api/v1/templates/revisions/:id`). */
 export interface TemplateRevisionDetailDto {
@@ -430,5 +457,32 @@ export interface TemplateAssignmentDto {
 export interface TemplateAssignmentsResponse {
   items: TemplateAssignmentDto[]
 }
+
+/* ── Documento original para export offline (TSK-FORM-009, FR-018/019) ────
+ * El dispositivo cachea el `.xlsx` fuente de cada revisión publicada asignada
+ * para poder exportar el documento rellenado sin conexión (FR-019/044). Lo que
+ * viaja por el cable son los BYTES; esta forma es la que el cliente persiste y
+ * valida antes de escribirla en IndexedDB.
+ */
+
+/** MIME del libro original; único formato de V1 (ADR-003, ExcelJS). */
+export const XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+
+/** Fila del caché local del documento original (una por revisión). */
+export const templateOriginalMetaSchema = z.object({
+  revision_id: z.string().uuid(),
+  tenant_id: z.string().uuid(),
+  /** Nombre del archivo tal como lo subió el `tenant_admin`. */
+  file_name: z.string().min(1),
+  mime: z.literal(XLSX_MIME),
+  bytes_length: z.number().int().positive(),
+  /** Epoch ms de la descarga local (no del servidor): decide la purga. */
+  cached_at: z.number().int().nonnegative(),
+})
+
+export type TemplateOriginalMeta = z.infer<typeof templateOriginalMetaSchema>
+
+/** Presupuesto de bytes para los originales cacheados (FR-018). */
+export const PRESUPUESTO_ORIGINALES_BYTES = 25 * 1024 * 1024
 
 export type TemplateImport = z.infer<typeof templateImportSchema>

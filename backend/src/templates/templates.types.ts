@@ -19,12 +19,15 @@ export type TemplateRevisionStatus = 'draft' | 'published' | 'archived'
 /**
  * Fila de `template_revision` (contenido versionado e inmutable).
  * `version` es NULL en borrador y se asigna al publicar (FR-027).
+ * `published_seq` es la secuencia GLOBAL de publicación y va en bigint: el
+ * driver lo devuelve como texto, de ahí `string | number` (TSK-FORM-009).
  */
 export interface TemplateRevisionRow {
   id: string
   template_id: string
   tenant_id: string
   version: number | null
+  published_seq: string | number | null
   definition: Record<string, unknown>
   status: TemplateRevisionStatus
   source_import_id: string | null
@@ -149,4 +152,15 @@ export interface WorkerTemplateFilter {
   role: TemplateAssignmentRole
   /** Faena activa del dispositivo; `null` = sin filtro de faena (todas las suyas). */
   siteId: string | null
+}
+
+/**
+ * Documento original de una revisión, ya resuelto en el volumen de sync
+ * (TSK-FORM-009, FR-018/019). El controller sólo lo sirve en streaming.
+ */
+export interface TemplateOriginalFile {
+  /** Ruta ABSOLUTA dentro de `SYNC_VOLUME` (validada contra el volumen). */
+  path: string
+  /** Nombre del archivo tal como lo subió el `tenant_admin`. */
+  fileName: string
 }

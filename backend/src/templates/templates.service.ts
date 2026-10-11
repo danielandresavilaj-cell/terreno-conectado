@@ -1,7 +1,13 @@
 import { randomUUID } from 'node:crypto'
-import { mkdir, writeFile } from 'node:fs/promises'
-import { dirname, join, resolve } from 'node:path'
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common'
+import { mkdir, stat, writeFile } from 'node:fs/promises'
+import { dirname, join, resolve, sep } from 'node:path'
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  InternalServerErrorException,
+  NotFoundException,
+} from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import { ZodError } from 'zod'
 import {
@@ -22,6 +28,7 @@ import type {
   TemplateAssignmentRow,
   TemplateImportRow,
   TemplateItemRow,
+  TemplateOriginalFile,
   TemplateRevisionRow,
   TemplateRow,
   TemplateSectionRow,
@@ -30,13 +37,47 @@ import type {
   WorkerTemplateFilter,
 } from './templates.types'
 
+/** Fila de la consulta del delta: la revisión más el nombre de su plantilla. */
+type DeltaRow = TemplateRevisionRow & { name: string }
+
+/**
+ * FR-009: predicado de visibilidad por rol/faena de un rol operativo. Sin
+ * filtro (`rol` NULL) el predicado es tautológico y el `tenant_admin` ve todo.
+ *
+ * Los números de parámetro se reciben explícitamente porque cada consulta
+ * numera distinto: mandar un parámetro que la query no referencia hace fallar
+ * PostgreSQL con "could not determine data type of parameter $n" (el alias `r`
+ * es el de `template_revision` en todas ellas).
+ */
+function visibilidadRolOperativo(rolParam: string, siteParam: string): string {
+  return `(${rolParam}::text IS NULL OR EXISTS (
+      SELECT 1 FROM template_assignment a
+       WHERE a.template_revision_id = r.id
+         AND a.tenant_id = r.tenant_id
+         AND a.active
+         AND a.role = ${rolParam}
+         AND (${siteParam}::uuid IS NULL OR a.site_id IS NULL OR a.site_id = ${siteParam})
+    ))`
+}
+
+/** ¿Existe el fichero en disco? Un original borrado a mano no es un 500. */
+async function existeEnDisco(path: string): Promise<boolean> {
+  try {
+    await stat(path)
+    return true
+  } catch {
+    return false
+  }
+}
+
 /**
  * DS del módulo 007: plantillas versionadas e inmutables + catálogo tipado.
  *
  * Requisitos:
  *  - FR-007  aislamiento por tenant (RLS en el motor, Artículo IV).
- *  - FR-027  `version` se asigna al publicar (max+1 por plantilla); base del
- *            delta `since=<template_version>` de plantillas.
+ *  - FR-027  `version` se asigna al publicar (max+1 por plantilla) y
+ *            `published_seq` es la secuencia GLOBAL de publicación: el cursor
+ *            del delta `since=` (TSK-FORM-009).
  *  - FR-036  catálogo de 8 tipos de campo (contrato Zod en `@terreno/shared`).
  *  - FR-039  la definición se valida con el MISMO contrato que validará la
  *            respuesta en el dispositivo: una plantilla guardada siempre es
@@ -133,10 +174,11 @@ export class TemplatesService {
   }
 
   /**
-   * Publica un borrador: asigna `version` (max+1 por plantilla, FR-027),
-   * materializa el catálogo tipado (template_section/template_item) y congela
-   * todo el contenido (FR-049). Atómico por tenant — la materialización ocurre
-   * ANTES del cambio de estado porque el RLS exige revisión en `draft`.
+   * Publica un borrador: asigna `version` (max+1 por plantilla, FR-027), sella
+   * `published_seq` (cursor global del delta, TSK-FORM-009), materializa el
+   * catálogo tipado (template_section/template_item) y congela todo el
+   * contenido (FR-049). Atómico por tenant — la materialización ocurre ANTES
+   * del cambio de estado porque el RLS exige revisión en `draft`.
    */
   async publishRevision(tenantId: string, revisionId: string): Promise<TemplateRevisionRow> {
     return this.db.withTenantTransaction<TemplateRevisionRow>(tenantId, async (run) => {
@@ -160,7 +202,9 @@ export class TemplatesService {
 
       const [row] = await run<TemplateRevisionRow>(
         `UPDATE template_revision
-         SET status = 'published', version = $2, published_at = now(), updated_at = now()
+         SET status = 'published', version = $2,
+             published_seq = nextval('template_revision_published_seq'),
+             published_at = now(), updated_at = now()
          WHERE id = $1 AND status = 'draft'
          RETURNING *`,
         [revisionId, next],
@@ -286,9 +330,13 @@ export class TemplatesService {
 
   /**
    * Revisiones publicadas del tenant para la captura (TSK-FORM-001, FR-018)
-   * con delta opcional `since` (FR-027): devuelve sólo `version > since`.
-   * `latest_version` es el techo publicado del tenant — el cliente lo guarda
-   * como próximo `since` del delta (TSK-FORM-009).
+   * con delta opcional `since` (FR-027/TSK-FORM-009): devuelve sólo
+   * `published_seq > since`.
+   *
+   * El umbral es la secuencia GLOBAL de publicación y NO `version` (que se
+   * asigna por plantilla): con la plantilla A en v9 y la B en v3, un cursor
+   * global sobre `version` jamás entregaría la v4 de B. `latest_seq` es el
+   * techo publicado visible — el cliente lo guarda como próximo `since`.
    */
   async listPublishedRevisions(
     tenantId: string,
@@ -301,34 +349,26 @@ export class TemplatesService {
     const role = worker?.role ?? null
     const siteId = worker?.siteId ?? null
     // El mismo criterio de visibilidad se reusa en las dos consultas (items y
-    // techo de versión) con placeholders distintos según sus parámetros.
-    const visibility = (rp: string, sp: string): string =>
-      `(${rp}::text IS NULL OR EXISTS (
-        SELECT 1 FROM template_assignment a
-         WHERE a.template_revision_id = r.id
-           AND a.tenant_id = r.tenant_id
-           AND a.active
-           AND a.role = ${rp}
-           AND (${sp}::uuid IS NULL OR a.site_id IS NULL OR a.site_id = ${sp})
-      ))`
+    // techo de secuencia) con placeholders distintos según sus parámetros: es
+    // lo que impide que el delta salte revisiones que se asignan más tarde.
     const [rows, [{ max }]] = await Promise.all([
-      this.db.queryAsTenant<TemplateRevisionRow & { name: string }>(
+      this.db.queryAsTenant<DeltaRow>(
         tenantId,
         `SELECT r.*, t.name
            FROM template_revision r
            JOIN template t ON t.id = r.template_id
           WHERE r.status = 'published'
-            AND ($1::int IS NULL OR r.version > $1)
-            AND ${visibility('$2', '$3')}
-          ORDER BY r.version DESC, r.published_at DESC, r.id`,
+            AND ($1::bigint IS NULL OR r.published_seq > $1)
+            AND ${visibilidadRolOperativo('$2', '$3')}
+          ORDER BY r.published_seq DESC`,
         [since ?? null, role, siteId],
       ),
-      this.db.queryAsTenant<{ max: number | null }>(
+      this.db.queryAsTenant<{ max: string | null }>(
         tenantId,
-        `SELECT MAX(r.version) AS max
+        `SELECT MAX(r.published_seq) AS max
            FROM template_revision r
           WHERE r.status = 'published'
-            AND ${visibility('$1', '$2')}`,
+            AND ${visibilidadRolOperativo('$1', '$2')}`,
         [role, siteId],
       ),
     ])
@@ -339,11 +379,90 @@ export class TemplatesService {
         tenant_id: r.tenant_id,
         name: r.name,
         version: r.version as number,
+        // published_seq es bigint: el CHECK de la migración 009 garantiza no
+        // nulo en toda revisión publicada, así que el casts a número es seguro.
+        published_seq: Number(r.published_seq),
         published_at: r.published_at,
         definition: r.definition as unknown as TemplateDefinition,
       })),
-      latest_version: max,
+      latest_seq: max === null ? null : Number(max),
     }
+  }
+
+  /* ── Documento original .xlsx (TSK-FORM-009, FR-018/019) ───────────────── */
+
+  /**
+   * Resuelve el `.xlsx` fuente de una revisión publicada para descargarlo
+   * offline (FR-019/044). Devuelve ruta y nombre; los bytes los emite el
+   * controller en streaming, no viajan por `POST /sync/batch`.
+   *
+   * Sin asignación, un rol operativo recibe 404 (no 403) para que el id no sea
+   * enumerable por fuerza bruta; el `tenant_admin` ve todo lo de su tenant y el
+   * cruce de tenant cae en 404 por RLS.
+   */
+  async getRevisionOriginal(
+    tenantId: string,
+    revisionId: string,
+    worker?: WorkerTemplateFilter,
+  ): Promise<TemplateOriginalFile> {
+    const [row] = await this.db.queryAsTenant<{
+      source_import_id: string | null
+      file_key: string | null
+      file_name: string | null
+    }>(
+      tenantId,
+      `SELECT r.source_import_id, i.file_key, i.file_name
+         FROM template_revision r
+         LEFT JOIN template_imports i ON i.id = r.source_import_id
+        WHERE r.id = $1`,
+      [revisionId],
+    )
+    if (!row) {
+      throw new NotFoundException('revisión no encontrada para este tenant')
+    }
+
+    if (worker) {
+      const [visible] = await this.db.queryAsTenant<{ id: string }>(
+        tenantId,
+        `SELECT r.id FROM template_revision r
+          WHERE r.id = $1 AND ${visibilidadRolOperativo('$2', '$3')}`,
+        [revisionId, worker.role, worker.siteId],
+      )
+      if (!visible) {
+        throw new NotFoundException('revisión no encontrada para este tenant')
+      }
+    }
+
+    if (!row.source_import_id || !row.file_key || !row.file_name) {
+      throw new NotFoundException(
+        'la revisión no proviene de una importación .xlsx: no hay documento original que descargar (FR-019)',
+      )
+    }
+
+    const path = this.rutaEnVolumen(row.file_key)
+    if (!(await existeEnDisco(path))) {
+      throw new NotFoundException('el documento original de la revisión no está en el volumen de sync')
+    }
+    return { path, fileName: row.file_name }
+  }
+
+  /** Raíz del volumen de adjuntos (`SYNC_VOLUME`), igual que en la escritura. */
+  private volumenSync(): string {
+    return resolve(this.config.get<string>('SYNC_VOLUME') ?? join(process.cwd(), '.vol'))
+  }
+
+  /**
+   * Resuelve `file_key` dentro del volumen y rechaza lo que se escape de él
+   * (path traversal): la descarga es una lectura del disco por un valor de la
+   * base, así que el límite del volumen se comprueba siempre antes de abrir.
+   */
+  private rutaEnVolumen(fileKey: string): string {
+    const volumen = this.volumenSync()
+    const path = resolve(volumen, fileKey)
+    if (path !== volumen && !path.startsWith(volumen + sep)) {
+      throw new InternalServerErrorException('el documento original quedó fuera del volumen de sync')
+    }
+    return path
   }
 
   /* ── Asignación por faena y rol (TSK-FORM-008, FR-008/009) ─────────────── */
@@ -518,9 +637,8 @@ export class TemplatesService {
   }
 
   private async writeImportFile(tenantId: string, importId: string, buffer: Buffer): Promise<string> {
-    const volume = resolve(this.config.get<string>('SYNC_VOLUME') ?? join(process.cwd(), '.vol'))
     const key = `template_imports/${tenantId}/${importId}.xlsx`
-    const path = join(volume, key)
+    const path = join(this.volumenSync(), key)
     await mkdir(dirname(path), { recursive: true })
     await writeFile(path, buffer)
     return key
@@ -652,7 +770,9 @@ export class TemplatesService {
            SET status = 'published', version = (
              SELECT COALESCE(MAX(version), 0) + 1
              FROM template_revision WHERE template_id = $2 AND version IS NOT NULL
-           ), published_at = now(), updated_at = now()
+           ),
+           published_seq = nextval('template_revision_published_seq'),
+           published_at = now(), updated_at = now()
            WHERE id = $1 AND status = 'draft'
            RETURNING *`,
           [revision.id, template.id],
