@@ -1,0 +1,9 @@
+{
+  // Programa separado para los tests del cliente. Motivo: `src/screens/Importar.tsx`
+  // declara `Buffer` global para que ExcelJS funcione en el navegador, y los
+  // tipos de vitest arrastran `@types/node`, que ya declara `Buffer` — en un solo
+  // programa ambos chocan. Además `include: ["test"]` deja el typecheck de la app
+  // intacto y no arrastra la UI entera a los tests.
+  "extends": "./tsconfig.json",
+  "include": ["test"]
+}

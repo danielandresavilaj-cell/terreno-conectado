@@ -34,10 +34,11 @@ jobs:
           if ! grep -qi "successfully started\|Nest application" /tmp/smoke.log; then cat /tmp/smoke.log; exit 1; fi
 
   integration:
-    name: Integración — PostgreSQL 16 + RLS (Testcontainers)
+    name: Unit + integración (shared, frontend, backend)
     runs-on: ubuntu-latest
     env:
       DEMO_PASSWORD: TcDemo2026!
+      VITE_DEMO_PASSWORD: TcDemo2026!
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -45,7 +46,10 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npm test --workspace @terreno/backend
+      # Raíz a propósito: barre los workspaces con tests. Correr sólo
+      # `--workspace @terreno/backend` dejaba `shared` y `frontend` sin
+      # ejecutar en CI.
+      - run: npm test
 
   secrets-scan:
     name: Escaneo de secretos (Constitución Art. IX)
