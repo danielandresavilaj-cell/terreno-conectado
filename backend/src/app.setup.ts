@@ -16,7 +16,15 @@ export function configureApp(app: INestApplication): INestApplication {
   const allowedOrigin = (process.env.ALLOWED_ORIGIN ?? 'http://localhost:5173')
     .split(',')
     .map((origin) => origin.trim())
-  app.enableCors({ origin: allowedOrigin, credentials: true })
+  // `Content-Disposition` no es un header CORS "simple", así que sin
+  // `exposedHeaders` el navegador no lo deja leer desde JS en cross-origin y el
+  // nombre real del documento original se pierde en silencio (el cliente cae al
+  // nombre derivado de la revisión).
+  app.enableCors({
+    origin: allowedOrigin,
+    credentials: true,
+    exposedHeaders: ['Content-Disposition'],
+  })
 
   // Cookies rt/csrf (Decisión D5) y proxy confiable para rate-limit por IP.
   app.use(cookieParser())

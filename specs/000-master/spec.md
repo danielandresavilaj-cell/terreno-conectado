@@ -3,7 +3,7 @@
 | | |
 | :--- | :--- |
 | **ID** | 000-master |
-| **Versión** | 1.1.0 · Enmienda 002 (formularios dinámicos, 2026-10-07) |
+| **Versión** | 1.1.1 · Enmienda 002 (formularios dinámicos, 2026-10-07) + nota de implementación FR-027 |
 | **Estado** | APROBADO — Raúl González (2026-09-24) y Daniel Ávila (2026-10-06) · Enmienda 002 en revisión (PR) |
 | **Autores** | Daniel Ávila (datos/negocio) · Raúl González (infra/plataforma) |
 | **Fuente** | Informe de Definición APT, Fase 1 (2026-09-04) |
@@ -111,6 +111,7 @@ Convención EARS en español: ubicuo (`EL SISTEMA DEBERÁ…`), evento (`CUANDO�
 - **FR-025** SI un intento de sync incluye datos de un tenant distinto al del JWT, ENTONCES EL SISTEMA DEBERÁ rechazar el lote completo y registrar el incidente (defensa en profundidad sobre RLS).
 - **FR-026** CUANDO la sincronización termina, EL SISTEMA DEBERÁ marcar los registros locales como `synced` y actualizar el contador de pendientes.
 - **FR-027** CUANDO el worker de sincronización ejecuta el ciclo, EL SISTEMA DEBERÁ sincronizar plantillas por delta mediante `GET /api/v1/templates?since=<template_version>`, subiendo solo los cambios posteriores a la última versión conocida.
+  > **Nota de implementación (TSK-FORM-009, 2026-10-10):** el cursor que viaja en `since` es `TEMPLATE_REVISION.published_seq` —una **secuencia global de publicación**— y no el campo `version`. `version` se asigna **por plantilla** (`MAX(version)+1` dentro de su `template_id`), así que un umbral global la saltaba: con la plantilla A en v9 y la B en v3, comparar contra `version` hacía que la v4 de B **nunca llegara** al dispositivo y el delta dejaba de garantizar una respuesta completa. `version` se conserva intacto para lo que ve el usuario; el parámetro no cambia de nombre ni de sentido ("última versión conocida"), cambia el número que viaja. Detalle del esquema, backfill y la restricción que impide publicar sin secuencia: `data-model.md` v1.1.2 y `adr/003-formularios-dinamicos.md` Enmienda 2.
 - **FR-028** SI una inspección está en curso y su plantilla cambia, ENTONCES EL SISTEMA DEBERÁ conservar la `template_version` congelada de la inspección (no se re-encuadra ni se re-valida contra la plantilla nueva); el cambio aplica solo a inspecciones nuevas.
 - **FR-029** EL SISTEMA DEBERÁ sincronizar los imports de plantilla (`TEMPLATE_IMPORT`: uploaded → parsed → proposed → confirmed/failed) con UUIDv7 de cliente y el mismo motor idempotente de batch, de modo que reintentar nunca duplique (Artículo III).
 
@@ -269,4 +270,5 @@ La demo se considera exitosa si, en vivo ante el docente:
 | 1.0.1 | 2026-09-23 | Título: "Decisiones en Tiempo Real" → "Datos al día donde no hay señal" (Opción A — alinear la promesa con la realidad offline-first) | Raúl González (con IA) |
 | 1.0.1 | 2026-09-24 | Firmado por Raúl González; pendiente firma de Daniel Ávila | Raúl González (con IA) |
 | 1.0.1 | 2026-10-06 | Firmado por Daniel Ávila — firma delegada con autorización explícita del titular, registrada por el agente del equipo | Daniel Ávila |
+| 1.1.1 | 2026-10-10 | **Nota de implementación bajo FR-027** (no es Enmienda): documenta que el cursor del delta es `published_seq` (secuencia global de publicación) y no `version`, que es por plantilla. El texto y la numeración de los FR quedan intactos; la nota queda en el punto donde el requisito se lee, para que nadie reintroduzca el defecto. Detalle en `data-model.md` v1.1.2 y `adr/003` Enmienda 2 | Daniel Ávila |
 | 1.1.0 | 2026-10-07 | **Enmienda 002** — módulo 007 formularios dinámicos: §4 nueva fila 007; §5 18 FR nuevos en bloques reservados (007–009, 018–019, 027–029, 036–039, 044–049) sin renumerar; §10 importación asistida de `.xlsx` pasa a V1 y OCR/IA quedan en V2 opcional | Raúl González / Daniel Ávila (PR AMD-002) |

@@ -314,7 +314,9 @@ describe('GET /api/v1/templates/revisions/:id/original (FR-019/044)', () => {
     expect(res.status).toBe(200)
     expect(res.headers['content-type']).toBe(XLSX_MIME)
     expect(res.headers['content-disposition']).toContain('attachment')
-    expect(res.headers['x-file-name']).toBe(encodeURIComponent('spike-referencia.xlsx'))
+    expect(res.headers['content-disposition']).toContain(
+      "filename*=UTF-8''spike-referencia.xlsx",
+    )
 
     const body = res.body as Buffer
     expect(body.length).toBe(bytesXlsx.length)
@@ -392,5 +394,50 @@ describe('GET /api/v1/templates/revisions/:id/original (FR-019/044)', () => {
     const fileKey = rows[0].file_key as string
     expect(fileKey.startsWith(`template_imports/${TENANT_A_ID}/`)).toBe(true)
     expect(resolve(syncVolume, fileKey).startsWith(resolve(syncVolume) + '/')).toBe(true)
+  })
+
+  /**
+   * Regresión cliente/servidor: el frontend llama al API de verdad en
+   * cross-origin (Vite `:5173` → API `:3000`, sin proxy), así que cualquier
+   * header que no sea CORS "simple" sólo es legible desde JS si el servidor lo
+   * expone explícitamente. Sin esto el navegador devuelve `null` al buscar el
+   * nombre y el cliente degrada al nombre derivado de la revisión.
+   */
+  describe('CORS de la descarga del original', () => {
+    const ORIGEN_FRONTEND = 'http://localhost:5173'
+
+    it('expone Content-Disposition para que el JS cross-origin pueda leer el nombre', async () => {
+      const res = await server()
+        .get(`/api/v1/templates/revisions/${revisionImportada}/original`)
+        .set(auth(adminToken))
+        .set('Origin', ORIGEN_FRONTEND)
+        .responseType('blob')
+      expect(res.status).toBe(200)
+
+      const expuestos = res.headers['access-control-expose-headers'] as string | undefined
+      expect(expuestos).toBeDefined()
+      // La comparación es por tokens: el orden y el relleno los pone la librería.
+      expect(expuestos?.split(',').map((h) => h.trim().toLowerCase())).toContain(
+        'content-disposition',
+      )
+      expect(res.headers['access-control-allow-origin']).toBe(ORIGEN_FRONTEND)
+      // El nombre sólo viaja en `Content-Disposition` (una `filename*` UTF-8).
+      expect(res.headers['content-disposition']).toContain(
+        "filename*=UTF-8''spike-referencia.xlsx",
+      )
+    })
+
+    it('el nombre no vuelve duplicado en un header propio (X-File-Name eliminado)', async () => {
+      const res = await server()
+        .get(`/api/v1/templates/revisions/${revisionImportada}/original`)
+        .set(auth(adminToken))
+        .set('Origin', ORIGEN_FRONTEND)
+        .responseType('blob')
+      expect(res.status).toBe(200)
+      expect(res.headers['x-file-name']).toBeUndefined()
+      expect((res.headers['access-control-expose-headers'] ?? '').toLowerCase()).not.toContain(
+        'x-file-name',
+      )
+    })
   })
 })
