@@ -1,4 +1,5 @@
 import { RequestMethod } from '@nestjs/common'
+import { json, urlencoded } from 'express'
 import type { INestApplication } from '@nestjs/common'
 import cookieParser from 'cookie-parser'
 import { JsonLogger } from './observability/json.logger'
@@ -29,6 +30,17 @@ export function configureApp(app: INestApplication): INestApplication {
   // Cookies rt/csrf (Decisión D5) y proxy confiable para rate-limit por IP.
   app.use(cookieParser())
   app.getHttpAdapter().getInstance().set('trust proxy', 1)
+
+  // Techo del cuerpo de `POST /sync/batch` (FR-012/FR-020, Artículo I).
+  //
+  // El límite por defecto de body-parser es 100 kB y el compresor de fotos de
+  // FR-012 deja cada imagen entre 80 kB y 200 kB: con ese techo, sincronizar una
+  // sola foto real devolvía 413 y el trabajador se quedaba con la cola colgada
+  // sin ninguna pista. El techo sube a 32 MB para que quepa el rezago de un turno
+  // sin señal (NFR-02: 100 fotos ≈ 20 MB) sin convertir el proceso en un sumidero
+  // de memoria: el lote del cliente sigue acotado por conteo (500 registros).
+  app.use(json({ limit: '32mb' }))
+  app.use(urlencoded({ extended: true, limit: '32mb' }))
 
   // Observabilidad: logs JSON con request_id/tenant_id (NFR-09).
   const logger = new JsonLogger()

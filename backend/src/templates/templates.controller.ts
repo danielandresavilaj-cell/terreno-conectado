@@ -56,6 +56,7 @@ import {
 } from '@terreno/shared'
 import { AuthGuard } from '../auth/auth.guard'
 import type { JwtClaims } from '../auth/auth.types'
+import { contentDisposition } from '../http/content-disposition'
 import { TemplatesService } from './templates.service'
 import type { TemplateImportRow } from './templates.types'
 
@@ -88,17 +89,6 @@ function parseSince(v: unknown): number | undefined {
     throw new BadRequestException('since excede el rango seguro del cursor')
   }
   return n
-}
-
-/**
- * `Content-Disposition` con `filename` ASCII de reserva y `filename*` UTF-8: el
- * nombre viene del archivo que subió el admin (puede traer acentos) y un
- * header HTTP sólo transporta latin1. Se sanean comillas y saltos de línea
- * para que el valor no pueda inyectar cabeceras.
- */
-function contentDisposition(fileName: string): string {
-  const ascii = fileName.replace(/[^\x20-\x7e]/g, '_').replace(/["\\;]/g, '_')
-  return `attachment; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(fileName)}`
 }
 
 function requireTenantAdmin(req: AuthedRequest): void {
@@ -144,6 +134,24 @@ function toRevisionDto(rev: {
     published_at: rev.published_at,
     created_at: rev.created_at,
     updated_at: rev.updated_at,
+  }
+}
+
+/**
+ * Nombre del archivo tal como lo escribió quien lo subió.
+ *
+ * `multipart/form-data` transporta los nombres en latin1 y multer los decodifica
+ * así, pero el navegador los manda en UTF-8: sin corregirlo, `control-ñ.xlsx`
+ * queda `control-Ã±.xlsx` en `template_imports.file_name` y, con ella, en el
+ * nombre de la descarga del documento (FR-044). El nombre ya está validado con
+ * Zod al guardarse (`templateOriginalMetaSchema`), así que una decodificación
+ * imposible se descarta y se vuelve al literal recibido.
+ */
+function nombreOriginal(recibido: string): string {
+  try {
+    return Buffer.from(recibido, 'latin1').toString('utf8')
+  } catch {
+    return recibido
   }
 }
 
@@ -384,7 +392,7 @@ export class TemplatesController {
     return this.templates.uploadAndParseTemplateImport(
       tenantDe(req),
       claims.sub,
-      file.originalname,
+      nombreOriginal(file.originalname),
       file.buffer,
     )
   }

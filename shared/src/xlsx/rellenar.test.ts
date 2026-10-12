@@ -24,7 +24,12 @@ import { proponerImport } from './import'
 import { propuestaADefinicion } from './to-definition'
 import type { TemplateImportProposal } from './types'
 import type { EvidenciaRellenable } from './rellenar'
-import { emparejarItemsConOrigen, rellenarOriginal } from './rellenar'
+import {
+  UMBRAL_EVIDENCIA_BYTES,
+  emparejarItemsConOrigen,
+  evidenciaSeIncrusta,
+  rellenarOriginal,
+} from './rellenar'
 
 /** PNG 1×1 mínimo: bytes reales, porque el camino de imagen es el que importa. */
 const PNG_1x1 = new Uint8Array(
@@ -303,21 +308,45 @@ describe('rellenarOriginal — round-trip de escritura', () => {
   })
 })
 
+describe('evidenciaSeIncrusta — el umbral de incrustado (FR-046)', () => {
+  it('incrusta justo en el umbral y sólo por debajo', () => {
+    // El límite es `<=`: una foto de exactamente 512 KB sigue dentro del `.xlsx`.
+    // Mover el signo aquí cambiaría quéAdjuntos viajan al documento, así que el
+    // borde queda fijado por test.
+    expect(evidenciaSeIncrusta(UMBRAL_EVIDENCIA_BYTES)).toBe(true)
+    expect(evidenciaSeIncrusta(UMBRAL_EVIDENCIA_BYTES - 1)).toBe(true)
+  })
+
+  it('referencia lo que lo supera', () => {
+    expect(evidenciaSeIncrusta(UMBRAL_EVIDENCIA_BYTES + 1)).toBe(false)
+    expect(evidenciaSeIncrusta(10 * UMBRAL_EVIDENCIA_BYTES)).toBe(false)
+  })
+
+  it('un tamaño 0 no incrusta: no hay adjunto que incruste', () => {
+    // `0` bytes es "no descargado" (offline), no "foto vacía": incrustar un
+    // adjunto inexistente dejaría una imagen rota en el documento.
+    expect(evidenciaSeIncrusta(0)).toBe(false)
+  })
+})
+
 describe('rellenarOriginal — hoja de evidencias (FR-019/037)', () => {
   const evidencias: EvidenciaRellenable[] = [
     {
       itemId: 'item-estado',
       nombre: 'captura-01.png',
       mime: 'image/png',
+      bytesLength: PNG_1x1.length,
       bytes: PNG_1x1,
       capturadoAt: '2026-03-14T10:00:00.000Z',
     },
     {
       itemId: 'item-observacion',
       // Sin bytes: el adjunto aún no se descargó (offline, FR-012). La fila debe
-      // existir igual, con los metadatos que sí están en el dispositivo.
+      // existir igual, con los metadatos que sí están en el dispositivo, y decir
+      // que el adjunto está referenciado y no embebido.
       nombre: 'captura-02.jpg',
       mime: 'image/jpeg',
+      bytesLength: 0,
       bytes: new Uint8Array(0),
       capturadoAt: '2026-03-14T10:05:00.000Z',
     },
@@ -327,6 +356,7 @@ describe('rellenarOriginal — hoja de evidencias (FR-019/037)', () => {
       itemId: 'item-cantidad',
       nombre: 'captura-03.jpg',
       mime: 'image/jpeg',
+      bytesLength: PNG_1x1.length,
       bytes: PNG_1x1,
       capturadoAt: '2026-03-14T10:09:00.000Z',
     },
@@ -344,22 +374,25 @@ describe('rellenarOriginal — hoja de evidencias (FR-019/037)', () => {
 
     const textos = (fila: number) =>
       (hojaEvidencias?.filas[fila - 1] ?? []).map((c) => c?.texto ?? null)
-    expect(textos(1)).toEqual(['Ítem', 'Evidencia', 'MIME', 'Capturado'])
+    expect(textos(1)).toEqual(['Ítem', 'Evidencia', 'Adjunto', 'MIME', 'Capturado'])
     expect(textos(2)).toEqual([
       'item-estado',
       'captura-01.png',
+      'embebida',
       'image/png',
       '2026-03-14T10:00:00.000Z',
     ])
     expect(textos(3)).toEqual([
       'item-observacion',
       'captura-02.jpg',
+      'referenciada',
       'image/jpeg',
       '2026-03-14T10:05:00.000Z',
     ])
     expect(textos(4)).toEqual([
       'item-cantidad',
       'captura-03.jpg',
+      'embebida',
       'image/jpeg',
       '2026-03-14T10:09:00.000Z',
     ])
@@ -370,6 +403,52 @@ describe('rellenarOriginal — hoja de evidencias (FR-019/037)', () => {
     // `xl/media/…`, no una referencia a un archivo externo del dispositivo.
     const crudo = Buffer.from(res.libro).toString('latin1')
     expect(crudo).toContain('xl/media/image')
+  })
+
+  it('la columna Adjunto distingue la foto incrustada de la que sólo se referencia', async () => {
+    // FR-046: por encima del umbral el `.xlsx` no crece, y la fila tiene que
+    // decirlo. Aquí se ve con la foto grande ya DECLARADA (el servidor no la
+    // descarga para escribirla) pero sin bytes: el resultado tiene que ser el
+    // mismo que si los trajera, así que se decide por `bytesLength`.
+    const grandes: EvidenciaRellenable[] = [
+      {
+        itemId: 'item-estado',
+        nombre: 'captura-pequena.jpg',
+        mime: 'image/jpeg',
+        bytesLength: PNG_1x1.length,
+        bytes: PNG_1x1,
+        capturadoAt: '2026-03-14T10:00:00.000Z',
+      },
+      {
+        itemId: 'item-observacion',
+        nombre: 'captura-grande.jpg',
+        mime: 'image/jpeg',
+        bytesLength: UMBRAL_EVIDENCIA_BYTES + 1,
+        bytes: new Uint8Array(0),
+        fileKey: 'att/2026/03/captura-grande.jpg',
+        capturadoAt: '2026-03-14T10:05:00.000Z',
+      },
+    ]
+
+    const { original, propuesta, definition } = await escenario(await aBuffer(libroDeDosItems()))
+    const res = await rellenarOriginal({
+      original,
+      definition,
+      propuesta,
+      respuestas: [],
+      evidencias: grandes,
+    })
+    expect(res.ok).toBe(true)
+    if (!res.ok) return
+
+    const hoja = (await leerCuadricula(res.libro)).find((h) => h.nombre === 'Evidencias')
+    const textos = (fila: number) => (hoja?.filas[fila - 1] ?? []).map((c) => c?.texto ?? null)
+    // Cinco columnas: el encabezado lleva una más desde que existe `Adjunto`.
+    expect(textos(1)).toEqual(['Ítem', 'Evidencia', 'Adjunto', 'MIME', 'Capturado'])
+    expect(textos(1)).toHaveLength(5)
+    expect(textos(2)[2]).toBe('embebida')
+    // La referencia incluye la clave del adjunto para poder recuperarlo aparte.
+    expect(textos(3)[2]).toBe('referenciada (att/2026/03/captura-grande.jpg)')
   })
 
   it('usa el nombre de hoja indicado en hojaEvidencias', async () => {

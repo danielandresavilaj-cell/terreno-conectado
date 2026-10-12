@@ -1,14 +1,12 @@
 import { randomUUID } from 'node:crypto'
 import { mkdir, stat, writeFile } from 'node:fs/promises'
-import { dirname, join, resolve, sep } from 'node:path'
+import { dirname, join } from 'node:path'
 import {
   BadRequestException,
   ConflictException,
   Injectable,
-  InternalServerErrorException,
   NotFoundException,
 } from '@nestjs/common'
-import { ConfigService } from '@nestjs/config'
 import { ZodError } from 'zod'
 import {
   parseTemplateDefinition,
@@ -19,6 +17,7 @@ import {
 } from '@terreno/shared'
 import { proponerImport } from '@terreno/shared/xlsx'
 import { DbService } from '../db/db.service'
+import { SyncVolumeService } from '../storage/sync-volume.service'
 import type {
   AssignTemplateInput,
   ConfirmTemplateImportInput,
@@ -92,7 +91,7 @@ async function existeEnDisco(path: string): Promise<boolean> {
 export class TemplatesService {
   constructor(
     private readonly db: DbService,
-    private readonly config: ConfigService,
+    private readonly volume: SyncVolumeService,
   ) {}
 
   /** Crea la cabecera de una plantilla (tenant_admin). */
@@ -439,30 +438,11 @@ export class TemplatesService {
       )
     }
 
-    const path = this.rutaEnVolumen(row.file_key)
+    const path = this.volume.rutaEn(row.file_key)
     if (!(await existeEnDisco(path))) {
       throw new NotFoundException('el documento original de la revisión no está en el volumen de sync')
     }
     return { path, fileName: row.file_name }
-  }
-
-  /** Raíz del volumen de adjuntos (`SYNC_VOLUME`), igual que en la escritura. */
-  private volumenSync(): string {
-    return resolve(this.config.get<string>('SYNC_VOLUME') ?? join(process.cwd(), '.vol'))
-  }
-
-  /**
-   * Resuelve `file_key` dentro del volumen y rechaza lo que se escape de él
-   * (path traversal): la descarga es una lectura del disco por un valor de la
-   * base, así que el límite del volumen se comprueba siempre antes de abrir.
-   */
-  private rutaEnVolumen(fileKey: string): string {
-    const volumen = this.volumenSync()
-    const path = resolve(volumen, fileKey)
-    if (path !== volumen && !path.startsWith(volumen + sep)) {
-      throw new InternalServerErrorException('el documento original quedó fuera del volumen de sync')
-    }
-    return path
   }
 
   /* ── Asignación por faena y rol (TSK-FORM-008, FR-008/009) ─────────────── */
@@ -638,7 +618,7 @@ export class TemplatesService {
 
   private async writeImportFile(tenantId: string, importId: string, buffer: Buffer): Promise<string> {
     const key = `template_imports/${tenantId}/${importId}.xlsx`
-    const path = join(this.volumenSync(), key)
+    const path = join(this.volume.raiz(), key)
     await mkdir(dirname(path), { recursive: true })
     await writeFile(path, buffer)
     return key

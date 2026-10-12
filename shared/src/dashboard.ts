@@ -8,6 +8,7 @@
  * (`≤ 60 s` del dato en el dashboard, FR-043/NFR-03).
  */
 
+import { z } from 'zod'
 import type { SyncSeverity } from './sync'
 
 /** Faena/obra del tenant (data-model §2.1, `site`) — bootstrapea el offline. */
@@ -64,3 +65,32 @@ export interface DashboardFindingsResponse {
   items: FindingDto[]
   total: number
 }
+/* ── Exportación de inspecciones (TSK-FORM-010, FR-044) ─────────────────────
+ * El supervisor ve las inspecciones del período y pide el `.xlsx` original
+ * rellenado. El contrato vive aquí porque lo consumen las dos puntas: el backend
+ * lo valida antes de responder y el frontend no inventa su propia forma.
+ */
+export const inspectionListaItemSchema = z.object({
+  id: z.string().uuid(),
+  faena_id: z.string().uuid(),
+  faena_nombre: z.string(),
+  template_id: z.string().uuid(),
+  /** `null` si la plantilla se borró: `inspection.template_id` no lleva FK y una
+   *  inspección huérfana debe seguir siendo visible, no desaparecer. */
+  template_nombre: z.string().nullable(),
+  /** Versión CONGELADA con la que se ejecutó (FR-028), no la última publicada. */
+  template_version: z.number().int(),
+  ejecutado_por: z.string(),
+  /** Se muestra el estado en vez de filtrar: el registro es inmutable (FR-049). */
+  status: z.enum(['draft', 'in_progress', 'submitted', 'reviewed']),
+  captured_at: z.string().datetime(),
+  /** Cuántas respuestas tiene: el supervisor ve de un vistazo si se puede exportar. */
+  respuestas: z.number().int().nonnegative(),
+})
+
+export const inspectionsResponseSchema = z.object({
+  items: z.array(inspectionListaItemSchema),
+})
+
+export type InspectionListaItem = z.infer<typeof inspectionListaItemSchema>
+export type InspectionsResponse = z.infer<typeof inspectionsResponseSchema>

@@ -1,20 +1,18 @@
-/* Exportación del documento original rellenado — FR-019/044 (TSK-FORM-010).
+/* Orquestación de la exportación en el dispositivo — FR-019/044 (TSK-FORM-010).
  *
- * Tres bloques, en el mismo orden en que el módulo los ejecuta:
+ * Lo que se prueba aquí es lo que es del CLIENTE: construir las evidencias desde
+ * el estado de Dexie, pegar el original cacheado con `rellenarOriginal`, elegir el
+ * nombre de descarga y dispararla.
  *
- *   1. Serialización por `response_type` — lo que va a la celda. Es el paso donde
- *      un error escribe basura en el documento firmado por la faena, así que se
- *      prueban los 8 tipos y, sobre todo, los valores que NO deben escribirse.
- *   2. Construcción de `respuestas`/`evidencias` desde el estado de la captura.
- *   3. Orquestación con el original REAL en el caché de Dexie (`fake-indexeddb`)
- *      y un `.xlsx` pequeño generado con ExcelJS: original → `proponerImport` →
- *      `rellenarOriginal` → releer. El libro se relee del resultado para comprobar
- *      qué quedó escrito de verdad, no lo que la función dice haber escrito.
+ * La serialización del valor a celda y el criterio de "contestado" NO se prueban
+ * aquí: viven en `@terreno/shared/xlsx/serializar.ts` porque FR-044 exige que el
+ * servidor produzca el mismo artefacto que el dispositivo, y sus casos están en
+ * `shared/src/xlsx/serializar.test.ts`, junto al código.
  *
- * El libro se genera con ExcelJS —la única escolta de V1 (ADR-003)— que es
- * justamente el módulo que `@terreno/shared/xlsx` usa en producción; no se sube
- * ningún binario al repo ni se declara una dependencia nueva en el frontend (lo
- * resuelve el hoisted del monorepo).
+ * El original REAL es el del caché de Dexie (`fake-indexeddb`) y un `.xlsx`
+ * pequeño generado con ExcelJS: original → `proponerImport` → `rellenarOriginal`
+ * → releer. El libro se relee del resultado para comprobar qué quedó escrito de
+ * verdad, no lo que la función dice haber escrito.
  *
  * El runner es `environment: 'node'`: sin DOM salvo donde hace falta para la
  * descarga, que se finge con stubs mínimos (igual que `api.binario.test.ts` con
@@ -28,15 +26,13 @@ import {
   type TemplateDefinition,
   type TemplateItem,
 } from '@terreno/shared'
+import { INDICADOR_EVIDENCIA } from '@terreno/shared/xlsx'
 import {
-  INDICADOR_EVIDENCIA,
   construirEvidencias,
-  construirRespuestas,
   descargarLibro,
   exportarDocumento,
   hayOriginalCacheado,
   nombreDeExportacion,
-  serializarValorCampo,
   type RespuestaExportable,
 } from '../src/lib/exportar'
 import {
@@ -50,16 +46,6 @@ import {
 import { META_ORIGINAL_BASE, TENANT_A, uuid } from './fixtures'
 
 const HOY = new Date('2026-10-11T12:00:00.000Z')
-const TIPOS = [
-  'ok_nok_na',
-  'text',
-  'numeric',
-  'date',
-  'time',
-  'select_single',
-  'select_multiple',
-  'photo',
-] as const
 
 /** Ítem de plantilla con la forma del contrato (id UUID, tipo del catálogo). */
 function item(id: number, tipo: TemplateItem['response_type'], prompt = `Ítem ${id}`): TemplateItem {
@@ -78,132 +64,25 @@ async function releer(libro: Uint8Array): Promise<ExcelJS.Workbook> {
   return wb
 }
 
-/* ── 1. Serialización por tipo ───────────────────────────────────────────── */
+/* ── 1. Evidencias desde el estado de la captura ──────────────────────────── */
 
-describe('serialización del valor por response_type', () => {
-  it('ok_nok_na escribe OK / NOK / N-A con la convención del libro', () => {
-    const it_ = item(1, 'ok_nok_na')
-    expect(serializarValorCampo(it_, 'ok')).toBe('OK')
-    expect(serializarValorCampo(it_, 'nok')).toBe('NOK')
-    expect(serializarValorCampo(it_, 'na')).toBe('N/A')
-    // Un valor ajeno al tipo no se escribe: en la celda de un "conforme" no puede
-    // quedar nada que se parezca a una respuesta.
-    expect(serializarValorCampo(it_, 'casi')).toBeNull()
-    expect(serializarValorCampo(it_, 'toString')).toBeNull()
-    expect(serializarValorCampo(it_, 1)).toBeNull()
-  })
+/** Adjunto de una respuesta `photo`, con los campos que la exportación no mira. */
+function adjunto(over: { bytes: number; blob: Blob }): AttachmentRow {
+  return {
+    id: 'att-foto',
+    tenantId: TENANT_A,
+    ownerId: 'resp-1',
+    ownerType: 'response',
+    mime: 'image/jpeg',
+    capturedAt: '2026-10-11T10:00:00.000Z',
+    ancho: 1280,
+    alto: 960,
+    clientVersion: 1,
+    ...over,
+  }
+}
 
-  it('numeric escribe un número, no texto', () => {
-    const it_ = item(2, 'numeric')
-    expect(serializarValorCampo(it_, 0)).toBe(0)
-    expect(serializarValorCampo(it_, 180.5)).toBe(180.5)
-    // Una cadena numérica no se coacciona: la columna del original puede venir
-    // con formato numérico y una cadena rompería el formato de la celda.
-    expect(serializarValorCampo(it_, '180')).toBeNull()
-    expect(serializarValorCampo(it_, Number.NaN)).toBeNull()
-  })
-
-  it('text escribe el texto tal cual y no escribe el vacío', () => {
-    const it_ = item(3, 'text')
-    expect(serializarValorCampo(it_, 'Sin señalización en la ruta de evacuación')).toBe(
-      'Sin señalización en la ruta de evacuación',
-    )
-    expect(serializarValorCampo(it_, '')).toBeNull()
-    expect(serializarValorCampo(it_, '   ')).toBeNull()
-  })
-
-  it('date escribe el ISO YYYY-MM-DD que el parser vuelve a reconocer', () => {
-    const it_ = item(4, 'date')
-    expect(serializarValorCampo(it_, '2026-10-11')).toBe('2026-10-11')
-    expect(serializarValorCampo(it_, '11/10/2026')).toBeNull()
-    expect(serializarValorCampo(it_, '2026-10-11T00:00:00Z')).toBeNull()
-  })
-
-  it('time conserva HH:MM y HH:MM:SS', () => {
-    const it_ = item(5, 'time')
-    expect(serializarValorCampo(it_, '14:30')).toBe('14:30')
-    expect(serializarValorCampo(it_, '14:30:05')).toBe('14:30:05')
-    expect(serializarValorCampo(it_, '25:00')).toBeNull()
-    expect(serializarValorCampo(it_, '14h30')).toBeNull()
-  })
-
-  it('select_single escribe la opción del catálogo', () => {
-    const it_ = item(6, 'select_single')
-    expect(serializarValorCampo(it_, 'Turno')).toBe('Turno')
-    expect(serializarValorCampo(it_, '')).toBeNull()
-    expect(serializarValorCampo(it_, ['Turno'])).toBeNull()
-  })
-
-  it('select_multiple escribe texto legible con "; ", la convención del import', () => {
-    const it_ = item(7, 'select_multiple')
-    expect(serializarValorCampo(it_, ['Conos', 'Baliza'])).toBe('Conos; Baliza')
-    expect(serializarValorCampo(it_, [])).toBeNull()
-    expect(serializarValorCampo(it_, 'Conos')).toBeNull()
-  })
-
-  it('photo escribe la referencia, NUNCA los bytes', () => {
-    const it_ = item(8, 'photo')
-    expect(serializarValorCampo(it_, 'capturada')).toBe(INDICADOR_EVIDENCIA)
-    expect(serializarValorCampo(it_, null)).toBeNull()
-    // La imagen va anclada en la hoja "Evidencias"; la celda sólo la anuncia.
-    expect(INDICADOR_EVIDENCIA).not.toContain('data:')
-  })
-
-  it('sin respuesta no hay celda que escribir en ninguno de los 8 tipos', () => {
-    for (const tipo of TIPOS) {
-      expect(serializarValorCampo(item(9, tipo), null)).toBeNull()
-      expect(serializarValorCampo(item(9, tipo), undefined)).toBeNull()
-    }
-  })
-})
-
-/* ── 2. Construcción desde el estado de la captura ───────────────────────── */
-
-describe('construcción de respuestas y evidencias', () => {
-  it('sólo manda lo contestado, en el orden de los ítems', () => {
-    const items = [item(1, 'ok_nok_na'), item(2, 'numeric'), item(3, 'text')]
-    const respuestas = {
-      [uuid(3)]: campo('hola'),
-      [uuid(2)]: campo(42),
-      [uuid(1)]: campo('ok'),
-    }
-
-    const out = construirRespuestas(items, respuestas)
-
-    expect(out.respuestas).toEqual([
-      { itemId: uuid(1), valor: 'OK' },
-      { itemId: uuid(2), valor: 42 },
-      { itemId: uuid(3), valor: 'hola' },
-    ])
-    expect(out.omitidas).toEqual([])
-  })
-
-  it('lo vacío NO es una omisión: es lo que no se contestó', () => {
-    const items = [item(1, 'text'), item(2, 'select_multiple')]
-
-    const out = construirRespuestas(items, { [uuid(1)]: campo(''), [uuid(2)]: campo([]) })
-
-    expect(out.respuestas).toEqual([])
-    expect(out.omitidas).toEqual([])
-  })
-
-  it('un valor con el tipo equivocado se omite y se reporta', () => {
-    const items = [item(1, 'numeric'), item(2, 'text')]
-    // La fila guarda `ok` en un ítem numérico (la plantilla cambió de tipo sin
-    // revisar el borrador): no se escribe nada en su celda, y se avisa.
-    const respuestas = { [uuid(1)]: campo('ok'), [uuid(2)]: campo('ok') }
-
-    const out = construirRespuestas(items, respuestas)
-
-    expect(out.respuestas).toEqual([{ itemId: uuid(2), valor: 'ok' }])
-    expect(out.omitidas).toEqual([uuid(1)])
-  })
-
-  it('lo que no está en la plantilla no se inventa', () => {
-    const out = construirRespuestas([item(1, 'text')], { [uuid(99)]: campo('fantasma') })
-    expect(out.respuestas).toEqual([])
-  })
-
+describe('construcción de evidencias', () => {
   it('una foto con marcador pero sin binario local no inventa evidencia', async () => {
     const sinAdjuntos = new Map<string, AttachmentRow>()
 
@@ -215,9 +94,47 @@ describe('construcción de respuestas y evidencias', () => {
 
     expect(evidencias).toEqual([])
   })
+
+  it('el nombre de la evidencia es el prompt del ítem, acotado a la columna', async () => {
+    const evidencias = await construirEvidencias(
+      [item(1, 'photo', `1. ${'Señalización en la rampa'.repeat(5)}`)],
+      { [uuid(1)]: campo('capturada') },
+      new Map([
+        [
+          uuid(1),
+          adjunto({ bytes: 1024, blob: new Blob([new Uint8Array([1, 2, 3])]) }),
+        ],
+      ]),
+    )
+
+    expect(evidencias).toHaveLength(1)
+    expect(evidencias[0].nombre).toHaveLength(60)
+    // El tamaño DECLARADO es el que decide, y los bytes sólo se leen si la foto
+    // acaba embebida (FR-046): aquí cabe de sobra, así que sí se leen.
+    expect(evidencias[0].bytesLength).toBe(1024)
+    expect(evidencias[0].bytes).toHaveLength(3)
+  })
+
+  it('una foto por encima del umbral se referencia SIN llegar a leer sus bytes', async () => {
+    const blob = new Blob([new Uint8Array(4 * 1024 * 1024)])
+    const lectura = vi.spyOn(blob, 'arrayBuffer')
+
+    const evidencias = await construirEvidencias(
+      [item(1, 'photo', 'Foto')],
+      { [uuid(1)]: campo('capturada') },
+      new Map([[uuid(1), adjunto({ bytes: 4 * 1024 * 1024, blob })]]),
+    )
+
+    expect(evidencias[0].bytesLength).toBe(4 * 1024 * 1024)
+    expect(evidencias[0].bytes).toHaveLength(0)
+    // Leer 4 MB para no incrustarlos sería tirar la RAM del teléfono por nada, y
+    // quien arma la lista en el servidor ni siquiera los tiene a mano.
+    expect(lectura).not.toHaveBeenCalled()
+    lectura.mockRestore()
+  })
 })
 
-/* ── 3. Orquestación con el original cacheado ───────────────────────────── */
+/* ── 2. Orquestación con el original cacheado ───────────────────────────── */
 
 /** Libro mínimo de una hoja con una fila de datos (el caso del import real). */
 async function libroDePrueba(encabezados = ['Estado', 'Personas', 'Observación', 'Turno']) {
@@ -373,7 +290,10 @@ describe('exportación con el documento original en el caché', () => {
     const evidencias = wb.getWorksheet('Evidencias')!
     expect(evidencias.rowCount).toBe(2)
     expect(evidencias.getCell('A2').value).toBe(uuid(2))
-    expect(evidencias.getCell('C2').value).toBe('image/png')
+    // Columnas de la hoja: Ítem | Evidencia | Adjunto | MIME | Capturado. La foto
+    // es pequeña, así que va embebida (columna `Adjunto`, no una referencia).
+    expect(evidencias.getCell('C2').value).toBe('embebida')
+    expect(evidencias.getCell('D2').value).toBe('image/png')
     // Y la miniatura va anclada en la fila de SU evidencia (FR-019/037): la
     // segunda de la hoja, que en el XML del drawing es 0-based → nativeRow 1.
     const ancladas = evidencias.getImages()

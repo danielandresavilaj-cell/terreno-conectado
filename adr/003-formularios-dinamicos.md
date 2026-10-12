@@ -69,6 +69,18 @@ TSK-FORM-009 (#42) construyó el ciclo de sincronización y encontró que la dec
 
 **Alternativas descartadas:** `since` como timestamp de `published_at` (cambia la semántica del parámetro y colisiona a baja resolución); cursor por plantilla (no cabe en un parámetro escalar); mantener `version` global (rompe el versionado legible por plantilla, que es requisito de FR-027 y de la UI).
 
+## Enmienda 3 (2026-10-12) — d5 cerrada: la hoja Evidencias se **incrusta bajo umbral**
+
+Enmienda 1 dejó esta decisión explícitamente para TSK-FORM-010. FR-046 pide que el adjunto vaya "referenciado o embebido según tamaño"; el umbral es de implementación, no de contrato, pero había que fijarlo.
+
+**ADO:** cada evidencia se **incrusta si el adjunto declarado mide ≤ 512 kB** y por encima se **referencia** en la hoja, con una columna `Adjunto` que dice `embebida` o `referenciada (<file_key>)`.
+
+- **El umbral sale del compresor de FR-012**, que deja las fotos de ítem entre 80 kB y 200 kB: 512 kB incrusta todo lo normal y sólo recurre a referenciar fotos que se colaron sin comprimir.
+- **La decisión se toma por el tamaño DECLARADO, no por si llegan bytes.** El servidor no lee el binario de una foto grande justamente porque no la va a incrustar; si la regla dependiera de los bytes, el mismo adjunto se trataría distinto en cada lado y los artefactos divergirían.
+- **Sin tope no hay nada que impida que el `.xlsx` crezca sin control**, porque ningún FR pone límite al tamaño de un archivo exportado.
+
+**Efecto colateral que también se cierra aquí:** la serialización del valor a celda (`serializarValorCampo`) y `construirRespuestas` salen del frontend a `shared/src/xlsx/serializar.ts`. FR-044 exige que el servidor produzca "el mismo formato que FR-019", y eso sólo se garantiza si ambos lados ejecutan el mismo código — compararlos a mano no es un contrato, es una quinterna que se rompe en el siguiente cambio.
+
 ---
 
 **Firmas:** Raúl González (2026-10-07) · Daniel Ávila (pendiente — aprobación del PR).

@@ -10,9 +10,11 @@
  * lote (eso es del módulo 005, semanas 9-12).
  */
 
-import { BadRequestException, ForbiddenException, Inject, Injectable } from '@nestjs/common'
+import { Inject, Injectable } from '@nestjs/common'
 import { DbService } from '../db/db.service'
 import type { JwtClaims } from '../auth/auth.types'
+import { exigirDashboard, DASHBOARD_ROLES } from './dashboard.auth'
+import { parsearFiltrosPeriodo, type FiltrosPeriodo } from './dashboard.contract'
 import type {
   DashboardFindingsResponse,
   DashboardSummary,
@@ -20,9 +22,6 @@ import type {
   SiteDto,
   SitesResponse,
 } from './dashboard.types'
-
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-const DASHBOARD_ROLES = ['supervisor', 'tenant_admin'] as const
 
 export interface DashboardFiltros {
   site_id?: string | null
@@ -37,24 +36,14 @@ export interface FindingsFiltros extends DashboardFiltros {
   offset: number
 }
 
-/** Valida `site_id`/rango y devuelve parámetros listos para el SQL. */
-function normalizeFiltro(f: DashboardFiltros): { siteId: string | null; desde: string | null; hasta: string | null } {
-  if (f.site_id !== undefined && f.site_id !== null && f.site_id !== '' && !UUID_RE.test(f.site_id)) {
-    throw new BadRequestException('faena inválida')
-  }
-  for (const [k, v] of [
-    ['desde', f.desde],
-    ['hasta', f.hasta],
-  ] as const) {
-    if (v !== undefined && v !== null && v !== '' && Number.isNaN(Date.parse(v))) {
-      throw new BadRequestException(`${k} inválido`)
-    }
-  }
-  return {
-    siteId: f.site_id || null,
-    desde: f.desde ? new Date(f.desde).toISOString() : null,
-    hasta: f.hasta ? new Date(f.hasta).toISOString() : null,
-  }
+/**
+ * Valida `site_id`/rango con el contrato compartido del módulo
+ * (`dashboard.contract`): las consultas nuevas de TSK-FORM-010 usan el mismo, así
+ * que un filtro mal escrito se rechaza igual en todos los endpoints del
+ * dashboard y con el mismo mensaje.
+ */
+function normalizeFiltro(f: DashboardFiltros): FiltrosPeriodo {
+  return parsearFiltrosPeriodo(f)
 }
 
 @Injectable()
@@ -63,8 +52,7 @@ export class DashboardService {
 
   /** El que autoriza es el rol + tener tenant: field_worker no ve el dashboard. */
   private exigir(u: JwtClaims, roles: readonly string[] = DASHBOARD_ROLES): void {
-    if (!u.tenant_id) throw new ForbiddenException('Requerido un tenant')
-    if (!roles.includes(u.rol)) throw new ForbiddenException('Rol no autorizado')
+    exigirDashboard(u, roles)
   }
 
   /* ------------------------------------------------------------ faenas */

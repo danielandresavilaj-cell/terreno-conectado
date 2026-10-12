@@ -47,7 +47,8 @@ Requisitos que este spec detallará: **FR-007–009, 018–019, 027–029, 036�
       · *Nota de implementación*: el cursor del delta es `published_seq` (secuencia global de publicación), no `version` — que es por plantilla y con un umbral global perdía revisiones silenciosamente. ADR-003 Enmienda 2 y `data-model.md` v1.1.2. La redacción de FR-027 se mantiene; cambia el número que viaja.
 - [~] Export en dispositivo y en servidor: `.xlsx` rellenado + hoja "Evidencias"; lote del período (FR-019, FR-044–046) → TSK-FORM-010
       · **FR-019 (dispositivo) hecho** (PR #91): `shared/src/xlsx/rellenar.ts` empareja ítem→celda, escribe las respuestas y añade la hoja de evidencias; el cliente lo genera sin red (Art. I).
-      · *Pendiente*: FR-044/045/046 — descarga desde el dashboard y lote del período (se reutiliza el mismo módulo de `shared` corriendo en Node).
+      · **FR-044 (servidor) hecho** (PR #92): mismo módulo `shared/src/xlsx` corriendo en Node, serialización compartida con el dispositivo y endpoints de descarga para el supervisor.
+      · *Pendiente*: FR-045/046/047 — exportación por lote (ZIP de `.xlsx` por inspección) y auditoría de cada lote.
 - [ ] Criterios de aceptación y pruebas con libros reales y caos — ampliar test-plan.md §3 con FR-036/039/049 → TSK-FORM-011
 - [ ] Plan técnico → `plans/007-formularios-dinamicos/plan.md` (✅ subido, PR #67)
 - [ ] V2 (fuera de V1): Word/PDF/OCR de formularios de papel, catálogo de plantillas de plataforma, analítica con IA (FR-048)
@@ -63,6 +64,7 @@ Requisitos que este spec detallará: **FR-007–009, 018–019, 027–029, 036�
 
 | Versión | Fecha | Cambio | Autor |
 | :--- | :--- | :--- | :--- |
+| 0.2.0 | 2026-10-12 | Checklist: TSK-FORM-010 en progreso — FR-044 completado en PR #92 (serialización movida a `shared` para garantizar paridad servidor/dispositivo, política de evidencias embebida-vs-referenciada resuelta según ADR-003 Enmienda 1, endpoints de dashboard). FR-045/046/047 pendientes | Daniel Ávila |
 | 0.1.9 | 2026-10-10 | Checklist: TSK-FORM-010 en progreso — FR-019 (export en el dispositivo) completado en PR #91 con `shared/src/xlsx/rellenar.ts` y el panel de export en Captura; el mapeo ítem→celda se recupera re-parseando el original cacheado y falla explícitamente si no cuadra. FR-044/045/046 (servidor y lote) pendientes | Daniel Ávila |
 | 0.1.8 | 2026-10-10 | Cierre de 009: `Access-Control-Expose-Headers` (el nombre del original no era legible cross-origin y se perdía en silencio), `X-File-Name` eliminado en favor del `Content-Disposition` único con parser compartido en `shared`, y nota de implementación bajo FR-027 en el spec maestro v1.1.1 | Daniel Ávila |
 | 0.1.7 | 2026-10-10 | Checklist: TSK-FORM-009 completado (PR #89) — delta por `published_seq` (secuencia global; ADR-003 Enmienda 2), `GET /templates/revisions/:id/original` para el `.xlsx` offline, caché Dexie v3 con cursor por tenant y purga por presupuesto, sincronización al volver la señal, congelado FR-028 con bloqueo explícito y salida confirmada. Se registra la desviación de la redacción literal de FR-027 sin abrir Enmienda al spec maestro | Daniel Ávila |
