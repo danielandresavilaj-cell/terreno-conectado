@@ -45,7 +45,9 @@ Requisitos que este spec detallará: **FR-007–009, 018–019, 027–029, 036�
 - [x] Asignación faena/rol + filtrado y búsqueda en cliente (FR-008, FR-009) → TSK-FORM-008 (PR #87)
 - [x] Delta sync + caché local + congelado de versión en inspecciones en curso (FR-018, FR-027, FR-028) → TSK-FORM-009 (PR #89)
       · *Nota de implementación*: el cursor del delta es `published_seq` (secuencia global de publicación), no `version` — que es por plantilla y con un umbral global perdía revisiones silenciosamente. ADR-003 Enmienda 2 y `data-model.md` v1.1.2. La redacción de FR-027 se mantiene; cambia el número que viaja.
-- [ ] Export en dispositivo y en servidor: `.xlsx` rellenado + hoja "Evidencias"; lote del período (FR-019, FR-044–046) → TSK-FORM-010
+- [~] Export en dispositivo y en servidor: `.xlsx` rellenado + hoja "Evidencias"; lote del período (FR-019, FR-044–046) → TSK-FORM-010
+      · **FR-019 (dispositivo) hecho** (PR #91): `shared/src/xlsx/rellenar.ts` empareja ítem→celda, escribe las respuestas y añade la hoja de evidencias; el cliente lo genera sin red (Art. I).
+      · *Pendiente*: FR-044/045/046 — descarga desde el dashboard y lote del período (se reutiliza el mismo módulo de `shared` corriendo en Node).
 - [ ] Criterios de aceptación y pruebas con libros reales y caos — ampliar test-plan.md §3 con FR-036/039/049 → TSK-FORM-011
 - [ ] Plan técnico → `plans/007-formularios-dinamicos/plan.md` (✅ subido, PR #67)
 - [ ] V2 (fuera de V1): Word/PDF/OCR de formularios de papel, catálogo de plantillas de plataforma, analítica con IA (FR-048)
@@ -61,6 +63,7 @@ Requisitos que este spec detallará: **FR-007–009, 018–019, 027–029, 036�
 
 | Versión | Fecha | Cambio | Autor |
 | :--- | :--- | :--- | :--- |
+| 0.1.9 | 2026-10-10 | Checklist: TSK-FORM-010 en progreso — FR-019 (export en el dispositivo) completado en PR #91 con `shared/src/xlsx/rellenar.ts` y el panel de export en Captura; el mapeo ítem→celda se recupera re-parseando el original cacheado y falla explícitamente si no cuadra. FR-044/045/046 (servidor y lote) pendientes | Daniel Ávila |
 | 0.1.8 | 2026-10-10 | Cierre de 009: `Access-Control-Expose-Headers` (el nombre del original no era legible cross-origin y se perdía en silencio), `X-File-Name` eliminado en favor del `Content-Disposition` único con parser compartido en `shared`, y nota de implementación bajo FR-027 en el spec maestro v1.1.1 | Daniel Ávila |
 | 0.1.7 | 2026-10-10 | Checklist: TSK-FORM-009 completado (PR #89) — delta por `published_seq` (secuencia global; ADR-003 Enmienda 2), `GET /templates/revisions/:id/original` para el `.xlsx` offline, caché Dexie v3 con cursor por tenant y purga por presupuesto, sincronización al volver la señal, congelado FR-028 con bloqueo explícito y salida confirmada. Se registra la desviación de la redacción literal de FR-027 sin abrir Enmienda al spec maestro | Daniel Ávila |
 | 0.1.6 | 2026-10-10 | Checklist: TSK-FORM-007 (PR #86) y TSK-FORM-008 (PR #87) completados — asignación faena/rol (`template_assignment`, `site_id NULL` = todas las faenas, RLS por tenant), `GET /api/v1/templates?site_id=` que filtra por rol operativo + faena con el techo de delta bajo el mismo criterio, endpoints de asignación solo para `tenant_admin`, y pantalla `Plantillas` con filtrado/búsqueda en cliente (FR-008/009) | Daniel Ávila |

@@ -15,13 +15,19 @@
  * · NO anima: el focus de los campos de texto, el scroll, el hover de las filas.
  */
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { motion } from 'motion/react'
 import { Chip } from '../components/Badges'
 import { Boton } from '../components/ui'
 import { FormRenderer } from '../components/FormRenderer'
 import { SheetHallazgo } from '../components/SheetHallazgo'
 import { useEstado, type PlantillaActual } from '../lib/store'
+import {
+  descargarLibro,
+  exportarDocumento,
+  hayOriginalCacheado,
+  type ResultadoExportar,
+} from '../lib/exportar'
 import { contestado, itemsDe } from '../lib/valores'
 import { EASE } from '../lib/motion'
 import type { TemplateItem } from '@terreno/shared'
@@ -29,6 +35,13 @@ import type { ItemPlantilla } from '../lib/types'
 
 /** Chip de cabecera cuando el turno quedó congelado en una revisión ausente (FR-028). */
 const CHIP_SIN_REVISION = 'Revisión congelada ausente'
+
+/** Estado del export offline (FR-019). El texto vive en el panel, no en alertas. */
+type EstadoExport =
+  | { fase: 'inactivo' }
+  | { fase: 'trabajando' }
+  | { fase: 'error'; mensaje: string }
+  | { fase: 'ok'; resumen: string }
 
 export function Captura() {
   const {
@@ -44,6 +57,57 @@ export function Captura() {
   } = useEstado()
   const [sheetItem, setSheetItem] = useState<ItemPlantilla | null>(null)
   const [confirmarDescarte, setConfirmarDescarte] = useState(false)
+  const [estadoExport, setEstadoExport] = useState<EstadoExport>({ fase: 'inactivo' })
+  const [hayOriginal, setHayOriginal] = useState(false)
+
+  const revisionId = plantilla?.revisionId ?? null
+
+  /* El botón de exportar se habilita sólo con el original de ESTA revisión en el
+   * dispositivo (FR-019). Se consulta al montar y cada vez que cambia la revisión
+   * congelada o la cuenta de originales: una pasada de sincronización puede
+   * purgar por presupuesto (FR-018) y dejar el export sin libro, y el trabajador
+   * tiene que enterarse antes de pulsar, no después. */
+  useEffect(() => {
+    let vivo = true
+    void hayOriginalCacheado(revisionId).then((v) => {
+      if (vivo) setHayOriginal(v)
+    })
+    return () => {
+      vivo = false
+    }
+  }, [revisionId, originales.cacheados])
+
+  const exportar = async () => {
+    if (!plantilla) return
+    setEstadoExport({ fase: 'trabajando' })
+    try {
+      const r: ResultadoExportar = await exportarDocumento({
+        revisionId: plantilla.revisionId,
+        templateName: plantilla.nombre,
+        definition: plantilla.definition,
+        respuestas,
+      })
+      if (!r.ok) {
+        setEstadoExport({ fase: 'error', mensaje: r.error })
+        return
+      }
+      descargarLibro(r.libro, r.fileName)
+      setEstadoExport({
+        fase: 'ok',
+        resumen:
+          `${r.fileName} · ${r.celdasEscritas} respuesta(s) escritas` +
+          (r.omitidas.length > 0 ? ` · ${r.omitidas.length} ítem(s) no se pudieron escribir` : ''),
+      })
+    } catch (err) {
+      /* El módulo no lanza por datos, pero un fallo de lectura del caché sí
+       * llegaría aquí: sin esto el botón quedaría en "Generando…" para siempre y
+       * en faena eso es indistinguishable de que la app se colgó. */
+      setEstadoExport({
+        fase: 'error',
+        mensaje: err instanceof Error ? err.message : 'No se pudo exportar el documento',
+      })
+    }
+  }
 
   if (!plantilla) return null
   const definition = plantilla.definition
@@ -56,6 +120,7 @@ export function Captura() {
    * las respuestas ya escritas pertenecen a esa revisión, y validar un ítem
    * contra otra dejaría el turno inconsistente al enviarlo. */
   const congeladaAusente = plantilla.estado === 'no-disponible'
+  const exportando = estadoExport.fase === 'trabajando'
 
   /* El sheet de hallazgo trabaja sobre el item legacy: se adapta desde el
    * TemplateItem del renderer (FR-032 sobre definición dinámica). */
@@ -217,9 +282,49 @@ export function Captura() {
         )}
       </div>
 
+      {/* ── Export del documento original (FR-019) ──────────────────────
+       *  Se genera entero en el dispositivo a partir del `.xlsx` cacheado con la
+       *  plantilla: respuestas en sus celdas + hoja "Evidencias". No hay red en
+       *  esta ruta (Art. I), y el botón se deshabilita —lo dice, no falla— cuando
+       *  el original no está: bajarlo en el momento rompería la promesa offline. */}
+      <div className="panel p-4">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="min-w-0">
+            <p className="label-inst">FR-019 · Documento original rellenado</p>
+            <p className="mt-1.5 text-[13px] text-ink-2 leading-relaxed">
+              {hayOriginal
+                ? 'Se arma en el dispositivo con el .xlsx que se descargó de esta plantilla: tus respuestas en sus columnas y una hoja de evidencias con las fotos. Funciona sin señal.'
+                : `${revisionId
+                    ? 'El documento original de esta plantilla todavía no está en el dispositivo.'
+                    : 'Esta plantilla no viene de una revisión publicada, así que no hay documento original que rellenar.'} Vuelve la señal y se descarga con la plantilla (FR-018); la exportación no baja nada por su cuenta. Lo que ya respondiste queda guardado.`}
+            </p>
+          </div>
+          <Boton
+            tamano="sm"
+            variante="secundaria"
+            disabled={!hayOriginal || exportando}
+            aria-busy={exportando}
+            onClick={() => void exportar()}
+          >
+            {exportando ? 'Generando…' : 'Exportar .xlsx'}
+          </Boton>
+        </div>
+
+        {estadoExport.fase === 'error' && (
+          <p role="alert" className="mt-3 text-[12px] font-medium text-failed leading-relaxed">
+            {estadoExport.mensaje}
+          </p>
+        )}
+        {estadoExport.fase === 'ok' && (
+          <p role="status" className="mt-3 text-[12px] font-medium text-synced leading-relaxed">
+            Documento exportado · {estadoExport.resumen}
+          </p>
+        )}
+      </div>
+
       {/* FR-018: los originales `.xlsx` viven en el dispositivo con un tope de
        * 25 MB. Si una pasada los truncó, el trabajador tiene que saberlo: un
-       * original que no está sólo seefirenta al exportar, y no al capturar. */}
+       *  original que no está sólo se ve al exportar, y no al capturar. */}
       <p className="text-[11px] text-ink-3 leading-relaxed">
         {originales.cacheados === 0
           ? `Documento original sin cachear: la exportación offline se habilita cuando se descargue (FR-018 · tope ${formatMb(originales.presupuestoBytes)}).`

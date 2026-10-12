@@ -44,7 +44,11 @@ import type { ProposedItem, TemplateImportProposal } from '@terreno/shared/xlsx'
  * escribir el libro; el bundle de ExcelJS lo provee en el navegador. El
  * tsconfig del frontend restringe `types` (sin `@types/node`), así que
  * declaramos acá la forma mínima que consume el módulo en lugar de arrastrar
- * todo Node al programa del navegador. */
+ * todo Node al programa del navegador.
+ *
+ * El módulo se limita a `Buffer.from(...)`: el base64 de las evidencias
+ * (FR-019/037) lo hace con `btoa`, que existe igual en Node y en el navegador,
+ * para que este declare no tenga que ampliar el tipo global. */
 declare global {
   type Buffer = Uint8Array
   const Buffer: { from(data: Uint8Array | ArrayBuffer): Buffer }
