@@ -7,16 +7,18 @@
  * y no debe haberla: si faltara el original, la respuesta es un error que explica
  * qué hacer, no una descarga silenciosa (Artículo I: la faena no tiene señal).
  *
- * El módulo está partido en tres capas, y la primera es la que más importa:
+ * El módulo está partido en tres capas, y lo que queda aquí es la última:
  *
- *   1. `serializarValorCampo` — `CampoValor` → texto/número de la celda, según
- *      el `response_type`. PURA y sin dependencias: es el paso donde un error
- *      escribe basura en el documento del cliente, así que va testeado aparte.
- *   2. `construirRespuestas` / `construirEvidencias` — del estado de la captura
- *      a los arrays que consume `rellenarOriginal`.
- *   3. `exportarDocumento` — orquesta (caché → parseo → relleno) y devuelve
+ *   1. `construirEvidencias` — del estado de la captura (adjuntos de Dexie) a las
+ *      filas de la hoja "Evidencias".
+ *   2. `exportarDocumento` — orquesta (caché → parseo → relleno) y devuelve
  *      `{ok:true, libro}` o `{ok:false, error}`; nunca lanza por datos, para que
  *      la inspección ya capturada no se pierda por un fallo de exportación.
+ *
+ * La serialización del valor a celda (`serializarValorCampo`), el criterio de
+ * "contestado" y el armado de `respuestas` (`construirRespuestas`) NO están aquí:
+ * viven en `shared/src/xlsx/serializar.ts` porque FR-044 exige que el servidor
+ * produzca el mismo artefacto que el dispositivo.
  *
  * No se reimplementa el parseo de `Content-Disposition` (no hay red aquí: el
  * nombre del archivo ya está en el caché, validado con `nombreArchivoSchema` al
@@ -32,13 +34,16 @@ import {
   type TemplateItem,
 } from '@terreno/shared'
 import {
+  construirRespuestas,
+  contestado,
+  evidenciaSeIncrusta,
+  nombreEvidencia,
   proponerImport,
   rellenarOriginal,
   type EvidenciaRellenable,
-  type RespuestaRellenable,
 } from '@terreno/shared/xlsx'
 import { db, getDraftInspectionId, originalDePlantilla, type AttachmentRow } from './db'
-import { contestado, itemsDe } from './valores'
+import { itemsDe } from './valores'
 
 /**
  * Vista mínima de una respuesta capturada que necesita la exportación.
@@ -52,137 +57,9 @@ export interface RespuestaExportable {
   campo: CampoValor | null
 }
 
-/** Respuestas y evidencias listas para `rellenarOriginal`. */
-export interface RellenoPreparado {
-  respuestas: RespuestaRellenable[]
-  /**
-   * Ítems que sí se respondieron pero que NO se pudieron serializar a la celda
-   * (el tipo guardado no corresponde al del ítem). Se omiten en vez de escribir
-   * un valor dudoso en el documento, y se avisan para que la UI lo diga.
-   */
-  omitidas: string[]
-}
-
-/**
- * Lo que se escribe en la celda de un ítem `photo`.
- *
- * NO son los bytes: la foto va anclada en la hoja "Evidencias" (FR-019/037) y la
- * celda del ítem lleva una referencia legible, que es lo que el libro original
- * puede mostrar en la columna de la foto.
- */
-export const INDICADOR_EVIDENCIA = 'Sí (hoja Evidencias)'
-
-/**
- * `ok_nok_na` en la convención del libro: `proponerImport` reconoce
- * `ok/nok/na/n/a` en minúsculas y sin punto (`esOkNokNa`, `import.ts`), así que
- * `OK`/`NOK`/`N/A` vuelven a detectarse igual al releer el libro exportado y son
- * las etiquetas que el trabajador ya ve en la pantalla (`Campos.tsx`).
- */
-const OK_NOK_NA_CELDA = {
-  ok: 'OK',
-  nok: 'NOK',
-  na: 'N/A',
-} as const
-
-/** `YYYY-MM-DD`: el formato con el que el parser vuelve a reconocer la celda. */
-const RE_FECHA_ISO = /^\d{4}-\d{2}-\d{2}$/
-/** `HH:MM` o `HH:MM:SS`: lo que valida `validateValorCampo` para `time`. */
-const RE_HORA = /^([01]\d|2[0-3]):[0-5]\d(:[0-5]\d)?$/
-/**
- * Separador de `select_multiple`: el punto y coma es el que usa la convención
- * del importador (`datos.some(c => c.texto.includes(';'))` y `opcionesDeMulti`,
- * que parte por `';'` y recorta), así que el texto exportado se vuelve a leer
- * como lista múltiple si alguien lo reimporta.
- */
-const SEPARADOR_MULTI = '; '
-
-/* ── 1. Serialización del valor por ítem ────────────────────────────────── */
-
-/**
- * Convierte el valor capturado al contenido de la celda, según el `response_type`.
- *
- * Regla general: si el valor no tiene la forma que el tipo declara, devuelve
- * `null` (no se escribe). Escribir "algo" en una celda cuyo tipo no corresponde
- * es peor que dejar la celda como estaba: el documento original va firmado por la
- * faena y una celda basura no se distingue de una respuesta.
- */
-export function serializarValorCampo(
-  item: TemplateItem,
-  valor: CampoValor | null | undefined,
-): string | number | null {
-  if (valor === null || valor === undefined) return null
-
-  switch (item.response_type) {
-    // `switch` y no `in OK_NOK_NA_CELDA`: `in` también encuentra lo heredado del
-    // prototipo (`'toString' in {}` es `true`) y una respuesta cualquiera
-    // terminaría escribiendo una función en la celda.
-    case 'ok_nok_na':
-      if (valor === 'ok') return OK_NOK_NA_CELDA.ok
-      if (valor === 'nok') return OK_NOK_NA_CELDA.nok
-      if (valor === 'na') return OK_NOK_NA_CELDA.na
-      return null
-    case 'numeric':
-      // Número de verdad, no texto: la columna del original puede tener formato
-      // numérico y sus fórmulas siguen sirviendo.
-      return typeof valor === 'number' && Number.isFinite(valor) ? valor : null
-    case 'text':
-      return typeof valor === 'string' && valor.trim() !== '' ? valor : null
-    case 'date':
-      return typeof valor === 'string' && RE_FECHA_ISO.test(valor) ? valor : null
-    case 'time':
-      return typeof valor === 'string' && RE_HORA.test(valor) ? valor : null
-    case 'select_single':
-      // La opción tal cual: son los valores del catálogo de la plantilla, que es
-      // el mismo que el libro propone.
-      return typeof valor === 'string' && valor !== '' ? valor : null
-    case 'select_multiple':
-      return Array.isArray(valor) && valor.length > 0 && valor.every((v) => typeof v === 'string')
-        ? valor.join(SEPARADOR_MULTI)
-        : null
-    case 'photo':
-      // La referencia, nunca los bytes (FR-019/037): la imagen va en la hoja
-      // "Evidencias" y la celda sólo dice que la hay.
-      return typeof valor === 'string' && valor !== '' ? INDICADOR_EVIDENCIA : null
-  }
-}
-
-/**
- * Respuestas de la captura → array de `RespuestaRellenable`, en el orden de los
- * ítems (que es el orden en que `rellenarOriginal` empareja con el libro).
- */
-export function construirRespuestas(
-  items: TemplateItem[],
-  respuestas: Record<string, RespuestaExportable>,
-): RellenoPreparado {
-  const rellenables: RespuestaRellenable[] = []
-  const omitidas: string[] = []
-
-  for (const item of items) {
-    const r = respuestas[item.id]
-    // `contestado` (de `valores.ts`) es el mismo criterio con el que la barra de
-    // progreso cuenta: vacío, `''` o `[]` NO es una respuesta, así que no cuenta
-    // como omitida — no hubo nada que serializar.
-    if (!r || !contestado(r.campo)) continue
-    const valor = serializarValorCampo(item, r.campo)
-    if (valor === null) {
-      omitidas.push(item.id)
-      continue
-    }
-    rellenables.push({ itemId: item.id, valor })
-  }
-
-  return { respuestas: rellenables, omitidas }
-}
-
 /* ── 2. Evidencias (hoja "Evidencias", FR-019/037) ───────────────────────── */
 
 /** Nombre legible de la fila de una evidencia: el ítem al que pertenece. */
-function nombreEvidencia(indice: number, item: TemplateItem): string {
-  // El prompt identifica a qué verificación corresponde la foto, que es lo que
-  // necesita el revisor del documento. Se acota porque la columna es angosta.
-  return `${indice}. ${item.prompt}`.slice(0, 60)
-}
-
 /**
  * Adjuntos de las respuestas `photo` del borrador, indexados por ítem de
  * plantilla (FR-037: el binario vive en el ATTACHMENT, no en la respuesta).
@@ -223,7 +100,13 @@ export async function construirEvidencias(
       itemId: item.id,
       nombre: nombreEvidencia(indice + 1, item),
       mime: adjunto.mime,
-      bytes: new Uint8Array(await adjunto.blob.arrayBuffer()),
+      // El tamaño DECLARADO decide si se incrusta o se referencia (FR-046); los
+      // bytes sólo hacen falta si acaba embebida.
+      bytesLength: adjunto.bytes,
+      bytes: evidenciaSeIncrusta(adjunto.bytes)
+        ? new Uint8Array(await adjunto.blob.arrayBuffer())
+        : new Uint8Array(0),
+      fileKey: null,
       capturadoAt: adjunto.capturedAt,
     })
   }
@@ -303,7 +186,13 @@ export async function exportarDocumento(
     return { ok: false, error: `El documento original del dispositivo no se pudo interpretar: ${parseo.error}` }
   }
 
-  const { respuestas, omitidas } = construirRespuestas(items, params.respuestas)
+  // El estado del store guarda `{ campo }`; el contrato compartido habla de
+  // `CampoValor`. El mapeo es de este lado para que `shared` no conozca la
+  // forma del store — y para que el servidor pueda aplicar lo mismo desde sus
+  // filas de `inspection_response` (FR-044).
+  const campos: Record<string, CampoValor | null> = {}
+  for (const item of items) campos[item.id] = params.respuestas[item.id]?.campo ?? null
+  const { respuestas, omitidas } = construirRespuestas(items, campos)
   const draftId = params.inspectionId ?? (await getDraftInspectionId())
   const evidencias = draftId
     ? await evidenciasDeInspeccion(draftId, items, params.respuestas)

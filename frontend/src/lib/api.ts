@@ -17,6 +17,7 @@ import type {
   ConflictRecordDto,
   DashboardFindingsResponse,
   DashboardSummary,
+  InspectionsResponse,
   ListConflictsResponse,
   SitesResponse,
   TemplateAssignmentDto,
@@ -161,6 +162,55 @@ export function getFindings(f: FindingsFiltros = {}): Promise<DashboardFindingsR
   if (f.offset !== undefined) q.set('offset', String(f.offset))
   const suffix = q.size ? `?${q}` : ''
   return apiFetch<DashboardFindingsResponse>(`/dashboard/findings${suffix}`)
+}
+
+/**
+ * Inspecciones del período (FR-044, TSK-FORM-010).
+ *
+ * Comparte `DashboardFiltros` con `summary` y `findings` a propósito: la pantalla
+ * manda los MISMOS filtros a las tres rutas, así que lo que el supervisor ve
+ * filtrado en las métricas y lo que aparece en la lista de inspecciones son el
+ * mismo conjunto de registros. Un filtro propio acá sería una lista que no
+ * corresponde con el panel.
+ */
+export function getInspecciones(f: DashboardFiltros = {}): Promise<InspectionsResponse> {
+  const q = new URLSearchParams()
+  if (f.site_id) q.set('site_id', f.site_id)
+  if (f.desde) q.set('desde', f.desde)
+  if (f.hasta) q.set('hasta', f.hasta)
+  const suffix = q.size ? `?${q}` : ''
+  return apiFetch<InspectionsResponse>(`/dashboard/inspections${suffix}`)
+}
+
+/**
+ * El `.xlsx` original rellenado con las respuestas de la inspección, más la hoja
+ * "Evidencias" (FR-019/044).
+ *
+ * Son BYTES, no JSON: por eso esta ruta va por `apiFetchResp` y no por
+ * `apiFetch` (que siempre acaba en `resp.json()`), conservando las mismas reglas
+ * de sesión del resto del cliente — 401 ⇒ `tc:logout`, error ⇒ `ApiError` con el
+ * mensaje del servidor. Y NO puede bajarse con un `<a href>`: el JWT viaja en
+ * `Authorization`, no en cookie, así que un link desnudo saldría sin token.
+ *
+ * Devuelve `Uint8Array` y no `Blob` como `getPlantillaOriginal`: acá los bytes
+ * no van a la caché de Dexie sino directo a `descargarLibro`, que los escribe en
+ * un `Blob` ella misma.
+ */
+export async function descargarInspeccion(
+  inspeccionId: string,
+): Promise<{ bytes: Uint8Array; fileName: string }> {
+  const resp = await apiFetchResp(
+    `/dashboard/inspections/${encodeURIComponent(inspeccionId)}/export`,
+  )
+  return {
+    bytes: new Uint8Array(await resp.arrayBuffer()),
+    // Mismo criterio que el original de plantilla: si `Content-Disposition` no es
+    // legible (CORS no lo expone, o el nombre no es utilizable) se rotula con el
+    // id, porque perder la descarga por el nombre sería peor que un nombre feo.
+    fileName:
+      nombreArchivoDeContentDisposition(resp.headers.get('Content-Disposition')) ??
+      `inspeccion-${inspeccionId}.xlsx`,
+  }
 }
 
 export function getConflicts(): Promise<ListConflictsResponse> {

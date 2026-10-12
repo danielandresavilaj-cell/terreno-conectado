@@ -30,10 +30,18 @@ import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { BadgeSev, Chip, SEV_META } from '../components/Badges'
 import { Barra, CountUp } from '../components/CountUp'
 import { Boton, Tarjeta } from '../components/ui'
-import { getFindings, getSummary, ApiError, type DashboardFiltros } from '../lib/api'
+import {
+  getFindings,
+  getInspecciones,
+  getSummary,
+  descargarInspeccion,
+  ApiError,
+  type DashboardFiltros,
+} from '../lib/api'
+import { descargarLibro } from '../lib/exportar'
 import { useEstado } from '../lib/store'
 import { EASE } from '../lib/motion'
-import type { DashboardSummary, FindingDto } from '@terreno/shared'
+import type { DashboardSummary, FindingDto, InspectionListaItem } from '@terreno/shared'
 import type { InspeccionEstado, Severidad } from '../lib/types'
 
 const PERIODOS = ['24 h', '7 días', '30 días'] as const
@@ -68,6 +76,28 @@ function rangoPeriodo(p: Periodo): { desde: string; hasta: string } {
   }
 }
 
+/**
+ * Motivo real de un fallo, para poder mostrarlo en pantalla. Un `ApiError` trae
+ * el `message` del backend (p. ej. el 404 "el documento original de la revisión
+ * no está en el volumen de sync"), que es exactamente lo que el supervisor
+ * necesita leer para decidir qué hacer; cualquier otro error no tiene un motivo
+ * que valga la pena mostrar y se dice sin inventar uno.
+ */
+function motivoDe(err: unknown): string {
+  return err instanceof ApiError ? err.detalle : 'No se pudo completar la operación'
+}
+
+/**
+ * Fecha corta y estable: `dd/mm hh:mm`, sin `toLocaleString`. El supervisor
+ * contrasta esta columna contra la fecha del libro que descarga, y dos máquinas
+ * con locales distintos no pueden decir la misma hora de dos formas.
+ */
+function fechaCorta(iso: string): string {
+  const d = new Date(iso)
+  const p = (n: number) => String(n).padStart(2, '0')
+  return `${p(d.getDate())}/${p(d.getMonth() + 1)} ${p(d.getHours())}:${p(d.getMinutes())}`
+}
+
 export function Dashboard() {
   const { usuario, identidad, online } = useEstado()
   const [periodo, setPeriodo] = useState<Periodo>('7 días')
@@ -76,6 +106,13 @@ export function Dashboard() {
   const [datos, setDatos] = useState<{ summary: DashboardSummary; hallazgos: FindingDto[] } | null>(null)
   const [cargando, setCargando] = useState(false)
   const [errorCarga, setErrorCarga] = useState<string | null>(null)
+  /* FR-044: la lista de inspecciones del período y el error de su descarga
+   * llevan estado propio. El listado se lee y se descarga fila a fila, así que
+   * su error no puede ser el mismo aviso que tapa el panel entero. */
+  const [inspecciones, setInspecciones] = useState<InspectionListaItem[]>([])
+  const [errorInspecciones, setErrorInspecciones] = useState<string | null>(null)
+  const [descargandoId, setDescargandoId] = useState<string | null>(null)
+  const [errorDescarga, setErrorDescarga] = useState<{ id: string; mensaje: string } | null>(null)
   const reducir = useReducedMotion()
 
   const esPlataforma = usuario?.rol === 'platform_admin'
@@ -87,8 +124,23 @@ export function Dashboard() {
     const fs = { ...f, severidad: sevFiltro === 'todas' ? undefined : SEV_UI_A_WIRE[sevFiltro] }
     setCargando(true)
     setErrorCarga(null)
+    /* Las inspecciones van en su propia rama del `Promise.all`: que esta ruta
+     * falle no puede tapar las métricas que sí se pudieron leer, y su motivo se
+     * dice en su propio bloque. Es un `then` con manejador de rechazo en vez de
+     * un `.catch`: así la promesa nunca rechaza y el `Promise.all` siempre
+     * resuelve con las métricas. */
+    const lista = getInspecciones(f).then(
+      (r) => {
+        setInspecciones(r.items)
+        setErrorInspecciones(null)
+      },
+      (err: unknown) => {
+        setInspecciones([])
+        setErrorInspecciones(motivoDe(err))
+      },
+    )
     try {
-      const [summary, hallazgos] = await Promise.all([getSummary(f), getFindings(fs)])
+      const [summary, hallazgos] = await Promise.all([getSummary(f), getFindings(fs), lista])
       setDatos({ summary, hallazgos: hallazgos.items })
     } catch (err) {
       if (err instanceof ApiError && err.status !== 0) {
@@ -160,6 +212,30 @@ export function Dashboard() {
     a.download = `hallazgos-${new Date().toISOString().slice(0, 10)}.csv`
     a.click()
     URL.revokeObjectURL(url)
+  }
+
+  /**
+   * FR-044: el supervisor descarga el `.xlsx` que el `tenant_admin` subió, con
+   * las respuestas de la inspección y la hoja "Evidencias".
+   *
+   * El estado de descarga es UN id, no un flag: bloquear toda la tabla mientras
+   * se arma un libro de varios MB sería castigar al resto de filas por una
+   * acción que es de una sola. Y el error va anclado a la fila que falló, con el
+   * motivo REAL del servidor: un 404 acá no es una caída, es "esta inspección no
+   * tiene documento original" (una plantilla creada a mano no viene de un
+   * import), y ese es el motivo por el que no se puede descargar.
+   */
+  const descargar = async (i: InspectionListaItem) => {
+    setDescargandoId(i.id)
+    setErrorDescarga(null)
+    try {
+      const { bytes, fileName } = await descargarInspeccion(i.id)
+      descargarLibro(bytes, fileName)
+    } catch (err) {
+      setErrorDescarga({ id: i.id, mensaje: motivoDe(err) })
+    } finally {
+      setDescargandoId(null)
+    }
   }
 
   return (
@@ -410,6 +486,72 @@ export function Dashboard() {
                   </motion.div>
                 </AnimatePresence>
               </section>
+
+              {/* ── Inspecciones del período (FR-044) ──────────────────────
+               *  Usa los MISMOS filtros de período y faena que el resto del
+               *  panel: lo que descarga el supervisor es el período que está
+               *  mirando, no un rango nuevo. No lleva filtro por severidad
+               *  porque la severidad es de los hallazgos, no de la inspección.
+               *  La descarga la genera el SERVIDOR (mismo módulo que el
+               *  dispositivo, ADR-003): acá no se reescribe ningún `.xlsx`. */}
+              <section className="space-y-2.5">
+                <div className="flex items-center gap-3 flex-wrap">
+                  <h2 className="label-inst">
+                    FR-044 · Inspecciones del período · {inspecciones.length}
+                  </h2>
+                  <div className="flex-1 rule" />
+                  <Chip>
+                    {faena === 'todas'
+                      ? 'Todas las faenas'
+                      : (faenas.find((f) => f.id === faena)?.nombre ?? '1 faena')}
+                  </Chip>
+                  <Chip>{periodo}</Chip>
+                </div>
+
+                {errorInspecciones ? (
+                  <div
+                    role="alert"
+                    className="panel px-4 py-3.5 border-sev-alta/25 bg-sev-alta/10"
+                  >
+                    <p className="text-[12px] leading-relaxed text-sev-alta">
+                      No se pudo leer el listado de inspecciones: {errorInspecciones}
+                    </p>
+                  </div>
+                ) : inspecciones.length === 0 ? (
+                  <div className="panel p-8 text-center">
+                    <p className="text-[13px] text-ink-2">
+                      {cargando
+                        ? 'Cargando inspecciones…'
+                        : 'Ninguna inspección capturada en este período.'}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {/* Cabecera y filas comparten `GRID_INSPECCION`: si divergieran,
+                        los rótulos dejarían de calzar con las columnas. */}
+                    <div className="overflow-x-auto">
+                      <div className={GRID_INSPECCION}>
+                        {['Faena', 'Plantilla', 'Ejecutado por', 'Estado', 'Resp.', 'Fecha', ''].map(
+                          (h) => (
+                            <span key={h} className="label-inst">
+                              {h}
+                            </span>
+                          ),
+                        )}
+                      </div>
+                    </div>
+                    {inspecciones.map((i) => (
+                      <FilaInspeccion
+                        key={i.id}
+                        i={i}
+                        descargando={descargandoId === i.id}
+                        error={errorDescarga?.id === i.id ? errorDescarga.mensaje : null}
+                        onDescargar={descargar}
+                      />
+                    ))}
+                  </div>
+                )}
+              </section>
             </>
           )}
 
@@ -473,6 +615,103 @@ function tiempoRelativo(iso: string): string {
   if (hs < 24) return `hace ${hs} h`
   const d = Math.round(hs / 24)
   return `hace ${d} día${d > 1 ? 's' : ''}`
+}
+
+/**
+ * Columnas de la tabla de inspecciones: cabecera y filas usan esta misma
+ * plantilla. Es una sola línea declarativa justamente para que no puedan
+ * desalinearse — el rótulo "Resp." tiene que caer sobre el número.
+ *
+ * El `min-w` con scroll horizontal es a propósito: es una vista de supervisor
+ * (pantalla ancha, uso de escritorio) y apilar la fila en móvil convertiría
+ * seis datos en una pared de etiquetas repetidas.
+ */
+const GRID_INSPECCION = [
+  'grid items-center gap-3 min-w-[840px]',
+  'grid-cols-[minmax(0,1fr)_minmax(0,1.5fr)_minmax(0,1fr)_7rem_4.5rem_6rem_auto]',
+].join(' ')
+
+/**
+ * Fila de una inspección con su acción de descarga.
+ *
+ * El estado de la descarga vive en la fila (y no en la tabla) porque la acción
+ * es de una sola inspección: mientras se arma un libro, las demás filas siguen
+ * siendo utilizables. El motivo del fallo se muestra AQUÍ y no en un aviso
+ * general, porque un 404 aquí significa algo concreto —"este registro no tiene
+ * documento original que rellenar"— y sólo la fila lo sabe.
+ */
+function FilaInspeccion({
+  i,
+  descargando,
+  error,
+  onDescargar,
+}: {
+  i: InspectionListaItem
+  descargando: boolean
+  error: string | null
+  onDescargar: (i: InspectionListaItem) => void
+}) {
+  const meta = ESTADO_META[i.status]
+  /* `template_nombre` a `null` = la plantilla se borró. No se inventa una: se
+   * dice, y el botón se deja activo porque el motivo real lo da el servidor al
+   * pulsar (un 404 con su texto, no un fallo genérico). */
+  const sinPlantilla = i.template_nombre === null
+
+  return (
+    <div className="panel px-4 py-3">
+      <div className={GRID_INSPECCION}>
+        <span className="text-[13px] truncate">{i.faena_nombre}</span>
+        <div className="min-w-0">
+          <p className="text-[13px] font-medium truncate">
+            {i.template_nombre ?? 'Plantilla no disponible'}
+          </p>
+          <p className="label-inst">
+            versión {i.template_version}
+            {i.respuestas === 0 && ' · sin respuestas'}
+          </p>
+        </div>
+        <span className="text-[13px] truncate">{i.ejecutado_por}</span>
+        <span>
+          <Chip color={meta.color}>{meta.label}</Chip>
+        </span>
+        <span className="num-inst text-[13px]">{i.respuestas}</span>
+        <span className="num-inst text-[13px] text-ink-2">{fechaCorta(i.captured_at)}</span>
+        <Boton
+          tamano="sm"
+          variante="secundaria"
+          disabled={descargando}
+          aria-busy={descargando}
+          onClick={() => onDescargar(i)}
+          icono={
+            <svg width="13" height="13" viewBox="0 0 14 14" fill="none" aria-hidden>
+              <path
+                d="M7 1.8v7.4M4.2 6.6 7 9.4l2.8-2.8"
+                stroke="currentColor"
+                strokeWidth="1.4"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              <path d="M2.2 11.4h9.6" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+            </svg>
+          }
+        >
+          {descargando ? 'Generando…' : 'Descargar'}
+        </Boton>
+      </div>
+
+      {sinPlantilla && (
+        <p className="mt-2 text-[11px] text-ink-3 leading-relaxed">
+          La plantilla ya no existe en el tenant: la descarga probablemente devuelva «no
+          encontrado» en lugar de un libro. El registro de la inspección sigue siendo válido.
+        </p>
+      )}
+      {error && (
+        <p role="alert" className="mt-2 text-[12px] font-medium text-failed leading-relaxed">
+          No se pudo descargar: {error}
+        </p>
+      )}
+    </div>
+  )
 }
 
 function FilaHallazgo({ h }: { h: FindingDto }) {

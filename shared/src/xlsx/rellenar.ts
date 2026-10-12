@@ -25,7 +25,7 @@
  * significa que alguien editó la plantilla de una forma que rompe el supuesto,
  * y eso tiene que verse.
  */
-import type { TemplateDefinition } from '../templates'
+import type { TemplateDefinition, TemplateItem } from '../templates'
 import type { ImportSourceOrigin, TemplateImportProposal } from './types'
 import ExcelJS from 'exceljs'
 import { escribirLibro } from './escolta'
@@ -46,15 +46,41 @@ export interface RespuestaRellenable {
   fila?: number
 }
 
-/** Adjunto que va a la hoja "Evidencias" (FR-019/037). */
+/**
+ * Adjunto que va a la hoja "Evidencias" (FR-019/037).
+ *
+ * `bytes` puede venir vacío cuando la foto supera el umbral y se decide
+ * referenciarla en vez de incrustarla; en ese caso `fileKey` identifica el
+ * adjunto en el almacén para poder recuperarlo aparte.
+ */
 export interface EvidenciaRellenable {
   itemId: string
   /** Nombre legible del archivo de evidencia. */
   nombre: string
   mime: string
+  /** Tamaño declarado del adjunto, aunque `bytes` venga vacío. */
+  bytesLength: number
   bytes: Uint8Array
+  /** Clave del adjunto en el almacén, para la referencia. */
+  fileKey?: string | null
   /** Momento de la captura, para la columna de la hoja. */
   capturadoAt: string
+}
+
+/**
+ * Umbral de incrustado de una evidencia (FR-046: "referenciados o embebidos
+ * según tamaño"; decisión cerrada en ADR-003 Enmienda 2).
+ *
+ * El compresor de FR-012 deja las fotos de ítem entre 80 KB y 200 KB, así que
+ * 512 KB incrusta todo lo normal y sólo recurre a referenciar fotos que se
+ * colaron sin comprimir. Sin este tope, un archivo con muchas fotos no tiene
+ * ningún límite en ningún FR y el `.xlsx` puede crecer sin control.
+ */
+export const UMBRAL_EVIDENCIA_BYTES = 512 * 1024
+
+/** ¿La evidencia se incrusta o se referencia en la hoja? */
+export function evidenciaSeIncrusta(bytesLength: number): boolean {
+  return bytesLength > 0 && bytesLength <= UMBRAL_EVIDENCIA_BYTES
 }
 
 export interface RellenarOriginalInput {
@@ -190,6 +216,21 @@ function aBase64(bytes: Uint8Array): string {
   return btoa(binario)
 }
 
+/** Tope de la columna de evidencia: es angosta y el prompt identifica igual. */
+export const MAX_NOMBRE_EVIDENCIA = 60
+
+/**
+ * Nombre legible de la fila de evidencia: el prompt del ítem es lo que le dice
+ * al revisor a qué verificación corresponde la foto.
+ *
+ * Vive aquí porque **servidor y dispositivo deben nombrarla igual**: si cada
+ * lado compusiera su propia versión, los artefactos divergirían justo en la hoja
+ * que el supervisor compara (FR-044).
+ */
+export function nombreEvidencia(indice: number, item: TemplateItem): string {
+  return `${indice}. ${item.prompt}`.slice(0, MAX_NOMBRE_EVIDENCIA)
+}
+
 /** Agrega (o reemplaza) la hoja de evidencias con los adjuntos (FR-019/037). */
 async function agregarHojaEvidencias(
   libro: Uint8Array,
@@ -202,11 +243,16 @@ async function agregarHojaEvidencias(
   const previa = wb.getWorksheet(nombreHoja)
   if (previa) wb.removeWorksheet(previa.id)
   const hoja = wb.addWorksheet(nombreHoja)
-  hoja.addRow(['Ítem', 'Evidencia', 'MIME', 'Capturado'])
+  hoja.addRow(['Ítem', 'Evidencia', 'Adjunto', 'MIME', 'Capturado'])
 
   for (const e of evidencias) {
-    const fila = hoja.addRow([e.itemId, e.nombre, e.mime, e.capturadoAt])
-    if (e.bytes.length) {
+    // La decisión se toma por el tamaño DECLARADO, no por si vienen bytes: quien
+    // arma la lista puede no haberlos leído cuando la foto es grande (es lo que
+    // hace el servidor), y referenciar e incrustar tiene que dar lo mismo.
+    const incrusta = evidenciaSeIncrusta(e.bytesLength) && e.bytes.length > 0
+    const referencia = !incrusta && e.fileKey ? `referenciada (${e.fileKey})` : 'referenciada'
+    const fila = hoja.addRow([e.itemId, e.nombre, incrusta ? 'embebida' : referencia, e.mime, e.capturadoAt])
+    if (incrusta) {
       // Sin `filename`: en ExcelJS esa prop significa "ruta en disco desde la
       // que leer la imagen" y TIENE prioridad sobre `base64` (`xlsx.js`
       // → `addMedia`), así que pasarla haría que el writer intentara abrir
@@ -229,7 +275,7 @@ async function agregarHojaEvidencias(
       })
     }
   }
-  hoja.columns = [{ width: 38 }, { width: 24 }, { width: 30 }, { width: 20 }]
+  hoja.columns = [{ width: 38 }, { width: 24 }, { width: 34 }, { width: 30 }, { width: 20 }]
 
   const out = await wb.xlsx.writeBuffer()
   return new Uint8Array(out)

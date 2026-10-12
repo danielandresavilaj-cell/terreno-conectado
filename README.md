@@ -309,7 +309,13 @@ asigna por faena/rol → el worker captura offline → export del documento rell
   en vez de escribir la respuesta en la celda de otro ítem. Pendiente la mitad de servidor:
   descarga desde el dashboard y exportación por lote del período (FR-044/045/046).
 
-Pendiente (issues #43–#45): export en servidor y lote (#43, a medias), pruebas (#44), V2 (#45).
+- **TSK-FORM-010 (parcial — FR-019 + FR-044)**: el supervisor ve las inspecciones del período en el
+  dashboard y descarga cada una como el **mismo `.xlsx` original rellenado** que genera el
+  dispositivo. La serialización de valores vive en `shared/src/xlsx/` precisamente para que ambos
+  lados ejecuten el mismo código: compararlos a mano no es un contrato. Las fotos de la hoja
+  "Evidencias" se **incrustan hasta 512 kB** y por encima se referencian (FR-046, ADR-003 Enmienda 3).
+
+Pendiente (issues #43–#45): export por lote y auditoría (#43, a medias), pruebas (#44), V2 (#45).
 Cerrados en este ciclo: UX de import (#39), TEMPLATE_IMPORT + auditoría (#40), asignaciones (#41),
 delta sync y caché (#42).
 
