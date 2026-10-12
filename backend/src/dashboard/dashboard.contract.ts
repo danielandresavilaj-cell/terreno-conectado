@@ -107,3 +107,48 @@ export {
   type InspectionListaItem,
   type InspectionsResponse,
 } from '@terreno/shared'
+
+/* ── Lote de exportaciones (TSK-FORM-010, FR-045/046/047) ──────────────────── */
+
+/**
+ * Una fila del manifiesto que viaja DENTRO del ZIP del lote.
+ *
+ * Existe porque el ZIP se entrega a un humano que puede no volver al servidor:
+ * si una inspección no se exportó, el motivo tiene que estar junto a los
+ * documentos, no sólo en un log. `archivo` es el nombre de la entrada en el ZIP
+ * y es `null` justo cuando la inspección falló (por eso no hay un nombre que
+ * desambiguar): el vínculo con el id completo es lo que hace trazable el nombre.
+ */
+export const loteExportEntradaSchema = z.object({
+  inspeccion_id: z.string().uuid(),
+  archivo: z.string().nullable(),
+  estado: z.enum(['exportada', 'fallida']),
+  motivo: z.string().nullable(),
+  celdas_escritas: z.number().int().nonnegative(),
+  omitidas: z.array(z.string()),
+})
+
+/**
+ * Manifiesto del lote (`manifesto.json` dentro del ZIP).
+ *
+ * Los filtros van aquí y no en el nombre del archivo porque el ZIP se descarga y
+ * se archiva: el nombre dice el período y el manifiesto dice exactamente qué
+ * se pidió, incluso si el filtro era "todo el tenant sin fechas".
+ */
+export const loteExportManifiestoSchema = z.object({
+  lote_id: z.string().uuid(),
+  generado_at: z.string().datetime(),
+  filtros: z.object({
+    site_id: z.string().uuid().nullable(),
+    desde: z.string().datetime().nullable(),
+    hasta: z.string().datetime().nullable(),
+  }),
+  /** Inspecciones que el filtro trajo, antes de intentar exportarlas. */
+  pedidas: z.number().int().nonnegative(),
+  exportadas: z.number().int().nonnegative(),
+  fallidas: z.number().int().nonnegative(),
+  entradas: z.array(loteExportEntradaSchema),
+})
+
+export type LoteExportEntrada = z.infer<typeof loteExportEntradaSchema>
+export type LoteExportManifiesto = z.infer<typeof loteExportManifiestoSchema>

@@ -260,15 +260,29 @@ export function nombreDeExportacion(
 }
 
 /**
+ * MIME del ZIP del lote (FR-045). Vive acá y no en `api.ts` porque lo necesita
+ * el que ESCRIBE el archivo, no el que lo pide: es el mismo literal que declara
+ * el backend (`ZIP_MIME`) y se duplica a propósito porque un MIME de contenedor
+ * no pertenece al contrato de datos.
+ */
+export const ZIP_MIME = 'application/zip'
+
+/**
  * Última milla: `Blob` + `<a download>` sobre una URL de objeto, revocada al
  * terminar. Es la única función del módulo que toca el DOM (mismo patrón que el
  * CSV del `Dashboard`), y aísla ese trabajo para que la UI no lo repita.
+ *
+ * El `mime` es un parámetro y no una constante porque el mismo gesto descarga dos
+ * cosas distintas: el `.xlsx` individual (FR-044) y el ZIP del lote (FR-045). El
+ * nombre ya lo impone `a.download`, pero el tipo del `Blob` es lo que decide cómo
+ * lo abre el sistema al recibirlo, y un ZIP etiquetado como hoja de cálculo se
+ * abre igual de mal.
  */
-export function descargarLibro(bytes: Uint8Array, fileName: string): void {
+export function descargarLibro(bytes: Uint8Array, fileName: string, mime = XLSX_MIME): void {
   // `new Uint8Array(bytes)` y no `bytes` directo: en TS 5.7 un `Uint8Array`
   // puede estar sobre un `SharedArrayBuffer` y no es asignable a `BlobPart`. La
   // copia además evita colgar en el Blob un `buffer` más grande que la vista.
-  const blob = new Blob([new Uint8Array(bytes)], { type: XLSX_MIME })
+  const blob = new Blob([new Uint8Array(bytes)], { type: mime })
   const url = URL.createObjectURL(blob)
   try {
     const a = document.createElement('a')

@@ -213,6 +213,80 @@ export async function descargarInspeccion(
   }
 }
 
+/**
+ * El ZIP del período: un `.xlsx` por inspección más el `manifesto.json`
+ * (FR-045/046, TSK-FORM-010).
+ *
+ * Los mismos filtros que la tabla, en el BODY y no en la query: es el mismo
+ * `dashboardFiltrosSchema` del listado, así que el cliente reenvía el objeto de
+ * filtros sin traducirlo a otro contrato que pueda divergir del primero. Se
+ * mandan los tres campos explícitamente (con `null` en los que no aplican) para
+ * que el servidor reciba una forma estable en vez de un objeto al que `JSON`
+ * le amputa las claves `undefined`.
+ *
+ * Los tres campos del recuento vienen de las cabeceras `X-Lote-*` y son
+ * `null` si el navegador no las deja leer: CORS sólo expone `Content-Disposition`
+ * (`backend/src/app.setup.ts`), así que en cross-origin el desglose llega como
+ * `null` y el detalle está dentro del ZIP. Por eso son `null` y no `0`: "no lo sé"
+ * y "cero" son cosas distintas y mintiendo con un 0 se taparía el caso de un
+ * lote con fallos.
+ */
+export interface LoteDescargado {
+  bytes: Uint8Array
+  fileName: string
+  loteId: string | null
+  exportadas: number | null
+  fallidas: number | null
+}
+
+/**
+ * Lote del período (FR-045/046).
+ *
+ * Va por POST y por `apiFetchResp`: son BYTES, no JSON, y además el POST no crea
+ * nada que se pueda volver a pedir por id. Hereda las reglas de sesión del resto
+ * del cliente (401 ⇒ `tc:logout`, error ⇒ `ApiError` con el motivo del servidor),
+ * y los 413/404/422 del lote llegan con el texto que ya es accionable —el
+ * límite, el filtro vacío, el motivo por el que no salió ninguna— para que la UI
+ * los muestre sin traducirlos.
+ */
+export async function descargarLoteInspecciones(
+  filtros: DashboardFiltros = {},
+): Promise<LoteDescargado> {
+  const resp = await apiFetchResp('/dashboard/inspections/export-lote', {
+    method: 'POST',
+    body: {
+      site_id: filtros.site_id ?? null,
+      desde: filtros.desde ?? null,
+      hasta: filtros.hasta ?? null,
+    },
+  })
+  return {
+    bytes: new Uint8Array(await resp.arrayBuffer()),
+    // Mismo criterio que la descarga individual: si `Content-Disposition` no es
+    // legible se rotula con algo estable, porque perder el archivo por el nombre
+    // sería peor que un nombre feo. El nombre real lo compone el servidor con el
+    // rango del período, así que el fallback sólo rotula.
+    fileName:
+      nombreArchivoDeContentDisposition(resp.headers.get('Content-Disposition')) ??
+      'inspecciones.zip',
+    loteId: resp.headers.get('X-Lote-Id'),
+    exportadas: conteoDeCabecera(resp, 'X-Lote-Exportadas'),
+    fallidas: conteoDeCabecera(resp, 'X-Lote-Fallidas'),
+  }
+}
+
+/**
+ * Entero de una cabecera de recuento, o `null` si no está o no es un número.
+ * El servidor la manda como `String(n)`; el `null` se reserva para "el navegador
+ * no me dejó leerla", que la UI cuenta como "sin dato" y no como cero.
+ */
+function conteoDeCabecera(resp: Response, cabecera: string): number | null {
+  const crudo = resp.headers.get(cabecera)
+  if (crudo === null) return null
+  const n = Number.parseInt(crudo, 10)
+  return Number.isNaN(n) ? null : n
+}
+
 export function getConflicts(): Promise<ListConflictsResponse> {
   return apiFetch<ListConflictsResponse>('/conflicts')
 }

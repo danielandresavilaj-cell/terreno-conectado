@@ -315,9 +315,14 @@ asigna por faena/rol → el worker captura offline → export del documento rell
   lados ejecuten el mismo código: compararlos a mano no es un contrato. Las fotos de la hoja
   "Evidencias" se **incrustan hasta 512 kB** y por encima se referencian (FR-046, ADR-003 Enmienda 3).
 
-Pendiente (issues #43–#45): export por lote y auditoría (#43, a medias), pruebas (#44), V2 (#45).
+- **TSK-FORM-010 (completo)**: el **lote** del período se descarga como un **ZIP con un `.xlsx` por
+  inspección** más un `manifesto.json`, tope de 50 inspecciones; una que falle no tira el lote y
+  queda registrada en el manifiesto con su motivo. Cada exportación por lote deja una fila en
+  `audit_log` con actor, tenant, período y resultado (FR-047).
+
+Pendiente (issues #44–#45): pruebas de import/export y caos (#44), V2 (#45).
 Cerrados en este ciclo: UX de import (#39), TEMPLATE_IMPORT + auditoría (#40), asignaciones (#41),
-delta sync y caché (#42).
+delta sync y caché (#42), export en dispositivo, servidor y lote (#43).
 
 | Servicio | URL | Estado |
 | :--- | :--- | :--- |

@@ -45,10 +45,10 @@ Requisitos que este spec detallará: **FR-007–009, 018–019, 027–029, 036�
 - [x] Asignación faena/rol + filtrado y búsqueda en cliente (FR-008, FR-009) → TSK-FORM-008 (PR #87)
 - [x] Delta sync + caché local + congelado de versión en inspecciones en curso (FR-018, FR-027, FR-028) → TSK-FORM-009 (PR #89)
       · *Nota de implementación*: el cursor del delta es `published_seq` (secuencia global de publicación), no `version` — que es por plantilla y con un umbral global perdía revisiones silenciosamente. ADR-003 Enmienda 2 y `data-model.md` v1.1.2. La redacción de FR-027 se mantiene; cambia el número que viaja.
-- [~] Export en dispositivo y en servidor: `.xlsx` rellenado + hoja "Evidencias"; lote del período (FR-019, FR-044–046) → TSK-FORM-010
-      · **FR-019 (dispositivo) hecho** (PR #91): `shared/src/xlsx/rellenar.ts` empareja ítem→celda, escribe las respuestas y añade la hoja de evidencias; el cliente lo genera sin red (Art. I).
-      · **FR-044 (servidor) hecho** (PR #92): mismo módulo `shared/src/xlsx` corriendo en Node, serialización compartida con el dispositivo y endpoints de descarga para el supervisor.
-      · *Pendiente*: FR-045/046/047 — exportación por lote (ZIP de `.xlsx` por inspección) y auditoría de cada lote.
+- [x] Export en dispositivo y en servidor: `.xlsx` rellenado + hoja "Evidencias"; lote del período (FR-019, FR-044–046) → TSK-FORM-010 (PRs #91, #92, #93)
+      · **FR-019** (dispositivo): `shared/src/xlsx/rellenar.ts` empareja ítem→celda, escribe y añade la hoja de evidencias; sin red (Art. I).
+      · **FR-044** (servidor): mismo módulo corriendo en Node, con la serialización en `shared` para que servidor y dispositivo ejecuten el mismo código.
+      · **FR-045/046/047**: el lote es un ZIP con un `.xlsx` por inspección + manifiesto, tope de 50, fallo parcial no aborta, y una fila de `audit_log` por lote.
 - [ ] Criterios de aceptación y pruebas con libros reales y caos — ampliar test-plan.md §3 con FR-036/039/049 → TSK-FORM-011
 - [ ] Plan técnico → `plans/007-formularios-dinamicos/plan.md` (✅ subido, PR #67)
 - [ ] V2 (fuera de V1): Word/PDF/OCR de formularios de papel, catálogo de plantillas de plataforma, analítica con IA (FR-048)
@@ -64,6 +64,7 @@ Requisitos que este spec detallará: **FR-007–009, 018–019, 027–029, 036�
 
 | Versión | Fecha | Cambio | Autor |
 | :--- | :--- | :--- | :--- |
+| 0.2.1 | 2026-10-12 | Checklist: TSK-FORM-010 completado (PRs #91, #92, #93) — FR-019 dispositivo, FR-044 servidor con serialización compartida, FR-045/046/047 lote en ZIP con manifiesto, tope de 50, fallo parcial tolerated y auditoría por lote | Daniel Ávila |
 | 0.2.0 | 2026-10-12 | Checklist: TSK-FORM-010 en progreso — FR-044 completado en PR #92 (serialización movida a `shared` para garantizar paridad servidor/dispositivo, política de evidencias embebida-vs-referenciada resuelta según ADR-003 Enmienda 1, endpoints de dashboard). FR-045/046/047 pendientes | Daniel Ávila |
 | 0.1.9 | 2026-10-10 | Checklist: TSK-FORM-010 en progreso — FR-019 (export en el dispositivo) completado en PR #91 con `shared/src/xlsx/rellenar.ts` y el panel de export en Captura; el mapeo ítem→celda se recupera re-parseando el original cacheado y falla explícitamente si no cuadra. FR-044/045/046 (servidor y lote) pendientes | Daniel Ávila |
 | 0.1.8 | 2026-10-10 | Cierre de 009: `Access-Control-Expose-Headers` (el nombre del original no era legible cross-origin y se perdía en silencio), `X-File-Name` eliminado en favor del `Content-Disposition` único con parser compartido en `shared`, y nota de implementación bajo FR-027 en el spec maestro v1.1.1 | Daniel Ávila |
