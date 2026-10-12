@@ -12,6 +12,7 @@
  * (Dexie); acá solo se lee lo sincronizado.
  */
 
+import { nombreArchivoDeContentDisposition } from '@terreno/shared'
 import type {
   ConflictRecordDto,
   DashboardFindingsResponse,
@@ -188,12 +189,17 @@ export interface OriginalDescargado {
 /**
  * Bytes del `.xlsx` fuente de una revisión (FR-018, TSK-FORM-009).
  *
- * El nombre llega en `X-File-Name` PERCENT-ENCODED: un header HTTP sólo
- * transporta latin1, así que un nombre con acentos viajaría corrupto si se
- * mandara en crudo. El cliente lo decodifica y lo persiste tal cual (FR-019).
- * `Content-Disposition` es el respaldo (trae `filename*` UTF-8) y, si tampoco
- * está, se usa un nombre derivado de la revisión: sólo rotula el archivo
- * exportado, no participa del contrato de la plantilla.
+ * El nombre viaja UNA sola vez, en `Content-Disposition`: es un header CORS no
+ * "simple", así que sólo es legible desde JS si el backend lo publica en
+ * `Access-Control-Expose-Headers`; sin eso el navegador devuelve `null` y el
+ * nombre se pierde en silencio. Por eso el parseo NO se reimplementa acá sino que
+ * delega en el contrato compartido (`nombreArchivoDeContentDisposition`), que es
+ * la fuente única de las reglas de saneo del nombre.
+ *
+ * Si el parser devuelve `null` (cabecera ausente, no expuesta por CORS o con un
+ * nombre no utilizable) se usa un nombre derivado de la revisión: el fallback es
+ * decisión del cliente porque es quien sabe de qué revisión se trata. Ese nombre
+ * sólo rotula el archivo exportado, no participa del contrato de la plantilla.
  *
  * El MIME no se devuelve: V1 tiene un único formato de original (ADR-003), así
  * que la fila del caché siempre guarda el literal del contrato.
@@ -212,24 +218,12 @@ export async function getPlantillaOriginal(
   const resp = await apiFetchResp(
     `/templates/revisions/${encodeURIComponent(revisionId)}/original${suffix}`,
   )
-  return { bytes: await resp.blob(), fileName: nombreArchivoDeHeaders(resp, revisionId) }
-}
-
-function nombreArchivoDeHeaders(resp: Response, revisionId: string): string {
-  const crudo = resp.headers.get('X-File-Name')
-  if (crudo) return decodificarNombre(crudo)
-  const estrella = /filename\*=UTF-8''([^;]+)/i.exec(resp.headers.get('Content-Disposition') ?? '')
-  if (estrella) return decodificarNombre(estrella[1])
-  return `${revisionId}.xlsx`
-}
-
-function decodificarNombre(valor: string): string {
-  try {
-    return decodeURIComponent(valor)
-  } catch {
-    // Header malformado (no es un percent-encoding válido): se conserva en
-    // crudo en vez de tumbar la descarga — el nombre sólo rotula el archivo.
-    return valor
+  return {
+    bytes: await resp.blob(),
+    // El fallback vive acá y no en el parser: el parser no sabe de qué revisión
+    // se trata, el cliente sí.
+    fileName: nombreArchivoDeContentDisposition(resp.headers.get('Content-Disposition')) ??
+      `${revisionId}.xlsx`,
   }
 }
 

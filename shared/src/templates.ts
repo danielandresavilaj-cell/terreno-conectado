@@ -485,4 +485,81 @@ export type TemplateOriginalMeta = z.infer<typeof templateOriginalMetaSchema>
 /** Presupuesto de bytes para los originales cacheados (FR-018). */
 export const PRESUPUESTO_ORIGINALES_BYTES = 25 * 1024 * 1024
 
+/* ── Nombre del documento original (RFC 6266) ──────────────────────────────
+ * El nombre viaja en `Content-Disposition` y el navegador sólo puede leerlo si
+ * el servidor lo expone por CORS (`Access-Control-Expose-Headers`): no es un
+ * header "simple", así que sin esa cabecera el JS ve `null` y el nombre se
+ * pierde en silencio. El parser vive acá, en el paquete que es fuente única del
+ * contrato (ADR-003 d1), y no en el cliente.
+ */
+
+/** Tope del nombre: suficiente para el libro y acotado para el filesystem. */
+export const MAX_NOMBRE_ARCHIVO = 120
+
+/** Caracteres de control (C0 + DEL): no pueden ir en un nombre de archivo. */
+function tieneCaracteresDeControl(valor: string): boolean {
+  for (const ch of valor) {
+    const code = ch.codePointAt(0) ?? 0
+    if (code < 0x20 || code === 0x7f) return true
+  }
+  return false
+}
+
+/**
+ * Un nombre de archivo utilizable. Rechaza separadores de ruta y caracteres de
+ * control porque el valor viene de un upload remoto y TSK-FORM-010 lo va a
+ * usar tal cual para nombrar el `.xlsx` exportado en disco.
+ */
+export const nombreArchivoSchema = z
+  .string()
+  .min(1)
+  .max(MAX_NOMBRE_ARCHIVO)
+  .refine((v) => !tieneCaracteresDeControl(v), 'el nombre no puede llevar caracteres de control')
+  .refine((v) => !v.includes('/') && !v.includes('\\'), 'el nombre no puede llevar separadores de ruta')
+  .refine((v) => v !== '.' && v !== '..', 'el nombre no puede ser un segmento de ruta')
+
+/** `filename*=UTF-8''nombre%20con%20acentos.xlsx` (preferred, RFC 5987). */
+const RE_FILENAME_EXT = /filename\*\s*=\s*(?:UTF-8|utf-8)''([^;]+)/i
+/** `filename="control-diario.xlsx"` (ASCII, RFC 6266). */
+const RE_FILENAME = /filename\s*=\s*"([^"]*)"/i
+
+/** Valida el nombre ya decodificado y se queda sólo con el base del path. */
+function sanear(valor: string): string | null {
+  const base = valor.trim().split(/[/\\]/).pop() ?? ''
+  const r = nombreArchivoSchema.safeParse(base)
+  return r.success ? r.data : null
+}
+
+/**
+ * Nombre del documento original a partir de la cabecera `Content-Disposition`.
+ *
+ * Prefiere `filename*` (UTF-8, el único que sobrevive a acentos) y cae a
+ * `filename` ASCII. Devuelve `null` si no hay cabecera o si lo que trae no es
+ * un nombre utilizable — el *fallback* (nombre derivado de la revisión) es
+ * decisión del cliente, que es quien sabe de qué revisión se trata.
+ *
+ * El percent-encoding se decodifica **sólo en la rama extendida**: por RFC 5987
+ * `filename*` va codificado, mientras que `filename` es un literal ASCII y
+ * decodificarlo rompería un nombre legítimo con `%` (`100% roto.xlsx`).
+ */
+export function nombreArchivoDeContentDisposition(header: string | null): string | null {
+  if (!header) return null
+  const extendido = RE_FILENAME_EXT.exec(header)?.[1]
+  if (extendido) {
+    let decodificado: string
+    try {
+      decodificado = decodeURIComponent(extendido)
+    } catch {
+      // Percent-encoding malformado: por RFC 5987 el valor extendido no es
+      // interpretable. Se cae al `filename` ASCII, que es la única señal que
+      // queda; si tampoco está, el llamador decide el fallback.
+      decodificado = ''
+    }
+    const sanificado = decodificado ? sanear(decodificado) : null
+    if (sanificado) return sanificado
+  }
+  const ascii = RE_FILENAME.exec(header)?.[1]
+  return ascii ? sanear(ascii) : null
+}
+
 export type TemplateImport = z.infer<typeof templateImportSchema>

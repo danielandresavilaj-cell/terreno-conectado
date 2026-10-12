@@ -304,10 +304,10 @@ export class TemplatesController {
       workerFilter(claims, siteId),
     )
     res.setHeader('Content-Type', XLSX_MIME)
+    // El nombre viaja sólo aquí: `filename*` UTF-8 es lo que el cliente persiste
+    // en su caché (`TemplateOriginalMeta.file_name`). Un segundo header con el
+    // mismo dato sólo podría divergir del que compone `contentDisposition()`.
     res.setHeader('Content-Disposition', contentDisposition(original.fileName))
-    // Nombre percent-encoded: es el valor que el cliente persiste en su caché
-    // (`TemplateOriginalMeta.file_name`) tras `decodeURIComponent`.
-    res.setHeader('X-File-Name', encodeURIComponent(original.fileName))
     return new StreamableFile(createReadStream(original.path))
   }
 
