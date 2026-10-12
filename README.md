@@ -301,8 +301,17 @@ asigna por faena/rol → el worker captura offline → export del documento rell
   25 MiB, para poder exportar sin señal (FR-018/019). El delta baja **también al volver la señal**, no
   sólo al arrancar.
 
-Pendiente (issues #43–#45): export (#43), pruebas (#44), V2 (#45). Cerrados en este ciclo: UX de
-import (#39), TEMPLATE_IMPORT + auditoría (#40), asignaciones (#41), delta sync y caché (#42).
+- **TSK-FORM-010 (parcial — FR-019)**: **export del documento original en el dispositivo** —
+  el `.xlsx` que subió el admin se rellena con las respuestas de la inspección y se le añade la
+  hoja **"Evidencias"** con las fotos, **sin depender del servidor** (Art. I). El mapeo ítem→celda
+  se recupera re-parseando el original que ya está cacheado en el dispositivo (el import descarta
+  esa coordenada al crear la plantilla) y, si los conteos no cuadran, **falla con un error claro**
+  en vez de escribir la respuesta en la celda de otro ítem. Pendiente la mitad de servidor:
+  descarga desde el dashboard y exportación por lote del período (FR-044/045/046).
+
+Pendiente (issues #43–#45): export en servidor y lote (#43, a medias), pruebas (#44), V2 (#45).
+Cerrados en este ciclo: UX de import (#39), TEMPLATE_IMPORT + auditoría (#40), asignaciones (#41),
+delta sync y caché (#42).
 
 | Servicio | URL | Estado |
 | :--- | :--- | :--- |
