@@ -35,10 +35,11 @@ import {
   getInspecciones,
   getSummary,
   descargarInspeccion,
+  descargarLoteInspecciones,
   ApiError,
   type DashboardFiltros,
 } from '../lib/api'
-import { descargarLibro } from '../lib/exportar'
+import { ZIP_MIME, descargarLibro } from '../lib/exportar'
 import { useEstado } from '../lib/store'
 import { EASE } from '../lib/motion'
 import type { DashboardSummary, FindingDto, InspectionListaItem } from '@terreno/shared'
@@ -77,6 +78,84 @@ function rangoPeriodo(p: Periodo): { desde: string; hasta: string } {
 }
 
 /**
+ * Los filtros de período+faena, en la forma que los espera el backend.
+ *
+ * Existe como función y no como `useMemo` por una razón concreta: la ventana
+ * "últimas 7 días" tiene que SEGUIR corriendo mientras la pantalla esté abierta
+ * (el auto-refresh de FR-043 la recalcula cada 30 s), así que el rango se
+ * calcula en cada uso y no se congela al cambiar de filtro. Lo único que no se
+ * recalcula es la traducción `faena === 'todas' → sin site_id`.
+ *
+ * Es la MISMA función la que usa el listado (FR-044) y la que usa el lote
+ * (FR-045): el ZIP tiene que ser exactamente el período que hay en pantalla, y
+ * dos construcciones del filtro son dos maneras de que dejen de coincidir.
+ */
+function filtrosDe(periodo: Periodo, faena: string): DashboardFiltros {
+  const { desde, hasta } = rangoPeriodo(periodo)
+  return { site_id: faena === 'todas' ? undefined : faena, desde, hasta }
+}
+
+/**
+ * Estado del lote del período (FR-045): inactivo → trabajando → ok | error.
+ *
+ * `alcance` —"7 días · Faena El Roble"— viaja en los tres estados finales a
+ * propósito: el lote se arma en el servidor y puede tardar, así que el supervisor
+ * puede cambiar de filtro mientras corre. Sin decir qué se pidió se leería un
+ * resultado que no corresponde con lo que hay en pantalla ahora.
+ *
+ * `exportadas`/`fallidas` son `null` cuando el navegador no deja leer las
+ * cabeceras de recuento (CORS sólo expone `Content-Disposition`): el manifiesto
+ * `manifesto.json` dentro del ZIP lleva el mismo desglose con los motivos.
+ */
+type Lote =
+  | { fase: 'inactivo' }
+  | { fase: 'trabajando'; alcance: string }
+  | { fase: 'error'; status: number; mensaje: string; alcance: string }
+  | {
+      fase: 'ok'
+      alcance: string
+      exportadas: number | null
+      fallidas: number | null
+      loteId: string | null
+    }
+
+/**
+ * Título por código del error del lote.
+ *
+ * Los tres se LEEN distinto porque dicen cosas distintas y la acción es otra en
+ * cada caso: un 413 es una petición demasiado grande (acotar el período), un 404
+ * es que el filtro no trajo nada (no hay nada que exportar, y no es un fallo), y
+ * un 422 es que las inspecciones que había no se pudieron exportar (el motivo de
+ * cada una lo dice el servidor, uno a uno). Con un único "algo salió mal" el
+ * supervisor no sabe si insistir, acotar el rango o revisar las plantillas.
+ */
+const TITULO_LOTE: Record<number, string> = {
+  413: 'Período demasiado grande para un lote',
+  404: 'Este filtro no trae inspecciones',
+  422: 'Ninguna de las inspecciones se pudo exportar',
+}
+
+/**
+ * Color del panel de error del lote, y POR QUÉ se distinguen a simple vista:
+ *
+ *  · 413 en ámbar (el acento de la pantalla): la petición era válida y hay que
+ *    repetirla más chica. Es el único de los tres que se arregla cambiando un
+ *    control de la pantalla.
+ *  · 404 en neutro: no falló nada, no hay nada que exportar. Pintarlo en rojo
+ *    haría que el supervisor persiga un error donde sólo hay un filtro vacío.
+ *  · 422 en `failed`: sí hubo fallo, y es de contenido (plantillas sin documento
+ *    original), no de conexión ni de permiso.
+ */
+const TONO_LOTE: Record<number, string> = {
+  413: 'border-beam/30 bg-beam/[0.06] text-beam',
+  404: 'border-line-soft bg-s2 text-ink-2',
+  422: 'border-failed/30 bg-failed/10 text-failed',
+}
+/* Cualquier otro error (sin señal, 500) reutiliza el tono de "no se pudo leer"
+ * del aviso de carga, que es lo que son. */
+const TONO_LOTE_OTRO = 'border-sev-alta/25 bg-sev-alta/10 text-sev-alta'
+
+/**
  * Motivo real de un fallo, para poder mostrarlo en pantalla. Un `ApiError` trae
  * el `message` del backend (p. ej. el 404 "el documento original de la revisión
  * no está en el volumen de sync"), que es exactamente lo que el supervisor
@@ -113,14 +192,18 @@ export function Dashboard() {
   const [errorInspecciones, setErrorInspecciones] = useState<string | null>(null)
   const [descargandoId, setDescargandoId] = useState<string | null>(null)
   const [errorDescarga, setErrorDescarga] = useState<{ id: string; mensaje: string } | null>(null)
+  /* FR-045: el lote del período lleva estado propio y NO es el de la carga del
+   * panel. Armar un ZIP son varios `.xlsx` en el servidor: si compartiera estado
+   * con el auto-refresh, un fallo del lote taparía las métricas y un refresco
+   * borraría el resultado de un lote que el supervisor ya descargó. */
+  const [lote, setLote] = useState<Lote>({ fase: 'inactivo' })
   const reducir = useReducedMotion()
 
   const esPlataforma = usuario?.rol === 'platform_admin'
 
   const cargar = useCallback(async () => {
     if (!usuario || esPlataforma) return
-    const { desde, hasta } = rangoPeriodo(periodo)
-    const f: DashboardFiltros = { site_id: faena === 'todas' ? undefined : faena, desde, hasta }
+    const f = filtrosDe(periodo, faena)
     const fs = { ...f, severidad: sevFiltro === 'todas' ? undefined : SEV_UI_A_WIRE[sevFiltro] }
     setCargando(true)
     setErrorCarga(null)
@@ -167,6 +250,14 @@ export function Dashboard() {
   }, [cargar])
 
   const faenas = identidad?.faenas ?? []
+
+  /* Cómo se llama en pantalla el filtro de faena activo. Se calcula una vez y lo
+   * usan el `Chip` del bloque y el `alcance` del lote, para que el rótulo del
+   * resultado sea el mismo criterio que el del filtro. */
+  const nombreFaena =
+    faena === 'todas'
+      ? 'Todas las faenas'
+      : (faenas.find((f) => f.id === faena)?.nombre ?? '1 faena')
 
   const summary = datos?.summary ?? null
   const hallazgos = datos?.hallazgos ?? []
@@ -235,6 +326,41 @@ export function Dashboard() {
       setErrorDescarga({ id: i.id, mensaje: motivoDe(err) })
     } finally {
       setDescargandoId(null)
+    }
+  }
+
+  /**
+   * FR-045: el lote del período — un `.xlsx` por inspección en un ZIP.
+   *
+   * Los filtros se leen AL PULSAR, no del estado en vivo: son los mismos que hay
+   * delante de los ojos, y quedan congelados en `alcance` para que el resultado
+   * siga siendo interpretable si el supervisor cambia de faena o de período
+   * mientras el servidor arma los libros.
+   *
+   * Lo único que se deshabilita es ESTE botón. El lote puede tardar (cada `.xlsx`
+   * se genera en el servidor y se empaqueta en memoria), así que ni la tabla ni
+   * las descargas por fila se bloquean: bloquear el panel por una acción de una
+   * sola persona sería peor que esperar. Tampoco hay `alert()`/`confirm()`: el
+   * resultado se dice en su propio panel, junto al botón.
+   */
+  const exportarLote = async () => {
+    const alcance = `${periodo} · ${nombreFaena}`
+    setLote({ fase: 'trabajando', alcance })
+    try {
+      const { bytes, fileName, loteId, exportadas, fallidas } = await descargarLoteInspecciones(
+        filtrosDe(periodo, faena),
+      )
+      descargarLibro(bytes, fileName, ZIP_MIME)
+      setLote({ fase: 'ok', alcance, exportadas, fallidas, loteId })
+    } catch (err) {
+      setLote({
+        fase: 'error',
+        // `0` = sin respuesta del servidor (no es el caso de un `ApiError`); se
+        // distingue del resto por el mismo motivo que en `errorCarga`.
+        status: err instanceof ApiError ? err.status : 0,
+        mensaje: motivoDe(err),
+        alcance,
+      })
     }
   }
 
@@ -500,13 +626,38 @@ export function Dashboard() {
                     FR-044 · Inspecciones del período · {inspecciones.length}
                   </h2>
                   <div className="flex-1 rule" />
-                  <Chip>
-                    {faena === 'todas'
-                      ? 'Todas las faenas'
-                      : (faenas.find((f) => f.id === faena)?.nombre ?? '1 faena')}
-                  </Chip>
+                  <Chip>{nombreFaena}</Chip>
                   <Chip>{periodo}</Chip>
+                  {/* FR-045: el lote se arma con los filtros que están justo a su
+                      lado, que son los mismos del listado de abajo. */}
+                  <Boton
+                    tamano="sm"
+                    variante="secundaria"
+                    onClick={exportarLote}
+                    disabled={lote.fase === 'trabajando'}
+                    aria-busy={lote.fase === 'trabajando'}
+                    icono={
+                      <svg width="13" height="13" viewBox="0 0 14 14" fill="none" aria-hidden>
+                        <path
+                          d="M2.2 4.6h2.3M2.2 7h1.6M2.2 9.4h2.3"
+                          stroke="currentColor"
+                          strokeWidth="1.4"
+                          strokeLinecap="round"
+                        />
+                        <path
+                          d="M6.6 4.6h5.2v5.2H6.6z"
+                          stroke="currentColor"
+                          strokeWidth="1.4"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
+                    }
+                  >
+                    {lote.fase === 'trabajando' ? 'Generando ZIP…' : 'Exportar ZIP del período'}
+                  </Boton>
                 </div>
+
+                <AvisoLote lote={lote} />
 
                 {errorInspecciones ? (
                   <div
@@ -710,6 +861,109 @@ function FilaInspeccion({
           No se pudo descargar: {error}
         </p>
       )}
+    </div>
+  )
+}
+
+/**
+ * Panel del resultado del lote, pegado al botón que lo dispara.
+ *
+ * Vive junto a los filtros y no en el aviso general de la cabecera porque su
+ * contenido depende de los filtros: el mismo 413 con "30 días" y con "24 h" no
+ * es la misma petición, y mezclarlo con el error de carga del panel haría que
+ * un problema de lectura del dashboard se confundiera con un problema del lote.
+ *
+ * `inactivo` no pinta nada: antes de la primera pulsación no hay noticia que
+ * dar, y un recuadro vacío en el panel sería ruido.
+ */
+function AvisoLote({ lote }: { lote: Lote }) {
+  if (lote.fase === 'inactivo') return null
+
+  if (lote.fase === 'trabajando') {
+    return (
+      <div
+        role="status"
+        aria-live="polite"
+        className="panel px-4 py-3.5 border-syncing/25 bg-syncing/[0.07]"
+      >
+        <div className="flex items-start gap-2.5">
+          <span className="mt-[5px] h-1.5 w-1.5 rounded-full bg-syncing shrink-0" />
+          <div className="min-w-0">
+            <p className="text-[12px] font-medium text-syncing">
+              Generando el ZIP de {lote.alcance}…
+            </p>
+            <p className="mt-1 text-[11px] leading-relaxed text-ink-3">
+              El servidor escribe un `.xlsx` por inspección y los empaqueta con su manifiesto. El
+              panel se sigue usando y el archivo baja solo al terminar.
+            </p>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (lote.fase === 'error') {
+    const tono = TONO_LOTE[lote.status] ?? TONO_LOTE_OTRO
+    return (
+      <div role="alert" className={['panel px-4 py-3.5', tono].join(' ')}>
+        <div className="flex items-start gap-2.5">
+          <span className="mt-[5px] h-1.5 w-1.5 rounded-full bg-current shrink-0" />
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <p className="text-[12px] font-medium">{TITULO_LOTE[lote.status] ?? 'No se pudo generar el lote'}</p>
+              <Chip>{lote.alcance}</Chip>
+            </div>
+            {/* El texto del servidor se muestra entero, sin resumir: en el 413 trae
+                el límite y cuántas inspecciones pidió, y en el 422 el motivo de
+                CADA fallo. Es la parte accionable; un "algo salió mal" la borra. */}
+            <p className="mt-1.5 text-[12px] leading-relaxed text-ink-2">{lote.mensaje}</p>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      className="panel px-4 py-3.5 border-synced/25 bg-synced/[0.07]"
+    >
+      <div className="flex items-start gap-2.5">
+        <span className="mt-[5px] h-1.5 w-1.5 rounded-full bg-synced shrink-0" />
+        <div className="min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <p className="text-[12px] font-medium text-synced">ZIP del lote descargado</p>
+            <Chip>{lote.alcance}</Chip>
+            {/* El id del lote es lo que correlaciona la descarga con la fila de
+                `audit_log` (FR-047): sin él, "qué se descargó" no se puede
+                responder. Opcional porque CORS puede no exponerlo. */}
+            {lote.loteId && <Chip>lote {lote.loteId.slice(0, 8)}</Chip>}
+          </div>
+          <p className="mt-1.5 text-[12px] leading-relaxed text-ink-2">
+            {lote.exportadas === null || lote.fallidas === null ? (
+              <>
+                Este navegador no deja leer las cabeceras de recuento: el desglose de exportadas y
+                fallidas va en <span className="num-inst">manifesto.json</span>, dentro del ZIP.
+              </>
+            ) : (
+              <>
+                <span className="num-inst">{lote.exportadas}</span>{' '}
+                {lote.exportadas === 1 ? 'exportada' : 'exportadas'} ·{' '}
+                <span className="num-inst">{lote.fallidas}</span>{' '}
+                {lote.fallidas === 1 ? 'fallida' : 'fallidas'}
+                {lote.fallidas > 0 && (
+                  <>
+                    . El motivo de cada una va en{' '}
+                    <span className="num-inst">manifesto.json</span>, dentro del ZIP
+                  </>
+                )}
+                .
+              </>
+            )}
+          </p>
+        </div>
+      </div>
     </div>
   )
 }

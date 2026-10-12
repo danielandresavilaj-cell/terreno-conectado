@@ -48,7 +48,7 @@ Cada promesa del spec maestro tiene una prueba que la verifica (NFR-12). Las pru
 | FR-029 | Reintentar un import sincronizado 3 veces → cero duplicados (idempotencia del motor batch) | Integración |
 | FR-019/044 | Export rellenado + hoja "Evidencias" idéntico en dispositivo y en servidor. La paridad se verifica por estructura (hojas, celdas, imágenes incrustadas) porque los metadatos del contenedor `.xlsx` dependen de la librería y la plataforma; atar el contrato al serializador de ExcelJS sería frágil | Unit + E2E + Integración |
 | FR-019 (mapeo) | La respuesta de un ítem cae en **su** celda del original, y si el libro no corresponde a la plantilla el export falla en vez de escribir en la celda de otro ítem | Unit |
-| FR-045/046 | Lote del período con formato de su plantilla + hoja "Evidencias" (adjuntos referenciados/embebidos) | Integración |
+| FR-045/046 | Lote del período con formato de su plantilla + hoja "Evidencias" (adjuntos referenciados/embebidos). ZIP con un `.xlsx` por inspección + manifiesto, tope de 50, fallo parcial no aborta | Integración |
 | FR-047 + FR-051 | Import confirmado y export por lote registrados en el audit log (autor, timestamp, tenant) | Integración |
 | FR-048 | Flag `ai` OFF: el mapeo propuesto por IA no aplica cambios sin la confirmación del `tenant_admin` | Integración |
 | FR-049 | Revisión publicada inmutable: ítems ya inspeccionados no se modifican; el cambio exige revisión nueva | Integración |
