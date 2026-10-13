@@ -1,0 +1,73 @@
+name: E2E
+
+# Harness E2E de validación (issue #10, test-plan §2/§4).
+#
+# Deliberadamente NO corre en `pull_request`: los E2E levantan Postgres +
+# backend + browser, tardan minutos y un rojo ahí bloquearía el merge de un
+# PR cuyo CI normal ya está verde. La puerta de calidad de esta capa es el
+# nightly (test-plan §8, Fase 2) más el disparo manual antes de la demo.
+on:
+  schedule:
+    # 03:17 UTC. Minuto impar a propósito: en el minute 0 GitHub ejecuta el
+    # mayor número de jobs a la vez y las colas se alargan (la documentación
+    # de Actions recomienda apartarse de los múltiplos de 15).
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  # Un E2E a la vez: dos corridas simultáneas pelearían por los puertos
+  # 3310/4310 y por la CPU del runner, y los tiempos dejarían de comparar.
+  group: e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  e2e:
+    name: E2E + caos 1–7 (PostgreSQL 16 · backend · Chromium móvil)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      # Secretos por entorno (Constitución Art. IX): el harness no tiene
+      # password por omisión y falla ruidosamente si faltan.
+      DEMO_PASSWORD: ${{ secrets.E2E_DEMO_PASSWORD }}
+      JWT_ACCESS_SECRET: ${{ secrets.E2E_JWT_SECRET }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Secretos E2E (constitutiva Art. IX)
+        run: |
+          for v in DEMO_PASSWORD JWT_ACCESS_SECRET; do
+            if [ -z "${!v}" ]; then
+              echo "::error::falta el secret $v (Settings → Secrets → Actions)"
+              exit 1
+            fi
+          done
+
+      - run: npm ci
+
+      # El E2E arranca `backend/dist/main.js`: compila igual que producción.
+      - run: npm run build
+
+      - name: Instalar Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: E2E (captura offline + caos 1–7)
+        run: npm run e2e
+
+      - name: Publicar trazas y vídeo del fallo
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-trazas
+          path: |
+            frontend/e2e/.stack/test-results/
+            playwright-report/
+          retention-days: 14
+          if-no-files-found: ignore
