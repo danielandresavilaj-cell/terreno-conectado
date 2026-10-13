@@ -146,7 +146,7 @@ TSK-WS-007 sync/batch (PAIR) ─► TSK-WS-008 worker ─► TSK-WS-009 LWW ─�
 TSK-WS-011 dashboard (Daniel) · TSK-WS-012 /health (Raúl)
 ```
 
-**Bloqueos a resolver antes de codificar:** #14 (CI — requiere PAT con scope `workflow`), #13 (firmas de Daniel), #11 (decisión refresh token).
+**Bloqueos resueltos (issues cerrados):** #14 (CI), #13 (firmas de Daniel — ratificadas 2026-10-13), #11 (decisión refresh token).
 
 ---
 

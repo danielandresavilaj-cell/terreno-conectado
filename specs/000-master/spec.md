@@ -4,7 +4,7 @@
 | :--- | :--- |
 | **ID** | 000-master |
 | **Versión** | 1.1.1 · Enmienda 002 (formularios dinámicos, 2026-10-07) + nota de implementación FR-027 |
-| **Estado** | APROBADO — Raúl González (2026-09-24) y Daniel Ávila (2026-10-06) · Enmienda 002 en revisión (PR) |
+| **Estado** | APROBADO — Raúl González (2026-09-24) y Daniel Ávila (2026-10-13) · Enmienda 002 aprobada en `main` |
 | **Autores** | Daniel Ávila (datos/negocio) · Raúl González (infra/plataforma) |
 | **Fuente** | Informe de Definición APT, Fase 1 (2026-09-04) |
 | **Specs derivados** | 001-auth-tenancy · 002-captura-offline · 003-motor-sincronizacion · 004-dominio-inspecciones · 005-reportes-gerencia · 006-admin-plataforma · 007-formularios-dinamicos |
@@ -272,3 +272,4 @@ La demo se considera exitosa si, en vivo ante el docente:
 | 1.0.1 | 2026-10-06 | Firmado por Daniel Ávila — firma delegada con autorización explícita del titular, registrada por el agente del equipo | Daniel Ávila |
 | 1.1.1 | 2026-10-10 | **Nota de implementación bajo FR-027** (no es Enmienda): documenta que el cursor del delta es `published_seq` (secuencia global de publicación) y no `version`, que es por plantilla. El texto y la numeración de los FR quedan intactos; la nota queda en el punto donde el requisito se lee, para que nadie reintroduzca el defecto. Detalle en `data-model.md` v1.1.2 y `adr/003` Enmienda 2 | Daniel Ávila |
 | 1.1.0 | 2026-10-07 | **Enmienda 002** — módulo 007 formularios dinámicos: §4 nueva fila 007; §5 18 FR nuevos en bloques reservados (007–009, 018–019, 027–029, 036–039, 044–049) sin renumerar; §10 importación asistida de `.xlsx` pasa a V1 y OCR/IA quedan en V2 opcional | Raúl González / Daniel Ávila (PR AMD-002) |
+| 1.0.1 | 2026-10-13 | Daniel Ávila **ratifica personalmente** su firma (reemplaza la firma delegada del 2026-10-06) y se actualiza el Estado (Enmienda 002 aprobada en `main`); sin cambio de contenido | Daniel Ávila |

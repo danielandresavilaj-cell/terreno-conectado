@@ -354,7 +354,7 @@ Y el ámbito entre paréntesis = el módulo: `feat(sync):`, `fix(auth):`, `test(
 | `Task` | Trabajo de construcción normal | #19 Captura offline en Dexie |
 | `Bug` | Algo se rompió | (aún no hay ninguno) |
 | `Spike` | Hay que investigar antes de poder decidir | "Probar 2 formas de guardar blobs y elegir" |
-| `Doc` | Escribir documentación | #13 Firmas pendientes |
+| `Doc` | Escribir documentación | Escribir el informe de validación |
 | `Decision` | Decisión abierta que **bloquea** avance | #11 Elegir estrategia de refresh token |
 | `Amendment` | Cambio a un spec ya congelado | Requiere PR numerado + firma de ambos |
 
@@ -416,7 +416,7 @@ No son horas. Son **tamaño relativo**, y el cerebro humano compara mejor de lo 
 │
 ├── #11  D5 — Decidir estrategia de refresh token           ⚠ BLOQUEA TSK-WS-003
 ├── #12  D2 — Cerrar modelos de red-team
-├── #13  Firmas pendientes de Daniel                        ⚠ TE TOCA A TI
+├── #13  Firmas de Daniel — ratificadas (cerrada)          ✅ HECHO
 ├── #14  CI/CD — Reactivar .github/workflows                ⚠ BLOQUEA LA SEGURIDAD
 │
 └── #15  [F3] Fase 3 — Cierre, informe final y presentación ← MILESTONE M3
@@ -624,9 +624,9 @@ Pasos para reactivarlo (issue **#14**):
 
 **Por qué es urgente:** sin CI, un push directo a `main` puede romper el offline-first (Artículo I) sin que nadie se entere hasta la demo. `plans/000-walking-skeleton/plan.md` §4 lo lista como riesgo de probabilidad **Alta**.
 
-### 12.2 Firmas pendientes
+### 12.2 Firmas ratificadas
 
-Issue **#13**. La constitución v1.0.1, el spec maestro v1.0.1 y el ADR-002 están firmados por Raúl pero **no por Daniel**. Sin ambas firmas, los documentos no están ratificados (procedimiento de enmienda de la constitución).
+Issue **#13** (cerrada el 2026-10-07). La constitución v1.0.1, el spec maestro v1.0.1 y el ADR-002 están firmados por Raúl González y Daniel Ávila; ADR-001 y ADR-003 también están firmados por ambos. El **2026-10-13** Daniel **ratificó personalmente** su firma (reemplaza la firma delegada del 2026-10-06). Con ambas firmas, los documentos quedan ratificados (procedimiento de enmienda de la constitución).
 
 ### 12.3 Decisión D5 abierta
 
