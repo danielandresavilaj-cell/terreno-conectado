@@ -964,6 +964,20 @@ const PNG_BLANCO =
  * borradores de la empresa A no pueden sincronizarse con la sesión de B sin
  * violar el aislamiento (NFR-05). Dentro del mismo tenant no se toca nada.
  */
+/**
+ * Ids REALES de los ítems del fixture publicado del tenant A
+ * (`backend/db/seed.ts`, catálogo materializado de la revisión v1), en el
+ * mismo orden que `PLANTILLA`. Las respuestas de la semilla demo los referencian
+ * para que el primer lote sea aceptable por el servidor.
+ */
+const ITEM_ID_FIJO: readonly string[] = [
+  '01890000-0000-7000-8000-00000000f101',
+  '01890000-0000-7000-8000-00000000f102',
+  '01890000-0000-7000-8000-00000000f103',
+  '01890000-0000-7000-8000-00000000f104',
+  '01890000-0000-7000-8000-00000000f105',
+]
+
 export async function seedDemoDataIfNeeded(
   cola: Array<{
     uuid: string
@@ -1023,6 +1037,16 @@ export async function seedDemoDataIfNeeded(
 
   const templateId = await getTemplateId()
 
+  /* El blob de la foto demo se resuelve ANTES de abrir la transacción.
+   * `fetch` no es una operación de IndexedDB: Dexie no puede mantener viva la
+   * transacción a través de una E/S de red, así que el commit ocurre antes de
+   * que el `await` resuelva y Dexie aborta con "Transaction committed too
+   * early" (el login completo se caía en el primer arranque de cada
+   * dispositivo). Aquí la espera queda fuera y dentro sólo hay escrituras
+   * sincrónicas de la base. */
+  const foto = cola.find((c) => c.tipo === 'foto')
+  const blobFoto = foto ? await (await fetch(PNG_BLANCO)).blob() : null
+
   await db.transaction(
     'rw',
     [db.outbox, db.inspections, db.responses, db.findings, db.logEntries, db.attachments, db.meta],
@@ -1057,16 +1081,26 @@ export async function seedDemoDataIfNeeded(
          * outbox (orden 2). Así el hallazgo r-3 y la foto r-4 encuentran su
          * inspección/respuesta en el MISMO lote (FR-021) y el primer sync
          * entero cae al tenant de verdad. */
-        for (const item of PLANTILLA.slice(0, 5)) {
+        /* `template_item_id` viaja al servidor como UUID (contrato del lote
+         * de sync) y el catálogo materializado usa los ids del fixture
+         * publicado (`01890000-...-f1xx`, backend/db/seed.ts). Con los ids
+         * legibles de la semilla demo ('i-01'…) el backend rechazaba el
+         * lote entero con HTTP 400 y el primer sync de cada dispositivo
+         * nuevo quedaba sin enviar. Se mapea posición→id real del fixture; si
+         * el servidor publica otra plantilla, la posición simplemente no tiene
+         * contraparte y la respuesta demo no se encola. */
+        for (const [indice, item] of PLANTILLA.slice(0, 5).entries()) {
+          const itemIdReal = ITEM_ID_FIJO[indice]
+          if (!itemIdReal) continue
           const responseId = uuidv7()
           await db.responses.add({
             id: responseId,
             inspectionId: insp.uuid,
-            templateItemId: item.id,
+            templateItemId: itemIdReal,
             tenantId: identidad.tenantId,
-            valueOk: item.id === 'i-02' ? 'nok' : 'ok',
+            valueOk: indice === 1 ? 'nok' : 'ok',
             valueText: null,
-            valueNumber: item.id === 'i-04' ? 180 : null,
+            valueNumber: indice === 3 ? 180 : null,
             capturedAt: ts,
             clientVersion: 0,
           })
@@ -1075,7 +1109,7 @@ export async function seedDemoDataIfNeeded(
             entityId: responseId,
             tipo: 'respuesta',
             titulo: 'Respuestas de checklist',
-            detalle: `Ítem ${item.id} · ${item.id === 'i-02' ? 'nok' : 'ok'}`,
+            detalle: `Ítem ${item.texto} · ${indice === 1 ? 'nok' : 'ok'}`,
             batchOrder: 2,
             status: 'pending',
             retries: 0,
@@ -1089,7 +1123,7 @@ export async function seedDemoDataIfNeeded(
       if (hallazgo && insp) {
         const responseId = (await db.responses
           .where('templateItemId')
-          .equals('i-02')
+          .equals(ITEM_ID_FIJO[1])
           .and((r) => r.inspectionId === insp.uuid)
           .first())?.id
         await db.findings.add({
@@ -1122,8 +1156,8 @@ export async function seedDemoDataIfNeeded(
         })
       }
       const foto = cola.find((c) => c.tipo === 'foto')
-      if (foto) {
-        const blob = await (await fetch(PNG_BLANCO)).blob()
+      if (foto && blobFoto) {
+        const blob = blobFoto
         await db.attachments.add({
           id: foto.uuid,
           tenantId: identidad.tenantId,

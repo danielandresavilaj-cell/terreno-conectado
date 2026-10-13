@@ -224,7 +224,17 @@ export class SyncService {
       throw new BadRequestException(`Lote demasiado grande (máx. ${MAX_REGISTROS_LOTE} registros)`)
     }
 
-    const foreignTenants = new Set<string>()
+    /* Pasada 1: forma mínima del sobre. Se detiene en el PRIMER cruce de tenant
+     * y audita antes de mirar el payload.
+     *
+     * El orden importa y no es cosmético: si `validatePayload` corriera antes,
+     * un lote con datos de otro tenant fallaría por un 400 de forma ("site_id
+     * inválido", "author_id inválido") y el 409 de aislamiento NUNCA se emitiría,
+     * con lo que el ataque tampoco quedaría en `audit_log`. Eso abre una vía
+     * para tantear el tenant ajeno con peticiones que no dejan rastro: justo lo
+     * que FR-025 y el Artículo V del spec quieren cerrar. El aislamiento se
+     * comprueba sobre el sobre (`tenant_id`), antes de opinar sobre el
+     * contenido. */
     for (const [i, rec] of records.entries()) {
       const at = `records[${i}]`
       if (!rec || typeof rec !== 'object') throw new BadRequestException(`${at} inválido`)
@@ -233,7 +243,16 @@ export class SyncService {
       }
       this.assertUuid(rec.id, `${at}.id`)
       this.assertUuid(rec.tenant_id, `${at}.tenant_id`)
-      if (rec.tenant_id !== tenantId) foreignTenants.add(rec.tenant_id)
+      if (rec.tenant_id !== tenantId) {
+        await this.auditTenantMismatch(claims, body, [rec.tenant_id])
+        throw new ConflictException('Lote rechazado: registros de un tenant distinto al del JWT')
+      }
+    }
+
+    /* Pasada 2: con el sobre ya declarado propio del tenant, se valida el
+     * contenido. Acá sí todo 400 es un error real del cliente. */
+    for (const [i, rec] of records.entries()) {
+      const at = `records[${i}]`
       if (!Number.isInteger(rec.client_version) || rec.client_version < 0) {
         throw new BadRequestException(`${at}.client_version debe ser un entero ≥ 0`)
       }
@@ -241,11 +260,6 @@ export class SyncService {
         throw new BadRequestException(`${at}.captured_at inválido`)
       }
       this.validatePayload(rec, at)
-    }
-
-    if (foreignTenants.size > 0) {
-      await this.auditTenantMismatch(claims, body, [...foreignTenants])
-      throw new ConflictException('Lote rechazado: registros de un tenant distinto al del JWT')
     }
 
     return records
