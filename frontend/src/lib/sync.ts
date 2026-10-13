@@ -37,6 +37,13 @@ import { API_BASE, getToken } from './api'
 /** FR-022: tope del backoff exponencial. */
 export const MAX_BACKOFF_MS = 5 * 60 * 1000
 
+/**
+ * Techo de espera de un envío (FR-022). Mayor que el backoff base (1 s) para
+ * que un turno normal de subida larga no se aborte, y bastante menor que el
+ * tope del backoff para que un corte de red se note en menos de un minuto.
+ */
+export const TIMEOUT_LOTE_MS = 30_000
+
 export type EstadoSync = 'ok' | 'parcial' | 'fallo' | 'vacio' | 'en_curso'
 
 export interface ResultadoSync {
@@ -58,20 +65,38 @@ export function backoffMs(intentos: number): number {
 
 /** HTTP puro, inyectable para pruebas. Headers icónicos de API.
  *  TSK-WS-011: el lote viaja autenticado con el access token de la sesión
- *  (`lib/api.ts`); sin sesión no hay lote, y el 401 lo maneja `apiFetch`. */
+ *  (`lib/api.ts`); sin sesión no hay lote, y el 401 lo maneja `apiFetch`.
+ *
+ *  `timeoutMs` es una red de seguridad, no una cortesía: una conexión que
+ *  acepta el socket y nunca responde (túnelportal, WiFi de faena que captura
+ *  el WPA) deja `fetch` esperando indefinidamente. Las filas del outbox ya
+ *  quedaron en `syncing` y `sincronizables()` sólo lee `pending|failed`, así
+ *  que sin este corte el lote se perdía para siempre: cero reintentos, cero
+ *  aviso y el contador de pendientes congelado (caos 1/6 de test-plan §4).
+ *  Al agotarse se devuelve una respuesta no-ok y el flujo normal de fallo
+ *  (marcar `failed` + backoff) recupera el lote. */
 export async function fetchLote(
   url: string,
   lote: SyncBatchRequest,
-  fetchImpl: typeof fetch = fetch,
+  opts: { fetchImpl?: typeof fetch; timeoutMs?: number } = {},
 ): Promise<Response> {
+  const { fetchImpl = fetch, timeoutMs = TIMEOUT_LOTE_MS } = opts
   const headers: Record<string, string> = { 'Content-Type': 'application/json' }
   const token = getToken()
   if (token) headers.Authorization = `Bearer ${token}`
-  return fetchImpl(url, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify(lote),
-  })
+
+  const controlador = new AbortController()
+  const t = window.setTimeout(() => controlador.abort(), timeoutMs)
+  try {
+    return await fetchImpl(url, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(lote),
+      signal: controlador.signal,
+    })
+  } finally {
+    window.clearTimeout(t)
+  }
 }
 
 let enCurso = false
@@ -114,12 +139,20 @@ function entityIdDeError(err: string): string | null {
 export async function sincronizarCola(): Promise<ResultadoSync> {
   if (enCurso) return { estado: 'en_curso', sincronizados: [], fallidos: [], sincronizables: 0, enviados: 0, error: null }
   enCurso = true
+  /* Filas del intento en curso, para poder recuperarlas si algo revienta.
+   * sincronizables() sólo lee pending|failed: una vez que marcarEnviando
+   * las pasó a syncing desaparecen de esa consulta, así que si el catch
+   * las buscara ahí no encontraría ninguna y el lote quedaría atrapado en
+   * syncing para siempre — cero reintentos y el contador de pendientes
+   * congelado. Es el invariante de "ningún registro se pierde". */
+  let enVuelo: OutboxRow[] = []
   try {
     const filas = (await sincronizables()).slice(0, MAX_REGISTROS_LOTE)
     if (filas.length === 0) {
       cancelarReintento()
       return { estado: 'vacio', sincronizados: [], fallidos: [], sincronizables: 0, enviados: 0, error: null }
     }
+    enVuelo = filas
 
     await marcarEnviando(filas)
     const registros = await Promise.all(filas.map((f) => aSyncRecord(f)))
@@ -174,10 +207,9 @@ export async function sincronizarCola(): Promise<ResultadoSync> {
     }
   } catch (err) {
     const mensaje = err instanceof Error ? err.message : String(err)
-    const filas = await sincronizables().catch(() => [] as OutboxRow[])
-    for (const f of filas) await marcarFallido(f, mensaje)
-    programarReintento(filas)
-    return { estado: 'fallo', sincronizados: [], fallidos: filas.map(idDeCola), sincronizables: filas.length, enviados: filas.length, error: mensaje }
+    for (const f of enVuelo) await marcarFallido(f, mensaje)
+    programarReintento(enVuelo)
+    return { estado: 'fallo', sincronizados: [], fallidos: enVuelo.map(idDeCola), sincronizables: enVuelo.length, enviados: enVuelo.length, error: mensaje }
   } finally {
     enCurso = false
   }
