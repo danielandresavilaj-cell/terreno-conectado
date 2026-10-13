@@ -5,6 +5,8 @@
 
 **Fuente de verdad del trabajo:** los issues de este repo, organizados en el board [Terreno Conectado — Sprint Board](https://github.com/users/danielandresavilaj-cell/projects/1).
 
+**Si usas un agente de IA (Claude Code, Codex, Cursor, Copilot…)**: lee primero [`AGENTS.md`](AGENTS.md) en la raíz. Concentra comandos, reglas de git, portabilidad macOS/Windows, guardrails de seguridad y gotchas conocidos en un solo archivo. Este documento manda sobre `AGENTS.md`.
+
 ---
 
 ## 1. La cadena de trazabilidad (por qué todo es auditable)
