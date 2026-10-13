@@ -201,6 +201,26 @@ npm test                                            # unit + integración (todos
 seed del backend y `VITE_DEMO_PASSWORD` para el del frontend, que importan `seed.ts` al cargar);
 nunca están hardcodeadas en el fuente. Ver `.env.example`.
 
+### Pruebas E2E y de caos (issue #10)
+
+Hay una capa de validación aparte de la de cada push: **Playwright** levanta el sistema completo
+(PostgreSQL 16 en Testcontainers → migraciones → seed → backend `dist/` → frontend compilado) y corre
+los flujos en **perfil móvil**, incluidos los siete escenarios de caos de `test-plan.md` §4
+(corte de red, replay, LWW concurrente, reinicio hostil, cola masiva, token vencido, cross-tenant).
+
+```bash
+export DEMO_PASSWORD='...'           # mismas cuentas que usa el seed
+export JWT_ACCESS_SECRET='...'       # >= 32 bytes
+npm run build                       # el E2E arranca backend/dist y el build de Vite
+npm run e2e                         # stack + specs + teardown en un comando
+npm run e2e -- --grep "caos 7"      # un solo escenario
+```
+
+Requiere **Docker** y las dos variables de entorno: el harness no tiene contraseña por omisión y
+falla ruidosamente si faltan (Constitución Art. IX). Corre en el workflow nightly
+(`.github/workflows/e2e.yml`) y **nunca bloquea un PR** — la puerta de esa capa es el nightly, no el
+CI de cada push. Resultados y hallazgos: [`docs/informe-pruebas-validacion.md`](docs/informe-pruebas-validacion.md).
+
 ### Auth (TSK-WS-003)
 
 Endpoints (`POST /api/v1/auth/login`, `POST /api/v1/auth/refresh`, `GET /api/v1/me`): JWT HS256 de
