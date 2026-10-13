@@ -99,19 +99,6 @@ export interface TemplateImportRow {
   updated_at: string
 }
 
-export interface UploadTemplateImportInput {
-  tenantId: string
-  uploadedBy: string
-  fileKey: string
-  fileName: string
-}
-
-export interface ParseTemplateImportInput {
-  tenantId: string
-  importId: string
-  proposal: Record<string, unknown>
-}
-
 export interface ConfirmTemplateImportInput {
   tenantId: string
   importId: string

@@ -296,13 +296,11 @@ export function Dashboard() {
       ]),
     ]
     const csv = filas.map((r) => r.map((c) => `"${(c ?? '').replace(/"/g, '""')}"`).join(',')).join('\n')
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `hallazgos-${new Date().toISOString().slice(0, 10)}.csv`
-    a.click()
-    URL.revokeObjectURL(url)
+    descargarLibro(
+      new TextEncoder().encode(csv),
+      `hallazgos-${new Date().toISOString().slice(0, 10)}.csv`,
+      'text/csv;charset=utf-8',
+    )
   }
 
   /**

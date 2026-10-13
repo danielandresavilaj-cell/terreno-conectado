@@ -135,3 +135,61 @@ export function construirRespuestas(
 
   return { respuestas: rellenables, omitidas }
 }
+
+/**
+ * Columnas de `inspection_response` que determinan el valor de un ítem
+ * (data-model §2.4). Los nombres son los de la base a propósito: el servidor
+ * pasa la fila tal cual y el dispositivo la adapta desde su borrador local.
+ */
+export interface ColumnasValor {
+  value_ok: 'ok' | 'nok' | 'na' | null
+  value_text: string | null
+  /** `numeric` en la base: el driver puede devolverlo como texto. */
+  value_number: number | string | null
+  value_json: unknown
+}
+
+/** Marcador con el que se guarda "este ítem tiene foto" (FR-037). */
+export const MARCADOR_FOTO = 'capturada'
+
+/** `value_json` a `string[]`: un elemento no textual convierte la lista en null. */
+function listaDeTextos(valor: unknown[]): string[] | null {
+  return valor.every((v) => typeof v === 'string') ? (valor as string[]) : null
+}
+
+/**
+ * Columnas de `inspection_response` → valor tipado del ítem (FR-036).
+ *
+ * Es la lectura inversa de `serializarValorCampo` y vive en shared por el mismo
+ * motivo (FR-044): el servidor exporta desde `inspection_response` y el
+ * dispositivo desde su borrador local, y ambos tienen que reconstruir el MISMO
+ * valor para producir el MISMO documento. Acá se aplican las caídas legacy
+ * (lista múltiple persistida como texto JSON, valor en `value_text`).
+ */
+export function campoDesdeColumnas(item: TemplateItem, fila: ColumnasValor): CampoValor | null {
+  switch (item.response_type) {
+    case 'ok_nok_na':
+      return fila.value_ok
+    case 'numeric':
+      if (fila.value_number === null) return null
+      return typeof fila.value_number === 'number' ? fila.value_number : Number(fila.value_number)
+    case 'photo':
+      return fila.value_text === MARCADOR_FOTO ? MARCADOR_FOTO : null
+    case 'select_multiple': {
+      if (Array.isArray(fila.value_json)) return listaDeTextos(fila.value_json)
+      // Legacy (previo a `value_json`, TSK-FORM-004): la lista viajaba en texto.
+      if (!fila.value_text) return null
+      try {
+        const v: unknown = JSON.parse(fila.value_text)
+        return Array.isArray(v) ? listaDeTextos(v) : null
+      } catch {
+        return null
+      }
+    }
+    case 'text':
+      return fila.value_text
+    default:
+      // date/time/select_single: `value_json`, con caída al texto legacy.
+      return typeof fila.value_json === 'string' ? fila.value_json : fila.value_text
+  }
+}

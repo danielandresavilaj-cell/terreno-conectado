@@ -17,7 +17,12 @@
  * Autoridad de la foto: `AttachmentRow.blob` ya viene comprimida (FR-012).
  */
 
-import { uuidv7, type SyncBatchRequest, type SyncBatchResponse } from '@terreno/shared'
+import {
+  MAX_REGISTROS_LOTE,
+  uuidv7,
+  type SyncBatchRequest,
+  type SyncBatchResponse,
+} from '@terreno/shared'
 import {
   aSyncRecord,
   getDeviceId,
@@ -29,8 +34,6 @@ import {
 } from './db'
 import { API_BASE, getToken } from './api'
 
-/** Máximo de registros por lote que acepta el servidor (límite FR-021). */
-export const MAX_LOTE = 500
 /** FR-022: tope del backoff exponencial. */
 export const MAX_BACKOFF_MS = 5 * 60 * 1000
 
@@ -112,7 +115,7 @@ export async function sincronizarCola(): Promise<ResultadoSync> {
   if (enCurso) return { estado: 'en_curso', sincronizados: [], fallidos: [], sincronizables: 0, enviados: 0, error: null }
   enCurso = true
   try {
-    const filas = (await sincronizables()).slice(0, MAX_LOTE)
+    const filas = (await sincronizables()).slice(0, MAX_REGISTROS_LOTE)
     if (filas.length === 0) {
       cancelarReintento()
       return { estado: 'vacio', sincronizados: [], fallidos: [], sincronizables: 0, enviados: 0, error: null }

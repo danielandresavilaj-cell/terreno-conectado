@@ -33,7 +33,12 @@ import {
   UseGuards,
 } from '@nestjs/common'
 import type { Request, Response } from 'express'
-import { XLSX_MIME } from '@terreno/shared'
+import {
+  XLSX_MIME,
+  type DashboardFindingsResponse,
+  type DashboardSummary,
+  type SitesResponse,
+} from '@terreno/shared'
 import { AuthGuard } from '../auth/auth.guard'
 import type { JwtClaims } from '../auth/auth.types'
 import { contentDisposition } from '../http/content-disposition'
@@ -44,11 +49,6 @@ import {
 } from './inspection-export-lote.service'
 import { InspectionExportService } from './inspection-export.service'
 import { exigirUuid, type InspectionsResponse } from './dashboard.contract'
-import type {
-  DashboardFindingsResponse,
-  DashboardSummary,
-  SitesResponse,
-} from './dashboard.types'
 
 type AuthedRequest = Request & { user?: JwtClaims }
 

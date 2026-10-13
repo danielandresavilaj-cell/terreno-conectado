@@ -40,7 +40,7 @@
 
 import { randomUUID } from 'node:crypto'
 import { mkdir, unlink, writeFile } from 'node:fs/promises'
-import { dirname, join, resolve } from 'node:path'
+import { dirname } from 'node:path'
 import {
   BadRequestException,
   ConflictException,
@@ -49,8 +49,8 @@ import {
   Injectable,
   Logger,
 } from '@nestjs/common'
-import { ConfigService } from '@nestjs/config'
 import { DbService } from '../db/db.service'
+import { SyncVolumeService } from '../storage/sync-volume.service'
 import type { JwtClaims } from '../auth/auth.types'
 import type {
   ConflictRecordDto,
@@ -65,9 +65,9 @@ import type {
   SyncLogEntryPayload,
   SyncRecord,
   SyncResponsePayload,
-} from './sync.types'
+} from '@terreno/shared'
+import { MAX_REGISTROS_LOTE } from '@terreno/shared'
 
-const MAX_RECORDS = 500
 const MAX_ATTACHMENT_BYTES = 4 * 1024 * 1024
 const MAX_ERRORS = 5
 const MAX_CONFLICTS_VIEW = 100
@@ -118,7 +118,7 @@ export class SyncService {
 
   constructor(
     @Inject(DbService) private readonly db: DbService,
-    @Inject(ConfigService) private readonly config: ConfigService,
+    @Inject(SyncVolumeService) private readonly volume: SyncVolumeService,
   ) {}
 
   async batch(claims: JwtClaims, body: SyncBatchRequest): Promise<SyncBatchResponse> {
@@ -220,8 +220,8 @@ export class SyncService {
     if (!Array.isArray(records) || records.length === 0) {
       throw new BadRequestException('records vacío')
     }
-    if (records.length > MAX_RECORDS) {
-      throw new BadRequestException(`Lote demasiado grande (máx. ${MAX_RECORDS} registros)`)
+    if (records.length > MAX_REGISTROS_LOTE) {
+      throw new BadRequestException(`Lote demasiado grande (máx. ${MAX_REGISTROS_LOTE} registros)`)
     }
 
     const foreignTenants = new Set<string>()
@@ -901,11 +901,8 @@ export class SyncService {
     if (buf.length !== p.bytes) {
       throw new Error(`bytes no coincide con el base64 (${buf.length} ≠ ${p.bytes})`)
     }
-    const volume = resolve(
-      this.config.get<string>('SYNC_VOLUME') ?? join(process.cwd(), '.vol'),
-    )
     const key = `sync/${tenantId}/${id}.${MIME_EXT[p.mime]}`
-    const path = join(volume, key)
+    const path = this.volume.rutaEn(key)
     await mkdir(dirname(path), { recursive: true })
     await writeFile(path, buf)
     return key
@@ -913,10 +910,7 @@ export class SyncService {
 
   /** Borra bytes huérfanos (regresa la versión que perdió tras un LWW). */
   private async removeAttachmentFile(fileKey: string): Promise<void> {
-    const volume = resolve(
-      this.config.get<string>('SYNC_VOLUME') ?? join(process.cwd(), '.vol'),
-    )
-    await unlink(join(volume, fileKey))
+    await unlink(this.volume.rutaEn(fileKey))
   }
 
   /* ------------------------------------------------------------ auditoría */

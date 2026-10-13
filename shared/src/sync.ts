@@ -104,6 +104,13 @@ export interface SyncBatchRequest {
   records: SyncRecord[]
 }
 
+/**
+ * Tope de registros por lote (FR-021). Fuente única: el servidor rechaza el
+ * request completo por encima de este número y el dispositivo recorta el lote a
+ * este mismo valor antes de enviarlo, así que ambos lados no pueden divergir.
+ */
+export const MAX_REGISTROS_LOTE = 500
+
 export type SyncBatchStatus = 'ok' | 'partial' | 'failed'
 
 export interface SyncBatchResponse {
