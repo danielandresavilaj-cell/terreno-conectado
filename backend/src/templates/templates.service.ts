@@ -708,24 +708,43 @@ export class TemplatesService {
    */
   async confirmTemplateImport(input: ConfirmTemplateImportInput): Promise<TemplateRevisionRow> {
     return this.db.withTenantTransaction<TemplateRevisionRow>(input.tenantId, async (run) => {
+      // El estado se mira en dos pasos a propósito. Un import de OTRO tenant es
+      // invisible por RLS, así que si el filtro trajera `status = 'proposed'`
+      // desde el `WHERE` no se podría distinguir "no existe para ti" de "ya
+      // estaba confirmado" y ambos casos responderían 409: un 409 confirma que
+      // el id existe en el sistema, que es justo lo que no hay que filtrar. Con
+      // la fila primero, lo que el tenant no puede ver cae en 404 y el 409 queda
+      // para lo que sí es un conflicto de estado (confirmar dos veces).
       const [imp] = await run<TemplateImportRow>(
-        `SELECT * FROM template_imports
-         WHERE id = $1 AND status = 'proposed'`,
+        `SELECT * FROM template_imports WHERE id = $1`,
         [input.importId],
       )
       if (!imp) {
+        throw new NotFoundException('import no encontrado para este tenant')
+      }
+      if (imp.status !== 'proposed') {
         throw new ConflictException('el import no está en estado proposed')
       }
 
       const proposal = templateImportProposalSchema.parse(imp.proposed_schema)
-      const definition = this.proposalToDefinition(proposal)
+      // La definición revisada manda si llega: el wizard edita los ítems en el
+      // dispositivo y luego confirma (FR-048). Sin ella se publica la propuesta
+      // del parser, que es el camino simple.
+      const definition =
+        input.definition === undefined
+          ? this.proposalToDefinition(proposal)
+          : (input.definition as TemplateDefinition)
       const validated = this.validateOrThrow(definition)
 
       const [template] = await run<TemplateRow>(
         `INSERT INTO template (id, tenant_id, name, description, status)
          VALUES (gen_random_uuid(), $1, $2, $3, 'active')
          RETURNING *`,
-        [input.tenantId, imp.file_name, `Importado desde ${proposal.nombre_archivo}`],
+        [
+          input.tenantId,
+          input.name?.trim() || imp.file_name,
+          input.description?.trim() ?? `Importado desde ${proposal.nombre_archivo}`,
+        ],
       )
 
       const [revision] = await run<TemplateRevisionRow>(
@@ -742,6 +761,32 @@ export class TemplatesService {
          WHERE id = $1`,
         [imp.id],
       )
+
+      // FR-047: confirmar un import es un acto auditable. Sin esta fila, el
+      // ciclo `proposed → confirmed` — y con él el documento fuente que hace
+      // posible exportar el original (FR-019) — no dejaba rastro de quién lo
+      // confirmó. `audit_log` es append-only, así que se escribe dentro de la
+      // misma transacción: o queda el import confirmado y su fila, o no queda
+      // ninguno de los dos.
+      if (input.actorId) {
+        await run(
+          `INSERT INTO audit_log (id, actor_id, tenant_id, action, entity_type, entity_id, payload)
+           VALUES ($1, $2, $3, 'template_import_confirmed', 'template_import', $4, $5)`,
+          [
+            randomUUID(),
+            input.actorId,
+            input.tenantId,
+            imp.id,
+            JSON.stringify({
+              template_id: template.id,
+              revision_id: revision.id,
+              archivo: imp.file_name,
+              definicion_revisada: input.definition !== undefined,
+              publicado: Boolean(input.publish),
+            }),
+          ],
+        )
+      }
 
       if (input.publish) {
         await this.materializeCatalog(run, input.tenantId, revision.id, validated)

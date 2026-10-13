@@ -117,6 +117,16 @@ export interface ConfirmTemplateImportInput {
   importId: string
   /** Si se provee, publica inmediatamente; si no, deja el borrador para edición manual. */
   publish?: boolean
+  /**
+   * Definición revisada por el humano (el wizard edita ítems en el dispositivo).
+   * Si no llega, se usa la propuesta del parser tal cual.
+   */
+  definition?: unknown
+  /** Nombre de la plantilla decidido por el admin; si falta, `file_name` del import. */
+  name?: string
+  description?: string
+  /** Actor de la confirmación, para la auditoría FR-047. */
+  actorId?: string
 }
 
 /* ── Asignación por faena y rol (TSK-FORM-008, FR-008/009) ───────────────── */

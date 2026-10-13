@@ -407,6 +407,29 @@ export const templateImportProposalSchema = z.object({
 
 export type TemplateImportProposal = z.infer<typeof templateImportProposalSchema>
 
+/**
+ * Cuerpo de `POST /templates/imports/:id/confirm` (FR-029, FR-048).
+ *
+ * `definition` es **opcional a propósito**: sin ella el import se publica tal
+ * como lo propuso el parser, que es el camino simple. Con ella, quien revisa
+ * manda la definición que realmente va a la plantilla — es lo que necesita el
+ * wizard, que edita ítems en el dispositivo y luego confirma. Lo que el import
+ * NO admite es un documento fuente distinto: la revisión siempre nace atada a
+ * este import, que es lo que hace posible exportar el `.xlsx` original (FR-019).
+ */
+export const confirmImportBodySchema = z.object({
+  /** Publicar de inmediato; nunca automático sin este flag explícito (FR-048). */
+  publish: z.boolean().optional(),
+  /** Definición revisada por el humano; si falta, se usa la propuesta. */
+  definition: templateDefinitionSchema.optional(),
+  /** Nombre de la plantilla editado por el admin; si falta, el nombre del
+   *  archivo (`file_name` del import). */
+  name: z.string().trim().min(1, 'name debe tener al menos 1 carácter').optional(),
+  description: z.string().trim().optional(),
+})
+
+export type ConfirmImportBody = z.infer<typeof confirmImportBodySchema>
+
 export const templateImportSchema = z.object({
   id: z.string().uuid(),
   tenant_id: z.string().uuid(),

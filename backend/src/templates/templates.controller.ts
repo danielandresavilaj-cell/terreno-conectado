@@ -49,6 +49,7 @@ import type { Request, Response } from 'express'
 import { z } from 'zod'
 import {
   assignTemplateSchema,
+  confirmImportBodySchema,
   XLSX_MIME,
   type TemplateAssignmentDto,
   type TemplateRevisionDetailDto,
@@ -59,10 +60,6 @@ import type { JwtClaims } from '../auth/auth.types'
 import { contentDisposition } from '../http/content-disposition'
 import { TemplatesService } from './templates.service'
 import type { TemplateImportRow } from './templates.types'
-
-interface ConfirmImportBody {
-  publish?: boolean
-}
 
 type AuthedRequest = Request & { user?: JwtClaims }
 
@@ -417,16 +414,28 @@ export class TemplatesController {
   async confirmImport(
     @Req() req: AuthedRequest,
     @Param('importId') importId: string,
-    @Body() body: ConfirmImportBody,
+    @Body() body: unknown,
   ): Promise<TemplateRevisionDetailDto> {
     const claims = req.user as JwtClaims
     if (claims.rol !== 'tenant_admin') {
       throw new ForbiddenException('Sólo tenant_admin puede confirmar imports')
     }
+    const parsed = confirmImportBodySchema.safeParse(body ?? {})
+    if (!parsed.success) {
+      const detail = parsed.error.issues
+        .slice(0, 3)
+        .map((i) => `${i.path.join('.') || 'body'}: ${i.message}`)
+        .join('; ')
+      throw new BadRequestException(`body inválido: ${detail}`)
+    }
     const rev = await this.templates.confirmTemplateImport({
       tenantId: tenantDe(req),
       importId,
-      publish: body.publish,
+      publish: parsed.data.publish,
+      definition: parsed.data.definition,
+      name: parsed.data.name,
+      description: parsed.data.description,
+      actorId: claims.sub,
     })
     return {
       id: rev.id,

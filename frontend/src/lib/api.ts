@@ -14,6 +14,7 @@
 
 import { nombreArchivoDeContentDisposition } from '@terreno/shared'
 import type {
+  ConfirmImportBody,
   ConflictRecordDto,
   DashboardFindingsResponse,
   DashboardSummary,
@@ -24,6 +25,7 @@ import type {
   TemplateAssignmentRole,
   TemplateAssignmentsResponse,
   TemplateDefinition,
+  TemplateImport,
   TemplateRevisionDetailDto,
   TemplatesDeltaResponse,
 } from '@terreno/shared'
@@ -79,7 +81,11 @@ async function apiFetchResp(
 ): Promise<Response> {
   const token = opts.token !== undefined ? opts.token : getToken()
   const headers: Record<string, string> = {}
-  if (opts.body !== undefined) headers['Content-Type'] = 'application/json'
+  // `FormData` (subida de archivos) no lleva Content-Type propio: el navegador
+  // lo compone con el boundary multipart. Si se lo pusiéramos, el servidor no
+  // podría partir el cuerpo — y el `FileInterceptor` de multer fallaría.
+  const esFormData = opts.body instanceof FormData
+  if (opts.body !== undefined && !esFormData) headers['Content-Type'] = 'application/json'
   if (token) headers.Authorization = `Bearer ${token}`
 
   let resp: Response
@@ -88,7 +94,12 @@ async function apiFetchResp(
       method: opts.method ?? 'GET',
       headers,
       credentials: 'include',
-      body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined,
+      body:
+        opts.body === undefined
+          ? undefined
+          : esFormData
+            ? (opts.body as FormData)
+            : JSON.stringify(opts.body),
     })
   } catch {
     throw new ApiError(0, 'Sin conexión con el servidor')
@@ -379,13 +390,31 @@ export function eliminarAsignacion(assignmentId: string): Promise<void> {
  * Publicar NUNCA es automático: `publicarRevision` sólo se llama desde el
  * botón explícito de confirmación del paso 5 (FR-048). */
 
-/** Crea el template + su primer borrador (`POST /templates`). */
-export function crearPlantillaConBorrador(payload: {
-  name: string
-  description?: string
-  definition: TemplateDefinition
-}): Promise<TemplateRevisionDetailDto> {
-  return apiFetch('/templates', { method: 'POST', body: payload })
+/**
+ * Sube el `.xlsx` fuente y crea el `template_import` (TSK-FORM-006/007, FR-029/048).
+ *
+ * El wizard parsea en local para el preview, pero el ORIGINAL tiene que subirse:
+ * la revisión debe nacer atada a este import para que el export del documento
+ * fuente (FR-019/044) tenga algo que rellenar. Sin él, una plantilla creada
+ * desde la UI no era exportable — «importada» pero sin documento que exportar.
+ */
+export function subirImportOriginal(file: File): Promise<TemplateImport> {
+  const fd = new FormData()
+  fd.append('file', file)
+  return apiFetch<TemplateImport>('/templates/imports', { method: 'POST', body: fd })
+}
+
+/**
+ * Confirma el import con la definición revisada (FR-048) → crea plantilla +
+ * borrador atado a `source_import_id`. Es la puerta de alta del wizard: una vez
+ * confirmado, el borrador se edita con `actualizarBorrador` y se publica con
+ * `publicarRevision`.
+ */
+export function confirmarImport(
+  importId: string,
+  body: ConfirmImportBody,
+): Promise<TemplateRevisionDetailDto> {
+  return apiFetch(`/templates/imports/${importId}/confirm`, { method: 'POST', body })
 }
 
 /** Actualiza la definición de un borrador existente (PATCH de la revisión). */
