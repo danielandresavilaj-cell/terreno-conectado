@@ -52,5 +52,10 @@ export default defineConfig({
       },
     }),
   ],
+  // Lee el `.env` de la raíz del monorepo, no `frontend/.env`: así las `VITE_*`
+  // (demo, API) salen del mismo `.env` que usa el backend, en dev, test y build,
+  // en cualquier plataforma. En CI no hay `.env` y Vite toma las `VITE_*` del
+  // entorno del job. (Sin esto, un clon limpio en Windows no encuentra las VITE_*.)
+  envDir: '..',
   server: { host: true, port: 5173 },
 })
