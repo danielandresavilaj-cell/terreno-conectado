@@ -52,8 +52,17 @@ jobs:
 
       - run: npm ci
 
-      # El E2E arranca `backend/dist/main.js`: compila igual que producción.
-      - run: npm run build
+      # El E2E sirve el build REAL de Vite (`vite preview`) y arranca
+      # `backend/dist/main.js`: compila igual que producción. Ojo: el bundle
+      # del frontend incrusta en tiempo de BUILD la URL de la API y la password
+      # demo (`frontend/src/lib/seed.ts` lanza si falta `VITE_DEMO_PASSWORD`),
+      # así que hay que pasarlas acá — `stack.mjs` las recibe, pero `vite
+      # preview` no recompila, sólo sirve el `dist/` ya construido.
+      - name: Build (frontend con la config del stack E2E + backend)
+        env:
+          VITE_API_URL: http://127.0.0.1:3310/api/v1
+          VITE_DEMO_PASSWORD: ${{ secrets.E2E_DEMO_PASSWORD }}
+        run: npm run build
 
       - name: Instalar Chromium
         run: npx playwright install --with-deps chromium
