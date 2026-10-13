@@ -209,9 +209,15 @@ los flujos en **perfil móvil**, incluidos los siete escenarios de caos de `test
 (corte de red, replay, LWW concurrente, reinicio hostil, cola masiva, token vencido, cross-tenant).
 
 ```bash
-export DEMO_PASSWORD='...'           # mismas cuentas que usa el seed
-export JWT_ACCESS_SECRET='...'       # >= 32 bytes
-npm run build                       # el E2E arranca backend/dist y el build de Vite
+export DEMO_PASSWORD='...'           # backend: mismas cuentas que usa el seed
+export JWT_ACCESS_SECRET='...'       # backend: >= 32 bytes
+# El bundle de Vite incrusta en tiempo de BUILD la URL de la API y la password
+# demo (`seed.ts` lanza si falta `VITE_DEMO_PASSWORD`); `vite preview` no las
+# lee, sólo sirve el `dist/` ya construido. Sin estas dos, el build arranca en
+# blanco y todos los specs fallan.
+export VITE_DEMO_PASSWORD="$DEMO_PASSWORD"
+export VITE_API_URL='http://127.0.0.1:3310/api/v1'
+npm run build                       # backend/dist + bundle de Vite (con las VITE_* de arriba)
 npm run e2e                         # stack + specs + teardown en un comando
 npm run e2e -- --grep "caos 7"      # un solo escenario
 ```
