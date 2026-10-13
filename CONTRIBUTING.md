@@ -105,6 +105,7 @@ Con esto, el contexto nunca vive en la cabeza de nadie: vive en el issue.
 | Commit | `tipo(alcance): msg` + `refs TSK-…, refs #…` | `feat(sync): batch upsert idempotente … refs TSK-WS-007` |
 | PR | `TSK-XXX-NNN: título` | `TSK-WS-007: Ingesta idempotente sync/batch` |
 | Issue tarea | `TSK-XXX-NNN: título` | `TSK-WS-001: Bootstrap monorepo…` |
+| **Portabilidad** | El equipo es **macOS + Windows**: nada puede asumir un solo SO | LF siempre (`.gitattributes` + `.editorconfig`) · rutas con `sep` de `node:path`, nunca `'/'` hardcodeado · variables en `.env` o `npx cross-env`, nunca `export VAR=…` ni `VAR=x cmd` · detalle en §9 |
 | Granularidad | 1 tarjeta = 1 rama = 1 PR | — |
 
 **Commits directos a `main`: prohibidos** (la protección de rama lo impide).
