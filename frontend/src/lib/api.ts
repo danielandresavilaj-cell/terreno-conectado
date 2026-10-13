@@ -146,13 +146,28 @@ export interface DashboardFiltros {
   hasta?: string | null
 }
 
-export function getSummary(f: DashboardFiltros = {}): Promise<DashboardSummary> {
+/**
+ * Query string de los filtros del dashboard. `summary`, `findings` e
+ * `inspections` mandan el MISMO trío (`site_id`/`desde`/`hasta`), así que se
+ * arma en un solo sitio; `extra` agrega los parámetros propios de cada ruta
+ * (p. ej. la paginación de `findings`) sin duplicar el filtrado base.
+ */
+function qsFiltros(
+  f: DashboardFiltros,
+  extra: Record<string, string | number | null | undefined> = {},
+): string {
   const q = new URLSearchParams()
   if (f.site_id) q.set('site_id', f.site_id)
   if (f.desde) q.set('desde', f.desde)
   if (f.hasta) q.set('hasta', f.hasta)
-  const suffix = q.size ? `?${q}` : ''
-  return apiFetch<DashboardSummary>(`/dashboard/summary${suffix}`)
+  for (const [clave, valor] of Object.entries(extra)) {
+    if (valor !== undefined && valor !== null && valor !== '') q.set(clave, String(valor))
+  }
+  return q.size ? `?${q}` : ''
+}
+
+export function getSummary(f: DashboardFiltros = {}): Promise<DashboardSummary> {
+  return apiFetch<DashboardSummary>(`/dashboard/summary${qsFiltros(f)}`)
 }
 
 export interface FindingsFiltros extends DashboardFiltros {
@@ -163,16 +178,14 @@ export interface FindingsFiltros extends DashboardFiltros {
 }
 
 export function getFindings(f: FindingsFiltros = {}): Promise<DashboardFindingsResponse> {
-  const q = new URLSearchParams()
-  if (f.site_id) q.set('site_id', f.site_id)
-  if (f.desde) q.set('desde', f.desde)
-  if (f.hasta) q.set('hasta', f.hasta)
-  if (f.severidad) q.set('severidad', f.severidad)
-  if (f.estado) q.set('estado', f.estado)
-  if (f.limit !== undefined) q.set('limit', String(f.limit))
-  if (f.offset !== undefined) q.set('offset', String(f.offset))
-  const suffix = q.size ? `?${q}` : ''
-  return apiFetch<DashboardFindingsResponse>(`/dashboard/findings${suffix}`)
+  return apiFetch<DashboardFindingsResponse>(
+    `/dashboard/findings${qsFiltros(f, {
+      severidad: f.severidad,
+      estado: f.estado,
+      limit: f.limit,
+      offset: f.offset,
+    })}`,
+  )
 }
 
 /**
@@ -185,12 +198,7 @@ export function getFindings(f: FindingsFiltros = {}): Promise<DashboardFindingsR
  * corresponde con el panel.
  */
 export function getInspecciones(f: DashboardFiltros = {}): Promise<InspectionsResponse> {
-  const q = new URLSearchParams()
-  if (f.site_id) q.set('site_id', f.site_id)
-  if (f.desde) q.set('desde', f.desde)
-  if (f.hasta) q.set('hasta', f.hasta)
-  const suffix = q.size ? `?${q}` : ''
-  return apiFetch<InspectionsResponse>(`/dashboard/inspections${suffix}`)
+  return apiFetch<InspectionsResponse>(`/dashboard/inspections${qsFiltros(f)}`)
 }
 
 /**

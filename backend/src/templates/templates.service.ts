@@ -23,7 +23,6 @@ import type {
   ConfirmTemplateImportInput,
   CreateDraftInput,
   CreateTemplateInput,
-  ParseTemplateImportInput,
   TemplateAssignmentRow,
   TemplateImportRow,
   TemplateItemRow,
@@ -32,7 +31,6 @@ import type {
   TemplateRow,
   TemplateSectionRow,
   UpdateDraftInput,
-  UploadTemplateImportInput,
   WorkerTemplateFilter,
 } from './templates.types'
 
@@ -524,19 +522,6 @@ export class TemplatesService {
 
   /* ── Importación de plantillas desde .xlsx (TSK-FORM-007) ──────────────── */
 
-  /** Crea un registro `uploaded` para un .xlsx recién subido (FR-029/047). */
-  async uploadTemplateImport(input: UploadTemplateImportInput): Promise<TemplateImportRow> {
-    const [row] = await this.db.queryAsTenant<TemplateImportRow>(
-      input.tenantId,
-      `INSERT INTO template_imports
-         (id, tenant_id, uploaded_by, file_key, file_name, status)
-       VALUES (gen_random_uuid(), $1, $2, $3, $4, 'uploaded')
-       RETURNING *`,
-      [input.tenantId, input.uploadedBy, input.fileKey, input.fileName],
-    )
-    return row
-  }
-
   /**
    * Recibe el buffer de un .xlsx, crea el import, guarda el archivo fuente como
    * ATTACHMENT (`owner_type='template_import'`), lo parsea y deja el import en
@@ -643,62 +628,6 @@ export class TemplatesService {
       tenantId,
       `SELECT * FROM template_imports ORDER BY created_at DESC`,
     )
-  }
-
-  /**
-   * Guarda la propuesta parseada por el importador (TSK-FORM-005) y pasa el
-   * import a estado `proposed`. Valida el contrato Zod compartido (FR-039).
-   */
-  async parseTemplateImport(input: ParseTemplateImportInput): Promise<TemplateImportRow> {
-    let proposal: TemplateImportProposal
-    try {
-      proposal = templateImportProposalSchema.parse(input.proposal)
-    } catch (error) {
-      if (error instanceof ZodError) {
-        const detail = error.issues
-          .slice(0, 3)
-          .map((i) => `${i.path.join('.') || 'proposal'}: ${i.message}`)
-          .join('; ')
-        throw new BadRequestException(`propuesta de import inválida: ${detail}`)
-      }
-      throw error
-    }
-
-    const [row] = await this.db.queryAsTenant<TemplateImportRow>(
-      input.tenantId,
-      `UPDATE template_imports
-       SET status = 'proposed', proposed_schema = $2::jsonb, updated_at = now()
-       WHERE id = $1 AND status IN ('uploaded', 'parsed', 'proposed')
-       RETURNING *`,
-      [input.importId, JSON.stringify(proposal)],
-    )
-    if (!row) {
-      throw new ConflictException('el import no existe o ya fue confirmado/fallido')
-    }
-    return row
-  }
-
-  /**
-   * Marca un import como fallido (parseo inválido, .xlsx corrupto, etc.).
-   * Deja traza en `error` para auditoría (FR-051).
-   */
-  async failTemplateImport(
-    tenantId: string,
-    importId: string,
-    error: string,
-  ): Promise<TemplateImportRow> {
-    const [row] = await this.db.queryAsTenant<TemplateImportRow>(
-      tenantId,
-      `UPDATE template_imports
-       SET status = 'failed', error = $2, updated_at = now()
-       WHERE id = $1 AND status IN ('uploaded', 'parsed', 'proposed')
-       RETURNING *`,
-      [importId, error],
-    )
-    if (!row) {
-      throw new ConflictException('el import no existe o ya fue confirmado/fallido')
-    }
-    return row
   }
 
   /**

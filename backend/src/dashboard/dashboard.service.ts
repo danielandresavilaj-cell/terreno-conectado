@@ -21,7 +21,7 @@ import type {
   FindingDto,
   SiteDto,
   SitesResponse,
-} from './dashboard.types'
+} from '@terreno/shared'
 
 export interface DashboardFiltros {
   site_id?: string | null

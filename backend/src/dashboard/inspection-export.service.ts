@@ -15,6 +15,7 @@ import {
   type InspectionsResponse,
 } from '@terreno/shared'
 import {
+  campoDesdeColumnas,
   construirRespuestas,
   emparejarItemsConOrigen,
   evidenciaSeIncrusta,
@@ -56,9 +57,6 @@ import {
  * `status='published'` haría desaparecer del histórico exactamente los
  * documentos que hay que auditar.
  */
-
-/** Marcador con el que el dispositivo guarda "este ítem tiene foto" (FR-037). */
-const MARCADOR_FOTO = 'capturada'
 
 /**
  * Tope de la lista, el mismo orden de magnitud que el de hallazgos. No es un
@@ -346,7 +344,7 @@ export class InspectionExportService {
       const item = porItem.get(row.template_item_id)
       if (!item || vistas.has(item.id)) continue
       vistas.add(item.id)
-      campos[item.id] = campoDesdeFila(item, row)
+      campos[item.id] = campoDesdeColumnas(item, row)
     }
     return campos
   }
@@ -416,54 +414,3 @@ export class InspectionExportService {
     return directo.success ? directo.data : `inspeccion-${inspectionId}.xlsx`
   }
 }
-
-/**
- * Fila de respuesta → valor tipado del ítem (`CampoValor`).
- *
- * Espejo de `valorDesdeColumnas` del dispositivo, con los mismos typos y las
- * mismas caídas legacy. Lo que NO hace es decidir si la respuesta es válida:
- * eso es `serializarValorCampo` (compartido), que además es quien descarta un
- * valor que no corresponde al tipo del ítem.
- */
-function campoDesdeFila(item: TemplateItem, fila: ResponseRow): CampoValor | null {
-  switch (item.response_type) {
-    case 'ok_nok_na':
-      return fila.value_ok
-    case 'numeric':
-      return fila.value_number === null ? null : Number(fila.value_number)
-    case 'photo':
-      return fila.value_text === MARCADOR_FOTO ? MARCADOR_FOTO : null
-    case 'select_multiple': {
-      if (Array.isArray(fila.value_json)) return listaDeTextos(fila.value_json)
-      // Legacy (previo a `value_json`, TSK-FORM-004): la lista viajaba en texto.
-      if (!fila.value_text) return null
-      try {
-        const v: unknown = JSON.parse(fila.value_text)
-        return Array.isArray(v) ? listaDeTextos(v) : null
-      } catch {
-        return null
-      }
-    }
-    case 'text':
-      return fila.value_text
-    default:
-      // date/time/select_single: `value_json`, con caída al texto legacy.
-      return typeof fila.value_json === 'string' ? fila.value_json : fila.value_text
-  }
-}
-
-/** `value_json` a `string[]`: un elemento no textual convierte la lista en null. */
-function listaDeTextos(valor: unknown[]): string[] | null {
-  return valor.every((v) => typeof v === 'string') ? (valor as string[]) : null
-}
-
-/**
- * Nombre legible de la fila de una evidencia: el prompt del ítem con su número
- * de foto, acotado al ancho de la columna.
- *
- * Idéntico al del dispositivo (`frontend/src/lib/exportar.ts`) porque esta
- * columna es parte del documento entregado: si el formato cambiara en un solo
- * lado, el servidor y el dispositivo dejarían de producir el mismo archivo
- * (FR-044). Lo natural sería que viviera en `shared`, junto al módulo que arma
- * la hoja.
- */

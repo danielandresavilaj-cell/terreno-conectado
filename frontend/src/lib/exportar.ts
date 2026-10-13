@@ -59,7 +59,6 @@ export interface RespuestaExportable {
 
 /* ── 2. Evidencias (hoja "Evidencias", FR-019/037) ───────────────────────── */
 
-/** Nombre legible de la fila de una evidencia: el ítem al que pertenece. */
 /**
  * Adjuntos de las respuestas `photo` del borrador, indexados por ítem de
  * plantilla (FR-037: el binario vive en el ATTACHMENT, no en la respuesta).

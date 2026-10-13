@@ -12,7 +12,7 @@ import type { Request } from 'express'
 import { AuthGuard } from '../auth/auth.guard'
 import type { JwtClaims } from '../auth/auth.types'
 import { SyncService } from './sync.service'
-import type { SyncBatchRequest, SyncBatchResponse } from './sync.types'
+import type { SyncBatchRequest, SyncBatchResponse } from '@terreno/shared'
 
 type AuthedRequest = Request & { user?: JwtClaims }
 

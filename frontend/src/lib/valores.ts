@@ -14,6 +14,7 @@
  */
 
 import type { CampoValor, TemplateDefinition, TemplateItem } from '@terreno/shared'
+import { campoDesdeColumnas } from '@terreno/shared/xlsx'
 import type { ResponseRow, ResponseValor } from './db'
 
 /** Ítems planos de una definición, en orden de render (secciones → ítems). */
@@ -34,33 +35,21 @@ export function contestado(campo: CampoValor | null | undefined): boolean {
   return true
 }
 
-/** Restaura el valor de un ítem desde la fila local del borrador. */
+/**
+ * Restaura el valor de un ítem desde la fila local del borrador.
+ *
+ * Sólo adapta los nombres de columna del borrador (camelCase, Dexie) a los de
+ * `inspection_response` y delega en `campoDesdeColumnas` (shared): la lectura
+ * tiene que ser idéntica a la del servidor para que exportar en el dispositivo
+ * y en el servidor produzca el mismo documento (FR-044).
+ */
 export function valorDesdeColumnas(item: TemplateItem, row: ResponseRow): CampoValor | null {
-  switch (item.response_type) {
-    case 'ok_nok_na':
-      return row.valueOk
-    case 'numeric':
-      return row.valueNumber
-    case 'photo':
-      return row.valueText === 'capturada' ? 'capturada' : null
-    case 'select_multiple': {
-      if (Array.isArray(row.valueJson)) return row.valueJson
-      // Legado (previo a FORM-004): select_multiple persistido en value_text.
-      if (!row.valueText) return null
-      try {
-        const v: unknown = JSON.parse(row.valueText)
-        return Array.isArray(v) ? (v.filter((x) => typeof x === 'string') as string[]) : null
-      } catch {
-        return null
-      }
-    }
-    case 'text':
-      return row.valueText
-    default:
-      // date/time/select_single: value_json, con caída al value_text legado.
-      if (typeof row.valueJson === 'string') return row.valueJson
-      return row.valueText
-  }
+  return campoDesdeColumnas(item, {
+    value_ok: row.valueOk,
+    value_text: row.valueText,
+    value_number: row.valueNumber,
+    value_json: row.valueJson,
+  })
 }
 
 /** Columnas a persistir para un valor ya validado contra `props`. */
