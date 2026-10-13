@@ -5,13 +5,17 @@
  *
  *   1. Subir     → lee el buffer en el dispositivo y propone secciones/ítems
  *                  (`proponerImport`, subpath `@terreno/shared/xlsx` — la única
- *                  vía al módulo; el barrel `@terreno/shared` no lo reexporta).
+ *                  vía al módulo; el barrel `@terreno/shared` no lo reexporta) y
+ *                  SUBE el original (`subirImportOriginal`) para dejar un
+ *                  `template_import` con el que confirmar.
  *   2. Preview   → tabla read-only de la propuesta (sin edición).
  *   3. Editar    → nombre + prompt/tipo/requerido/props por ítem, con validación
  *                  EN VIVO contra `FIELD_PROPS_SCHEMA` (mismo contrato que el
  *                  backend, FR-036/039).
- *   4. Borrador  → `propuestaADefinicion` → `crearPlantillaConBorrador` (o
- *                  `actualizarBorrador` si ya se guardó) → id/revisión/estado.
+ *   4. Borrador  → `propuestaADefinicion` → `confirmarImport` (crea template +
+ *                  borrador atados al `source_import_id`, el origen que hace
+ *                  exportable el original, FR-019) o `actualizarBorrador` si ya
+ *                  se guardó → id/revisión/estado.
  *   5. Publicar  → NUNCA automático (FR-048): confirmación explícita y
  *                  `publicarRevision`; los errores (409…) conservan el draft.
  *
@@ -30,8 +34,9 @@ import { Boton } from '../components/ui'
 import {
   ApiError,
   actualizarBorrador,
-  crearPlantillaConBorrador,
+  confirmarImport,
   publicarRevision,
+  subirImportOriginal,
 } from '../lib/api'
 import { useEstado } from '../lib/store'
 import { EASE } from '../lib/motion'
@@ -117,6 +122,9 @@ export function Importar() {
   const [analizando, setAnalizando] = useState(false)
   const [errorCarga, setErrorCarga] = useState<string | null>(null)
   const [propuesta, setPropuesta] = useState<TemplateImportProposal | null>(null)
+  // Import al que se confirmará el borrador. Se llena al SUBIR el original en el
+  // paso 1: sin él no hay documento fuente que exportar después (FR-019/044).
+  const [importId, setImportId] = useState<string | null>(null)
   const [nombre, setNombre] = useState('')
   const [revision, setRevision] = useState<TemplateRevisionDetailDto | null>(null)
   const [guardando, setGuardando] = useState(false)
@@ -151,9 +159,27 @@ export function Importar() {
       const r = await proponerImport(new Uint8Array(buf), file.name)
       if (!r.ok) {
         setPropuesta(null)
+        setImportId(null)
         setErrorCarga(r.error)
         return
       }
+      // El parseo es local (determinístico, sin mandar el buffer de ida y
+      // vuelta), pero el ORIGINAL se sube: la revisión que salga de este wizard
+      // tiene que nacer atada a un `template_import`, o el export del documento
+      // fuente (FR-019/044) no tendría nada que descargar. Sin import no hay
+      // cómo crearla importada — si la subida falla, el wizard no avanza.
+      const imp = await subirImportOriginal(file)
+      // El parser del servidor es el mismo código que el local, así que no
+      // debería fallar donde el local no falló; si aun así falla, hay que decirlo
+      // AQUÍ y no dejar avanzar: sin import en estado `proposed` el `confirm` del
+      // paso 4 respondería 409 y el mensaje no explicaría nada.
+      if (imp.status === 'failed') {
+        setPropuesta(null)
+        setImportId(null)
+        setErrorCarga(imp.error ?? 'El servidor no pudo interpretar el archivo.')
+        return
+      }
+      setImportId(imp.id)
       setPropuesta(r.propuesta)
       setNombre(r.propuesta.nombre_archivo.replace(/\.[^.]+$/, '') || 'Plantilla importada')
       setRevision(null)
@@ -162,6 +188,14 @@ export function Importar() {
       setErrorPublicar(null)
       setConfirmado(false)
       setPaso(2)
+    } catch (err) {
+      setPropuesta(null)
+      setImportId(null)
+      setErrorCarga(
+        err instanceof ApiError
+          ? err.detalle
+          : 'No se pudo subir el archivo al servidor. Intentá de nuevo.',
+      )
     } finally {
       setAnalizando(false)
     }
@@ -171,6 +205,7 @@ export function Importar() {
     setPaso(1)
     setPropuesta(null)
     setNombre('')
+    setImportId(null)
     setRevision(null)
     setPublicado(null)
     setErrorCarga(null)
@@ -224,7 +259,7 @@ export function Importar() {
 
   /* ── PASO 4 · guardar borrador ────────────────────────────────────────── */
   const guardarBorrador = async () => {
-    if (!propuesta) return
+    if (!propuesta || !importId) return
     setErrorGuardar(null)
     const def = propuestaADefinicion(propuesta)
     if (!def.ok) {
@@ -233,9 +268,16 @@ export function Importar() {
     }
     setGuardando(true)
     try {
+      // Primera vez: se CONFIRMA el import con la definición revisada. Esa
+      // confirmación crea template + borrador atados al `source_import_id` — el
+      // origen que hace exportable el `.xlsx` (FR-019). Las ediciones siguientes
+      // ya son PATCH sobre ese borrador, como en el camino sin origen.
       const r = revision
         ? await actualizarBorrador(revision.id, def.definition)
-        : await crearPlantillaConBorrador({ name: nombre.trim(), definition: def.definition })
+        : await confirmarImport(importId, {
+            name: nombre.trim(),
+            definition: def.definition,
+          })
       setRevision(r)
     } catch (err) {
       setErrorGuardar(
@@ -361,7 +403,8 @@ export function Importar() {
                 </span>
                 <span className="text-[12px] text-ink-3 max-w-[48ch] leading-relaxed">
                   Cada hoja se propone como sección y cada columna con encabezado, como ítem. La
-                  lectura es local y determinística: sin red, sin IA.
+                  lectura es local y determinística: sin IA. El archivo original se guarda para
+                  poder exportar el documento rellenado después (FR-019).
                 </span>
               </label>
 
@@ -546,9 +589,10 @@ export function Importar() {
                       Guardar borrador
                     </h2>
                     <p className="mt-1 text-[12px] text-ink-2 leading-relaxed">
-                      Se persiste la definición con ids y posiciones generadas. Todavía no se
-                      publica: la revisión queda en estado <span className="text-ink">draft</span>{' '}
-                      hasta que la confirmes.
+                      Se persiste la definición con ids y posiciones generadas, y queda guardado el
+                      archivo original: la plantilla podrá exportar el documento rellenado (FR-019).
+                      Todavía no se publica: la revisión queda en estado{' '}
+                      <span className="text-ink">draft</span> hasta que la confirmes.
                     </p>
                   </div>
                 </div>
