@@ -197,9 +197,12 @@ npm run db:seed    --workspace @terreno/backend     # tenants A y B + faenas (FR
 npm test                                            # unit + integración (todos los workspaces)
 ```
 
-`npm test` necesita las dos variables de las cuentas demo en el entorno (`DEMO_PASSWORD` para el
-seed del backend y `VITE_DEMO_PASSWORD` para el del frontend, que importan `seed.ts` al cargar);
-nunca están hardcodeadas en el fuente. Ver `.env.example`.
+`npm test` necesita las dos variables de las cuentas demo (`DEMO_PASSWORD` para el seed del backend y
+`VITE_DEMO_PASSWORD` para el del frontend, que importan `seed.ts` al cargar); nunca están
+hardcodeadas en el fuente. Van en tu `.env` local (ver `.env.example`) y el runner de tests del
+backend lo carga solo, así que basta con `npm test`. Para sobreescribirlas en un comando,
+`npx cross-env DEMO_PASSWORD=… npm test` funciona igual en macOS, Linux y Windows. Guía por
+plataforma: [`CONTRIBUTING.md`](CONTRIBUTING.md) §9.
 
 ### Pruebas E2E y de caos (issue #10)
 
@@ -209,21 +212,24 @@ los flujos en **perfil móvil**, incluidos los siete escenarios de caos de `test
 (corte de red, replay, LWW concurrente, reinicio hostil, cola masiva, token vencido, cross-tenant).
 
 ```bash
-export DEMO_PASSWORD='...'           # backend: mismas cuentas que usa el seed
-export JWT_ACCESS_SECRET='...'       # backend: >= 32 bytes
-# El bundle de Vite incrusta en tiempo de BUILD la URL de la API y la password
-# demo (`seed.ts` lanza si falta `VITE_DEMO_PASSWORD`); `vite preview` no las
-# lee, sólo sirve el `dist/` ya construido. Sin estas dos, el build arranca en
-# blanco y todos los specs fallan.
-export VITE_DEMO_PASSWORD="$DEMO_PASSWORD"
-export VITE_API_URL='http://127.0.0.1:3310/api/v1'
-npm run build                       # backend/dist + bundle de Vite (con las VITE_* de arriba)
+# Opción A (recomendada): define DEMO_PASSWORD, JWT_ACCESS_SECRET y VITE_DEMO_PASSWORD
+# en tu `.env` local (cópialo de `.env.example`). El harness lo carga solo.
+# El bundle de Vite incrusta en tiempo de BUILD la URL de la API y la password demo
+# (`seed.ts` lanza si falta `VITE_DEMO_PASSWORD`); `vite preview` no las lee, sólo
+# sirve el `dist/` ya construido. Sin estas dos, el build arranca en blanco.
+npm run build                       # backend/dist + bundle de Vite (usa las VITE_* del .env)
 npm run e2e                         # stack + specs + teardown en un comando
 npm run e2e -- --grep "caos 7"      # un solo escenario
+
+# Opción B: sin `.env`, pásalas en el comando (cross-platform con cross-env)
+npx cross-env DEMO_PASSWORD=… JWT_ACCESS_SECRET=… \
+  VITE_DEMO_PASSWORD=… VITE_API_URL=http://127.0.0.1:3310/api/v1 npm run build
 ```
 
-Requiere **Docker** y las dos variables de entorno: el harness no tiene contraseña por omisión y
-falla ruidosamente si faltan (Constitución Art. IX). Corre en el workflow nightly
+Requiere **Docker** y esas variables: el harness no tiene contraseña por omisión y falla ruidosamente
+si faltan (Constitución Art. IX). En **Windows** usa el `.env` (Opción A) o `npx cross-env` (Opción B);
+`export VAR=…` es de shell Unix y no funciona en `cmd`/PowerShell (ver
+[`CONTRIBUTING.md`](CONTRIBUTING.md) §9). Corre en el workflow nightly
 (`.github/workflows/e2e.yml`) y **nunca bloquea un PR** — la puerta de esa capa es el nightly, no el
 CI de cada push. Resultados y hallazgos: [`docs/informe-pruebas-validacion.md`](docs/informe-pruebas-validacion.md).
 

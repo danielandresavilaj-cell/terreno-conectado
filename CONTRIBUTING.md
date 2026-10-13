@@ -153,5 +153,47 @@ TSK-WS-011 dashboard (Daniel) · TSK-WS-012 /health (Raúl)
 ## 8. Notas operativas
 
 - **Automatización del board:** activar en el Project → *Workflows*: *"Item closed → Status: Done"* y *"Auto-add: issues del repo → board"*. La API no lo permite; es un clic único en la UI.
-- **CI:** los workflows están parqueados en la rama local `ci/workflow-parkada` hasta resolver #14 (el PAT actual no tiene scope `workflow`).
+- **CI:** `.github/workflows/ci.yml` está versionado y activo (issue #14 cerrado). Un push local que toque archivos de `.github/workflows/` requiere un PAT con scope `workflow`; si no lo tienes, edítalos vía web/API.
 - **Referencias clave:** `constitution.md` (reglas innegociables) · `specs/000-master/spec.md` (visión y FR/NFR) · `tasks/` (tareas por iteración) · `plans/` (diseño) · `data-model.md` (entidades y RLS) · `test-plan.md` (matriz y caos).
+
+---
+
+## 9. Desarrollo en Windows
+
+El repo asume fin de línea **LF** y variables de entorno vía `.env`. En macOS/Linux eso es
+transparente; en Windows necesita un par de pasos.
+
+### Variables de entorno
+Los tests y el E2E leen `DEMO_PASSWORD`, `JWT_ACCESS_SECRET` y `VITE_DEMO_PASSWORD` / `VITE_API_URL`.
+
+- **Recomendado — `.env`:** cópialo una vez (`Copy-Item .env.example .env`). El runner de tests del
+  backend y el harness E2E lo cargan solos; no exportes nada.
+- **En el comando (one-off):** usa `cross-env`, que funciona igual en todas las plataformas:
+
+  ```powershell
+  npx cross-env DEMO_PASSWORD=... JWT_ACCESS_SECRET=... npm test
+  ```
+
+- **No uses** `VAR=valor comando` ni `export VAR=valor`: son de shell Unix y en `cmd`/PowerShell dan
+  `'VAR' no se reconoce…`. Equivalente nativo (dura sólo esa ventana): PowerShell `$env:VAR='valor'`,
+  cmd `set VAR=valor`.
+
+### Fin de línea (CRLF)
+`.gitattributes` fuerza LF en todo el repo. Si clonaste **antes** de que existiera, renormaliza una vez:
+
+```powershell
+git add --renormalize . ; git checkout -- .
+```
+
+Síntoma de CRLF sin corregir: `infra/postgres/init/00-app-role.sh` falla dentro del contenedor y el rol
+`tc_app` no se crea → la app local no conecta a la base.
+
+### Docker
+El E2E y los tests de integración usan **Testcontainers**, así que necesitas **Docker Desktop con el
+backend WSL2** activo. El harness apaga sus procesos con `taskkill` en Windows, pero Docker suele ir
+más lento ahí: si el stack no levanta, confirma que Docker Desktop esté corriendo y que `3310`/`4310`
+estén libres.
+
+### Node
+`engines` pide **Node ≥ 22.12**. Verifica con `node -v`; una versión vieja da errores confusos de
+`fetch`, ESM o `--env-file`.
