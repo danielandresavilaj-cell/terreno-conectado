@@ -1,6 +1,6 @@
 # DATA MODEL — Modelo conceptual de datos
 
-**Versión:** 1.1.2 (módulo 007) · **Fecha:** 2026-09-14 · actualizado 2026-10-10 · **Autor:** Daniel Ávila · **Relacionado:** spec maestro §5/§7 (Enmienda 002), specs 001–007, ADR-003
+**Versión:** 1.1.3 (módulo 007) · **Fecha:** 2026-09-14 · actualizado 2026-10-12 · **Autor:** Daniel Ávila · **Relacionado:** spec maestro §5/§7 (Enmienda 002), specs 001–007, ADR-003
 **Evidencia APT:** "Modelo conceptual de datos preliminar" (informe §6).
 **Reglas transversales:** toda tabla de dominio lleva `tenant_id UUID NOT NULL` + política RLS (Artículo IV); IDs `UUIDv7` generados en el cliente cuando el registro nace offline (FR-015); timestamps `created_at`, `updated_at` (servidor) y `captured_at` (cliente, autoridad para LWW — FR-023).
 
@@ -57,6 +57,19 @@ erDiagram
 | role | ENUM(field_worker, supervisor, tenant_admin, platform_admin) | FR-003 |
 | full_name | TEXT | |
 | is_active | BOOLEAN | |
+| failed_login_count | INT | bloqueo tras 5 credenciales fallidas (FR-005) |
+| locked_until | TIMESTAMPTZ NULL | bloqueo temporal de 15 min (FR-005) |
+
+**AUTH_SESSION** — refresh tokens con rotación por familia (D5).
+| Campo | Tipo | Notas |
+| :--- | :--- | :--- |
+| id | UUID PK | |
+| user_id | UUID FK→USER | |
+| tenant_id | UUID FK→TENANT NULL | replicado del usuario para la RLS; `platform_admin` (tenant NULL) no es visible para ningún tenant |
+| family_id | UUID | familia de rotación; el reuso de un token ya rotado revoca la familia y se audita (FR-051) |
+| token_hash | TEXT UNIQUE | hash del refresh token, nunca el token |
+| issued_at / expires_at | TIMESTAMPTZ | vigencia del refresh (30 días) |
+| revoked_at | TIMESTAMPTZ NULL | revocación explícita o por detección de reuso |
 
 **SITE (Faena/Obra)**
 | Campo | Tipo | Notas |
@@ -100,23 +113,27 @@ erDiagram
 **TEMPLATE_ASSIGNMENT** — asignación faena+rol (FR-008/009).
 `id, tenant_id, template_revision_id UUID FK→TEMPLATE_REVISION (published), site_id UUID FK→SITE NULL (NULL = todas las faenas), role ENUM(field_worker, supervisor), active BOOLEAN, assigned_by UUID FK→USER, assigned_at`. UNIQUE lógico `(template_revision_id, site_id, role)`, implementado con **dos índices únicos parciales** — `(template_revision_id, role) WHERE site_id IS NULL` y `(template_revision_id, site_id, role) WHERE site_id IS NOT NULL` — porque en PostgreSQL un `NULL` no colisiona en un `UNIQUE` simple y la asignación global quedaría sin proteger. `active = false` desactiva sin borrar (conserva `assigned_by`). El `field_worker` consulta solo revisiones publicadas asignadas a su faena y rol (FR-009): `GET /api/v1/templates?site_id=` filtra por rol operativo y acepta la asignación global (`site_id IS NULL`); el `tenant_admin` ve todo lo publicado y es quien asigna/desasigna. RLS por `tenant_id`.
 
-**TEMPLATE_SECTION** — `id, revision_id UUID FK→TEMPLATE_REVISION, position INT, title TEXT`.
+**TEMPLATE_SECTION** — `id, revision_id UUID FK→TEMPLATE_REVISION, tenant_id UUID FK→TENANT, position INT, title TEXT`.
 
-**TEMPLATE_ITEM** — `id, section_id, position, prompt TEXT, response_type ENUM(ok_nok_na, text, numeric, date, time, select_single, select_multiple, photo)` (8 tipos V1, FR-036), `require_finding_on_nok BOOLEAN, props JSONB NULL (min/max, options[], required, photo_max_kb), help TEXT`.
+**TEMPLATE_ITEM** — `id, section_id UUID FK→TEMPLATE_SECTION, tenant_id UUID FK→TENANT, position, prompt TEXT, response_type ENUM(ok_nok_na, text, numeric, date, time, select_single, select_multiple, photo)` (8 tipos V1, FR-036), `require_finding_on_nok BOOLEAN, props JSONB NULL (min/max, options[], required, photo_max_kb), help TEXT`.
+
+> `TEMPLATE_SECTION` y `TEMPLATE_ITEM` llevan `tenant_id` **denormalizado por fila** (patrón del repo, migración `1730000005000`): la política RLS aísla sin necesidad de joins y, sin `app.tenant_id`, no hay filas visibles.
 
 **INSPECTION**
 | Campo | Tipo | Notas |
 | :--- | :--- | :--- |
 | id | UUID PK (cliente, UUIDv7) | FR-015 |
-| tenant_id, site_id, template_id | UUID FK | |
-| template_revision_id | UUID FK→TEMPLATE_REVISION | congela la revisión exacta (FR-028/038) |
-| template_version | INT | desnormalizado para queries (deriva de la revisión) |
+| tenant_id, site_id | UUID FK | RLS por tenant |
+| template_id | UUID | plantilla de la que deriva |
+| template_version | INT | **congela la versión** al iniciar la inspección (FR-028/038); `template_id`+`version` identifican la revisión |
 | executed_by | UUID FK→USER | |
 | status | ENUM(draft, in_progress, submitted, reviewed) | FR-031 |
 | captured_at | TIMESTAMPTZ (cliente) | autoridad LWW |
 | synced_at | TIMESTAMPTZ NULL (servidor) | métrica de latencia NFR-03/FR-024 |
 | client_version | INT | contador de edición local para conflictos |
-| geo | GEOGRAPHY NULL | |
+| created_at / updated_at | TIMESTAMPTZ | servidor |
+
+> **Congelado de versión.** La fila en base guarda `template_id` + `template_version` (no una columna `template_revision_id`); la revisión exacta se resuelve por ese par. El borrador del cliente sí persiste localmente el `revision_id` exacto para bloquear la captura si la revisión no llega (ADR-003 Enmienda 2, FR-028).
 
 **INSPECTION_RESPONSE** — `id, inspection_id, template_item_id, tenant_id, value_ok ENUM(ok,nok,na) NULL, value_text NULL, value_number NULL, value_json JSONB NULL (select_single/select_multiple/date/time; validado contra `TEMPLATE_ITEM.props` antes de encolar, FR-039), captured_at, client_version`.
 
@@ -163,7 +180,7 @@ CREATE POLICY tenant_isolation ON inspection
 3. **Latencia medida:** `synced_at - captured_at` por registro; agregado diario por tenant para dashboard (FR-040).
 4. **Retención demo:** sin borrado físico; `is_active`/status para baja lógica.
 5. **Congelamiento de revisiones:** `TEMPLATE_REVISION.published` es inmutable (sin UPDATE/DELETE desde `tc_app`); todo cambio exige una nueva revisión `draft → published` (FR-049). Las respuestas se validan contra `TEMPLATE_ITEM.props` en el dispositivo antes de encolar (FR-039).
-6. **Delta de plantillas:** el cliente guarda el `template_version` máximo conocido por tenant y tira solo el delta (FR-027); una inspección en curso conserva su `template_revision_id` (FR-028/038) incluso si llega una versión nueva.
+6. **Delta de plantillas:** el cliente guarda el cursor `published_seq` máximo conocido por tenant (secuencia global de publicación, FR-027 / ADR-003 Enmienda 2) y tira solo el delta; una inspección en curso conserva su revisión congelada (`template_id` + `template_version`, FR-028/038) incluso si llega una versión nueva.
 
 ## 5. Datos semilla (demo académica)
 
@@ -176,6 +193,7 @@ CREATE POLICY tenant_isolation ON inspection
 | Versión | Fecha | Cambio |
 | :--- | :--- | :--- |
 | 1.0.0 | 2026-09-14 | Modelo base (specs 001–006) |
+| 1.1.3 | 2026-10-12 | **Coherencia con el esquema real (módulo 007):** se retira `inspection.template_revision_id` (la base congela `template_id` + `template_version`) y `inspection.geo` (no existe en la migración); `TEMPLATE_SECTION`/`TEMPLATE_ITEM` recuperan su `tenant_id` denormalizado; se documenta `AUTH_SESSION`; `app_user` suma `failed_login_count`/`locked_until`; la regla 6 pasa a hablar de `published_seq` como cursor del delta |
 | 1.1.2 | 2026-10-10 | **Módulo 007 (TSK-FORM-009, PR #89):** `TEMPLATE_REVISION.published_seq` (secuencia global de publicación) como cursor del delta FR-027, con backfill determinista, índice parcial y `CHECK (status <> 'published' OR published_seq IS NOT NULL)`; `version` queda documentada como por plantilla. Se registra la desviación respecto de la redacción literal de FR-027 (`since=<template_version>`) — ver ADR-003 Enmienda 2 |
 | 1.1.1 | 2026-10-10 | `TEMPLATE_ASSIGNMENT` materializada (TSK-FORM-008, PR #87): `active` para desactivar sin borrar y único lógico `(template_revision_id, site_id, role)` implementado con dos índices únicos parciales (`site_id IS NULL` / `IS NOT NULL`) para que la asignación global (`site_id NULL` = todas las faenas) también quede protegida |
-| 1.1.0 | 2026-10-07 | **Módulo 007 (Enmienda 002):** `TEMPLATE_REVISION` inmutable (draft/published/archived, `source_import_id`), `TEMPLATE_IMPORT` (uploaded/parsed/proposed/confirmed/failed, `proposed_schema`), `TEMPLATE_ASSIGNMENT` (faena/rol); `TEMPLATE_ITEM` ampliado a 8 `response_type` + `props JSONB`; `INSPECTION_RESPONSE` +`value_json JSONB`; `ATTACHMENT.owner_type` +`response`; inspección congela `template_revision_id` |
+| 1.1.0 | 2026-10-07 | **Módulo 007 (Enmienda 002):** `TEMPLATE_REVISION` inmutable (draft/published/archived, `source_import_id`), `TEMPLATE_IMPORT` (uploaded/parsed/proposed/confirmed/failed, `proposed_schema`), `TEMPLATE_ASSIGNMENT` (faena/rol); `TEMPLATE_ITEM` ampliado a 8 `response_type` + `props JSONB`; `INSPECTION_RESPONSE` +`value_json JSONB`; `ATTACHMENT.owner_type` +`response`; inspección congela la versión de la plantilla (`template_id` + `version`) |

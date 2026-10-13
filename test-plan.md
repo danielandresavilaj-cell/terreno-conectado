@@ -1,6 +1,6 @@
 # TEST PLAN — Plan de pruebas de validación
 
-**Versión:** 1.0.0 · **Fecha:** 2026-09-14 · **Autor:** Raúl González (validación) · **Relacionado:** spec maestro §5–6, constitución Artículos III/IV/VII
+**Versión:** 1.0.2 · **Fecha:** 2026-09-14 · actualizado 2026-10-12 · **Autor:** Raúl González (validación) · **Relacionado:** spec maestro §5–6, constitución Artículos III/IV/VII
 **Evidencia APT:** "Plan de pruebas de validación" (informe §6) y soporte de la competencia "Realizar pruebas de certificación de productos y procesos".
 
 ## 1. Principio rector
@@ -43,6 +43,7 @@ Cada promesa del spec maestro tiene una prueba que la verifica (NFR-12). Las pru
 | FR-008/009 | Asignación faena+rol: el worker solo ve revisiones publicadas asignadas a su faena y rol | Integración |
 | FR-018 | Plantillas en caché local → captura de formulario 100% sin red (Artículo I). Cubierto en parte por unit del cliente (Dexie + `fake-indexeddb`); el arranque sin red en navegador real sigue siendo **E2E manual** | Unit + E2E |
 | FR-027/028 | Delta `since=` por `published_seq` trae solo cambios y nunca salta una revisión de otra plantilla; inspección en curso conserva su revisión congelada | Integración + Unit |
+| FR-038 | Inspección en curso no se re-encuadra ni re-valida al publicarse una versión nueva de la plantilla; re-exporta con su versión congelada | Integración + Unit |
 | FR-036/039 | Respuesta de los 8 tipos de campo; valor inválido rechazado en el dispositivo antes de encolar | Unit + E2E |
 | FR-037 + FR-012 | Foto de ítem comprimida y asociada a la respuesta (`ATTACHMENT`) | Unit + E2E |
 | FR-029 | Reintentar un import sincronizado 3 veces → cero duplicados (idempotencia del motor batch) | Integración |
@@ -113,3 +114,4 @@ Extienden la sección 4 con los invariantes del módulo (spec 007): libros `.xls
 | :--- | :--- | :--- | :--- |
 | 1.0.0 | 2026-09-14 | Plan inicial derivado del spec maestro v1.0.0 | Raúl González (con IA) |
 | 1.0.1 | 2026-10-08 | Cobertura del módulo 007: matriz §3 (FR-007/008/009, 018/019, 027/028/029, 036/037/038/039, 044–049) y caos 8–11 (TSK-FORM-011) | Raúl González (con IA) |
+| 1.0.2 | 2026-10-12 | Fila explícita **FR-038** (congelado de la versión en la inspección) y alineación de la versión de cabecera con el changelog (refs #98) | Daniel Ávila |

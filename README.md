@@ -67,7 +67,7 @@ flowchart LR
 - **Aislamiento por motor (Art. IV).** Cada tabla de dominio lleva `tenant_id` y una política RLS. El filtrado de la aplicación es defensa secundaria, no la principal.
 - **Presupuesto (Art. VI).** ~US$5/mes en un solo VPS. El diseño de producción real (~US$200-600/mes) está documentado en [adr/002-arquitectura-despliegue.md](adr/002-arquitectura-despliegue.md) sin provisionarse.
 
-Modelo de datos completo (13 tablas): [data-model.md](data-model.md) · Requisitos FR/NFR: [specs/000-master/spec.md](specs/000-master/spec.md)
+Modelo de datos completo (18 tablas): [data-model.md](data-model.md) · Requisitos FR/NFR: [specs/000-master/spec.md](specs/000-master/spec.md)
 
 ## Metodología: Spec Driven Development (SDD)
 
@@ -111,29 +111,25 @@ terreno-conectado/
 
 ## Cómo ejecutar localmente
 
-> **Estado real:** el monorepo, la base de datos (PostgreSQL 16 + RLS), la **auth** y la **PWA
-> instalable** ya existen. Desde **TSK-WS-005** el `frontend/` **persiste de verdad** en
-> Dexie/IndexedDB (inspección, hallazgos, bitácora y outbox local con UUIDv7 de cliente), desde
-> **TSK-WS-007** el backend expone `POST /api/v1/sync/batch` (ingesta idempotente + LWW con
-> `CONFLICT_RECORD`, **TSK-WS-009**) y desde **TSK-WS-008** el **worker** de cola del cliente
-> dispara la sincronización sola al reconectar; el **dashboard del supervisor con datos reales**
-> y la **sesión** (login por credenciales, restauración offline de la identidad) llegan en
-> **TSK-WS-011**, y **TSK-WS-012** añade `GET /health` + **logs JSON** correlacionados
-> (`request_id`/`tenant_id`). Del **Módulo 007** (formularios dinámicos) ya está en `main` su
-> documentación completa (Enmienda 002, ADR-003, data-model 1.1.0, spec/plan/tasks 007) y el
-> backend de **TSK-FORM-002/003** (plantillas versionadas inmutable + catálogo tipado con Zod en
-> `shared/`) y el **renderer data-driven de TSK-FORM-001** (la captura dibuja desde la definición
-> de la plantilla activa, con caché offline por tenant) y la **respuesta híbrida de TSK-FORM-004**
-> (columnas tipadas + `value_json` JSONB para los tipos date/time/select y **`ATTACHMENT` de
-> respuesta** para la foto de ítem) y el **importador `.xlsx` de TSK-FORM-005** (escolta ExcelJS en
-> `shared/`, parser determinístico → propuesta `proposed_schema` con secciones/ítems); el resto de
-> tareas TSK-FORM sigue en curso.
+> **Estado real:** el monorepo, la base de datos (PostgreSQL 16 + RLS), la **auth**, la **PWA
+> instalable** y el **walking skeleton completo** (TSK-WS-001→012) ya existen: el `frontend/`
+> **persiste de verdad** en Dexie/IndexedDB, el backend expone `POST /api/v1/sync/batch` (ingesta
+> idempotente + LWW con `CONFLICT_RECORD`), el **worker** de cola sincroniza solo al reconectar, el
+> **dashboard del supervisor** opera con datos reales, la **sesión** restaura la identidad offline y
+> `GET /health` + **logs JSON** correlacionados (`request_id`/`tenant_id`) están en producción
+> (TSK-WS-012). Del **Módulo 007** (formularios dinámicos) están en `main` la documentación
+> (Enmienda 002, ADR-003, data-model 1.1.3, spec/plan/tasks 007) y **TSK-FORM-001→010**: motor de
+> render data-driven, plantillas versionadas inmutables con catálogo Zod en `shared/`, respuesta
+> híbrida (`value_json` + `ATTACHMENT`), importador `.xlsx` con wizard de revisión humana,
+> asignación por faena/rol, delta sync con caché offline y **export rellenado + hoja Evidencias**
+> (dispositivo, dashboard y lote). Pendiente: **TSK-FORM-011** (pruebas, issue #44) y **V2** (#45).
 
 ### Frontend — funciona hoy
 
-App React 18 + Vite 6 + Tailwind 4, seis pantallas (Login, Captura, Bitácora, Cola, Gerencia,
-Conflictos) con el ciclo `pending → syncing → synced` animado. Es una **PWA instalable** (TSK-WS-004:
-manifest + service worker Workbox con precache del shell: funciona sin red tras la primera carga) y,
+App React 18 + Vite 6 + Tailwind 4, ocho pantallas (Login, Captura, Bitácora, Cola, Gerencia,
+Conflictos, Plantillas, Importar) con el ciclo `pending → syncing → synced` animado. Es una **PWA
+instalable** (TSK-WS-004: manifest + service worker Workbox con precache del shell: funciona sin
+red tras la primera carga) y,
 desde **TSK-WS-005**, la captura **persiste en el dispositivo**: cada ítem de la inspección se
 autoguarda en Dexie/IndexedDB (el borrador se restaura al reabrir, FR-014), los hallazgos y la
 bitácora se guardan localmente, y todo queda encolado en un **outbox real** con IDs **UUIDv7** de
@@ -189,8 +185,9 @@ npm run dev:frontend   # Vite   -> http://localhost:5173
 npm run dev:backend    # NestJS -> http://localhost:3000
 ```
 La base de datos local ya existe (**TSK-WS-002**): PostgreSQL 16 con **Row-Level Security**,
-migraciones versionadas (`node-pg-migrate`) y seed de tenants A/B. El backend base arranca pero
-**aún no persiste** datos de la app (la conexión de la app llega en TSK-WS-003).
+migraciones versionadas (`node-pg-migrate`) y seed de tenants A/B. El backend opera con datos
+reales (auth, ingesta idempotente, conflictos, dashboard y plantillas versionadas); la conexión
+de la app llegó en **TSK-WS-003**.
 
 ```bash
 cp .env.example .env                                # credenciales locales (no se versiona)
@@ -203,7 +200,6 @@ npm test                                            # unit + integración (todos
 `npm test` necesita las dos variables de las cuentas demo en el entorno (`DEMO_PASSWORD` para el
 seed del backend y `VITE_DEMO_PASSWORD` para el del frontend, que importan `seed.ts` al cargar);
 nunca están hardcodeadas en el fuente. Ver `.env.example`.
-```
 
 ### Auth (TSK-WS-003)
 
@@ -260,9 +256,9 @@ dispara el flush solo al reconectar, con concurrencia 1 y backoff 1 s→5 min (F
 Ciclo `tenant_admin` importa `.xlsx` → revisión humana → publica `TEMPLATE_REVISION` inmutable →
 asigna por faena/rol → el worker captura offline → export del documento rellenado. Ya en `main`:
 
-- **Documentación completa**: `specs/000-master/spec.md` v1.1.0 (Enmienda 002, FR-007–049),
+- **Documentación completa**: `specs/000-master/spec.md` v1.1.1 (Enmienda 002, FR-007–049),
   `specs/007-formularios-dinamicos/spec.md`, `adr/003-formularios-dinamicos.md`,
-  `data-model.md` v1.1.0, `plans/007-formularios-dinamicos/` (plan + tasks + spike xlsx) y
+  `data-model.md` v1.1.3, `plans/007-formularios-dinamicos/` (plan + tasks + spike xlsx) y
   cobertura en `test-plan.md` (FR-007–049, caos 8–11).
 - **TSK-FORM-002**: `template` + `template_revision` con RLS por comando y **inmutabilidad en el
   motor** — `tc_app` solo toca revisiones `draft` (FR-007/049); `publish` asigna `version`
@@ -282,7 +278,7 @@ asigna por faena/rol → el worker captura offline → export del documento rell
   parser puro (`import.ts`) propone secciones/ítems con `proposed_schema`, tipo, `props`, `required` y
   origen hoja+celda (FR-029/036/039, export FR-019/044); se consume por subpath (ExcelJS no entra al
   bundle del frontend); autodetección documentada y spike cerrado (enmienda ADR-003,
-  `spike-xlsx-result.md`); scripts `npm run spike:xlsx` cableados.
+  `spike-xlsx-result.md`), con los scripts de spike ya retirados tras cerrarlo.
 - **TSK-FORM-006/007**: **importación asistida** — wizard de 5 pasos (subir → preview → editar con
   validación Zod en vivo → guardar borrador → **publicar explícito, nunca automático**, FR-048) y
   endpoint `POST /api/v1/templates/imports` que persiste el `.xlsx` fuente en `TEMPLATE_IMPORT`
@@ -301,24 +297,18 @@ asigna por faena/rol → el worker captura offline → export del documento rell
   25 MiB, para poder exportar sin señal (FR-018/019). El delta baja **también al volver la señal**, no
   sólo al arrancar.
 
-- **TSK-FORM-010 (parcial — FR-019)**: **export del documento original en el dispositivo** —
-  el `.xlsx` que subió el admin se rellena con las respuestas de la inspección y se le añade la
-  hoja **"Evidencias"** con las fotos, **sin depender del servidor** (Art. I). El mapeo ítem→celda
-  se recupera re-parseando el original que ya está cacheado en el dispositivo (el import descarta
-  esa coordenada al crear la plantilla) y, si los conteos no cuadran, **falla con un error claro**
-  en vez de escribir la respuesta en la celda de otro ítem. Pendiente la mitad de servidor:
-  descarga desde el dashboard y exportación por lote del período (FR-044/045/046).
-
-- **TSK-FORM-010 (parcial — FR-019 + FR-044)**: el supervisor ve las inspecciones del período en el
-  dashboard y descarga cada una como el **mismo `.xlsx` original rellenado** que genera el
-  dispositivo. La serialización de valores vive en `shared/src/xlsx/` precisamente para que ambos
-  lados ejecuten el mismo código: compararlos a mano no es un contrato. Las fotos de la hoja
-  "Evidencias" se **incrustan hasta 512 kB** y por encima se referencian (FR-046, ADR-003 Enmienda 3).
-
-- **TSK-FORM-010 (completo)**: el **lote** del período se descarga como un **ZIP con un `.xlsx` por
-  inspección** más un `manifesto.json`, tope de 50 inspecciones; una que falle no tira el lote y
-  queda registrada en el manifiesto con su motivo. Cada exportación por lote deja una fila en
-  `audit_log` con actor, tenant, período y resultado (FR-047).
+- **TSK-FORM-010**: **exportación del documento original rellenado + hoja "Evidencias"** en los
+  tres frentes. En el **dispositivo** (FR-019), el `.xlsx` que subió el admin se rellena con las
+  respuestas y se le añade la hoja Evidencias **sin red** (Art. I); el mapeo ítem→celda se recupera
+  re-parseando el original cacheado en el dispositivo y, si los conteos no cuadran, **falla con un
+  error claro** en vez de escribir la respuesta en la celda de otro ítem. En **servidor** (FR-044),
+  el supervisor descarga cada inspección del período como el **mismo `.xlsx`** que genera el
+  dispositivo — la serialización vive en `shared/src/xlsx/` para que ambos lados ejecuten el mismo
+  código: compararlos a mano no es un contrato. Y por **lote** (FR-045/046/047), el período se baja
+  como un **ZIP con un `.xlsx` por inspección** más `manifesto.json`, tope de 50: una que falle no
+  tira el lote y queda en el manifiesto con su motivo, las fotos de la hoja Evidencias se
+  **incrustan hasta 512 kB** (por encima se referencian, ADR-003 Enmienda 3) y cada lote deja una
+  fila en `audit_log` con actor, tenant, período y resultado.
 
 Pendiente (issues #44–#45): pruebas de import/export y caos (#44), V2 (#45).
 Cerrados en este ciclo: UX de import (#39), TEMPLATE_IMPORT + auditoría (#40), asignaciones (#41),

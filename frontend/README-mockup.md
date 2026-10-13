@@ -6,9 +6,9 @@ bitácora se guardan localmente con IDs **UUIDv7** generados en el cliente (FR-0
 encoladas en un **outbox real** (FR-013) con orden de dependencia FR-020. El borrador se restaura al
 reabrir la app (FR-014). Desde **TSK-WS-006** la foto del hallazgo se **comprime en el dispositivo**
 antes de encolarse (canvas ≤1280 px lado mayor, JPEG q0.7, FR-012) y se guarda como blob con su
-ancho/alto. Lo que sigue **simulado**: el paso `pending → syncing → synced` (el worker de cola
-llega en TSK-WS-008). Desde TSK-WS-004 es **instalable** (manifest + service worker) y funciona
-sin red tras la primera carga (FR-010).
+ancho/alto. El paso `pending → syncing → synced` ya **no** es simulado: el **worker de cola**
+(TSK-WS-008) drena el outbox solo al reconectar, con backoff. Desde TSK-WS-004 es **instalable**
+(manifest + service worker) y funciona sin red tras la primera carga (FR-010).
 
 ## Correr
 
@@ -31,9 +31,11 @@ npm run build    # bundle de producción en dist/ (genera sw.js + manifest.webma
 4. **Gerencia** — dashboard con la latencia captura→disponibilidad p50/p95, inspecciones por
    estado, hallazgos por severidad y filtros por faena/severidad.
 5. **Conflictos** — las dos versiones de un registro editado en paralelo, con LWW aplicado.
+6. **Plantillas** (admin) — el `tenant_admin` importa un `.xlsx` (TSK-FORM-006/007), revisa la
+   propuesta y publica una revisión inmutable; luego asigna la plantilla por faena/rol.
 
-Los permisos se reflejan en la navegación: el trabajador no ve *Gerencia*, el admin de
-plataforma solo ve *Gerencia*.
+Los permisos se reflejan en la navegación: el trabajador no ve *Gerencia* ni *Plantillas*, y el
+admin de plataforma solo ve *Gerencia*.
 
 ## Pantallas y requisitos que cubren
 
@@ -45,6 +47,8 @@ plataforma solo ve *Gerencia*.
 | Cola | FR-013 (4 estados + contador), FR-016 (disparo por `online`), FR-017 (aviso de cuota), FR-020, FR-021, FR-022 (backoff), FR-024 (latencia) |
 | Gerencia | FR-035 (destacado alta/crítica), FR-040, FR-041, FR-042 (CSV), FR-043, NFR-03 |
 | Conflictos | FR-023 (LWW + ambas versiones), FR-051 (audit log) |
+| Plantillas | FR-007/008/009 (asignación faena/rol, búsqueda en cliente) |
+| Importar | FR-029, FR-048 (import `.xlsx` asistido, publicación explícita) |
 
 ## Identidad visual
 
@@ -110,7 +114,7 @@ src/
     CountUp.tsx           Contador y barra de crecimiento
     SheetHallazgo.tsx     Panel modal de hallazgo (FR-032)
   screens/
-    Login.tsx  Captura.tsx  Bitacora.tsx  Cola.tsx  Dashboard.tsx  Conflictos.tsx
+    Login.tsx  Captura.tsx  Bitacora.tsx  Cola.tsx  Dashboard.tsx  Conflictos.tsx  Plantillas.tsx  Importar.tsx
 ```
 
 Los registros de la cola viven en IndexedDB (tabla `outbox`); la BD local la crea y siembra
@@ -119,7 +123,8 @@ Los registros de la cola viven en IndexedDB (tabla `outbox`); la BD local la cre
 
 ## Qué falta para el producto real
 
-Todo lo que el mockup no es, y que el ciclo `spec → plan → tasks → código → tests → evidencia`
-de la constitución exige antes de implementarse: cola idempotente con backoff y disparo por
-`online` (TSK-WS-007/008), endpoints NestJS, RLS en PostgreSQL ya operando, y la suite de pruebas
-del `test-plan.md` (caos offline, intrusión cross-tenant).
+El mockup ya dio el salto a producto: la cola idempotente con backoff y disparo por `online`
+(TSK-WS-007/008), los endpoints NestJS, la RLS en PostgreSQL operando y el ciclo de plantillas del
+módulo 007 están en `main`. Lo que resta es la suite de pruebas del `test-plan.md` (caos offline,
+intrusión cross-tenant) y la V2 del módulo 007. El estado vigente vive en el
+[README raíz](../README.md).

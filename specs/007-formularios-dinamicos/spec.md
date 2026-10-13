@@ -2,17 +2,17 @@
 
 | | |
 | :--- | :--- |
-| **Estado** | ESQUELETO (detallar en el ciclo del módulo 007, issues #34–#45) |
+| **Estado** | ACTIVO — V1 en `main` (TSK-FORM-001→010); pendiente TSK-FORM-011 (#44) y V2 (#45) |
 | **Autor** | Raúl González (con IA) |
-| **Padre** | specs/000-master/spec.md v1.1.0 (Enmienda 002) |
-| **Depende de** | 001 (roles/tenant), 004 (dominio inspecciones), ADR-003, data-model.md v1.1.0 |
+| **Padre** | specs/000-master/spec.md v1.1.1 (Enmienda 002) |
+| **Depende de** | 001 (roles/tenant), 004 (dominio inspecciones), ADR-003, data-model.md v1.1.3 |
 | **Bloquea a** | 005 (reportes por lote consumen export de plantillas) |
 
-> **Nota de desbloqueo:** este spec detalla FR que ya viven en `main` — la **Enmienda 002 (PR #63)** y toda la documentación del módulo (#62, #64, #65, #67–#70) se mergearon el **2026-10-08**. El plan técnico y las tasks están en `plans/007-formularios-dinamicos/` y `tasks/007-formularios-dinamicos/` (TSK-FORM-001→012; 001/002/003/004/005 ya completados vía PRs #79/#71/#74/#80/#82).
+> **Nota de desbloqueo:** este spec detalla FR que ya viven en `main` — la **Enmienda 002 (PR #63)** y toda la documentación del módulo (#62, #64, #65, #67–#70) se mergearon el **2026-10-08**. El plan técnico y las tasks están en `plans/007-formularios-dinamicos/` y `tasks/007-formularios-dinamicos/` (TSK-FORM-001→012; **TSK-FORM-001→010 completados** vía PRs #79/#71/#74/#80/#82/#85/#86/#87/#89/#91/#92/#93).
 
 ## Alcance heredado del spec maestro
 
-Requisitos que este spec detallará: **FR-007–009, 018–019, 027–029, 036–039, 044–049** y las entidades `TEMPLATE_*` de data-model.md v1.1.0.
+Requisitos que este spec detallará: **FR-007–009, 018–019, 027–029, 036–039, 044–049** y las entidades `TEMPLATE_*` de data-model.md v1.1.3.
 
 - Plantillas versionadas e inmutables: `TEMPLATE_REVISION` `draft → published → archived`, aisladas por tenant con RLS (FR-007, FR-049).
 - Asignación de plantillas publicadas a combinaciones faena + rol; el worker solo ve las suyas (FR-008, FR-009).
@@ -50,7 +50,7 @@ Requisitos que este spec detallará: **FR-007–009, 018–019, 027–029, 036�
       · **FR-044** (servidor): mismo módulo corriendo en Node, con la serialización en `shared` para que servidor y dispositivo ejecuten el mismo código.
       · **FR-045/046/047**: el lote es un ZIP con un `.xlsx` por inspección + manifiesto, tope de 50, fallo parcial no aborta, y una fila de `audit_log` por lote.
 - [ ] Criterios de aceptación y pruebas con libros reales y caos — ampliar test-plan.md §3 con FR-036/039/049 → TSK-FORM-011
-- [ ] Plan técnico → `plans/007-formularios-dinamicos/plan.md` (✅ subido, PR #67)
+- [x] Plan técnico → `plans/007-formularios-dinamicos/plan.md` (PR #67)
 - [ ] V2 (fuera de V1): Word/PDF/OCR de formularios de papel, catálogo de plantillas de plataforma, analítica con IA (FR-048)
 
 ## Criterios de aceptación del módulo (resumen)
@@ -64,6 +64,7 @@ Requisitos que este spec detallará: **FR-007–009, 018–019, 027–029, 036�
 
 | Versión | Fecha | Cambio | Autor |
 | :--- | :--- | :--- | :--- |
+| 0.2.3 | 2026-10-12 | Coherencia documental (refs #98): el Estado deja de ser «ESQUELETO» (V1 en `main`, TSK-FORM-001→010); versiones del padre y del data-model alineadas (spec maestro v1.1.1, data-model v1.1.3); checklist del plan técnico marcado | Daniel Ávila |
 | 0.2.2 | 2026-10-12 | Tramitación de 010: el wizard de importación (TSK-FORM-006) guardaba la plantilla por `POST /templates`, dejando la revisión **sin `source_import_id`** — una plantilla creada por la UI no podía exportar su documento original (FR-019/044 → 404). Ahora sube el `.xlsx` en el paso 1 y confirma por `POST /templates/imports/:id/confirm` con la definición revisada (`definition`, `name`, `description`), auditando la confirmación (FR-047). Cierra el hueco del ciclo import→export del wizard | Daniel Ávila |
 | 0.2.1 | 2026-10-12 | Checklist: TSK-FORM-010 completado (PRs #91, #92, #93) — FR-019 dispositivo, FR-044 servidor con serialización compartida, FR-045/046/047 lote en ZIP con manifiesto, tope de 50, fallo parcial tolerated y auditoría por lote | Daniel Ávila |
 | 0.2.0 | 2026-10-12 | Checklist: TSK-FORM-010 en progreso — FR-044 completado en PR #92 (serialización movida a `shared` para garantizar paridad servidor/dispositivo, política de evidencias embebida-vs-referenciada resuelta según ADR-003 Enmienda 1, endpoints de dashboard). FR-045/046/047 pendientes | Daniel Ávila |
