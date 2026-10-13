@@ -16,6 +16,15 @@ jobs:
       VITE_DEMO_PASSWORD: TcDemo2026!
     steps:
       - uses: actions/checkout@v4
+      - name: Fin de línea LF en todo el repo (portabilidad Windows)
+        run: |
+          if git ls-files --eol | grep -Eq '^i/(crlf|mixed)'; then
+            echo "::error::Hay archivos versionados con CRLF o finales de línea mixtos:"
+            git ls-files --eol | grep -E '^i/(crlf|mixed)'
+            echo "Corrige con: git add --renormalize . && git commit -am 'chore(repo): normalizar EOL'"
+            exit 1
+          fi
+          echo "OK: todos los archivos versionados usan LF"
       - uses: actions/setup-node@v4
         with:
           node-version: 22
