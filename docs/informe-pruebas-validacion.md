@@ -136,8 +136,12 @@ ajeno con peticiones invisibles.
    formulario < 200 ms. Es tooling aparte; este harness no lo cubre.
 2. **FR-040/043** — la latencia ≤60 s del primer lote se verifica en la demo en
    vivo, no en automatizado.
-3. **Correr el nightly en GitHub** — la validación local es completa, pero el
-   workflow nuevo todavía no se ejecutó en CI.
+
+El **nightly ya corrió en GitHub** (2026-10-13). La primera corrida destapó un
+defecto de wiring del propio workflow: el paso `npm run build` no inyectaba
+`VITE_DEMO_PASSWORD` ni `VITE_API_URL` (variables de build de Vite, ver §8), así
+que el bundle arrancaba en blanco y los 17 specs fallaban. Corregido en #103; con
+el fix el workflow queda **17/17 en verde** en `main`.
 
 ## 8. Cómo reproducir
 
@@ -145,9 +149,13 @@ ajeno con peticiones invisibles.
 # Requisitos: Docker corriendo y las variables de entorno defined
 export DEMO_PASSWORD='...'
 export JWT_ACCESS_SECRET='...'   # 32 bytes o más
+# El bundle de Vite incrusta estas dos en tiempo de BUILD (seed.ts lanza sin
+# VITE_DEMO_PASSWORD); `vite preview` no las lee. Sin ellas el build arranca en blanco.
+export VITE_DEMO_PASSWORD="$DEMO_PASSWORD"
+export VITE_API_URL='http://127.0.0.1:3310/api/v1'
 
 npm ci
-npm run build                   # el E2E arranca backend/dist y vite preview
+npm run build                   # backend/dist + bundle de Vite (con las VITE_* de arriba)
 npm run e2e
 ```
 
