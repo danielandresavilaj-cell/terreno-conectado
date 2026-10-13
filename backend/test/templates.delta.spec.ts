@@ -2,7 +2,7 @@ import 'reflect-metadata'
 import { createHash, randomUUID } from 'node:crypto'
 import { mkdtemp, readFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join, resolve } from 'node:path'
+import { join, resolve, sep } from 'node:path'
 import { PostgreSqlContainer } from '@testcontainers/postgresql'
 import type { StartedPostgreSqlContainer } from '@testcontainers/postgresql'
 import { Pool } from 'pg'
@@ -393,7 +393,9 @@ describe('GET /api/v1/templates/revisions/:id/original (FR-019/044)', () => {
     )
     const fileKey = rows[0].file_key as string
     expect(fileKey.startsWith(`template_imports/${TENANT_A_ID}/`)).toBe(true)
-    expect(resolve(syncVolume, fileKey).startsWith(resolve(syncVolume) + '/')).toBe(true)
+    // `sep`, no '/': en Windows `resolve` devuelve `\` (bug que hacía rojo este
+    // test sólo en Windows, aunque el archivo estuviera dentro del volumen).
+    expect(resolve(syncVolume, fileKey).startsWith(resolve(syncVolume) + sep)).toBe(true)
   })
 
   /**
