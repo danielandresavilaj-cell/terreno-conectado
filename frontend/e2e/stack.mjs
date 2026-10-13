@@ -35,6 +35,12 @@ import { PostgreSqlContainer } from '@testcontainers/postgresql'
 const RAIZ = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..')
 const MIGRATIONS_DIR = resolve(RAIZ, 'backend', 'db', 'migrations')
 
+/* Carga el `.env` de la raíz si existe (mismo origen que el seed del backend),
+ * así no hace falta `export`ear a mano —incómodo en Windows—. En CI no hay
+ * `.env` y `process.loadEnvFile` no pisa las variables ya definidas. */
+const ENV_RAIZ = resolve(RAIZ, '.env')
+if (existsSync(ENV_RAIZ)) process.loadEnvFile(ENV_RAIZ)
+
 /** Puerto de la API. El backend lo toma de `PORT` (backend/src/main.ts:7). */
 const API_PORT = Number(process.env.E2E_API_PORT ?? 3310)
 const WEB_PORT = Number(process.env.E2E_WEB_PORT ?? 4310)

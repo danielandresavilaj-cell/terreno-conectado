@@ -1,0 +1,39 @@
+# Normaliza los fines de línea a LF en todo el repo (CI corre en Linux y varios
+# scripts se bind-montean en contenedores Linux). Sin esto, un checkout en
+# Windows con `core.autocrlf=true` (el default de Git for Windows) convierte los
+# textos a CRLF y rompe cosas como `infra/postgres/init/00-app-role.sh`, que el
+# contenedor ejecuta con `/bin/sh` (con CRLF falla y el rol `tc_app` no se crea).
+#
+# Si ya clonaste en Windows antes de esto, renormaliza una vez:
+#   git add --renormalize . && git checkout -- .
+* text=auto eol=lf
+
+# Scripts y fuentes: LF explícito.
+*.sh   text eol=lf
+*.mjs  text eol=lf
+*.cjs  text eol=lf
+*.js   text eol=lf
+*.ts   text eol=lf
+*.tsx  text eol=lf
+*.json text eol=lf
+*.md   text eol=lf
+*.yml  text eol=lf
+*.yaml text eol=lf
+*.sql  text eol=lf
+
+# Scripts nativos de Windows (si se agregan), CRLF para que los ejecute cmd.
+*.bat  text eol=crlf
+*.cmd  text eol=crlf
+
+# Binarios: nunca normalizar (evita corromperlos).
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.gif   binary
+*.ico   binary
+*.webp  binary
+*.woff  binary
+*.woff2 binary
+*.xlsx  binary
+*.xls   binary
+*.pdf   binary

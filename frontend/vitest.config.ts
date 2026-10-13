@@ -13,6 +13,10 @@ import { defineConfig } from 'vitest/config'
  * que la lógica está en el componente y debería bajarse a `lib/plantillas.ts`.
  */
 export default defineConfig({
+  // Igual que `vite.config.ts`: el `.env` de la raíz del monorepo provee las
+  // `VITE_*` (p. ej. `VITE_DEMO_PASSWORD`, que `seed.ts` exige al importar).
+  // En CI no hay `.env` y las `VITE_*` llegan por el entorno del job.
+  envDir: '..',
   test: {
     environment: 'node',
     include: ['test/**/*.test.ts'],
