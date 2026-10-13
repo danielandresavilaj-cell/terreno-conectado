@@ -1,6 +1,6 @@
 # ADR-003 — Formularios dinámicos: formato interno, import/export de documentos y política de IA
 
-**Estado:** PROPUESTO (2026-10-07) — aprobación de ambos integrantes pendiente en el PR (formalidad; la decisión técnica es completa)
+**Estado:** ACEPTADO (2026-10-07; aprobado 2026-10-12) — decisión técnica completa y en `main` con sus tres enmiendas
 **Fecha:** 2026-10-07 · **Decisores:** Daniel Ávila, Raúl González
 **Relacionado:** spec maestro §5 (Enmienda 002 — FR-007–009, 018–019, 027–029, 036–039, 044–049) y §10; `data-model.md` (entidades TEMPLATE_*); specs 002/003/004; módulo 007 (issue #29)
 
@@ -83,4 +83,4 @@ Enmienda 1 dejó esta decisión explícitamente para TSK-FORM-010. FR-046 pide q
 
 ---
 
-**Firmas:** Raúl González (2026-10-07) · Daniel Ávila (pendiente — aprobación del PR).
+**Firmas:** Raúl González (2026-10-07) · Daniel Ávila (2026-10-12).

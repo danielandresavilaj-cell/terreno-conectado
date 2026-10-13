@@ -1,6 +1,6 @@
 /**
  * Migración 007 — Entidad TEMPLATE_IMPORT + documento fuente ATTACHMENT
- * (módulo 007, TSK-FORM-007, FR-029/047/051, data-model §2.2 v1.2.0).
+ * (módulo 007, TSK-FORM-007, FR-029/047/051, data-model §2.2 v1.1.0).
  *
  * 1. Crea `template_imports` con ciclo de vida `uploaded → parsed → proposed →
  *    confirmed|failed`. Guarda la propuesta parseada en `proposed_schema` y
