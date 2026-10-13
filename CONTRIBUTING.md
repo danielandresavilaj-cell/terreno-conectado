@@ -179,14 +179,20 @@ Los tests y el E2E leen `DEMO_PASSWORD`, `JWT_ACCESS_SECRET` y `VITE_DEMO_PASSWO
   cmd `set VAR=valor`.
 
 ### Fin de línea (CRLF)
-`.gitattributes` fuerza LF en todo el repo. Si clonaste **antes** de que existiera, renormaliza una vez:
+Git for Windows trae `core.autocrlf=true` a nivel **system**, así que sin configuración el checkout
+queda en CRLF. El repo lo neutraliza con `.gitattributes` (fuerza `eol=lf`) y `.editorconfig` (los
+editores guardan en LF). Si clonaste **antes** de que existieran, refresca tu working tree una vez
+desde `main`:
 
 ```powershell
-git add --renormalize . ; git checkout -- .
+git pull
+git rm --cached -r .   # vacía el índice (no toca tus archivos sin seguimiento)
+git reset --hard       # reescribe el working tree con el EOL del .gitattributes
 ```
 
-Síntoma de CRLF sin corregir: `infra/postgres/init/00-app-role.sh` falla dentro del contenedor y el rol
-`tc_app` no se crea → la app local no conecta a la base.
+Síntoma de CRLF sin corregir: cada `.replace('\n', …)` falla en silencio sobre CRLF,
+`infra/postgres/init/00-app-role.sh` falla dentro del contenedor (el rol `tc_app` no se crea) y algunos
+archivos quedan con finales de línea mixtos.
 
 ### Docker
 El E2E y los tests de integración usan **Testcontainers**, así que necesitas **Docker Desktop con el
