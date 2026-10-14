@@ -5,6 +5,10 @@
   "description": "Infraestructura de demo (Docker Compose, Caddy, deploy) — TSK-WS-002+ definen su contenido",
   "scripts": {
     "up": "docker compose -f docker-compose.yml up -d",
-    "down": "docker compose -f docker-compose.yml down"
+    "down": "docker compose -f docker-compose.yml down",
+    "up:prod": "docker compose -f docker-compose.prod.yml up -d",
+    "down:prod": "docker compose -f docker-compose.prod.yml down",
+    "migrate:prod": "docker compose -f docker-compose.prod.yml --profile tools run --rm migrate",
+    "seed:prod": "docker compose -f docker-compose.prod.yml --profile tools run --rm seed"
   }
 }

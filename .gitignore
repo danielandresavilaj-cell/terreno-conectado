@@ -10,6 +10,7 @@ build/
 .env
 .env.*
 !.env.example
+!infra/.env.prod.example
 
 # OS / editor
 .DS_Store
