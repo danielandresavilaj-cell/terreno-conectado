@@ -1,6 +1,6 @@
 # PLAN — Cierre de F2 + Fase 3 en paralelo: tenancy+despliegue ∥ huecos 002/004/005 + informe
 
-**Versión:** 0.1.0 · **Fecha:** 2026-10-14 · **Autores:** Daniel Ávila y Raúl González
+**Versión:** 0.2.0 · **Fecha:** 2026-10-14 · **Autores:** Daniel Ávila y Raúl González
 **Derivado de:** `specs/000-master/spec.md` §5 y §9 · `test-plan.md` §3 y §8
 **Issues:** #2 (F2) · #4 (001) · #5 (002) · #7 (004) · #8 (005) · #3 (iteración 0) · #29 (007) · #84 (hardening) · #15 (F3)
 **Planos por persona:** `raul-tenancy-001-deploy.md` · `daniel-huecos-002-005-informe.md`
@@ -9,20 +9,20 @@
 
 ## 1. Por qué este corte
 
-La aplicación **ya está escrita**: los seis módulos de código (001–006) y el 007 están implementados. Una auditoría al `main` @ `fbc2888` (2026-10-14) halló que lo que falta no es construir, es **cerrar bien**:
+La aplicación **ya está escrita**: los módulos de código (001–007) están implementados. Tras los merges #120, #122, #126 y #127, queda completar el cierre de cuatro requisitos del Track B, revisar sus PRs y ejecutar la parte física de Fase 3:
 
 | Frente | Estado real | Qué falta |
 | :--- | :--- | :--- |
-| **Módulo 001 (auth)** | Código completo y probado (`auth.spec.ts`, `rls.spec.ts`) | **Spec aún en ESQUELETO** (5 secciones abiertas). Único ciclo de módulo sin cerrar |
-| **FR-017** (002) | `CUOTA={usadaPct:83}` **fijo en `seed.ts`**; `Cola.tsx` lo pinta. No hay `navigator.storage.estimate()` en el repo | **Implementar de verdad** el aviso ≥80% + priorización. Spec 002 §2 lo marca ✅ (falso) |
-| **FR-041 autor** (005) | Diferido (🟡) | **Implementar el filtro por autor** (no diferir) → 🟡→🟢 |
-| **FR-042 CSV** (005) | Implementado, **sin prueba** (⚪) | Prueba automatizada → ⚪→🟢 |
-| **FR-034 geo** (004) | La columna **no existe**: `data-model.md` 1.1.3 retiró `inspection.geo`; migración inicial lo difiere. Spec 004 §2 lo marca ✅ (falso) | **Implementar geo opcional** (lat/lon numérico, campo aditivo en el sync) |
-| **Matriz §3** | **33 filas · 🟢29 (87,9%)** · techo declarado `<90%` | Cerrar huecos → **≥90%** (lo exige #2) |
-| **#84 hardening** | 2 críticas + 8 altas (NestJS v12 es **runtime**) | Ventanilla dedicada (toca lockfile) |
-| **Fase 3** | Nada provisionado (`infra/` solo tiene el compose local) | Despliegue (ADR-002), demo, informe final, presentación, §12 |
+| **Módulo 001 (auth)** | Spec/plan/tareas completados y mergeados en #120/#122; código probado | TSK-AUTH-006/007 diferidos explícitamente; TSK-AUTH-008 fix en PR #129 |
+| **FR-017** (002) | Implementado y probado en #121; rama actualizada con CI 3/3 | Review/merge de Raúl; añade fila verde a la matriz |
+| **FR-041 autor + FR-042 CSV** (005) | Implementados y probados en #123; CI 3/3 | Review/merge de Raúl; matriz pasa a ≥90% |
+| **FR-034 geo** (004) | Implementado y probado en #124; CI 3/3 | Review/merge de Raúl; nueva fila verde |
+| **TSK-AUTH-008** (003) | Roles canónicos y test RLS en PR #129; suite local completa verde | Review/merge de Raúl |
+| **Matriz §3** | En `main`: 37 filas · 🟢33 (89,2%) · 🟡2 · ⚪2 | Tras #121/#123/#124: 39 filas · 🟢37 (94,9%) |
+| **#84 hardening** | #126 mergeado: 0 críticas/altas; 2 moderadas `uuid`/`exceljs` aceptadas en ADR-004 | Completado |
+| **Fase 3** | Artefactos Docker/Caddy/runbook mergeados en #127; VPS no provisionado | Configurar VPS/dominio/secrets, deploy y demo (§9) |
 
-**El bloqueo:** el criterio de salida de F2 (#2) exige **matriz §3 ≥ 90% verde**. Con FR-041 y FR-042 abiertos no cierra. Por eso este corte primero cierra los huecos, y recién entonces se despliega y se documenta.
+**El bloqueo:** el criterio de salida de F2 (#2) exige **matriz §3 ≥ 90% verde**. Los PRs de cierre están implementados y con checks verdes, pero necesitan el review recíproco antes de merge. El despliegue se ejecuta después de la congelación HITO 2 y de configurar credenciales/dominio del VPS.
 
 ## 2. Reparto
 
@@ -36,14 +36,14 @@ La aplicación **ya está escrita**: los seis módulos de código (001–006) y 
 ## 3. Hitos
 
 ```
-HITO 0  Acuerdo registrado + D5 ratificada (comentario en #4)            [ambos]
-HITO 1  A1-A3 (spec 001)   ∥   B1-B6 (cierres 002/004/005)              [paralelo]
-HITO 2  #84 deps + CI 3/3 · congelar código · matriz §3 ≥ 90% (B7)      [serial]
-HITO 3  A5-A6 (deploy VPS + demo)   ∥   B8-B10 (informe + presentación) [paralelo]
-HITO 4  Cerrar F2 (#2) y F3 (#15) · presentación final                  [ambos]
+HITO 0  Acuerdo registrado + D5 ratificada (comentario en #4)                 [completado]
+HITO 1  Spec/plan 001 + FR-017/034/041/042 + TSK-AUTH-008                     [PRs listos; review pendiente]
+HITO 2  #84 mergeado; congelar tras integrar los PRs de huecos; matriz ≥90%    [parcial]
+HITO 3  Artefactos deploy #127 + informe/presentación #125                     [merge/docs pendientes; VPS por provisionar]
+HITO 4  Cerrar F2 (#2) y F3 (#15), demo final                                 [pendiente de demo]
 ```
 
-> El **HITO 2 es serial a propósito**: #84 mueve el lockfile y NestJS v12 toca el backend entero; correrlo en paralelo rompería la instalación de los dos. Y el **HITO 3 espera la congelación de código** del HITO 2: no se despliega sobre cambios de FR-017/034/041.
+> El **HITO 2 fue serial a propósito**: #84 movió el lockfile y NestJS v12 toca el backend entero. #84 ya está mergeado; falta integrar los PRs de los huecos para congelar código y confirmar la matriz. El **HITO 3 sigue esperando la congelación de código**: el VPS aún no está provisionado.
 
 ## 4. Reglas de no-colisión
 
@@ -86,4 +86,5 @@ HITO 4  Cerrar F2 (#2) y F3 (#15) · presentación final                  [ambos
 
 | Versión | Fecha | Cambio | Autor |
 | :--- | :--- | :--- | :--- |
+| 0.2.0 | 2026-10-14 | Actualiza el estado tras #120/#122/#126/#127: hardening y artefactos deploy mergeados; PRs #121/#123/#124/#129 listos; matriz proyectada en 39 filas/94,9%; registra dependencias de review y provisioning | Daniel Ávila |
 | 0.1.0 | 2026-10-14 | Plan inicial: cierre de F2 (tenancy + huecos 002/004/005 + hardening) y Fase 3 en dos tracks paralelos | Daniel Ávila |

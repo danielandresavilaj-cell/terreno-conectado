@@ -90,3 +90,11 @@ Actualizar la tabla de mapeo **evidencia → artefacto** del `specs/000-master/s
 ## No tocar
 
 `specs/001/**` · `plans/001-*` · `tasks/001-*` · `infra/**` · `package.json` raíz + `package-lock.json` (raíz; el lockfile del workspace se regenera por npm, no lo edites a mano) · `frontend/scripts/**` · `frontend/e2e/stack.mjs`.
+
+## Estado al 2026-10-14
+
+- **B1–B4:** FR-017 (#121), FR-041/042 (#123) y FR-034 (#124) implementados, documentados y con CI 3/3 verde; pendientes de review/merge de Raúl.
+- **B5:** TSK-DOM-003, TSK-REP-003/004/005 y G3 documentados como completos en sus ramas.
+- **B6:** #3 y #29 cerrados; #5/#7/#8 permanecen abiertos hasta mergear #121/#124/#123.
+- **B7:** `main` tiene 37 filas, 33 verdes (89,2 %); al integrar #121/#123/#124 se esperan 39 filas, 37 verdes (94,9 %). Nightly E2E más reciente: 17/17.
+- **B8–B10:** informe, presentación y enlaces README/§12 en PR #125. Fix independiente TSK-AUTH-008/issue #128 en PR #129.
