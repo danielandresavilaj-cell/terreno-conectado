@@ -91,6 +91,8 @@ jobs:
     environment: production
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.sha }}
 
       - name: Copiar manifiestos al VPS
         uses: appleboy/scp-action@v0.1.7
@@ -103,12 +105,18 @@ jobs:
 
       - name: Migrar y levantar
         uses: appleboy/ssh-action@v1.2.0
+        env:
+          GHCR_USERNAME: ${{ secrets.GHCR_USERNAME }}
+          GHCR_READ_TOKEN: ${{ secrets.GHCR_READ_TOKEN }}
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
+          envs: GHCR_USERNAME,GHCR_READ_TOKEN
           script: |
             set -euo pipefail
+            test -n "$GHCR_USERNAME" && test -n "$GHCR_READ_TOKEN"
+            echo "$GHCR_READ_TOKEN" | docker login ghcr.io --username "$GHCR_USERNAME" --password-stdin
             cd /opt/terreno/infra
             docker compose -f docker-compose.prod.yml pull
             docker compose -f docker-compose.prod.yml --profile tools run --rm migrate

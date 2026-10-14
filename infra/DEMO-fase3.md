@@ -28,7 +28,8 @@ provisionado el VPS** (tras el HITO 2).
 
 ## 2. Pre-flight (antes de la demo)
 
-- [ ] `docker compose -f docker-compose.prod.yml ps` → `caddy`, `frontend`, `backend`, `db` **healthy**.
+- [ ] `docker compose -f docker-compose.prod.yml ps` → `caddy`, `frontend`, `backend`, `db` **running**; `db` **healthy**.
+- [ ] `curl -fsS https://<DOMAIN>/health` → `{"status":"ok","db":"up"}`.
 - [ ] Login de las tres cuentas en los dispositivos que se van a usar (evita sorpresas de tecleo en vivo).
 - **Reset en limpio** (opcional, recomendado antes del ensayo): destruye datos y vuelve a sembrar.
   ```bash

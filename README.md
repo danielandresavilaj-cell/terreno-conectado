@@ -376,7 +376,8 @@ Let's Encrypt): Caddy expone 80/443 y enruta `/` → frontend (nginx estático) 
 
 1. **VPS**: crear el CAX11, instalar Docker + Compose, usuario no-root con `sudo`.
 2. **Secrets de GitHub** (Settings → Secrets and variables → Actions): `VPS_HOST`, `VPS_USER`,
-   `VPS_SSH_KEY`, `VITE_DEMO_PASSWORD`.
+   `VPS_SSH_KEY`, `GHCR_USERNAME`, `GHCR_READ_TOKEN` (PAT con `read:packages` para que el VPS
+   pueda descargar las imágenes privadas) y `VITE_DEMO_PASSWORD`.
 3. **`.env` del VPS**: crear `/opt/terreno/infra/.env` a partir de `infra/.env.prod.example`
    (`DOMAIN`, passwords reales y `JWT_ACCESS_SECRET` generado con `openssl rand -base64 48`).
    Las `IMAGE_*` ya vienen con el nombre que publica el workflow
