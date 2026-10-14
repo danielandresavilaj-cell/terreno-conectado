@@ -1,14 +1,14 @@
 # PLAN — Módulo 004: Dominio inspecciones
 
-**Versión:** 0.1.0 · **Fecha:** 2026-10-13 · **Autor:** Daniel Ávila
-**Derivado de:** `specs/000-master/spec.md` §3.2 · **Spec:** `specs/004-dominio-inspecciones/spec.md` (0.3.0)
-**Tareas:** `tasks/004-dominio-inspecciones/tasks.md` (TSK-DOM-001…) · **Issue:** #6
+**Versión:** 0.2.0 · **Fecha:** 2026-10-14 · **Autor:** Daniel Ávila
+**Derivado de:** `specs/000-master/spec.md` §3.2 · **Spec:** `specs/004-dominio-inspecciones/spec.md` (0.3.1)
+**Tareas:** `tasks/004-dominio-inspecciones/tasks.md` (TSK-DOM-001…) · **Issue:** #7
 
 > **Qué es este módulo:** las entidades de dominio (plantilla/revisión, inspección, hallazgo, bitácora, adjunto) y sus reglas. Se **escriben** por el motor de sincronización (spec 003), se **leen** por el dashboard (spec 005) y sólo exponen CRUD propio en el editor de plantillas (`tenant_admin`).
 
 ## 1. Objetivo
 
-Dejar el spec 004 en COMPLETO y verificar que el dominio está implementado y probado. La auditoría del 2026-10-13 confirma **FR-030…FR-039 implementados**; el ciclo es de **documentación y evidencia** (Art. II, Art. VIII), sin construcción nueva.
+Dejar el spec 004 en COMPLETO y verificar que el dominio está implementado y probado. La auditoría del 2026-10-13 confirma **FR-030…FR-039 implementados** con una excepción: **FR-034 geolocalización** estaba documentado (`inspection.location GEOGRAPHY(Point)`) pero no existía en la migración ni en el contrato de sincronización. Se implementa en V1 sin PostGIS (columnas `location_lat`/`location_lon` NUMERIC) y se cubre con tests.
 
 ## 2. Estado de partida (auditado)
 
@@ -38,10 +38,12 @@ TSK-DOM-001 spec 004 completo ──► TSK-DOM-002 plan técnico ──► TSK-
 
 - Spec 004 COMPLETO y mergeado.
 - Modelo de dominio documentado (plantilla/revisión, inspección, hallazgo, bitácora, adjunto).
-- Filas FR-031/032 de la matriz §3 con estado correcto y evidencia.
+- FR-034 implementado y probado: migración, contrato de sync, validación server-side, captura opcional en cliente.
+- Filas FR-031/032/034 de la matriz §3 con estado correcto y evidencia.
 
 ## Control de cambios
 
 | Versión | Fecha | Cambio | Autor |
 | :--- | :--- | :--- | :--- |
+| 0.2.0 | 2026-10-14 | **FR-034 implementado** (antes documentado pero no existente en el esquema): migración `1730000011000_inspection_location.js`, contrato aditivo en `shared/src/sync.ts`, validación en `backend/src/sync/sync.service.ts`, captura con `navigator.geolocation` en `frontend/src/lib/store.tsx`; TSK-DOM-003 reabierto | Daniel Ávila |
 | 0.1.0 | 2026-10-13 | Plan técnico inicial del ciclo del módulo 004 | Daniel Ávila |

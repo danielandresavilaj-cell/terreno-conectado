@@ -3,7 +3,7 @@
 | | |
 | :--- | :--- |
 | **Estado** | COMPLETO (ciclo del módulo, F2 · 2026-10-13) |
-| **Versión** | 0.3.0 |
+| **Versión** | 0.3.1 |
 | **Autor** | Daniel Ávila |
 | **Padre** | specs/000-master/spec.md |
 | **Depende de** | 001 (roles/tenant), 003 (ingesta idempotente) |
@@ -37,7 +37,7 @@ Verificado sobre `main` al 2026-10-13.
 | FR-031 ciclo de la inspección | ✅ | `shared/src/sync.ts` (`SyncInspectionStatus`); conteo por estado en `dashboard.service.ts:150` |
 | FR-032 hallazgos sev/estado + foto | ✅ | `backend/src/sync/sync.service.ts` (`finding`, `attachment`); `shared/src/sync.ts` (`SyncSeverity`, `SyncFindingStatus`) |
 | FR-033 bitácora de turno | ✅ | `backend/src/sync/sync.service.ts` (`log_entry`); `frontend/src/screens/Bitacora.tsx` |
-| FR-034 faena + geo opcional | ✅ | `inspection.site_id`; `inspection.location GEOGRAPHY(Point) NULL` (`data-model.md` §2.2) |
+| FR-034 faena + geo opcional | ✅ | `inspection.site_id`; migración `1730000011000_inspection_location.js` (`location_lat` / `location_lon` NUMERIC); `shared/src/sync.ts` (`SyncInspectionPayload.location`); `backend/src/sync/sync.service.ts` (validación + persistencia); captura opcional en `frontend/src/lib/store.tsx` (`enviarInspeccion`); tests en `backend/test/sync.spec.ts` |
 | FR-035 hallazgos urgentes | ✅ | `dashboard.service.ts:137-147,164` (`hallazgos_urgentes`, high/critical no resueltos) |
 | FR-036 revisión inmutable + 8 tipos | ✅ | `templates.service.ts` (nula edición fuera de `draft`); `shared/src/templates.ts` (`RESPONSE_TYPES`, `FIELD_PROPS_SCHEMA` estricto) |
 | FR-037 foto por respuesta | ✅ | `sync.service.ts` (`OWNER_TYPES` incluye `response`); `data-model.md` §2.2 |
@@ -96,6 +96,7 @@ Estados `draft → in_progress → submitted → reviewed`. Lleva `site_id` (fae
 
 | Versión | Fecha | Cambio | Autor |
 | :--- | :--- | :--- | :--- |
+| 0.3.1 | 2026-10-14 | **FR-034 geolocalización implementada realmente** (antes estaba documentada como GEOGRAPHY(Point) que no existía en la migración): columnas `location_lat`/`location_lon` NUMERIC, validación server-side, captura opcional con `navigator.geolocation` al enviar inspección, tests de integración. Actualiza evidencia §2 y `data-model.md` §2.2 | Daniel Ávila |
 | 0.3.0 | 2026-10-13 | **Spec completado (F2).** Documenta el estado real de FR-030…039 (todos implementados), el modelo de dominio (plantilla/revisión, inspección, hallazgo, bitácora, adjunto) y la validación de `value_json`. Apunta al plan técnico y a `tasks/004` | Daniel Ávila |
 | 0.2.0 | 2026-10-07 | **Módulo 007 (Enmienda 002):** alcance +FR-036–039; plantillas por `TEMPLATE_REVISION` inmutable; 8 `response_type` + `props` JSONB; `value_json` validado; foto asociada a la respuesta; versión congelada por inspección | Raúl González (con IA) |
 | 0.1.0 | 2026-09-14 | Esqueleto inicial desde spec maestro v1.0.0 | Daniel Ávila (con IA) |
