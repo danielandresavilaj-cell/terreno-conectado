@@ -1,8 +1,8 @@
 # PLAN — Módulo 005: Reportes y gerencia
 
 **Versión:** 0.2.0 · **Fecha:** 2026-10-14 · **Autor:** Daniel Ávila
-**Derivado de:** `specs/000-master/spec.md` §3.3 · **Spec:** `specs/005-reportes-gerencia/spec.md` (0.3.0)
-**Tareas:** `tasks/005-reportes-gerencia/tasks.md` (TSK-REP-001…) · **Issue:** #6
+**Derivado de:** `specs/000-master/spec.md` §3.3 · **Spec:** `specs/005-reportes-gerencia/spec.md` (0.3.1)
+**Tareas:** `tasks/005-reportes-gerencia/tasks.md` (TSK-REP-001…) · **Issue:** #8
 
 > **Qué es este módulo:** la cara de lectura del sistema. El dashboard del supervisor prueba la promesa de valor: dato capturado → visible en la nube en ≤ 60 s, con métricas y export.
 

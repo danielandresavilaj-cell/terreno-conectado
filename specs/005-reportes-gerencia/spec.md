@@ -3,7 +3,7 @@
 | | |
 | :--- | :--- |
 | **Estado** | COMPLETO (ciclo del módulo, F2 · 2026-10-13) |
-| **Versión** | 0.3.0 |
+| **Versión** | 0.3.1 |
 | **Autor** | Daniel Ávila |
 | **Padre** | specs/000-master/spec.md |
 | **Depende de** | 003 (datos sincronizados + `SYNC_LOG`), 004 (dominio) |
@@ -66,7 +66,7 @@ Todos bajo `/api/v1`, con Bearer JWT y roles `supervisor`/`tenant_admin` (`field
 
 ## 5. Export (FR-042)
 
-- **CSV de la vista:** en el cliente, `Dashboard.tsx` serializa **exactamente lo filtrado en pantalla** (columnas `id, severidad, estado, faena, autor, capturado_at`, `text/csv;charset=utf-8`, escapado de comillas).
+- **CSV de la vista:** en el cliente, `frontend/src/lib/dashboard-csv.ts` serializa **exactamente lo filtrado en pantalla** (columnas `id, severidad, estado, faena, autor, capturado_at`, `text/csv;charset=utf-8`, escapado de comillas).
 - **Documentos `.xlsx`:** en el servidor, la exportación de una inspección usa la **versión congelada** de su plantilla (FR-028) para mapear ítem→respuesta, no la última publicada; el lote del período viaja como ZIP con `manifesto.json` (filtros, pedidas/exportadas/fallidas y motivo por fallo).
 
 ## 6. Criterios de aceptación
@@ -77,11 +77,12 @@ Todos bajo `/api/v1`, con Bearer JWT y roles `supervisor`/`tenant_admin` (`field
 - El CSV exporta la tabla con los filtros aplicados; el `.xlsx` de una inspección respeta su versión congelada.
 - `latencia_media_seg`/`latencia_p95_seg` son `null` cuando no hay datos, nunca `0` inventado.
 
-## 7. Evolución futura (post-V1 — NO entra en el alcance actual)
+## 7. Resumen ejecutivo (G3)
 
-Idea del equipo registrada como visión, sin comprometer el alcance V1 (spec maestro §10 excluye "Analítica con IA"):
+El alcance V1 del **resumen ejecutivo** es **read-only** y se apoya en las métricas que ya expone el dashboard (FR-040): inspecciones por estado, hallazgos por severidad, hallazgos urgentes, latencia media+p95 y conflictos pendientes. No se agrega una pantalla nueva: el supervisor usa el dashboard como el resumen operativo de la faena.
 
-- **Resumen ejecutivo generado por IA:** al consolidar los datos sincronizados (hallazgos, severidad, latencia), una IA podría redactar un resumen automático del estado de la faena para la gerencia (ej: "12 hallazgos esta semana, 2 críticos en Zona Norte").
+- **V1 (dentro del alcance):** KPIs derivados de `DashboardSummary` (§3.2) y el listado de hallazgos filtrado; export CSV de la vista (FR-042) para compartir con gerencia.
+- **Post-V1 (fuera del alcance):** resumen redactado por IA a partir de los mismos datos. Queda registrado como evolución futura (spec maestro §10 excluye "Analítica con IA" en V1).
 - **Por qué no entra en V1:** costo de API de LLM (choca con NFR-08, ≤ US$7/mes), privacidad multi-tenant (datos de un cliente saliendo hacia un proveedor externo — a evaluar contra Artículo IV/NFR-06) y carga de trabajo del equipo (Artículo V).
 - **Cuándo reabrirlo:** si el equipo lo decide, como enmienda al spec maestro (Artículo X) después de cerrar el walking skeleton, con costos y privacidad resueltos.
 
@@ -99,6 +100,7 @@ Idea del equipo registrada como visión, sin comprometer el alcance V1 (spec mae
 
 | Versión | Fecha | Cambio | Autor |
 | :--- | :--- | :--- | :--- |
+| 0.3.1 | 2026-10-14 | **G3 (resumen ejecutivo) y cierre TSK-REP-003:** §7 define el resumen ejecutivo V1 como read-only sobre KPIs del dashboard; TSK-REP-003 verificado (métrica de latencia media+p95 en `backend/test/dashboard.spec.ts`, umbral ≤60 s medido en vivo). Actualiza referencia del CSV a `frontend/src/lib/dashboard-csv.ts` (refs #8) | Daniel Ávila |
 | 0.3.0 | 2026-10-14 | **FR-041 filtro por autor implementado y FR-042 CSV testeado.** `dashboard/findings?autor_id=` filtra por `inspection.executed_by`; `summary.autores` publica los autores con actividad del período para poblar el filtro; `FindingDto.autor_id`; UI con filtro por autor; CSV de hallazgos extraído a `frontend/src/lib/dashboard-csv.ts` con tests unitarios. Pasa de 🟡 a ✅ (FR-041) y de ⚪ a ✅ (FR-042). Ver `tasks/005-reportes-gerencia/tasks.md` TSK-REP-004 / TSK-REP-005 | Daniel Ávila |
 | 0.2.0 | 2026-10-13 | **Spec completado (F2).** Documenta el estado real de FR-040…043 y NFR-03: métricas, contratos del dashboard, validación única de filtros, métrica de latencia (media+p95) y export (CSV cliente + `.xlsx` servidor). Registra FR-041 autor y FR-043 ≤60 s como 🟡 (parcial / medido en vivo). Apunta al plan técnico | Daniel Ávila |
 | 0.1.1 | 2026-09-24 | Se documenta "resumen ejecutivo generado por IA" como evolución post-V1 (fuera de alcance, decisión del equipo) | Raúl González (con IA) |
