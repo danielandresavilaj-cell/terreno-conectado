@@ -1,6 +1,6 @@
 # TEST PLAN — Plan de pruebas de validación
 
-**Versión:** 1.0.5 · **Fecha:** 2026-09-14 · actualizado 2026-10-14 · **Autor:** Raúl González (validación) · **Relacionado:** spec maestro §5–6, constitución Artículos III/IV/VII
+**Versión:** 1.0.7 · **Fecha:** 2026-09-14 · actualizado 2026-10-14 · **Autor:** Raúl González (validación) · **Relacionado:** spec maestro §5–6, constitución Artículos III/IV/VII
 **Evidencia APT:** "Plan de pruebas de validación" (informe §6) y soporte de la competencia "Realizar pruebas de certificación de productos y procesos".
 
 ## 1. Principio rector
@@ -42,7 +42,7 @@ verde.
 | FR-005 | 5 logins fallidos → bloqueo temporal 15 min | Integración | `backend/test/auth.spec.ts` | 🟢 verde |
 | FR-031/032 | Ciclo draft→submitted; ítem `nok` exige hallazgo cuando la plantilla lo configura | Unit + E2E | `e2e-captura-offline.spec.ts` → "estado submitted con su site real" y "un hallazgo creado desde un NOK…" | 🟢 verde |
 | FR-040/043, NFR-03 | Sync de dato → visible en dashboard; medir delta ≤ 60 s (primer lote) | E2E + cronometrado manual en demo | `backend/test/dashboard.spec.ts` + medición manual en la demo (Fase 3) | 🟡 parcial: la corrección numérica ≤60 s se mide en vivo, no en automatizado |
-| FR-041 | Dashboard: filtros de faena, rango de fechas, severidad y autor | Integración | `backend/test/dashboard.spec.ts` (`dashboardFiltrosSchema`) | 🟡 parcial: faena/fecha/severidad/estado implementados; el **filtro por autor** no existe (DTO sí expone `autor`) — decisión de no construir en V1 (spec 005 §2, plan 005 §3.1) |
+| FR-041 | Dashboard: filtros de faena, rango de fechas, severidad y autor | Integración | `backend/test/dashboard.spec.ts` (`dashboardFiltrosSchema`, `findingsFiltrosSchema.autor_id`) | 🟢 verde |
 | FR-042 | Export de la vista de hallazgos a CSV (columnas y escapado) | — (implementado en `frontend/src/screens/Dashboard.tsx`) | `frontend/src/screens/Dashboard.tsx:284-302` | ⚪ sin prueba automatizada: el CSV del cliente está implementado; los documentos `.xlsx`/ZIP sí están cubiertos por FR-019/044 y FR-045/046 |
 | FR-052, NFR-09 | `/health` responde 200 con estado de DB (503 con DB caída); uptime monitor lo consume; logs JSON con `request_id` y `tenant_id` en cada línea | Integración + manual | `backend/test/health.spec.ts` + `backend/test/observability.spec.ts` | 🟢 verde |
 | NFR-02 | Script: 200 registros + 100 fotos en offline simulado de 72 h (reloj adelantado) → sync completo sin pérdida | **caos 5** | `e2e-caos-sync.spec.ts` → "200 registros pendientes suben íntegros y sin duplicar" | 🟢 verde (200 registros; las 100 fotos se comprueban en el FR-012 unitario, no en el mismo escenario) |
@@ -62,27 +62,26 @@ verde.
 | FR-050 | `platform_admin` crea tenant, le asigna el `tenant_admin` inicial y lo suspende/reactiva; un rol distinto recibe 403 en toda la consola | Integración | `backend/test/admin.spec.ts` | 🟢 verde |
 | FR-051 (`admin`) | Cada mutación admin deja exactamente una fila en `audit_log` con `actor_id` y `tenant_id` correctos; `tc_app` no puede UPDATE/DELETE y la API no expone rutas de modificación | Integración | `backend/test/admin.spec.ts` | 🟢 verde |
 
-**Recuento:** 33 filas · 🟢 29 (87,9%) · 🟡 2 (6,1%) · 🔴 0 ·
+**Recuento:** 33 filas · 🟢 30 (90,9%) · 🟡 1 (3,0%) · 🔴 0 ·
 ⚪ 2 (6,1%, automatizable sólo con tooling externo o sin prueba todavía).
 
-> La fila FR-042 (CSV del cliente) y el filtro por autor de FR-041 se declaran
-> como huecos reales, no como verdes: el primero está implementado pero sin
-> prueba, y el segundo no está implementado (decisión de alcance V1).
+> La fila FR-042 (CSV del cliente) se declara como hueco real —implementada pero
+> sin prueba—, no como verde. El filtro por autor (FR-041) pasó a 🟢 al
+> implementarse y cubrirse con test (spec 005 §2, plan 005 §3.1).
 
 **Volumen de pruebas en la corrida de referencia:**
 ```
 E2E + caos (Playwright, nightly)          17 tests
-Integración backend (Vitest + Testcontainers) 181 tests
+Integración backend (Vitest + Testcontainers) 182 tests
 Unidad frontend (Vitest)                      98 tests
 Unidad shared (Vitest)                        77 tests
                                            ───────────────
-                                           373 tests
+                                           374 tests
 ```
 
-> El criterio de salida de Fase 2 (§8) pide "matriz §3 ≥ 90% verde". Al declarar
-> sin redondear los huecos reales (NFR-07 🟢, FR-041 autor y FR-040/043 ≤60 s 🟡,
-> FR-042 CSV y NFR-02/100-fotos ⚪) el techo alcanzable **dentro de este harness**
-> queda por debajo del 90%: no se maquilla la cifra a favor.
+> El criterio de salida de Fase 2 (§8) pide "matriz §3 ≥ 90% verde". Con FR-041
+> ya implementado y verificado (🟢 30/33 = 90,9%) el umbral se cumple sin maquillar
+> los huecos restantes (FR-040/043 ≤60 s 🟡; FR-042 CSV y NFR-02/100-fotos ⚪).
 
 ## 4. Pruebas de caos offline-first (protocolo)
 
@@ -185,6 +184,7 @@ referencia: **17/17 E2E en verde**. Informe por módulo en
 
 | Versión | Fecha | Cambio | Autor |
 | :--- | :--- | :--- | :--- |
+| 1.0.7 | 2026-10-14 | **FR-041 implementado** (filtro por autor): `dashboard/findings?autor_id=` + `summary.autores` + filtro en la UI; fila FR-041 pasa a 🟢 y recuento a 🟢30/🟡1/⚪2 (30/33 = 90,9%, ≥90% de F2); volumen backend 182 · total 374 (refs #6) | Daniel Ávila |
 | 1.0.5 | 2026-10-14 | **NFR-07 cerrado**: harness de rendimiento propio (`frontend/scripts/check-lighthouse.mjs` + workflow `lighthouse.yml`, patrón `check-pwa.mjs`) que mide el build en perfil móvil y exige Performance ≥ 80; se quita ExcelJS del chunk inicial (import profundo `@terreno/shared/xlsx/serializar`) y se difieren las pantallas pesadas; fila NFR-07 de la matriz §3 pasa a 🟢 (refs #9) | Raúl González (con IA) |
 | 1.0.4 | 2026-10-13 | Cobertura del módulo **006** (administración de plataforma): filas **FR-050** y **FR-051** (`admin`) en la matriz §3 con evidencia de `backend/test/admin.spec.ts` (16 tests); recuento actualizado a 33 filas y volumen de la corrida de referencia (backend 181, frontend 98, shared 77) (refs #9, #116) | Raúl González (con IA) |
 | 1.0.0 | 2026-09-14 | Plan inicial derivado del spec maestro v1.0.0 | Raúl González (con IA) |

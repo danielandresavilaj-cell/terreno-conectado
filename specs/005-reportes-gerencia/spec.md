@@ -3,7 +3,7 @@
 | | |
 | :--- | :--- |
 | **Estado** | COMPLETO (ciclo del módulo, F2 · 2026-10-13) |
-| **Versión** | 0.2.0 |
+| **Versión** | 0.3.0 |
 | **Autor** | Daniel Ávila |
 | **Padre** | specs/000-master/spec.md |
 | **Depende de** | 003 (datos sincronizados + `SYNC_LOG`), 004 (dominio) |
@@ -30,7 +30,7 @@ Verificado sobre `main` al 2026-10-13.
 | FR-040 métricas del período | ✅ | `dashboard.service.ts:82-171` (estados, severidad, latencia, syncs, conflictos, urgentes) |
 | FR-041 filtros faena/fecha | ✅ | `dashboard.contract.ts` (`dashboardFiltrosSchema`: `site_id`/`desde`/`hasta`) |
 | FR-041 sev/estado | ✅ | `dashboard.service.ts` (`FindingsFiltros`: `severidad`/`estado`) + paginación |
-| FR-041 filtro por **autor** | 🟡 | El DTO expone `autor` (`full_name`) y se muestra, pero **no hay filtro por autor** |
+| FR-041 filtro por **autor** | ✅ | `dashboard.contract.ts` (`findingsFiltrosSchema.autor_id`), `dashboard.service.ts` (filtra `inspection.executed_by`, agrega `autor_id` al DTO y `autores` al `summary`), `frontend/src/screens/Dashboard.tsx` (filtro por autor); `backend/test/dashboard.spec.ts` |
 | FR-042 CSV de la vista | ✅ | `frontend/src/screens/Dashboard.tsx:284-302` (hallazgos filtrados → CSV) |
 | FR-042 documentos del período | ✅ | `dashboard.controller.ts` (`/inspections/:id/export` `.xlsx`, `/inspections/export-lote` ZIP) |
 | FR-043 latencia ≤ 60 s | 🟡 | `dashboard.service.ts` mide media+p95 (FR-040); el número **se valida en vivo**, no automatizado (`test-plan.md` §3) |
@@ -43,7 +43,7 @@ Todos bajo `/api/v1`, con Bearer JWT y roles `supervisor`/`tenant_admin` (`field
 | Endpoint | Verbo | Para qué |
 | :--- | :--- | :--- |
 | `dashboard/summary` | GET | FR-040: conteos por estado/severidad, latencia media+p95, syncs, conflictos, urgentes |
-| `dashboard/findings` | GET | FR-041: listado paginado de hallazgos (`site_id`/`desde`/`hasta`/`severidad`/`estado`) |
+| `dashboard/findings` | GET | FR-041: listado paginado de hallazgos (`site_id`/`desde`/`hasta`/`severidad`/`estado`/`autor_id`) |
 | `dashboard/inspections` | GET | FR-041/FR-044: lista de inspecciones del período |
 | `sites` | GET | Faenas del tenant + nombre del tenant (bootstrapea el filtro y la captura offline) |
 | `dashboard/inspections/:id/export` | GET | FR-042/FR-044: `.xlsx` rellenado + hoja de evidencias |
@@ -99,6 +99,7 @@ Idea del equipo registrada como visión, sin comprometer el alcance V1 (spec mae
 
 | Versión | Fecha | Cambio | Autor |
 | :--- | :--- | :--- | :--- |
+| 0.3.0 | 2026-10-14 | **FR-041 filtro por autor implementado.** `dashboard/findings?autor_id=` filtra por `inspection.executed_by`; `summary.autores` publica los autores con actividad del período para poblar el filtro; `FindingDto.autor_id`; UI con filtro por autor. Pasa de 🟡 a ✅. Ver `tasks/005-reportes-gerencia/tasks.md` TSK-REP-004 | Daniel Ávila |
 | 0.2.0 | 2026-10-13 | **Spec completado (F2).** Documenta el estado real de FR-040…043 y NFR-03: métricas, contratos del dashboard, validación única de filtros, métrica de latencia (media+p95) y export (CSV cliente + `.xlsx` servidor). Registra FR-041 autor y FR-043 ≤60 s como 🟡 (parcial / medido en vivo). Apunta al plan técnico | Daniel Ávila |
 | 0.1.1 | 2026-09-24 | Se documenta "resumen ejecutivo generado por IA" como evolución post-V1 (fuera de alcance, decisión del equipo) | Raúl González (con IA) |
 | 0.1.0 | 2026-09-14 | Esqueleto inicial desde spec maestro v1.0.0 | Daniel Ávila (con IA) |
