@@ -1,6 +1,6 @@
 # TEST PLAN — Plan de pruebas de validación
 
-**Versión:** 1.0.7 · **Fecha:** 2026-09-14 · actualizado 2026-10-14 · **Autor:** Raúl González (validación) · **Relacionado:** spec maestro §5–6, constitución Artículos III/IV/VII
+**Versión:** 1.0.8 · **Fecha:** 2026-09-14 · actualizado 2026-10-14 · **Autor:** Raúl González (validación) · **Relacionado:** spec maestro §5–6, constitución Artículos III/IV/VII
 **Evidencia APT:** "Plan de pruebas de validación" (informe §6) y soporte de la competencia "Realizar pruebas de certificación de productos y procesos".
 
 ## 1. Principio rector
@@ -188,7 +188,7 @@ referencia: **17/17 E2E en verde**. Informe por módulo en
 
 | Versión | Fecha | Cambio | Autor |
 | :--- | :--- | :--- | :--- |
-| 1.0.7 | 2026-10-14 | **FR-041 + FR-042 implementados y verificados**: filtro por autor (`autor_id` en findings, `autores` en summary, UI) y test del CSV del cliente (`frontend/src/lib/dashboard-csv.ts` + `frontend/test/dashboard-csv.test.ts`); recuento a 🟢35/🟡1/⚪1 (35/37 = 94,6%); volumen backend 184 · frontend 102 · total 380 (refs #8) | Daniel Ávila |
+| 1.0.8 | 2026-10-14 | **FR-041 + FR-042 implementados y verificados**: filtro por autor (`autor_id` en findings, `autores` en summary, UI) y test del CSV del cliente (`frontend/src/lib/dashboard-csv.ts` + `frontend/test/dashboard-csv.test.ts`); recuento a 🟢35/🟡1/⚪1 (35/37 = 94,6%); volumen backend 184 · frontend 102 · total 380 (refs #8) | Daniel Ávila |
 | 1.0.6 | 2026-10-14 | Cobertura del módulo **001** (autenticación y tenancy): filas **FR-001**, **FR-003**, **FR-004** y **FR-006** en la matriz §3 con evidencia de `backend/test/auth.spec.ts` (login/JWT, rotación y reuso del refresh, bloqueo) y el caos 6 (`e2e-caos-sync.spec.ts`); FR-005 se detalla (por cuenta **y** por IP); recuento a 37 filas (refs #4) | Raúl González |
 | 1.0.5 | 2026-10-14 | **NFR-07 cerrado**: harness de rendimiento propio (`frontend/scripts/check-lighthouse.mjs` + workflow `lighthouse.yml`, patrón `check-pwa.mjs`) que mide el build en perfil móvil y exige Performance ≥ 80; se quita ExcelJS del chunk inicial (import profundo `@terreno/shared/xlsx/serializar`) y se difieren las pantallas pesadas; fila NFR-07 de la matriz §3 pasa a 🟢 (refs #9) | Raúl González (con IA) |
 | 1.0.4 | 2026-10-13 | Cobertura del módulo **006** (administración de plataforma): filas **FR-050** y **FR-051** (`admin`) en la matriz §3 con evidencia de `backend/test/admin.spec.ts` (16 tests); recuento actualizado a 33 filas y volumen de la corrida de referencia (backend 181, frontend 98, shared 77) (refs #9, #116) | Raúl González (con IA) |
