@@ -1,6 +1,6 @@
 # TEST PLAN — Plan de pruebas de validación
 
-**Versión:** 1.0.8 · **Fecha:** 2026-09-14 · actualizado 2026-10-14 · **Autor:** Raúl González (validación) · **Relacionado:** spec maestro §5–6, constitución Artículos III/IV/VII
+**Versión:** 1.0.9 · **Fecha:** 2026-09-14 · actualizado 2026-10-14 · **Autor:** Raúl González (validación) · **Relacionado:** spec maestro §5–6, constitución Artículos III/IV/VII
 **Evidencia APT:** "Plan de pruebas de validación" (informe §6) y soporte de la competencia "Realizar pruebas de certificación de productos y procesos".
 
 ## 1. Principio rector
@@ -39,7 +39,11 @@ verde.
 | FR-024 | Tras sync: SYNC_LOG completo y `synced_at - captured_at` registrado | Integración | `backend/test/sync.spec.ts` + aserción de `sync_log` en el E2E de FR-016 | 🟢 verde |
 | FR-025, NFR-05 | JWT tenant A intenta batch con `tenant_id` B → 4xx + AUDIT_LOG de incidente | Integración + **caos 7** | `e2e-caos-integridad.spec.ts` → "JWT del tenant A con payload del tenant B" | 🟢 verde |
 | FR-002, NFR-05 | Usuario tenant A consulta todos los endpoints de lectura → jamás aparece dato B (fixture B sembrada) | Integración (RLS, Testcontainers) | `backend/test/rls.spec.ts` | 🟢 verde |
-| FR-005 | 5 logins fallidos → bloqueo temporal 15 min | Integración | `backend/test/auth.spec.ts` | 🟢 verde |
+| FR-005 | 5 logins fallidos → bloqueo temporal 15 min (por cuenta y por IP) | Integración | `backend/test/auth.spec.ts` → "5 fallos consecutivos bloquean la cuenta 15 min" | 🟢 verde |
+| FR-001 | Login email/contraseña → JWT HS256 de 15 min con claims `user_id`/`tenant_id`/`rol` + cookies `rt`/`csrf` | Integración | `backend/test/auth.spec.ts` → "emite access token con claims user_id/tenant_id/rol y cookies rt/csrf" | 🟢 verde |
+| FR-003 | Matriz rol × recurso × acción (§3 spec 001): `platform_admin` sólo `/admin`; `field_worker` sin dashboard ni admin; `tenant_admin` único que publica plantillas | Integración | `backend/test/admin.spec.ts` (403 a no-`platform_admin`) + guardas por controlador (`dashboard.auth.ts`, `templates.controller.ts`) | 🟢 verde |
+| FR-004 | Access token vencido con cola pendiente → la cola NO se pierde y drena al reingresar; el refresh rota `rt` y detecta reuso | Integración + **caos 6** | `backend/test/auth.spec.ts` (rotación/reuso y CSRF) + `e2e-caos-sync.spec.ts` → "caos 6 — token expirado en cola" | 🟢 verde |
+| FR-006 | Tenant demo sembrado (A: minera + faena + 3 roles; B: constructora) y login de cada rol | Integración | `backend/db/seed.ts` + `backend/test/auth.spec.ts` (`login (FR-001, FR-006)`) | 🟢 verde |
 | FR-031/032 | Ciclo draft→submitted; ítem `nok` exige hallazgo cuando la plantilla lo configura | Unit + E2E | `e2e-captura-offline.spec.ts` → "estado submitted con su site real" y "un hallazgo creado desde un NOK…" | 🟢 verde |
 | FR-034 | Georreferencia opcional de la inspección (lat/lon) capturada al enviar y persistida por sync | Integración | `backend/test/sync.spec.ts` (location_lat/lon + rechazo de rangos inválidos) + `frontend/src/lib/store.tsx` (`navigator.geolocation`) | 🟢 verde |
 | FR-040/043, NFR-03 | Sync de dato → visible en dashboard; medir delta ≤ 60 s (primer lote) | E2E + cronometrado manual en demo | `backend/test/dashboard.spec.ts` + medición manual en la demo (Fase 3) | 🟡 parcial: la corrección numérica ≤60 s se mide en vivo, no en automatizado |
@@ -63,29 +67,27 @@ verde.
 | FR-050 | `platform_admin` crea tenant, le asigna el `tenant_admin` inicial y lo suspende/reactiva; un rol distinto recibe 403 en toda la consola | Integración | `backend/test/admin.spec.ts` | 🟢 verde |
 | FR-051 (`admin`) | Cada mutación admin deja exactamente una fila en `audit_log` con `actor_id` y `tenant_id` correctos; `tc_app` no puede UPDATE/DELETE y la API no expone rutas de modificación | Integración | `backend/test/admin.spec.ts` | 🟢 verde |
 
-**Recuento:** 34 filas · 🟢 30 (88,2%) · 🟡 2 (5,9%) · 🔴 0 ·
-⚪ 2 (5,9%, automatizable sólo con tooling externo o sin prueba todavía).
+**Recuento:** 38 filas · 🟢 34 (89,5%) · 🟡 2 (5,3%) · 🔴 0 ·
+⚪ 2 (5,3%, automatizable sólo con tooling externo o sin prueba todavía).
 
 > FR-034 geolocalización pasa a 🟢 con la migración `1730000011000_inspection_location.js`,
 > el contrato aditivo de sync, la validación server-side y la captura opcional en
-> cliente. Los huecos reales que quedan son el filtro por autor de FR-041 (🟡,
-> decisión de alcance V1) y el CSV del cliente de FR-042 (⚪, implementado sin
-> prueba); FR-040/043 ≤60 s se mide en vivo (🟡).
+> cliente. En esta base quedan FR-041 autor (🟡, implementado en el PR #123 pendiente de
+> merge), FR-040/043 ≤60 s (🟡, medición en vivo) y FR-042 CSV (⚪, test en #123).
 
 **Volumen de pruebas en la corrida de referencia:**
 ```
 E2E + caos (Playwright, nightly)          17 tests
-Integración backend (Vitest + Testcontainers) 184 tests
+Integración backend (Vitest + Testcontainers) 186 tests
 Unidad frontend (Vitest)                      98 tests
 Unidad shared (Vitest)                        77 tests
                                            ───────────────
-                                           376 tests
+                                           378 tests
 ```
 
-> El criterio de salida de Fase 2 (§8) pide "matriz §3 ≥ 90% verde". Al declarar
-> sin redondear los huecos reales (NFR-07 🟢, FR-041 autor y FR-040/043 ≤60 s 🟡,
-> FR-042 CSV y NFR-02/100-fotos ⚪) el techo alcanzable **dentro de este harness**
-> queda por debajo del 90%: no se maquilla la cifra a favor.
+> El criterio de salida de Fase 2 (§8) pide "matriz §3 ≥ 90% verde". En esta base
+> FR-034 deja la matriz en 34/38 (89,5%); al integrar #123, FR-041/042 elevan el
+> resultado a 36/38 (94,7%) sin redondear los huecos reales restantes.
 
 ## 4. Pruebas de caos offline-first (protocolo)
 
@@ -188,7 +190,8 @@ referencia: **17/17 E2E en verde**. Informe por módulo en
 
 | Versión | Fecha | Cambio | Autor |
 | :--- | :--- | :--- | :--- |
-| 1.0.8 | 2026-10-14 | **FR-034 implementado** (georreferencia opcional): migración `1730000011000_inspection_location.js` (`location_lat`/`location_lon` NUMERIC), contrato aditivo `SyncInspectionPayload.location`, validación server-side, captura opcional con `navigator.geolocation` al enviar inspección; nueva fila FR-034 en matriz §3 (🟢) y recuento a 34 filas · 🟢30/🟡2/⚪2; volumen backend 184 · total 376 (refs #7) | Daniel Ávila |
+| 1.0.9 | 2026-10-14 | **FR-034 implementado** (georreferencia opcional): migración `1730000011000_inspection_location.js` (`location_lat`/`location_lon` NUMERIC), contrato aditivo `SyncInspectionPayload.location`, validación server-side, captura opcional con `navigator.geolocation` al enviar inspección; nueva fila FR-034 en matriz §3 (🟢) y recuento base 38 filas · 🟢34/🟡2/⚪2; volumen backend 186 · total 378 (refs #7) | Daniel Ávila |
+| 1.0.6 | 2026-10-14 | Cobertura del módulo **001** (autenticación y tenancy): filas **FR-001**, **FR-003**, **FR-004** y **FR-006** en la matriz §3 con evidencia de `backend/test/auth.spec.ts` (login/JWT, rotación y reuso del refresh, bloqueo) y el caos 6 (`e2e-caos-sync.spec.ts`); FR-005 se detalla (por cuenta **y** por IP); recuento a 37 filas (refs #4) | Raúl González |
 | 1.0.5 | 2026-10-14 | **NFR-07 cerrado**: harness de rendimiento propio (`frontend/scripts/check-lighthouse.mjs` + workflow `lighthouse.yml`, patrón `check-pwa.mjs`) que mide el build en perfil móvil y exige Performance ≥ 80; se quita ExcelJS del chunk inicial (import profundo `@terreno/shared/xlsx/serializar`) y se difieren las pantallas pesadas; fila NFR-07 de la matriz §3 pasa a 🟢 (refs #9) | Raúl González (con IA) |
 | 1.0.4 | 2026-10-13 | Cobertura del módulo **006** (administración de plataforma): filas **FR-050** y **FR-051** (`admin`) en la matriz §3 con evidencia de `backend/test/admin.spec.ts` (16 tests); recuento actualizado a 33 filas y volumen de la corrida de referencia (backend 181, frontend 98, shared 77) (refs #9, #116) | Raúl González (con IA) |
 | 1.0.0 | 2026-09-14 | Plan inicial derivado del spec maestro v1.0.0 | Raúl González (con IA) |
