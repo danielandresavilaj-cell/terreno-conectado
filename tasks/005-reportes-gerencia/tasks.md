@@ -18,7 +18,7 @@ La auditoría del 2026-10-13 sobre `main` muestra **FR-040/042 implementados** y
 | TSK-REP-002 | Plan técnico del módulo | NFR-11 | 001 | `plans/005-reportes-gerencia/plan.md` existe y enlaza spec + tasks | ✅ Hecho |
 | TSK-REP-003 | Verificación de FR-040/043: confirmar métrica latencia (media+p95) y registrar el ≤60 s como medición en vivo | FR-040, FR-043, NFR-03 | 001 | `backend/test/dashboard.spec.ts` verde; fila FR-040/043 con estado correcto (🟡 por el umbral en vivo) | ⬜ Por hacer |
 | TSK-REP-004 | Implementar el filtro por autor (FR-041): `autor_id` en `findings`, `autores` en `summary`, filtro en la UI y test | FR-041 | 001 | `dashboard/findings?autor_id=` filtra por `inspection.executed_by`; `summary.autores` lista autores del período; test verde en `backend/test/dashboard.spec.ts`; FR-041 ✅ | ✅ Hecho (0.2.0) |
-| TSK-REP-005 | Verificación de FR-042: test del CSV de hallazgos del cliente | FR-042 | — | Test que cubre el armado del CSV (columnas, escapado) | ⬜ Por hacer |
+| TSK-REP-005 | Verificación de FR-042: test del CSV de hallazgos del cliente | FR-042 | — | `frontend/src/lib/dashboard-csv.ts` + `frontend/test/dashboard-csv.test.ts` verdes; cubre cabecera, filas, escapado de comillas/comas y valores nulos | ✅ Hecho (0.2.0) |
 
 ## Criterios de salida del módulo
 

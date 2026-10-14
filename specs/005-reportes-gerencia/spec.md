@@ -31,7 +31,7 @@ Verificado sobre `main` al 2026-10-13.
 | FR-041 filtros faena/fecha | ✅ | `dashboard.contract.ts` (`dashboardFiltrosSchema`: `site_id`/`desde`/`hasta`) |
 | FR-041 sev/estado | ✅ | `dashboard.service.ts` (`FindingsFiltros`: `severidad`/`estado`) + paginación |
 | FR-041 filtro por **autor** | ✅ | `dashboard.contract.ts` (`findingsFiltrosSchema.autor_id`), `dashboard.service.ts` (filtra `inspection.executed_by`, agrega `autor_id` al DTO y `autores` al `summary`), `frontend/src/screens/Dashboard.tsx` (filtro por autor); `backend/test/dashboard.spec.ts` |
-| FR-042 CSV de la vista | ✅ | `frontend/src/screens/Dashboard.tsx:284-302` (hallazgos filtrados → CSV) |
+| FR-042 CSV de la vista | ✅ | `frontend/src/lib/dashboard-csv.ts` (`construirCsvHallazgos`: cabecera, escapado de comillas/comas, valores nulos) + `frontend/test/dashboard-csv.test.ts` |
 | FR-042 documentos del período | ✅ | `dashboard.controller.ts` (`/inspections/:id/export` `.xlsx`, `/inspections/export-lote` ZIP) |
 | FR-043 latencia ≤ 60 s | 🟡 | `dashboard.service.ts` mide media+p95 (FR-040); el número **se valida en vivo**, no automatizado (`test-plan.md` §3) |
 | NFR-03 métrica de latencia | ✅ | media + `p95` por lote (`percentile_cont(0.95)`, `dashboard.service.ts:109-120`) |
@@ -99,7 +99,7 @@ Idea del equipo registrada como visión, sin comprometer el alcance V1 (spec mae
 
 | Versión | Fecha | Cambio | Autor |
 | :--- | :--- | :--- | :--- |
-| 0.3.0 | 2026-10-14 | **FR-041 filtro por autor implementado.** `dashboard/findings?autor_id=` filtra por `inspection.executed_by`; `summary.autores` publica los autores con actividad del período para poblar el filtro; `FindingDto.autor_id`; UI con filtro por autor. Pasa de 🟡 a ✅. Ver `tasks/005-reportes-gerencia/tasks.md` TSK-REP-004 | Daniel Ávila |
+| 0.3.0 | 2026-10-14 | **FR-041 filtro por autor implementado y FR-042 CSV testeado.** `dashboard/findings?autor_id=` filtra por `inspection.executed_by`; `summary.autores` publica los autores con actividad del período para poblar el filtro; `FindingDto.autor_id`; UI con filtro por autor; CSV de hallazgos extraído a `frontend/src/lib/dashboard-csv.ts` con tests unitarios. Pasa de 🟡 a ✅ (FR-041) y de ⚪ a ✅ (FR-042). Ver `tasks/005-reportes-gerencia/tasks.md` TSK-REP-004 / TSK-REP-005 | Daniel Ávila |
 | 0.2.0 | 2026-10-13 | **Spec completado (F2).** Documenta el estado real de FR-040…043 y NFR-03: métricas, contratos del dashboard, validación única de filtros, métrica de latencia (media+p95) y export (CSV cliente + `.xlsx` servidor). Registra FR-041 autor y FR-043 ≤60 s como 🟡 (parcial / medido en vivo). Apunta al plan técnico | Daniel Ávila |
 | 0.1.1 | 2026-09-24 | Se documenta "resumen ejecutivo generado por IA" como evolución post-V1 (fuera de alcance, decisión del equipo) | Raúl González (con IA) |
 | 0.1.0 | 2026-09-14 | Esqueleto inicial desde spec maestro v1.0.0 | Daniel Ávila (con IA) |
