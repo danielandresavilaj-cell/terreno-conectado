@@ -1,0 +1,106 @@
+# Compose de PRODUCCIÓN para el VPS (Hetzner CAX11, ADR-002).
+#
+# Topología same-origin: Caddy es el único que expone puertos (80/443) y enruta
+#   /            -> frontend (nginx estático, red interna)
+#   /api/* /health -> backend (NestJS, red interna)
+# db queda SOLO en la red interna (sin `ports`).
+#
+# Uso (desde `infra/`):
+#   cp .env.prod.example .env && editar
+#   docker compose -f docker-compose.prod.yml --profile tools run --rm migrate
+#   docker compose -f docker-compose.prod.yml --profile tools run --rm seed
+#   docker compose -f docker-compose.prod.yml up -d
+#
+# Las imágenes se construyen y publican en GHCR con `.github/workflows/deploy.yml`.
+
+name: terreno-prod
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - '80:80'
+      - '443:443'
+    environment:
+      DOMAIN: ${DOMAIN:?fijar DOMAIN en infra/.env}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - frontend
+      - backend
+
+  frontend:
+    image: ${IMAGE_FRONTEND:?fijar IMAGE_FRONTEND en infra/.env}
+    restart: unless-stopped
+    expose:
+      - '80'
+
+  backend:
+    image: ${IMAGE_BACKEND:?fijar IMAGE_BACKEND en infra/.env}
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: '3000'
+      DATABASE_URL: ${DATABASE_URL:?}
+      APP_DATABASE_URL: ${APP_DATABASE_URL:?}
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?}
+      DEMO_PASSWORD: ${DEMO_PASSWORD:?}
+      ALLOWED_ORIGIN: ${ALLOWED_ORIGIN:?}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      SYNC_VOLUME: /data/sync
+    volumes:
+      - sync_data:/data/sync
+    expose:
+      - '3000'
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?}
+      POSTGRES_DB: ${POSTGRES_DB:-terreno}
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD:?}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-terreno}']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # One-shots de esquema. Usan la imagen de "herramientas" (devDeps + fuentes)
+  # porque `node-pg-migrate` y `ts-node` (seed) son devDependencies.
+  migrate:
+    image: ${IMAGE_BACKEND_TOOLS:?fijar IMAGE_BACKEND_TOOLS en infra/.env}
+    profiles: ['tools']
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?}
+    command: npm run db:migrate --workspace @terreno/backend
+    depends_on:
+      db:
+        condition: service_healthy
+
+  seed:
+    image: ${IMAGE_BACKEND_TOOLS:?fijar IMAGE_BACKEND_TOOLS en infra/.env}
+    profiles: ['tools']
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?}
+      DEMO_PASSWORD: ${DEMO_PASSWORD:?}
+    command: npm run db:seed --workspace @terreno/backend
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  pgdata:
+  caddy_data:
+  caddy_config:
+  sync_data:
