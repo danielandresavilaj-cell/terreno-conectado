@@ -353,6 +353,43 @@ delta sync y caché (#42), export en dispositivo, servidor y lote (#43).
 | PostgreSQL 16 | localhost:5432 | funciona (Docker Compose) |
 | Health check | http://localhost:3000/health | funciona (TSK-WS-012: 200 `db:up` / 503 `db:down`) |
 
+## Despliegue (demo Fase 3)
+
+> **Estado:** artefactos listos y versionados; el **provisionamiento real es después del HITO 2**
+> (congelación). Ver `adr/002-arquitectura-despliegue.md`.
+
+Topología **same-origin** en **1 VPS (Hetzner CAX11)** con Docker Compose + Caddy (TLS automático
+Let's Encrypt): Caddy expone 80/443 y enruta `/` → frontend (nginx estático) y `/api/*` + `/health`
+→ backend NestJS; PostgreSQL 16 y demás servicios quedan en la red interna.
+
+| Archivo | Qué es |
+| :--- | :--- |
+| `backend/Dockerfile` | Imagen del backend. Stages `runtime` (API) y `build` (herramientas: migraciones/seed). Contexto = raíz del monorepo. |
+| `infra/frontend.Dockerfile` + `infra/nginx.conf` | PWA construida y servida por nginx. `VITE_API_URL`/`VITE_DEMO_PASSWORD` son `--build-arg` (Vite los incrusta en el build). |
+| `infra/docker-compose.prod.yml` | Servicios `caddy`, `frontend`, `backend`, `db` + perfil `tools` (`migrate`/`seed`). |
+| `infra/Caddyfile` | Borde: TLS + same-origin. |
+| `infra/.env.prod.example` | Plantilla del `.env` del VPS. |
+| `infra/backup/pg_dump.sh` | Backup nocturno (`pg_dump`) con retención local (cron del VPS). |
+| `.github/workflows/deploy.yml` | Construye y publica las 3 imágenes en GHCR y despliega por SSH. Solo `workflow_dispatch`. |
+
+### Puesta en marcha (cuando llegue el HITO 2)
+
+1. **VPS**: crear el CAX11, instalar Docker + Compose, usuario no-root con `sudo`.
+2. **Secrets de GitHub** (Settings → Secrets and variables → Actions): `VPS_HOST`, `VPS_USER`,
+   `VPS_SSH_KEY`, `VITE_DEMO_PASSWORD`.
+3. **`.env` del VPS**: crear `/opt/terreno/infra/.env` a partir de `infra/.env.prod.example`
+   (`DOMAIN`, passwords reales y `JWT_ACCESS_SECRET` generado con `openssl rand -base64 48`).
+4. **Desplegar**: Actions → *Deploy (demo Fase 3)* → *Run workflow* (construye, publica y luego
+   `docker compose pull` + `migrate` + `up -d` en el VPS).
+5. **Semilla** (una sola vez): `docker compose -f docker-compose.prod.yml --profile tools run --rm seed`.
+6. **DNS**: apunte `A` del dominio → IP del VPS; Caddy emite el certificado automáticamente.
+7. **Backup**: `crontab -e` en el VPS →
+   `0 3 * * * /opt/terreno/infra/backup/pg_dump.sh >> /var/log/terreno-backup.log 2>&1`,
+   y configurar la **copia fuera del VPS** (obligatoria, ADR-002).
+
+> **Ventanilla serial:** este andarivel no toca `package.json`/lockfile; las imágenes se construyen en
+> CI desde el lockfile de `main`.
+
 ## Enlaces del proyecto
 
 | Qué | Enlace |
