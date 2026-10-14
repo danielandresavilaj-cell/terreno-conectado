@@ -1,0 +1,19 @@
+# Contexto de build para las imágenes Docker (backend y frontend).
+# Reduce el contexto y evita copiar secretos/locales al daemon.
+**/node_modules
+**/dist
+**/.vite
+**/coverage
+.git
+.github
+.vol
+docs
+plans
+specs
+tasks
+Fase 1
+*.log
+.env
+.env.*
+!.env.example
+!.env.prod.example
