@@ -42,6 +42,8 @@ verde.
 | FR-005 | 5 logins fallidos → bloqueo temporal 15 min | Integración | `backend/test/auth.spec.ts` | 🟢 verde |
 | FR-031/032 | Ciclo draft→submitted; ítem `nok` exige hallazgo cuando la plantilla lo configura | Unit + E2E | `e2e-captura-offline.spec.ts` → "estado submitted con su site real" y "un hallazgo creado desde un NOK…" | 🟢 verde |
 | FR-040/043, NFR-03 | Sync de dato → visible en dashboard; medir delta ≤ 60 s (primer lote) | E2E + cronometrado manual en demo | `backend/test/dashboard.spec.ts` + medición manual en la demo (Fase 3) | 🟡 parcial: la corrección numérica ≤60 s se mide en vivo, no en automatizado |
+| FR-041 | Dashboard: filtros de faena, rango de fechas, severidad y autor | Integración | `backend/test/dashboard.spec.ts` (`dashboardFiltrosSchema`) | 🟡 parcial: faena/fecha/severidad/estado implementados; el **filtro por autor** no existe (DTO sí expone `autor`) — decisión de no construir en V1 (spec 005 §2, plan 005 §3.1) |
+| FR-042 | Export de la vista de hallazgos a CSV (columnas y escapado) | — (implementado en `frontend/src/screens/Dashboard.tsx`) | `frontend/src/screens/Dashboard.tsx:284-302` | ⚪ sin prueba automatizada: el CSV del cliente está implementado; los documentos `.xlsx`/ZIP sí están cubiertos por FR-019/044 y FR-045/046 |
 | FR-052, NFR-09 | `/health` responde 200 con estado de DB (503 con DB caída); uptime monitor lo consume; logs JSON con `request_id` y `tenant_id` en cada línea | Integración + manual | `backend/test/health.spec.ts` + `backend/test/observability.spec.ts` | 🟢 verde |
 | NFR-02 | Script: 200 registros + 100 fotos en offline simulado de 72 h (reloj adelantado) → sync completo sin pérdida | **caos 5** | `e2e-caos-sync.spec.ts` → "200 registros pendientes suben íntegros y sin duplicar" | 🟢 verde (200 registros; las 100 fotos se comprueban en el FR-012 unitario, no en el mismo escenario) |
 | NFR-07 | Lighthouse CI mobile ≥ 80; interacción de formulario < 200 ms | Rendimiento | Lighthouse CI + k6 — **no implementado** (herramienta externa al harness) | 🔴 pendiente |
@@ -58,8 +60,12 @@ verde.
 | FR-048 | Flag `ai` OFF: el mapeo propuesto por IA no aplica cambios sin la confirmación del `tenant_admin` | Integración | `backend/test/import-wizard.spec.ts`, `templates.http.spec.ts` | 🟢 verde |
 | FR-049 | Revisión publicada inmutable: ítems ya inspeccionados no se modifican; el cambio exige revisión nueva | Integración | `backend/test/templates.http.spec.ts` (409 al editar publicado) | 🟢 verde |
 
-**Recuento:** 29 filas · 🟢 26 (89,7%) · 🟡 1 (3,4%) · 🔴 1 (3,4%) ·
-⚪ 1 (3,4%, automatizable sólo con tooling externo).
+**Recuento:** 31 filas · 🟢 26 (83,9%) · 🟡 2 (6,5%) · 🔴 1 (3,2%) ·
+⚪ 2 (6,5%, automatizable sólo con tooling externo o sin prueba todavía).
+
+> La fila FR-042 (CSV del cliente) y el filtro por autor de FR-041 se declaran
+> como huecos reales, no como verdes: el primero está implementado pero sin
+> prueba, y el segundo no está implementado (decisión de alcance V1).
 
 **Volumen de pruebas en la corrida de referencia:**
 ```
@@ -70,10 +76,10 @@ Unidad shared (Vitest)                     69 tests
                                            245 tests
 ```
 
-> El criterio de salida de Fase 2 (§8) pide "matriz §3 ≥ 90% verde". Con la
-> fila de NFR-07 (Lighthouse/k6, automatizable sólo con tooling externo) el
-> techo alcanzable dentro de este harness es 96,6%. Se declara el número real,
-> sin redondear a favor.
+> El criterio de salida de Fase 2 (§8) pide "matriz §3 ≥ 90% verde". Al declarar
+> sin redondear los huecos reales (NFR-07 🔴, FR-041 autor y FR-040/043 ≤60 s 🟡,
+> FR-042 CSV y NFR-02/100-fotos ⚪) el techo alcanzable **dentro de este harness**
+> queda por debajo del 90%: no se maquilla la cifra a favor.
 
 ## 4. Pruebas de caos offline-first (protocolo)
 
