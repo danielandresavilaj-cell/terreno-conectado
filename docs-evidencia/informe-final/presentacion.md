@@ -54,10 +54,10 @@
 
 ## 6. Validación
 
-- **388 tests** unitarios + integración.
+- **390 tests** unitarios + integración tras mergear los PRs de cierre pendientes.
 - **17 escenarios E2E/caos** (Playwright).
 - Caos 1–7: **0 pérdidas, 0 duplicados, 0 fugas cross-tenant**.
-- Matriz §3: **94,3 % verde** tras cierre de huecos.
+- Matriz §3: **94,9 % verde** proyectado tras integrar FR-017/041/042/034.
 
 ---
 
@@ -83,11 +83,10 @@
 
 ## 9. Próximos pasos
 
-1. Mergear PRs #121, #123, #124, #125.
-2. Hardening de dependencias (#84).
-3. Deploy en VPS (ADR-002).
-4. Demo final ante el docente.
-5. Entregar evidencias académicas en Capstone.
+1. Revisar y mergear PRs #121, #123 y #124; consolidar matriz y conteos.
+2. Configurar VPS/dominio/secrets y ejecutar el deploy manual (#127, ADR-002).
+3. Demo final ante el docente.
+4. Entregar evidencias académicas en Capstone.
 
 ---
 

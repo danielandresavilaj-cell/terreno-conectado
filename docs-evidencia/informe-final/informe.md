@@ -8,7 +8,7 @@
 
 ## 1. Resumen ejecutivo
 
-Se completó el **walking skeleton** y los módulos críticos de la Fase 2. El sistema captura inspecciones sin red, las encola localmente en IndexedDB y las sincroniza con PostgreSQL vía lotes idempotentes cuando vuelve la señal. El dashboard del supervisor visualiza hallazgos, métricas de latencia y exporta la vista a CSV.
+El **walking skeleton** y los módulos críticos de la Fase 2 están implementados. Los cuatro últimos cierres de requisito están en PRs pendientes de aprobación/merge (#121, #123, #124); al integrarlos, el sistema captura inspecciones sin red, las encola localmente en IndexedDB y las sincroniza con PostgreSQL vía lotes idempotentes cuando vuelve la señal. El dashboard del supervisor visualiza hallazgos, métricas de latencia y exporta la vista a CSV.
 
 Los huecos reales encontrados en la auditoría de cierre fueron cerrados:
 
@@ -31,9 +31,9 @@ Los huecos reales encontrados en la auditoría de cierre fueron cerrados:
 
 ## 3. Estado de la matriz de pruebas §3
 
-**Proyección tras cierre de huecos:**
+**Proyección tras mergear #121, #123 y #124:**
 
-- 35 filas · 🟢 33 (94,3 %) · 🟡 1 (2,9 %) · ⚪ 1 (2,9 %) · 🔴 0
+- 39 filas · 🟢 37 (94,9 %) · 🟡 1 (2,6 %) · ⚪ 1 (2,6 %) · 🔴 0
 - El único 🟡 es **FR-040/043 ≤ 60 s**, que se mide en vivo en la demo (Fase 3), no automatizado.
 - El único ⚪ es **NFR-02/100-fotos** del caos 5 (las 100 fotos se verifican en el FR-012 unitario, no en el mismo escenario de 72 h).
 
@@ -43,11 +43,11 @@ Esto cumple el criterio de salida de F2: **matriz §3 ≥ 90 % verde**.
 
 | Capa | Cantidad | Estado |
 | :--- | :--- | :--- |
-| E2E + caos (Playwright) | 17 tests | Verde en nightly |
-| Integración backend (Vitest + Testcontainers) | 185 tests | Verde |
+| E2E + caos (Playwright) | 17 tests | Verde en el nightly más reciente disponible (14-oct-2026) |
+| Integración backend (Vitest + Testcontainers) | 187 tests | 183 en `main` + 4 de los PRs pendientes |
 | Unidad frontend (Vitest) | 109 tests | Verde |
 | Unidad shared (Vitest) | 77 tests | Verde |
-| **Total** | **388 tests** | Verde |
+| **Total** | **390 tests** | Proyección tras mergear los PRs pendientes |
 
 Invariantes de caos 1–7: 0 pérdidas, 0 duplicados, 0 fugas cross-tenant.
 
@@ -63,7 +63,8 @@ Invariantes de caos 1–7: 0 pérdidas, 0 duplicados, 0 fugas cross-tenant.
 
 - FR-040/043 ≤ 60 s: medido en vivo; no automatizado por limitaciones del harness CI.
 - NFR-02/100-fotos: el escenario de 72 h no verifica explícitamente las 100 fotos; se cubre unitariamente.
-- Dependencias: se abordará el hardening (#84) antes del deploy (Track A).
+- Dependencias: hardening #84 mergeado en PR #126; quedan 2 moderadas `uuid`→`exceljs`, aceptadas y documentadas en ADR-004 (sin fix no-breaking).
+- Despliegue: artefactos same-origin mergeados en #127; provisioning real y secretos/VPS quedan pendientes tras HITO 2.
 
 ## 7. Lecciones aprendidas
 
@@ -78,15 +79,14 @@ Invariantes de caos 1–7: 0 pérdidas, 0 duplicados, 0 fugas cross-tenant.
 - `data-model.md` — modelo de datos y políticas RLS.
 - `adr/002-arquitectura-despliegue.md` — VPS + Caddy + HTTPS ≤ US$7/mes.
 - `tasks/` — tareas por módulo.
-- `plans/cierre-f2-f3/` — plan de cierre de F2 y transición a F3.
+- PR #119 — plan de cierre de F2 y transición a F3 (pendiente de revisión/merge).
 
 ## 9. Próximos pasos (Fase 3)
 
-1. Mergear PRs #121, #123, #124 y rebasar `main`.
-2. Hardening de dependencias (#84) — Track A (Raúl).
-3. Deploy en VPS con Caddy (ADR-002).
-4. Demo final en vivo: modo avión real, ≤ 60 s dashboard, caos 1–7.
-5. Entregar presentación y evidencias académicas en el repositorio Capstone.
+1. Aprobar y mergear PRs #121, #123 y #124; consolidar `test-plan.md` y los conteos finales.
+2. Completar HITO 2, configurar VPS/dominio/secrets y ejecutar deploy manual (#127).
+3. Demo final en vivo: modo avión real, ≤ 60 s dashboard, caos 1–7.
+4. Entregar informe, presentación y evidencias académicas en el repositorio Capstone.
 
 ## Control de cambios
 
