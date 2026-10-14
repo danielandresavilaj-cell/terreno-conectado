@@ -1,0 +1,22 @@
+# Caddy de borde (ADR-002): TLS automático Let's Encrypt y same-origin.
+# DOMAIN llega por variable de entorno desde `docker-compose.prod.yml`.
+#
+#   /            -> frontend (nginx estático de la PWA)
+#   /api/*       -> backend NestJS
+#   /health      -> backend NestJS (queda fuera del prefijo /api/v1)
+
+{$DOMAIN} {
+	encode zstd gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+	}
+
+	@backend path /api/* /health
+	reverse_proxy @backend backend:3000
+
+	reverse_proxy frontend:80
+}

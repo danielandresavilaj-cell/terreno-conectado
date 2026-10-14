@@ -5,5 +5,11 @@
   // programa ambos chocan. Además `include: ["test"]` deja el typecheck de la app
   // intacto y no arrastra la UI entera a los tests.
   "extends": "./tsconfig.json",
+  "compilerOptions": {
+    // vitest 5 ya no arrastra `@types/node` de forma transitiva; los tests
+    // importan módulos de `shared/` (y `node:fs`/`node:url`) que necesitan
+    // `Buffer`, así que lo declaramos explícitamente aquí.
+    "types": ["vite/client", "vite-plugin-pwa/client", "node"]
+  },
   "include": ["test"]
 }
