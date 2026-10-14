@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common'
 import { ConfigModule } from '@nestjs/config'
+import { AdminModule } from './admin/admin.module'
 import { AppController } from './app.controller'
 import { AuthModule } from './auth/auth.module'
 import { DashboardModule } from './dashboard/dashboard.module'
@@ -15,6 +16,7 @@ import { TemplatesModule } from './templates/templates.module'
     DbModule,
     StorageModule,
     AuthModule,
+    AdminModule,
     SyncModule,
     DashboardModule,
     HealthModule,
