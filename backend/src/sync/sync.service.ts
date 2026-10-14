@@ -83,8 +83,8 @@ const BATCH_ORDER: SyncEntityType[] = [
   'attachment',
 ]
 
-/** Roles que ven los conflictos (FR-023: el supervisor revisa, no es silencioso). */
-const CONFLICT_VIEWER_ROLES = new Set(['supervisor', 'admin', 'admin_plataforma'])
+/** Roles canónicos que pueden revisar conflictos de su tenant (FR-023). */
+const CONFLICT_VIEWER_ROLES = new Set(['supervisor', 'tenant_admin'])
 
 const ENTITY_TYPES = new Set<SyncEntityType>(BATCH_ORDER)
 
@@ -178,7 +178,7 @@ export class SyncService {
       throw new ForbiddenException('Los conflictos requieren un rol con tenant')
     }
     if (!CONFLICT_VIEWER_ROLES.has(claims.rol)) {
-      throw new ForbiddenException('Solo el supervisor o admin puede ver conflictos')
+      throw new ForbiddenException('Solo supervisor o tenant_admin puede ver conflictos')
     }
     const limit = Math.min(Math.max(Math.trunc(query.limit ?? 20), 1), MAX_CONFLICTS_VIEW)
     const offset = Math.max(Math.trunc(query.offset ?? 0), 0)
