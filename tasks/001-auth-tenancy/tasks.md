@@ -33,5 +33,6 @@
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | TSK-AUTH-006 | **Alinear el almacenamiento del access token con D5**: hoy la PWA usa `sessionStorage` (`tc_access_token`); D5 dice "solo en memoria" | FR-001, D5 | TSK-WS-003 | El token vive sólo en memoria de módulo (re-login en recarga) **o** D5 se enmienda reconociendo `sessionStorage` como "memoria de pestaña" | ⬜ Pendiente (diferido) |
 | TSK-AUTH-007 | **Store compartido para el rate-limit por IP** (multi-réplica) | FR-005 | TSK-WS-003 | Con ≥2 réplicas, 5 fallos desde una IP siguen bloqueando 15 min (p. ej. Redis) | ⬜ Pendiente (lo levanta el despliegue, Tarea 3 del brief) |
+| TSK-AUTH-008 | **Alinear `CONFLICT_VIEWER_ROLES` con los roles canónicos** (módulo 003/sync): hoy usa `{supervisor, admin, admin_plataforma}` y deja fuera a `tenant_admin`, que sí puede ver conflictos según la matriz §3 del spec 001 (issue **#128**) | FR-003, FR-023 | TSK-WS-003 | Los roles de negocio del sync coinciden con la matriz (`supervisor` + `tenant_admin`); prueba de rol (`200`/`403`) | ⬜ Pendiente (**zona Daniel** · módulo 003, issue #128) |
 
-> Los FR-001…006 quedan ✅ con estas dos deudas menores **declaradas**, no ocultas.
+> Los FR-001…006 quedan ✅ con estas deudas **declaradas**, no ocultas: TSK-AUTH-006/007 son de este módulo; **TSK-AUTH-008** es un hallazgo cross-módulo (sync) detectado al verificar la matriz §3 contra el código, registrado en el issue #128.
