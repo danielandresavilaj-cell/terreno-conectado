@@ -40,6 +40,7 @@ import {
   type DashboardFiltros,
 } from '../lib/api'
 import { ZIP_MIME, descargarLibro } from '../lib/exportar'
+import { construirCsvHallazgos } from '../lib/dashboard-csv'
 import { useEstado } from '../lib/store'
 import { EASE } from '../lib/motion'
 import type { DashboardSummary, FindingDto, InspectionListaItem } from '@terreno/shared'
@@ -292,18 +293,7 @@ export function Dashboard() {
   /* FR-042: export CSV de lo que está filtrado en pantalla. */
   const exportarCsv = () => {
     if (filtrados.length === 0) return
-    const filas = [
-      ['id', 'severidad', 'estado', 'faena', 'autor', 'capturado_at'],
-      ...filtrados.map((h) => [
-        h.id,
-        h.severity,
-        h.status,
-        h.faena_nombre ?? '',
-        h.autor ?? '',
-        h.captured_at,
-      ]),
-    ]
-    const csv = filas.map((r) => r.map((c) => `"${(c ?? '').replace(/"/g, '""')}"`).join(',')).join('\n')
+    const csv = construirCsvHallazgos(filtrados)
     descargarLibro(
       new TextEncoder().encode(csv),
       `hallazgos-${new Date().toISOString().slice(0, 10)}.csv`,
