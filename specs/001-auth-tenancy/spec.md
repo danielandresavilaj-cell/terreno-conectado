@@ -64,7 +64,7 @@ Puntos de enforcement en el código:
 - **Operativos** (`field_worker`, `supervisor`) ven sólo lo asignado a su rol/faena (`ROLES_OPERATIVOS`, `template_assignment`).
 - El dashboard es de `supervisor` y `tenant_admin` (`DASHBOARD_ROLES`, `dashboard.auth.ts:14`); `GET /sites` admite también a `field_worker` (`dashboard.service.ts:62`) para que la PWA arranque con su faena.
 
-> **Observación (fuera de la zona de este módulo):** `backend/src/sync/sync.service.ts:87` define `CONFLICT_VIEWER_ROLES = {supervisor, admin, admin_plataforma}`. Los nombres `admin`/`admin_plataforma` no son los roles canónicos (`tenant_admin`/`platform_admin`), así que en el código actual un `tenant_admin` no coincidiría. La matriz de arriba es la intención canónica; la discrepancia se traslada a quien mantiene el modulo 003.
+> **Observación (fuera de la zona de este módulo):** `backend/src/sync/sync.service.ts:87` define `CONFLICT_VIEWER_ROLES = {supervisor, admin, admin_plataforma}`. Los nombres `admin`/`admin_plataforma` no son los roles canónicos (`tenant_admin`/`platform_admin`), así que en el código actual un `tenant_admin` no coincidiría (un `platform_admin` tampoco lo hace, pero eso es correcto: sólo `supervisor` y `tenant_admin` deberían ver conflictos). La matriz de arriba es la intención canónica; el desajuste queda registrado como **TSK-AUTH-008** (issue #128) para el módulo 003 (sync), que debe alinear `CONFLICT_VIEWER_ROLES` con los roles canónicos y añadir su prueba.
 
 ## 4. Hash y política de contraseñas (FR-001, NFR-06)
 
@@ -150,7 +150,7 @@ Lee por RLS como el tenant del token (`queryAsTenant`); para `platform_admin` (s
 - **CSRF double-submit:** header `X-CSRF-Token` espejo de la cookie `csrf` legible por JS.
 - **Access token fuera de la cookie:** no viaja en cookie, va en `Authorization`.
 
-> **Desviación conocida respecto al texto original de D5:** D5 decía "access token **solo en memoria**". La PWA lo guarda en `sessionStorage` (`tc_access_token`): sobrevive recargas de la pestaña y se pierde al cerrarla, pero no es estrictamente "sólo memoria". Es una diferencia de longevidad, no de radio de exposición (mismo origen, sin persistencia en disco). Queda como **TSK-001-012** en `tasks/001-auth-tenancy/tasks.md` para alinear código y decisión.
+> **Desviación conocida respecto al texto original de D5:** D5 decía "access token **solo en memoria**". La PWA lo guarda en `sessionStorage` (`tc_access_token`): sobrevive recargas de la pestaña y se pierde al cerrarla, pero no es estrictamente "sólo memoria". Es una diferencia de longevidad, no de radio de exposición (mismo origen, sin persistencia en disco). Queda como **TSK-AUTH-006** en `tasks/001-auth-tenancy/tasks.md` para alinear código y decisión.
 
 ## 7. Aislamiento por tenant — RLS (FR-002, NFR-05)
 
@@ -193,6 +193,6 @@ El tenant B existe para probar el aislamiento (FR-002) y el rechazo cross-tenant
 
 | Versión | Fecha | Cambio | Autor |
 | :--- | :--- | :--- | :--- |
-| 1.0.0 | 2026-10-14 | **Spec completado (F2).** Documenta el estado real de FR-001…006: matriz rol × recurso × acción (§3), argon2id + política de contraseñas (§4), contratos `login`/`refresh`/`me` con rate-limit (§5), modelo de sesión D5 ratificado (§6), RLS (§7) y tenant demo (§8). Registra la desviación `sessionStorage` vs "solo en memoria" (TSK-001-012). Añade filas FR-001/003/004/006 a `test-plan.md` §3 | Raúl González |
+| 1.0.0 | 2026-10-14 | **Spec completado (F2).** Documenta el estado real de FR-001…006: matriz rol × recurso × acción (§3), argon2id + política de contraseñas (§4), contratos `login`/`refresh`/`me` con rate-limit (§5), modelo de sesión D5 ratificado (§6), RLS (§7) y tenant demo (§8). Registra la desviación `sessionStorage` vs "solo en memoria" (**TSK-AUTH-006**) y el desajuste de roles de `CONFLICT_VIEWER_ROLES` en el módulo de sync (**TSK-AUTH-008**, issue #128). Añade filas FR-001/003/004/006 a `test-plan.md` §3 | Raúl González |
 | 0.2.0 | 2026-10-06 | **Decisión D5:** refresh en cookie httpOnly con rotación + detección de reuso y CSRF double-submit (issue #11) | Raúl González |
 | 0.1.0 | 2026-09-14 | Esqueleto inicial desde spec maestro v1.0.0 | Raúl González (con IA) |
