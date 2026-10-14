@@ -55,6 +55,45 @@ export function exigirUuid(valor: string, etiqueta: string): string {
 
 export type DashboardFiltrosQuery = z.infer<typeof dashboardFiltrosSchema>
 
+/**
+ * Filtros del listado de hallazgos (FR-041): el período base + los propios del
+ * hallazgo. `autor_id` es un UUID —se filtra por el ejecutor de la inspección,
+ * no por el nombre, que puede repetirse— y `severidad`/`estado` se validan
+ * contra su dominio para que un valor mal escrito sea un 400 explícito y no una
+ * consulta silenciosamente vacía.
+ */
+export const findingsFiltrosSchema = dashboardFiltrosSchema.extend({
+  severidad: z.preprocess(sinValor, z.enum(['low', 'medium', 'high', 'critical']).optional()),
+  estado: z.preprocess(sinValor, z.enum(['open', 'in_progress', 'resolved']).optional()),
+  autor_id: z.preprocess(sinValor, z.string().uuid('autor inválido').optional()),
+})
+
+export type FindingsFiltrosQuery = z.infer<typeof findingsFiltrosSchema>
+
+/** Filtros de período ya validados + los del hallazgo, traducidos al SQL. */
+export interface FiltrosFindings extends FiltrosPeriodo {
+  severidad: string | null
+  estado: string | null
+  autorId: string | null
+}
+
+export function parsearFiltrosFindings(filtros: unknown): FiltrosFindings {
+  const parsed = findingsFiltrosSchema.safeParse(filtros)
+  if (!parsed.success) {
+    const detalle = parsed.error.issues
+      .slice(0, 3)
+      .map((i) => `${i.path.join('.') || 'filtros'}: ${i.message}`)
+      .join('; ')
+    throw new BadRequestException(`filtros inválidos: ${detalle}`)
+  }
+  return {
+    ...filtrosPeriodo(parsed.data),
+    severidad: parsed.data.severidad ?? null,
+    estado: parsed.data.estado ?? null,
+    autorId: parsed.data.autor_id ?? null,
+  }
+}
+
 /** Filtros ya validados y traducidos a los parámetros del SQL. */
 export interface FiltrosPeriodo {
   siteId: string | null

@@ -90,6 +90,7 @@ export class DashboardController {
       hasta: s(q.hasta),
       severidad: s(q.severidad),
       estado: s(q.estado),
+      autor_id: s(q.autor_id),
       limit: int(q.limit, 50),
       offset: int(q.offset, 0),
     })
