@@ -67,7 +67,7 @@ verde.
 | FR-051 (`admin`) | Cada mutación admin deja exactamente una fila en `audit_log` con `actor_id` y `tenant_id` correctos; `tc_app` no puede UPDATE/DELETE y la API no expone rutas de modificación | Integración | `backend/test/admin.spec.ts` | 🟢 verde |
 
 **Recuento:** 37 filas · 🟢 33 (89,2%) · 🟡 2 (5,4%) · 🔴 0 ·
-⚪ 2 (6,1%, automatizable sólo con tooling externo o sin prueba todavía).
+⚪ 2 (5,4%, automatizable sólo con tooling externo o sin prueba todavía).
 
 > La fila FR-042 (CSV del cliente) y el filtro por autor de FR-041 se declaran
 > como huecos reales, no como verdes: el primero está implementado pero sin
