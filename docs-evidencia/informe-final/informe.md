@@ -18,6 +18,7 @@ Los huecos reales encontrados en la auditoría de cierre fueron cerrados:
 | FR-041 filtro por autor | `autor_id` en `dashboard/findings`, `autores` en `summary`, filtro en UI | #123 |
 | FR-042 CSV sin test | `frontend/src/lib/dashboard-csv.ts` + tests unitarios | #123 |
 | FR-034 geo documentado pero no implementado | Columnas `location_lat`/`location_lon`, contrato sync aditivo, captura opcional con `navigator.geolocation` | #124 |
+| TSK-AUTH-008 roles no canónicos en conflictos | `supervisor`/`tenant_admin`, prueba de roles y aislamiento RLS | #129 |
 
 ## 2. Alcance V1 cerrado
 
@@ -44,10 +45,10 @@ Esto cumple el criterio de salida de F2: **matriz §3 ≥ 90 % verde**.
 | Capa | Cantidad | Estado |
 | :--- | :--- | :--- |
 | E2E + caos (Playwright) | 17 tests | Verde en el nightly más reciente disponible (14-oct-2026) |
-| Integración backend (Vitest + Testcontainers) | 187 tests | 183 en `main` + 4 de los PRs pendientes |
+| Integración backend (Vitest + Testcontainers) | 188 tests | 184 tras TSK-AUTH-008 + 4 de PRs #123/#124 |
 | Unidad frontend (Vitest) | 109 tests | Verde |
 | Unidad shared (Vitest) | 77 tests | Verde |
-| **Total** | **390 tests** | Proyección tras mergear los PRs pendientes |
+| **Total** | **391 tests** | Proyección tras mergear #121/#123/#124/#129 |
 
 Invariantes de caos 1–7: 0 pérdidas, 0 duplicados, 0 fugas cross-tenant.
 
@@ -56,6 +57,7 @@ Invariantes de caos 1–7: 0 pérdidas, 0 duplicados, 0 fugas cross-tenant.
 - **Aislamiento multi-tenant por RLS de Postgres** (Art. IV), no por filtros en la app.
 - **Sincronización offline-first:** la nube consolida, nunca es dependencia para trabajar (Art. I).
 - **Idempotencia por UUIDv7 de cliente + `client_version`** (FR-021/023).
+- **Acceso a conflictos por roles canónicos:** supervisor y tenant_admin, con aislamiento por RLS (TSK-AUTH-008).
 - **Geolocalización sin PostGIS** en V1: columnas NUMERIC para mantener el despliegue mínimo.
 - **Resumen ejecutivo V1 read-only** sobre KPIs del dashboard; IA redactada post-V1.
 
@@ -83,7 +85,7 @@ Invariantes de caos 1–7: 0 pérdidas, 0 duplicados, 0 fugas cross-tenant.
 
 ## 9. Próximos pasos (Fase 3)
 
-1. Aprobar y mergear PRs #121, #123 y #124; consolidar `test-plan.md` y los conteos finales.
+1. Aprobar y mergear PRs #121, #123, #124 y #129; consolidar `test-plan.md` y los conteos finales.
 2. Completar HITO 2, configurar VPS/dominio/secrets y ejecutar deploy manual (#127).
 3. Demo final en vivo: modo avión real, ≤ 60 s dashboard, caos 1–7.
 4. Entregar informe, presentación y evidencias académicas en el repositorio Capstone.

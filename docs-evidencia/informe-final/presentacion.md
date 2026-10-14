@@ -54,7 +54,7 @@
 
 ## 6. Validación
 
-- **390 tests** unitarios + integración tras mergear los PRs de cierre pendientes.
+- **391 tests** unitarios + integración tras mergear los PRs de cierre pendientes.
 - **17 escenarios E2E/caos** (Playwright).
 - Caos 1–7: **0 pérdidas, 0 duplicados, 0 fugas cross-tenant**.
 - Matriz §3: **94,9 % verde** proyectado tras integrar FR-017/041/042/034.
@@ -69,6 +69,7 @@
 | FR-041 filtro por autor | `autor_id` en findings + `summary.autores` |
 | FR-042 CSV sin test | `dashboard-csv.ts` + tests unitarios |
 | FR-034 geo no implementado | `location_lat`/`location_lon` + captura opcional |
+| TSK-AUTH-008 roles de conflicto | `supervisor`/`tenant_admin` canónicos + prueba de RLS |
 
 ---
 
@@ -83,7 +84,7 @@
 
 ## 9. Próximos pasos
 
-1. Revisar y mergear PRs #121, #123 y #124; consolidar matriz y conteos.
+1. Revisar y mergear PRs #121, #123, #124 y #129; consolidar matriz y conteos.
 2. Configurar VPS/dominio/secrets y ejecutar el deploy manual (#127, ADR-002).
 3. Demo final ante el docente.
 4. Entregar evidencias académicas en Capstone.
