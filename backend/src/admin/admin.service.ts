@@ -108,6 +108,19 @@ export class AdminService {
        SELECT id, name, slug, status, created_at FROM actualizado`,
       [tenantId, status, randomUUID(), actorId, accion],
     )
+    /* Carrera: si otra transición concurrente fijó el estado entre la pre-lectura
+     * y el UPDATE, `actualizado` vuelve vacío. Devolvemos el estado vigente en vez
+     * de un `changed: true` con `tenant` indefinido. */
+    if (rows.length === 0) {
+      const vigentes = await this.db.queryOwner<TenantDto>(
+        'SELECT id, name, slug, status, created_at FROM tenant WHERE id = $1',
+        [tenantId],
+      )
+      if (vigentes.length === 0) {
+        throw new NotFoundException('Tenant no encontrado')
+      }
+      return { tenant: vigentes[0], changed: false }
+    }
     return { tenant: rows[0], changed: true }
   }
 
@@ -136,8 +149,12 @@ export class AdminService {
       [tenantId, input.email],
     )
 
-    if (existentes.length === 0) {
-      const passwordHash = await hash(input.password)
+    if (existentes.length > 0) {
+      return this.resolverAdminExistente(existentes[0], actorId)
+    }
+
+    const passwordHash = await hash(input.password)
+    try {
       const rows = await this.db.queryOwner<AdminUserDto>(
         `WITH creado AS (
            INSERT INTO app_user (id, tenant_id, email, password_hash, role, full_name)
@@ -154,9 +171,29 @@ export class AdminService {
         [randomUUID(), tenantId, input.email, passwordHash, input.fullName, randomUUID(), actorId],
       )
       return { user: rows[0], created: true, changed: false }
+    } catch (error) {
+      if (!esViolacionUnica(error)) throw error
+      /* Carrera: otra alta concurrente insertó el mismo email entre la lectura y
+       * el INSERT. Releemos la fila ganadora y respondemos idempotente (antes un
+       * 23505 sin capturar devolvía 500). */
+      const ganador = await this.db.queryOwner<{ id: string; role: string }>(
+        'SELECT id, role FROM app_user WHERE tenant_id = $1 AND email = $2',
+        [tenantId, input.email],
+      )
+      return this.resolverAdminExistente(ganador[0], actorId)
     }
+  }
 
-    const existente = existentes[0]
+  /**
+   * Camino idempotente para un `app_user` que ya existe: si ya es
+   * `tenant_admin` no escribe auditoría; si tiene otro rol, lo promueve
+   * (`role_changed`). Si una promoción concurrente ganó la carrera, devuelve el
+   * estado vigente sin duplicar auditoría.
+   */
+  private async resolverAdminExistente(
+    existente: { id: string; role: string },
+    actorId: string,
+  ): Promise<{ user: AdminUserDto; created: boolean; changed: boolean }> {
     if (existente.role === 'tenant_admin') {
       const rows = await this.db.queryOwner<AdminUserDto>(
         'SELECT id, tenant_id, email, full_name, role, is_active FROM app_user WHERE id = $1',
@@ -179,6 +216,15 @@ export class AdminService {
        SELECT id, tenant_id, email, full_name, role, is_active FROM actualizado`,
       [existente.id, randomUUID(), actorId, existente.role],
     )
+    if (rows.length === 0) {
+      /* Otra promoción concurrente ganó la carrera: releemos el estado vigente
+       * (ya `tenant_admin`) sin volver a auditar. */
+      const vigente = await this.db.queryOwner<AdminUserDto>(
+        'SELECT id, tenant_id, email, full_name, role, is_active FROM app_user WHERE id = $1',
+        [existente.id],
+      )
+      return { user: vigente[0], created: false, changed: false }
+    }
     return { user: rows[0], created: false, changed: true }
   }
 

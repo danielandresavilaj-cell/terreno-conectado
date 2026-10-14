@@ -265,6 +265,27 @@ describe('FR-050 · asignar tenant_admin inicial', () => {
     expect(filas).toBe(1)
   })
 
+  it('dos altas concurrentes del mismo email no devuelven 500 ni duplican la auditoría', async () => {
+    const tenantId = await crearTenant('tenant-race-alta')
+    const token = await tokenPlatform()
+    const body = { email: 'race@alta.cl', full_name: 'Race Alta', password: CLAVE_ADMIN }
+    const alta = () =>
+      server()
+        .post(`/api/v1/admin/tenants/${tenantId}/admins`)
+        .set('Authorization', `Bearer ${token}`)
+        .send(body)
+
+    const [a, b] = await Promise.all([alta(), alta()])
+
+    // La perdedora de la carrera cae al camino idempotente (23505 capturado).
+    expect([a.status, b.status].every((s) => s === 200 || s === 201)).toBe(true)
+    expect(await auditCount(
+      `SELECT count(*)::int AS n FROM audit_log
+        WHERE action = 'tenant_admin_assigned' AND tenant_id = $1`,
+      [tenantId],
+    )).toBe(1)
+  })
+
   it('devuelve 404 si el tenant no existe', async () => {
     const token = await tokenPlatform()
     const res = await server()
@@ -325,6 +346,28 @@ describe('FR-050 · suspender y reactivar', () => {
       [tenantId],
     )).toBe(1)
     expect((await login('jefe@susp.cl', CLAVE_ADMIN)).status).toBe(200)
+  })
+
+  it('dos suspensiones concurrentes no duplican la auditoría', async () => {
+    const tenantId = await crearTenant('tenant-race-susp')
+    const token = await tokenPlatform()
+    const suspender = () =>
+      server()
+        .patch(`/api/v1/admin/tenants/${tenantId}`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({ status: 'suspended' })
+
+    const [a, b] = await Promise.all([suspender(), suspender()])
+
+    // Ninguna 500: la que pierde la carrera devuelve el estado vigente.
+    expect([a.status, b.status].every((s) => s === 200)).toBe(true)
+    expect(a.body.status).toBe('suspended')
+    expect(b.body.status).toBe('suspended')
+    expect(await auditCount(
+      `SELECT count(*)::int AS n FROM audit_log
+        WHERE action = 'tenant_suspended' AND tenant_id = $1`,
+      [tenantId],
+    )).toBe(1)
   })
 
   it('devuelve 404 si el tenant no existe y 400 con estado inválido', async () => {
