@@ -4,7 +4,7 @@
 #   docker build -f infra/frontend.Dockerfile \
 #     --build-arg VITE_API_URL=/api/v1 \
 #     --build-arg VITE_DEMO_PASSWORD=... \
-#     -t terreno-frontend .
+#     -t terreno-conectado-frontend .
 #
 # Vite incrusta VITE_API_URL y VITE_DEMO_PASSWORD en tiempo de BUILD: por eso son
 # `--build-arg`, no variables de entorno del contenedor.

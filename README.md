@@ -379,6 +379,8 @@ Let's Encrypt): Caddy expone 80/443 y enruta `/` → frontend (nginx estático) 
    `VPS_SSH_KEY`, `VITE_DEMO_PASSWORD`.
 3. **`.env` del VPS**: crear `/opt/terreno/infra/.env` a partir de `infra/.env.prod.example`
    (`DOMAIN`, passwords reales y `JWT_ACCESS_SECRET` generado con `openssl rand -base64 48`).
+   Las `IMAGE_*` ya vienen con el nombre que publica el workflow
+   (`ghcr.io/danielandresavilaj-cell/terreno-conectado-{backend,frontend,backend-tools}`); no cambiarlas.
 4. **Desplegar**: Actions → *Deploy (demo Fase 3)* → *Run workflow* (construye, publica y luego
    `docker compose pull` + `migrate` + `up -d` en el VPS).
 5. **Semilla** (una sola vez): `docker compose -f docker-compose.prod.yml --profile tools run --rm seed`.
