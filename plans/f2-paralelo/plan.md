@@ -8,15 +8,18 @@
 
 ## 1. Por qué estos dos
 
-Los seis specs de módulo (001–006) están en **ESQUELETO**. El trabajo real de F2 no es programar desde cero, sino cerrar lo que ya existe. Auditados los tres huecos de código:
+Los seis specs de módulo (001–006) están en **ESQUELETO** y la mayoría del código ya existe. La auditoría del 2026-10-13 sobre `main` da el mapa real:
 
-| Hueco | Evidencia |
-| :--- | :--- |
-| No hay descarga incremental de sync | `rg "since\|cursor\|delta"` sobre `backend/src/sync/` → cero |
-| No existe backend de administración | no hay `backend/src/admin/`; `tenant.status` y `audit_log` ya están en migraciones |
-| No hay exportación CSV | `rg "csv"` sobre `backend/src/` → cero (el "export" actual es XLSX) |
+| Área | Estado real | Hueco |
+| :--- | :--- | :--- |
+| Módulos 001, 002, 004, 005 (código) | Implementados | Sin hueco de código; falta **documentación** (specs en ESQUELETO) |
+| Módulo 003 (sync) | FR-020…029 implementados (incl. delta de plantillas por `published_seq`) | El spec deja abierta la **descarga incremental** (decisión V1 pendiente) + pruebas de delta |
+| Módulo 006 (admin) | No existe `backend/src/admin/` | **Hueco de código real**: FR-050/051 sin backend |
+| NFR-07 (rendimiento cliente) | Sin implementar | Único 🔴 de la matriz §3: Lighthouse CI mobile ≥ 80 |
 
-Este plan cubre los dos primeros. El CSV (Módulo 005) queda para el hito siguiente.
+Por eso los dos tracks: **006** aporta el único backend greenfield que queda (+ NFR-07), y **003** cierra por spec la descarga incremental y endurece su evidencia. El resto de los specs se documenta en paralelo (sin conflicto de archivos).
+
+> Corrección del 2026-10-13: una lectura inicial marcó "exportación CSV" como hueco; el `rg` que lo sostenía era sólo sobre `backend/src/` y **FR-042 ya está implementado en el frontend** (`Dashboard.tsx`). No es un hueco.
 
 ## 2. Reparto
 
@@ -41,10 +44,12 @@ HITO 3  Cierre: matriz test-plan §3 sin 🔴 y nightly 17/17          [ambos]
 | Zona | Dueño | Regla |
 | :--- | :--- | :--- |
 | `backend/src/admin/**`, `backend/src/app.module.ts`, `frontend/src/screens/**`, `App.tsx`, `Shell.tsx`, `specs/001`, `specs/006`, migraciones `1730000010000_*` | **Raúl** | Solo él las toca |
-| `backend/src/sync/**`, `backend/src/templates/**`, `shared/src/**`, `frontend/src/lib/**`, `specs/002`, `specs/003`, migraciones `1730000011000_*` | **Daniel** | Solo él las toca |
+| `backend/src/sync/**`, `backend/src/templates/**`, `shared/src/**`, `frontend/src/lib/**`, `specs/002`, `specs/003`, `plans/002-*`, `plans/003-*`, `tasks/003-*` | **Daniel** | Solo él las toca |
 | `test-plan.md`, `README.md` | Compartido | Cada uno edita **solo sus filas**; el mapeo §12 del spec maestro se actualiza al final |
 | `frontend/e2e/stack.mjs` | Nadie | No tocar |
 | `package.json` / lockfile | Solo Raúl (NFR-07) | Avisar el día que lo mergee para correr `npm ci` |
+
+> No hay migraciones nuevas en ninguno de los dos tracks: 006 sólo agrega un índice (`audit_log`), 003 es ciclo documental.
 
 ## 5. Flujo y acuerdo
 
