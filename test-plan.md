@@ -1,6 +1,6 @@
 # TEST PLAN — Plan de pruebas de validación
 
-**Versión:** 1.0.6 · **Fecha:** 2026-09-14 · actualizado 2026-10-14 · **Autor:** Raúl González (validación) · **Relacionado:** spec maestro §5–6, constitución Artículos III/IV/VII
+**Versión:** 1.0.10 · **Fecha:** 2026-09-14 · actualizado 2026-10-14 · **Autor:** Raúl González (validación) · **Relacionado:** spec maestro §5–6, constitución Artículos III/IV/VII
 **Evidencia APT:** "Plan de pruebas de validación" (informe §6) y soporte de la competencia "Realizar pruebas de certificación de productos y procesos".
 
 ## 1. Principio rector
@@ -35,7 +35,7 @@ verde.
 | FR-020 | Batch con dependencias (inspección + respuestas + hallazgo + foto) sube en orden | Unit + Integración | `backend/test/sync.spec.ts` (`batchOrder` y orden de aplicación) | 🟢 verde |
 | FR-021, NFR-04 | Reenviar el mismo batch 3 veces → contar filas: cero duplicados | Integración + **caos 2** | `e2e-caos-sync.spec.ts` → "reenviar el mismo lote 3 veces no duplica filas" (`records_unchanged`) | 🟢 verde |
 | FR-022 | Fallar red a mitad de subida → backoff observado (1s,2s,4s…), sin intervención | **caos 1** | `e2e-caos-sync.spec.ts` → "al cortar el envío y reconectar…" (`context.route` aborta 2 lotes) | 🟢 verde |
-| FR-023 | Editar misma inspección en 2 contextos offline → LWW aplica + CONFLICT_RECORD con ambas versiones | Integración + **caos 3** | `e2e-caos-integridad.spec.ts` → "dos dispositivos offline editan el mismo registro" | 🟢 verde |
+| FR-023 | Editar misma inspección en 2 contextos offline → LWW aplica + CONFLICT_RECORD con ambas versiones; visible a supervisor/tenant_admin y aislado por tenant | Integración + **caos 3** | `backend/test/conflicts.spec.ts` (roles/RLS) + `e2e-caos-integridad.spec.ts` → "dos dispositivos offline editan el mismo registro" | 🟢 verde |
 | FR-024 | Tras sync: SYNC_LOG completo y `synced_at - captured_at` registrado | Integración | `backend/test/sync.spec.ts` + aserción de `sync_log` en el E2E de FR-016 | 🟢 verde |
 | FR-025, NFR-05 | JWT tenant A intenta batch con `tenant_id` B → 4xx + AUDIT_LOG de incidente | Integración + **caos 7** | `e2e-caos-integridad.spec.ts` → "JWT del tenant A con payload del tenant B" | 🟢 verde |
 | FR-002, NFR-05 | Usuario tenant A consulta todos los endpoints de lectura → jamás aparece dato B (fixture B sembrada) | Integración (RLS, Testcontainers) | `backend/test/rls.spec.ts` | 🟢 verde |
@@ -76,17 +76,16 @@ verde.
 **Volumen de pruebas en la corrida de referencia:**
 ```
 E2E + caos (Playwright, nightly)          17 tests
-Integración backend (Vitest + Testcontainers) 181 tests
+Integración backend (Vitest + Testcontainers) 184 tests
 Unidad frontend (Vitest)                      98 tests
 Unidad shared (Vitest)                        77 tests
                                            ───────────────
-                                           373 tests
+                                           376 tests
 ```
 
-> El criterio de salida de Fase 2 (§8) pide "matriz §3 ≥ 90% verde". Al declarar
-> sin redondear los huecos reales (NFR-07 🟢, FR-041 autor y FR-040/043 ≤60 s 🟡,
-> FR-042 CSV y NFR-02/100-fotos ⚪) el techo alcanzable **dentro de este harness**
-> queda por debajo del 90%: no se maquilla la cifra a favor.
+> El estado de esta base es 33/37 = 89,2 %. Al cerrar FR-041 (🟡) y FR-042 (⚪)
+> en el PR #123, la matriz pasa a 35/37 = 94,6 % sin alterar ni ocultar las filas
+> que siguen dependiendo de medición en vivo (FR-040/043) o tooling externo (NFR-02/100-fotos).
 
 ## 4. Pruebas de caos offline-first (protocolo)
 
@@ -189,6 +188,7 @@ referencia: **17/17 E2E en verde**. Informe por módulo en
 
 | Versión | Fecha | Cambio | Autor |
 | :--- | :--- | :--- | :--- |
+| 1.0.10 | 2026-10-14 | **TSK-AUTH-008 / issue #128 resuelto**: FR-023 acredita acceso a conflictos de `supervisor`/`tenant_admin`, denegación a `field_worker`/`platform_admin` y aislamiento RLS en `backend/test/conflicts.spec.ts`; backend actualizado a 184 tests, total 376 con 17 E2E | Daniel Ávila |
 | 1.0.6 | 2026-10-14 | Cobertura del módulo **001** (autenticación y tenancy): filas **FR-001**, **FR-003**, **FR-004** y **FR-006** en la matriz §3 con evidencia de `backend/test/auth.spec.ts` (login/JWT, rotación y reuso del refresh, bloqueo) y el caos 6 (`e2e-caos-sync.spec.ts`); FR-005 se detalla (por cuenta **y** por IP); recuento a 37 filas (refs #4) | Raúl González |
 | 1.0.5 | 2026-10-14 | **NFR-07 cerrado**: harness de rendimiento propio (`frontend/scripts/check-lighthouse.mjs` + workflow `lighthouse.yml`, patrón `check-pwa.mjs`) que mide el build en perfil móvil y exige Performance ≥ 80; se quita ExcelJS del chunk inicial (import profundo `@terreno/shared/xlsx/serializar`) y se difieren las pantallas pesadas; fila NFR-07 de la matriz §3 pasa a 🟢 (refs #9) | Raúl González (con IA) |
 | 1.0.4 | 2026-10-13 | Cobertura del módulo **006** (administración de plataforma): filas **FR-050** y **FR-051** (`admin`) en la matriz §3 con evidencia de `backend/test/admin.spec.ts` (16 tests); recuento actualizado a 33 filas y volumen de la corrida de referencia (backend 181, frontend 98, shared 77) (refs #9, #116) | Raúl González (con IA) |

@@ -2,12 +2,12 @@
 
 | | |
 | :--- | :--- |
-| **Versión** | 1.0.0 · **Fecha:** 2026-10-14 · **Autor:** Raúl González |
-| **Derivado de** | `specs/001-auth-tenancy/spec.md` (v1.0.0) · `specs/000-master/spec.md` §3.1, §4 |
+| **Versión** | 1.0.1 · **Fecha:** 2026-10-14 · **Autor:** Raúl González / Daniel Ávila |
+| **Derivado de** | `specs/001-auth-tenancy/spec.md` (v1.0.1) · `specs/000-master/spec.md` §3.1, §4 |
 | **Relacionado** | `data-model.md` §2.1/§4 · `test-plan.md` §3 · `adr/002` |
 | **Tareas** | `tasks/001-auth-tenancy/tasks.md` (TSK-AUTH-001 → 008) |
 
-> **Qué es este plan:** el *cómo* del primer módulo, que gobierna a todos los demás. El código ya existía cuando este spec se completó (F2); el plan documenta las decisiones reales, no un diseño hipotético, y anota el trabajo diferido (TSK-AUTH-006/007/008) para que el cierre no oculte huecos.
+> **Qué es este plan:** el *cómo* del primer módulo, que gobierna a todos los demás. El código ya existía cuando este spec se completó (F2); el plan documenta las decisiones reales, no un diseño hipotético, y anota el trabajo diferido (TSK-AUTH-006/007) para que el cierre no oculte huecos.
 
 ## 1. Objetivo
 
@@ -25,7 +25,9 @@ TSK-WS-002  esquema de tenancy: `tenant`/`app_user` + RLS (`tc_app`) + seed A/B 
             ├─ refresh con rotación + reuso → CSRF double-submit (FR-004, D5)
             └─ matriz de roles en los controladores (FR-003)
           └──► TSK-AUTH-001…005  ciclo documental de este PR (spec, plan, filas §3, verificación, D5)
-                 └──► TSK-AUTH-006/007/008  trabajo diferido (ver §5)
+                 └──► TSK-AUTH-006/007  trabajo diferido (ver §5)
+
+TSK-AUTH-008 (hallazgo cross-módulo de sync) quedó resuelto en la revisión 1.0.1; ver §4.
 ```
 
 ## 3. Decisiones técnicas
@@ -47,14 +49,15 @@ TSK-WS-002  esquema de tenancy: `tenant`/`app_user` + RLS (`tc_app`) + seed A/B 
 | Fuerza bruta | Rate-limit cuenta+IP (FR-005) |
 | Multi-instancia rompe el rate-limit por IP | TSK-AUTH-007 (store compartido, ADR-002) — **relevante al desplegar (A5)** |
 | Divergencia entre D5 ("solo memoria") y el `sessionStorage` real | TSK-AUTH-006 (alinear) |
-| `CONFLICT_VIEWER_ROLES` usa roles no canónicos → `tenant_admin` no ve conflictos (FR-003, FR-023) | TSK-AUTH-008 (issue #128, módulo 003/sync) |
+| `CONFLICT_VIEWER_ROLES` usaba roles no canónicos → `tenant_admin` no veía conflictos (FR-003, FR-023) | **Resuelto**: TSK-AUTH-008, issue #128; `supervisor`/`tenant_admin` permitidos, roles restantes denegados y tenant aislado por RLS |
 | Enumeración de cuentas | Respuesta `401` uniforme |
 
 ## 5. Trabajo diferido (no bloquea la demo)
 
 - **TSK-AUTH-006** — Alinear el almacenamiento del access token con D5: hoy la PWA lo guarda en `sessionStorage` (`tc_access_token`); D5 dice "solo en memoria". Decidir entre (a) mover a memoria de módulo con re-login en recarga, o (b) enmendar D5 para reconocer `sessionStorage` como "memoria de pestaña". (Toca `frontend/src/**`, zona de Daniel en este corte.)
 - **TSK-AUTH-007** — Store compartido (p. ej. Redis) para el rate-limit por IP cuando el backend corra en más de una réplica (ADR-002, A5).
-- **TSK-AUTH-008** — Alinear `CONFLICT_VIEWER_ROLES` (módulo 003/sync) con los roles canónicos: hoy `{supervisor, admin, admin_plataforma}` deja fuera a `tenant_admin`, que sí puede ver conflictos según la matriz §3 del spec 001 (issue #128). Zona de Daniel; incluye su prueba de rol (`200`/`403`).
+
+TSK-AUTH-008 (issue #128) se cerró en la revisión 1.0.1 de este plan. Quedan diferidos únicamente TSK-AUTH-006/007.
 
 ## 6. Referencias
 
@@ -63,3 +66,9 @@ TSK-WS-002  esquema de tenancy: `tenant`/`app_user` + RLS (`tc_app`) + seed A/B 
 - `backend/src/auth/**`, `backend/src/db/db.service.ts`, `backend/db/seed.ts`
 - `specs/006-admin-plataforma/spec.md` · `adr/002`
 - **Módulos que consumen 001:** 002 (captura offline), 003 (sync), 004 (dominio), 005 (reportes), 006 (admin) — todos dependen del claim `tenant_id`, la matriz de roles y el aislamiento RLS.
+
+## Control de cambios
+
+| Versión | Fecha | Cambio | Autor |
+| :--- | :--- | :--- | :--- |
+| 1.0.1 | 2026-10-14 | TSK-AUTH-008 resuelto en el módulo 003; deja de figurar como trabajo diferido | Daniel Ávila |

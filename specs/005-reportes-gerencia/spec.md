@@ -3,7 +3,7 @@
 | | |
 | :--- | :--- |
 | **Estado** | COMPLETO (ciclo del módulo, F2 · 2026-10-13) |
-| **Versión** | 0.2.0 |
+| **Versión** | 0.2.1 |
 | **Autor** | Daniel Ávila |
 | **Padre** | specs/000-master/spec.md |
 | **Depende de** | 003 (datos sincronizados + `SYNC_LOG`), 004 (dominio) |
@@ -48,7 +48,7 @@ Todos bajo `/api/v1`, con Bearer JWT y roles `supervisor`/`tenant_admin` (`field
 | `sites` | GET | Faenas del tenant + nombre del tenant (bootstrapea el filtro y la captura offline) |
 | `dashboard/inspections/:id/export` | GET | FR-042/FR-044: `.xlsx` rellenado + hoja de evidencias |
 | `dashboard/inspections/export-lote` | POST | FR-045/FR-046: ZIP del período + manifiesto (filtro en el body) |
-| `conflicts` | GET | Registro LWW visible al supervisor (FR-023 consume aquí) |
+| `conflicts` | GET | Registro LWW visible al `supervisor` y `tenant_admin` de su tenant (FR-023 consume aquí; RLS limita el tenant) |
 
 ### 3.1 Validación de filtros
 
@@ -99,6 +99,7 @@ Idea del equipo registrada como visión, sin comprometer el alcance V1 (spec mae
 
 | Versión | Fecha | Cambio | Autor |
 | :--- | :--- | :--- | :--- |
+| 0.2.1 | 2026-10-14 | Precisa el contrato de `GET /conflicts`: supervisor y `tenant_admin` del tenant, con aislamiento RLS (TSK-AUTH-008, issue #128) | Daniel Ávila |
 | 0.2.0 | 2026-10-13 | **Spec completado (F2).** Documenta el estado real de FR-040…043 y NFR-03: métricas, contratos del dashboard, validación única de filtros, métrica de latencia (media+p95) y export (CSV cliente + `.xlsx` servidor). Registra FR-041 autor y FR-043 ≤60 s como 🟡 (parcial / medido en vivo). Apunta al plan técnico | Daniel Ávila |
 | 0.1.1 | 2026-09-24 | Se documenta "resumen ejecutivo generado por IA" como evolución post-V1 (fuera de alcance, decisión del equipo) | Raúl González (con IA) |
 | 0.1.0 | 2026-09-14 | Esqueleto inicial desde spec maestro v1.0.0 | Daniel Ávila (con IA) |

@@ -1,7 +1,7 @@
 # TASKS — Módulo 001: Autenticación y tenancy
 
-**Versión:** 1.0.0 · **Fecha:** 2026-10-14 · **Autor:** Raúl González
-**Padre:** `plans/001-auth-tenancy/plan.md` · **Spec de referencia:** `specs/001-auth-tenancy/spec.md` (v1.0.0)
+**Versión:** 1.0.1 · **Fecha:** 2026-10-14 · **Autor:** Raúl González / Daniel Ávila
+**Padre:** `plans/001-auth-tenancy/plan.md` · **Spec de referencia:** `specs/001-auth-tenancy/spec.md` (v1.0.1)
 **Brief:** `plans/cierre-f2-f3/raul-tenancy-001-deploy.md` (Track A, Tarea 1)
 
 > **Regla (Artículo II):** cada task referencia al menos un ID de requisito; cada commit referencia al menos un task. El **código** de este módulo ya existía en `main` (TSK-WS-002/003 de la iteración 0); el trabajo de este ciclo es **cerrar el ciclo documental** y verificar que FR-001…006 no tengan huecos de prueba.
@@ -33,6 +33,12 @@
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | TSK-AUTH-006 | **Alinear el almacenamiento del access token con D5**: hoy la PWA usa `sessionStorage` (`tc_access_token`); D5 dice "solo en memoria" | FR-001, D5 | TSK-WS-003 | El token vive sólo en memoria de módulo (re-login en recarga) **o** D5 se enmienda reconociendo `sessionStorage` como "memoria de pestaña" | ⬜ Pendiente (diferido) |
 | TSK-AUTH-007 | **Store compartido para el rate-limit por IP** (multi-réplica) | FR-005 | TSK-WS-003 | Con ≥2 réplicas, 5 fallos desde una IP siguen bloqueando 15 min (p. ej. Redis) | ⬜ Pendiente (lo levanta el despliegue, Tarea 3 del brief) |
-| TSK-AUTH-008 | **Alinear `CONFLICT_VIEWER_ROLES` con los roles canónicos** (módulo 003/sync): hoy usa `{supervisor, admin, admin_plataforma}` y deja fuera a `tenant_admin`, que sí puede ver conflictos según la matriz §3 del spec 001 (issue **#128**) | FR-003, FR-023 | TSK-WS-003 | Los roles de negocio del sync coinciden con la matriz (`supervisor` + `tenant_admin`); prueba de rol (`200`/`403`) | ⬜ Pendiente (**zona Daniel** · módulo 003, issue #128) |
+| TSK-AUTH-008 | **Alinear `CONFLICT_VIEWER_ROLES` con los roles canónicos** (módulo 003/sync): permitir `supervisor`/`tenant_admin`, excluir `field_worker`/`platform_admin`, conservar RLS tenant (issue **#128**) | FR-003, FR-023 | TSK-WS-003 | `backend/test/conflicts.spec.ts` cubre `tenant_admin` 200 con conflictos propios, sin filtración del tenant B; `field_worker`/`platform_admin` 403 | ✅ Hecho (PR #129) |
 
-> Los FR-001…006 quedan ✅ con estas deudas **declaradas**, no ocultas: TSK-AUTH-006/007 son de este módulo; **TSK-AUTH-008** es un hallazgo cross-módulo (sync) detectado al verificar la matriz §3 contra el código, registrado en el issue #128.
+> Los FR-001…006 quedan ✅ con las deudas de seguridad diferidas **TSK-AUTH-006/007** declaradas. El hallazgo cross-módulo **TSK-AUTH-008** (issue #128) ya quedó corregido y cubierto.
+
+## Control de cambios
+
+| Versión | Fecha | Cambio | Autor |
+| :--- | :--- | :--- | :--- |
+| 1.0.1 | 2026-10-14 | TSK-AUTH-008 implementado y probado en el módulo 003; quedan diferidos TSK-AUTH-006/007 | Daniel Ávila |
