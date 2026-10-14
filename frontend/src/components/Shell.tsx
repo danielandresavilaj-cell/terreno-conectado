@@ -25,7 +25,6 @@ import { BadgeSync } from './Badges'
 import { CountUp } from './CountUp'
 import { Boton } from './ui'
 import { useEstado, type Pantalla } from '../lib/store'
-import { CUOTA } from '../lib/seed'
 import { EASE } from '../lib/motion'
 import type { Rol } from '../lib/types'
 
@@ -116,7 +115,7 @@ const NAV: Array<{ id: Pantalla; label: string; roles: Rol[]; icono: ReactNode }
 ]
 
 export function Shell({ children }: { children: ReactNode }) {
-  const { usuario, salir, pantalla, ir, online, toggleOnline, pendientes, cuotaAviso, setOnline, sincronizarAhora } =
+  const { usuario, salir, pantalla, ir, online, toggleOnline, pendientes, cuotaAviso, cuota, setOnline, sincronizarAhora } =
     useEstado()
   const reducir = useReducedMotion()
   const [verAviso, setVerAviso] = useState(false)
@@ -244,16 +243,16 @@ export function Shell({ children }: { children: ReactNode }) {
               <span className="h-2 w-2 rounded-full bg-sev-media mt-1.5 shrink-0" />
               <div className="min-w-0 flex-1">
                 <p className="text-[13px] font-semibold tracking-[-0.01em]">
-                  Almacenamiento local al {CUOTA.usadaPct}%
+                  Almacenamiento local al {cuota.usadaPct ?? 0}%
                 </p>
                 <p className="mt-1 text-[12px] text-ink-2 leading-relaxed">
-                  {CUOTA.fotosPendientes} fotos en cola. Se priorizarán las que ya pueden
+                  {cuota.fotosPendientes} fotos en cola. Se priorizarán las que ya pueden
                   subirse (FR-017).
                 </p>
                 <div className="meter mt-3 h-1.5 rounded-full bg-s3 overflow-hidden">
                   <span
                     className="block h-full rounded-full bg-sev-media"
-                    style={{ transform: `scaleX(${CUOTA.usadaPct / 100})` }}
+                    style={{ transform: `scaleX(${(cuota.usadaPct ?? 0) / 100})` }}
                   />
                 </div>
                 <div className="mt-3 flex gap-2">
