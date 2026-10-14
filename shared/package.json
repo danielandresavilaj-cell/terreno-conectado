@@ -17,6 +17,12 @@
       "import": "./src/xlsx/index.ts",
       "require": "./dist/xlsx/index.js",
       "default": "./src/xlsx/index.ts"
+    },
+    "./xlsx/serializar": {
+      "types": "./src/xlsx/serializar.ts",
+      "import": "./src/xlsx/serializar.ts",
+      "require": "./dist/xlsx/serializar.js",
+      "default": "./src/xlsx/serializar.ts"
     }
   },
   "scripts": {
