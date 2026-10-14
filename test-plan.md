@@ -59,9 +59,11 @@ verde.
 | FR-047 + FR-051 | Import confirmado y export por lote registrados en el audit log (autor, timestamp, tenant) | Integración | `backend/test/import-wizard.spec.ts`, `inspection-export-lote.spec.ts` | 🟢 verde |
 | FR-048 | Flag `ai` OFF: el mapeo propuesto por IA no aplica cambios sin la confirmación del `tenant_admin` | Integración | `backend/test/import-wizard.spec.ts`, `templates.http.spec.ts` | 🟢 verde |
 | FR-049 | Revisión publicada inmutable: ítems ya inspeccionados no se modifican; el cambio exige revisión nueva | Integración | `backend/test/templates.http.spec.ts` (409 al editar publicado) | 🟢 verde |
+| FR-050 | `platform_admin` crea tenant, le asigna el `tenant_admin` inicial y lo suspende/reactiva; un rol distinto recibe 403 en toda la consola | Integración | `backend/test/admin.spec.ts` | 🟢 verde |
+| FR-051 (`admin`) | Cada mutación admin deja exactamente una fila en `audit_log` con `actor_id` y `tenant_id` correctos; `tc_app` no puede UPDATE/DELETE y la API no expone rutas de modificación | Integración | `backend/test/admin.spec.ts` | 🟢 verde |
 
-**Recuento:** 31 filas · 🟢 27 (87,1%) · 🟡 2 (6,5%) · 🔴 0 ·
-⚪ 2 (6,5%, automatizable sólo con tooling externo o sin prueba todavía).
+**Recuento:** 33 filas · 🟢 29 (87,9%) · 🟡 2 (6,1%) · 🔴 0 ·
+⚪ 2 (6,1%, automatizable sólo con tooling externo o sin prueba todavía).
 
 > La fila FR-042 (CSV del cliente) y el filtro por autor de FR-041 se declaran
 > como huecos reales, no como verdes: el primero está implementado pero sin
@@ -70,10 +72,11 @@ verde.
 **Volumen de pruebas en la corrida de referencia:**
 ```
 E2E + caos (Playwright, nightly)          17 tests
-Integración backend (Vitest + Testcontainers) 159 tests
-Unidad shared (Vitest)                     69 tests
+Integración backend (Vitest + Testcontainers) 181 tests
+Unidad frontend (Vitest)                      98 tests
+Unidad shared (Vitest)                        77 tests
                                            ───────────────
-                                           245 tests
+                                           373 tests
 ```
 
 > El criterio de salida de Fase 2 (§8) pide "matriz §3 ≥ 90% verde". Al declarar
@@ -183,6 +186,7 @@ referencia: **17/17 E2E en verde**. Informe por módulo en
 | Versión | Fecha | Cambio | Autor |
 | :--- | :--- | :--- | :--- |
 | 1.0.5 | 2026-10-14 | **NFR-07 cerrado**: harness de rendimiento propio (`frontend/scripts/check-lighthouse.mjs` + workflow `lighthouse.yml`, patrón `check-pwa.mjs`) que mide el build en perfil móvil y exige Performance ≥ 80; se quita ExcelJS del chunk inicial (import profundo `@terreno/shared/xlsx/serializar`) y se difieren las pantallas pesadas; fila NFR-07 de la matriz §3 pasa a 🟢 (refs #9) | Raúl González (con IA) |
+| 1.0.4 | 2026-10-13 | Cobertura del módulo **006** (administración de plataforma): filas **FR-050** y **FR-051** (`admin`) en la matriz §3 con evidencia de `backend/test/admin.spec.ts` (16 tests); recuento actualizado a 33 filas y volumen de la corrida de referencia (backend 181, frontend 98, shared 77) (refs #9, #116) | Raúl González (con IA) |
 | 1.0.0 | 2026-09-14 | Plan inicial derivado del spec maestro v1.0.0 | Raúl González (con IA) |
 | 1.0.1 | 2026-10-08 | Cobertura del módulo 007: matriz §3 (FR-007/008/009, 018/019, 027/028/029, 036/037/038/039, 044–049) y caos 8–11 (TSK-FORM-011) | Raúl González (con IA) |
 | 1.0.3 | 2026-10-13 | **Evidencia de validación ejecutada** (closes #10, #12): harness E2E con `@playwright/test` (perfil móvil, `frontend/e2e/` + `playwright.config.ts`, workflow nightly `e2e.yml` que **no** bloquea PRs); matriz §3 reescrita con la evidencia real por fila (26/29 en verde = 89,7%, techo 96,6% dentro del harness); caos **1–7 automatizados y en verde** (el de red-team cerró #12 con seis defectos de la app, dos de ellos impedían el arranque: `Transaction committed too early` en una transacción Dexie y el `template_item_id` no-UUID de la semilla que rompía el primer sync) | Raúl González (con IA) |
