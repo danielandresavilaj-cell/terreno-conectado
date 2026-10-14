@@ -1,6 +1,6 @@
 # TEST PLAN — Plan de pruebas de validación
 
-**Versión:** 1.0.4 · **Fecha:** 2026-09-14 · actualizado 2026-10-13 · **Autor:** Raúl González (validación) · **Relacionado:** spec maestro §5–6, constitución Artículos III/IV/VII
+**Versión:** 1.0.5 · **Fecha:** 2026-09-14 · actualizado 2026-10-14 · **Autor:** Raúl González (validación) · **Relacionado:** spec maestro §5–6, constitución Artículos III/IV/VII
 **Evidencia APT:** "Plan de pruebas de validación" (informe §6) y soporte de la competencia "Realizar pruebas de certificación de productos y procesos".
 
 ## 1. Principio rector
@@ -21,7 +21,7 @@ Cada promesa del spec maestro tiene una prueba que la verifica (NFR-12). Las pru
 
 ## 3. Matriz de cobertura requisito → prueba
 
-Estado de la evidencia a 2026-10-13, después del harness E2E del issue #10.
+Estado de la evidencia a 2026-10-14, tras el harness E2E del issue #10 y el cierre de NFR-07.
 Cada fila declara **dónde** vive la prueba; "verde" significa que la prueba
 existe y pasó en la corrida de referencia (local con el stack completo, y el
 nightly en CI). Las filas sin automatismo quedan marcadas como tales, no como
@@ -46,7 +46,7 @@ verde.
 | FR-042 | Export de la vista de hallazgos a CSV (columnas y escapado) | — (implementado en `frontend/src/screens/Dashboard.tsx`) | `frontend/src/screens/Dashboard.tsx:284-302` | ⚪ sin prueba automatizada: el CSV del cliente está implementado; los documentos `.xlsx`/ZIP sí están cubiertos por FR-019/044 y FR-045/046 |
 | FR-052, NFR-09 | `/health` responde 200 con estado de DB (503 con DB caída); uptime monitor lo consume; logs JSON con `request_id` y `tenant_id` en cada línea | Integración + manual | `backend/test/health.spec.ts` + `backend/test/observability.spec.ts` | 🟢 verde |
 | NFR-02 | Script: 200 registros + 100 fotos en offline simulado de 72 h (reloj adelantado) → sync completo sin pérdida | **caos 5** | `e2e-caos-sync.spec.ts` → "200 registros pendientes suben íntegros y sin duplicar" | 🟢 verde (200 registros; las 100 fotos se comprueban en el FR-012 unitario, no en el mismo escenario) |
-| NFR-07 | Lighthouse CI mobile ≥ 80; interacción de formulario < 200 ms | Rendimiento | Lighthouse CI + k6 — **no implementado** (herramienta externa al harness) | 🔴 pendiente |
+| NFR-07 | Lighthouse CI mobile Performance ≥ 80; interacción de formulario < 200 ms | Rendimiento | `frontend/scripts/check-lighthouse.mjs` (Chrome, perfil móvil, Slow 4G; **Performance 85–89**) + workflow `lighthouse.yml` (nightly/manual). La interacción se aproxima con el Total Blocking Time del mismo reporte (~40–50 ms) | 🟢 verde |
 | FR-007, NFR-05 | Plantillas/revisiones de tenant A jamás visibles para B (fixture B sembrada) | Integración (RLS, Testcontainers) | `backend/test/rls.spec.ts`, `backend/test/templates.delta.spec.ts` | 🟢 verde |
 | FR-008/009 | Asignación faena+rol: el worker solo ve revisiones publicadas asignadas a su faena y rol | Integración | `backend/test/templates.delta.spec.ts` | 🟢 verde |
 | FR-018 | Plantillas en caché local → captura de formulario 100% sin red (Artículo I) | E2E | `e2e-captura-offline.spec.ts` → "con la red apagada tras un arranque con señal, la plantilla se renderiza" | 🟢 verde |
@@ -62,7 +62,7 @@ verde.
 | FR-050 | `platform_admin` crea tenant, le asigna el `tenant_admin` inicial y lo suspende/reactiva; un rol distinto recibe 403 en toda la consola | Integración | `backend/test/admin.spec.ts` | 🟢 verde |
 | FR-051 (`admin`) | Cada mutación admin deja exactamente una fila en `audit_log` con `actor_id` y `tenant_id` correctos; `tc_app` no puede UPDATE/DELETE y la API no expone rutas de modificación | Integración | `backend/test/admin.spec.ts` | 🟢 verde |
 
-**Recuento:** 33 filas · 🟢 28 (84,8%) · 🟡 2 (6,1%) · 🔴 1 (3,0%) ·
+**Recuento:** 33 filas · 🟢 29 (87,9%) · 🟡 2 (6,1%) · 🔴 0 ·
 ⚪ 2 (6,1%, automatizable sólo con tooling externo o sin prueba todavía).
 
 > La fila FR-042 (CSV del cliente) y el filtro por autor de FR-041 se declaran
@@ -80,7 +80,7 @@ Unidad shared (Vitest)                        77 tests
 ```
 
 > El criterio de salida de Fase 2 (§8) pide "matriz §3 ≥ 90% verde". Al declarar
-> sin redondear los huecos reales (NFR-07 🔴, FR-041 autor y FR-040/043 ≤60 s 🟡,
+> sin redondear los huecos reales (NFR-07 🟢, FR-041 autor y FR-040/043 ≤60 s 🟡,
 > FR-042 CSV y NFR-02/100-fotos ⚪) el techo alcanzable **dentro de este harness**
 > queda por debajo del 90%: no se maquilla la cifra a favor.
 
@@ -185,6 +185,7 @@ referencia: **17/17 E2E en verde**. Informe por módulo en
 
 | Versión | Fecha | Cambio | Autor |
 | :--- | :--- | :--- | :--- |
+| 1.0.5 | 2026-10-14 | **NFR-07 cerrado**: harness de rendimiento propio (`frontend/scripts/check-lighthouse.mjs` + workflow `lighthouse.yml`, patrón `check-pwa.mjs`) que mide el build en perfil móvil y exige Performance ≥ 80; se quita ExcelJS del chunk inicial (import profundo `@terreno/shared/xlsx/serializar`) y se difieren las pantallas pesadas; fila NFR-07 de la matriz §3 pasa a 🟢 (refs #9) | Raúl González (con IA) |
 | 1.0.4 | 2026-10-13 | Cobertura del módulo **006** (administración de plataforma): filas **FR-050** y **FR-051** (`admin`) en la matriz §3 con evidencia de `backend/test/admin.spec.ts` (16 tests); recuento actualizado a 33 filas y volumen de la corrida de referencia (backend 181, frontend 98, shared 77) (refs #9, #116) | Raúl González (con IA) |
 | 1.0.0 | 2026-09-14 | Plan inicial derivado del spec maestro v1.0.0 | Raúl González (con IA) |
 | 1.0.1 | 2026-10-08 | Cobertura del módulo 007: matriz §3 (FR-007/008/009, 018/019, 027/028/029, 036/037/038/039, 044–049) y caos 8–11 (TSK-FORM-011) | Raúl González (con IA) |

@@ -9,10 +9,22 @@
     <title>Terreno Conectado — Datos al día donde no hay señal</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <!-- NFR-07: la hoja de fuentes NO debe bloquear el primer pintado. Se carga
+         con `media="print"` y se promueve a `all` al terminar: el texto pinta ya
+         con la tipografía de respaldo (display=swap) y el service worker la deja
+         en caché para las próximas visitas sin red. -->
     <link
       href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap"
       rel="stylesheet"
+      media="print"
+      onload="this.media='all'"
     />
+    <noscript>
+      <link
+        rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap"
+      />
+    </noscript>
   </head>
   <body>
     <div id="root"></div>

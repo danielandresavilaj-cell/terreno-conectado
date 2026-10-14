@@ -14,7 +14,12 @@
  */
 
 import type { CampoValor, TemplateDefinition, TemplateItem } from '@terreno/shared'
-import { campoDesdeColumnas } from '@terreno/shared/xlsx'
+/* NFR-07: import profundo a propósito. El barrel `@terreno/shared/xlsx`
+ * reexporta `escolta.ts`, que arrastra ExcelJS (~940 kB). `campoDesdeColumnas`
+ * vive en `serializar.ts`, que NO depende de ExcelJS: entrando por el subpath
+ * el chunk inicial no baja la librería entera antes de pintar (ver el primer
+ * render móvil medido con Lighthouse · `frontend/scripts/check-lighthouse.mjs`). */
+import { campoDesdeColumnas } from '@terreno/shared/xlsx/serializar'
 import type { ResponseRow, ResponseValor } from './db'
 
 /** Ítems planos de una definición, en orden de render (secciones → ítems). */

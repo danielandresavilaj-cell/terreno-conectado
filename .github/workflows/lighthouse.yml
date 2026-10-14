@@ -1,0 +1,67 @@
+name: Performance (Lighthouse)
+
+# NFR-07 — mide el build del frontend con Lighthouse en perfil móvil y exige
+# Performance ≥ 80 (spec maestro §5, test-plan §2/§3).
+#
+# Deliberadamente NO corre en `pull_request`, igual que el E2E: levanta Chrome y
+# compila, un rojo acá no debe bloquear un PR cuyo CI normal ya está verde. La
+# puerta de esta capa es el nightly más el disparo manual antes de la demo
+# (`workflow_dispatch`), que es el "pre-deploy" que describe el test-plan §2.
+on:
+  schedule:
+    # 03:47 UTC. Minuto apartado de los múltiplos de 15 (y de los :17 del E2E)
+    # para no chocar con la ventana de mayor carga de Actions.
+    - cron: '47 3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: lighthouse-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lighthouse:
+    name: Lighthouse móvil (Performance ≥ 80)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      # El bundle del frontend incrusta en tiempo de BUILD la URL de la API y la
+      # password demo (`frontend/src/lib/seed.ts` lanza si falta): mismo secreto
+      # que usa el E2E (Constitución Art. IX, nunca en el fuente).
+      - name: Build del frontend (config del stack)
+        env:
+          VITE_API_URL: http://127.0.0.1:3310/api/v1
+          VITE_DEMO_PASSWORD: ${{ secrets.E2E_DEMO_PASSWORD }}
+        run: npm run build
+
+      - name: Localizar Chrome
+        run: |
+          if command -v google-chrome >/dev/null 2>&1; then
+            echo "CHROME_PATH=$(command -v google-chrome)" >> "$GITHUB_ENV"
+          elif command -v google-chrome-stable >/dev/null 2>&1; then
+            echo "CHROME_PATH=$(command -v google-chrome-stable)" >> "$GITHUB_ENV"
+          fi
+          "${CHROME_PATH:-google-chrome}" --version || true
+
+      - name: Lighthouse móvil (NFR-07)
+        run: npm run perf
+
+      - name: Publicar reporte
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lighthouse-report
+          path: frontend/lighthouse-report.json
+          retention-days: 14
+          if-no-files-found: ignore

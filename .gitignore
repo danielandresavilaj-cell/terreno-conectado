@@ -28,6 +28,9 @@ coverage/
 playwright-report/
 test-results/
 
+# Reporte crudo de Lighthouse (NFR-07): se publica como artefacto en CI
+frontend/lighthouse-report.json
+
 # Harness E2E (issue #10): `stack.json` con las URLs de la corrida (incluye
 # la connection string de Postgres), los resultados y el volumen de sync.
 frontend/e2e/.stack/

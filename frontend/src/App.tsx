@@ -1,15 +1,23 @@
-import { useEffect } from 'react'
+import { Suspense, lazy, useEffect } from 'react'
 import { motion } from 'motion/react'
 import { Shell } from './components/Shell'
 import { Login } from './screens/Login'
-import { Captura } from './screens/Captura'
-import { Bitacora } from './screens/Bitacora'
-import { Cola } from './screens/Cola'
-import { Dashboard } from './screens/Dashboard'
-import { Conflictos } from './screens/Conflictos'
-import { Importar } from './screens/Importar'
-import { Plantillas } from './screens/Plantillas'
 import { ProveedorEstado, useEstado, type Pantalla } from './lib/store'
+
+/* NFR-07 (rendimiento móvil): el chunk inicial lleva SÓLO el Login. Las
+ * pantallas pesadas se cargan aparte porque ExcelJS entra al grafo por
+ * `Importar` (`@terreno/shared/xlsx`) y por la exportación de `Captura`
+ * (`lib/exportar.ts`): con imports estáticos, un Android gama media bajaba
+ * ~1,5 MB de JavaScript antes de pintar el primer texto. Con `lazy`, la
+ * primera visita a una pantalla pesada baja su chunk (y muestra el mismo
+ * arranque mínimo que la restauración de sesión mientras llega). */
+const Captura = lazy(() => import('./screens/Captura').then((m) => ({ default: m.Captura })))
+const Bitacora = lazy(() => import('./screens/Bitacora').then((m) => ({ default: m.Bitacora })))
+const Cola = lazy(() => import('./screens/Cola').then((m) => ({ default: m.Cola })))
+const Dashboard = lazy(() => import('./screens/Dashboard').then((m) => ({ default: m.Dashboard })))
+const Conflictos = lazy(() => import('./screens/Conflictos').then((m) => ({ default: m.Conflictos })))
+const Importar = lazy(() => import('./screens/Importar').then((m) => ({ default: m.Importar })))
+const Plantillas = lazy(() => import('./screens/Plantillas').then((m) => ({ default: m.Plantillas })))
 
 /* Permisos por rol (FR-003: permisos crecientes).
  * Esta tabla es la traducción visual de la matriz rol→recurso del spec 001.
@@ -78,13 +86,27 @@ function Raiz() {
 
   return (
     <Shell>
-      {pantalla === 'captura' && <Captura />}
-      {pantalla === 'bitacora' && <Bitacora />}
-      {pantalla === 'cola' && <Cola />}
-      {pantalla === 'dashboard' && <Dashboard />}
-      {pantalla === 'conflictos' && <Conflictos />}
-      {pantalla === 'importar' && <Importar />}
-      {pantalla === 'plantillas' && <Plantillas />}
+      <Suspense fallback={<PantallaCargando />}>
+        {pantalla === 'captura' && <Captura />}
+        {pantalla === 'bitacora' && <Bitacora />}
+        {pantalla === 'cola' && <Cola />}
+        {pantalla === 'dashboard' && <Dashboard />}
+        {pantalla === 'conflictos' && <Conflictos />}
+        {pantalla === 'importar' && <Importar />}
+        {pantalla === 'plantillas' && <Plantillas />}
+      </Suspense>
     </Shell>
+  )
+}
+
+/** Fallback de `Suspense` mientras baja el chunk de una pantalla diferida. */
+function PantallaCargando() {
+  return (
+    <div className="py-16 text-center" role="status" aria-live="polite">
+      <div className="h-9 w-9 rounded-[10px] bg-beam grid place-items-center mx-auto">
+        <span className="text-s0 font-bold text-[17px] leading-none">TC</span>
+      </div>
+      <p className="label-inst mt-3">Cargando pantalla…</p>
+    </div>
   )
 }
