@@ -63,6 +63,8 @@ export interface InspectionRow {
   siteName: string
   answeredCount: number
   totalItems: number
+  /** FR-034: georreferencia opcional capturada en terreno. */
+  location?: { lat: number; lon: number } | null
 }
 
 export interface ResponseRow {
@@ -505,12 +507,17 @@ export async function descartarBorrador(): Promise<void> {
   )
 }
 
-export async function submitInspection(inspectionId: string): Promise<void> {
+export async function submitInspection(
+  inspectionId: string,
+  location?: { lat: number; lon: number } | null,
+): Promise<void> {
   const ins = await db.inspections.get(inspectionId)
   if (!ins) throw new Error('Borrador de inspección no encontrado')
   await db.inspections.update(inspectionId, {
     status: 'submitted',
     answeredCount: await db.responses.where('inspectionId').equals(inspectionId).count(),
+    ...(location !== undefined ? { location } : {}),
+    clientVersion: ins.clientVersion + 1,
   })
   await db.transaction('rw', [db.outbox, db.responses, db.attachments], async () => {
     await encolar(
@@ -824,6 +831,7 @@ async function payloadDe(o: OutboxRow): Promise<{
           template_version: r.templateVersion,
           executed_by: r.executedBy,
           status: r.status,
+          location: r.location ?? null,
         },
       }
     }
