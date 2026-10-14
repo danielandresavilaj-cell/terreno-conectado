@@ -32,6 +32,7 @@ verde.
 | FR-011/014, NFR-01 | Capturar en modo avión, cerrar/reabrir app, verificar persistencia IndexedDB | E2E | `e2e-captura-offline.spec.ts` → "captura sin red, recarga y el borrador conserva las respuestas" | 🟢 verde |
 | FR-012 | Foto de 8 MP → verificar dimensiones ≤1280 px y tamaño comprimido antes de encolar | Unit + E2E | `shared` (`compresor`) + `e2e-captura-offline.spec.ts` → "la foto de un ítem queda ≤1280 px" | 🟢 verde |
 | FR-016 | Desactivar red → encolar → reactivar: sync inicia sola sin clic | E2E | `e2e-captura-offline.spec.ts` → "reactivar la red drena la cola sin tocar el botón de sincronizar" | 🟢 verde |
+| FR-017 | Cuota local supera el 80% → aviso al trabajador y prioriza fotos ya sincronizables | Unit | `frontend/test/cuota.test.ts` (`estimarCuota`/`cuotaEsAlta`; `contadorFotosPendientes`; `sincronizables(true)` sube al frente sólo las fotos cuyo dueño no está en cola, sin romper el orden FR-020) | 🟢 verde |
 | FR-020 | Batch con dependencias (inspección + respuestas + hallazgo + foto) sube en orden | Unit + Integración | `backend/test/sync.spec.ts` (`batchOrder` y orden de aplicación) | 🟢 verde |
 | FR-021, NFR-04 | Reenviar el mismo batch 3 veces → contar filas: cero duplicados | Integración + **caos 2** | `e2e-caos-sync.spec.ts` → "reenviar el mismo lote 3 veces no duplica filas" (`records_unchanged`) | 🟢 verde |
 | FR-022 | Fallar red a mitad de subida → backoff observado (1s,2s,4s…), sin intervención | **caos 1** | `e2e-caos-sync.spec.ts` → "al cortar el envío y reconectar…" (`context.route` aborta 2 lotes) | 🟢 verde |
@@ -62,8 +63,8 @@ verde.
 | FR-050 | `platform_admin` crea tenant, le asigna el `tenant_admin` inicial y lo suspende/reactiva; un rol distinto recibe 403 en toda la consola | Integración | `backend/test/admin.spec.ts` | 🟢 verde |
 | FR-051 (`admin`) | Cada mutación admin deja exactamente una fila en `audit_log` con `actor_id` y `tenant_id` correctos; `tc_app` no puede UPDATE/DELETE y la API no expone rutas de modificación | Integración | `backend/test/admin.spec.ts` | 🟢 verde |
 
-**Recuento:** 33 filas · 🟢 29 (87,9%) · 🟡 2 (6,1%) · 🔴 0 ·
-⚪ 2 (6,1%, automatizable sólo con tooling externo o sin prueba todavía).
+**Recuento:** 34 filas · 🟢 30 (88,2%) · 🟡 2 (5,9%) · 🔴 0 ·
+⚪ 2 (5,9%, automatizable sólo con tooling externo o sin prueba todavía).
 
 > La fila FR-042 (CSV del cliente) y el filtro por autor de FR-041 se declaran
 > como huecos reales, no como verdes: el primero está implementado pero sin
@@ -73,10 +74,10 @@ verde.
 ```
 E2E + caos (Playwright, nightly)          17 tests
 Integración backend (Vitest + Testcontainers) 181 tests
-Unidad frontend (Vitest)                      98 tests
+Unidad frontend (Vitest)                     105 tests
 Unidad shared (Vitest)                        77 tests
                                            ───────────────
-                                           373 tests
+                                           380 tests
 ```
 
 > El criterio de salida de Fase 2 (§8) pide "matriz §3 ≥ 90% verde". Al declarar
@@ -185,6 +186,7 @@ referencia: **17/17 E2E en verde**. Informe por módulo en
 
 | Versión | Fecha | Cambio | Autor |
 | :--- | :--- | :--- | :--- |
+| 1.0.6 | 2026-10-14 | **FR-017 implementado** (dejó de ser simulado): cuota real vía `navigator.storage.estimate()` con aviso al 80% y priorización de fotos ya sincronizables; nueva fila FR-017 en la matriz §3 (🟢) y recuento a 34 filas · 🟢30/🟡2/⚪2; volumen de la corrida actualizado (frontend 105) (refs #5) | Daniel Ávila |
 | 1.0.5 | 2026-10-14 | **NFR-07 cerrado**: harness de rendimiento propio (`frontend/scripts/check-lighthouse.mjs` + workflow `lighthouse.yml`, patrón `check-pwa.mjs`) que mide el build en perfil móvil y exige Performance ≥ 80; se quita ExcelJS del chunk inicial (import profundo `@terreno/shared/xlsx/serializar`) y se difieren las pantallas pesadas; fila NFR-07 de la matriz §3 pasa a 🟢 (refs #9) | Raúl González (con IA) |
 | 1.0.4 | 2026-10-13 | Cobertura del módulo **006** (administración de plataforma): filas **FR-050** y **FR-051** (`admin`) en la matriz §3 con evidencia de `backend/test/admin.spec.ts` (16 tests); recuento actualizado a 33 filas y volumen de la corrida de referencia (backend 181, frontend 98, shared 77) (refs #9, #116) | Raúl González (con IA) |
 | 1.0.0 | 2026-09-14 | Plan inicial derivado del spec maestro v1.0.0 | Raúl González (con IA) |
