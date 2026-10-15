@@ -31,6 +31,7 @@ import {
   aplicarPurgaOriginales,
   borrarSesionCaché,
   contadorFallidos,
+  contadorFotosPendientes,
   contadorPendientes,
   descartarBorrador,
   ensureDraftInspection,
@@ -70,7 +71,8 @@ import {
   setToken,
 } from './api'
 import { comprimirImagen } from './compresor'
-import { sincronizarCola } from './sync'
+import { sincronizarCola, setPriorizarFotos } from './sync'
+import { cuotaEsAlta, estimarCuota } from './cuota'
 import {
   cursorDesdeGuardado,
   elegirPlantillaActiva,
@@ -135,6 +137,9 @@ interface Ctx {
   cola: RegistroCola[]
   recienSincronizado: string | null
   cuotaAviso: boolean
+  /** Cuota de almacenamiento local (FR-017); `usadaPct` null si el navegador
+   *  no expone la Storage API (no se inventa un porcentaje). */
+  cuota: { usadaPct: number | null; fotosPendientes: number }
   respuestas: Record<string, RespuestaItem>
   entradasBitacora: Array<{ id: string; hora: string; autor: string; texto: string; tags: string[]; geo: string }>
 
@@ -248,6 +253,7 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
   const [recienSincronizado, setRecienSincronizado] = useState<string | null>(null)
   const [sincronizando, setSincronizando] = useState(false)
   const [cuotaAviso, setCuotaAviso] = useState(false)
+  const [cuota, setCuota] = useState<Ctx['cuota']>({ usadaPct: null, fotosPendientes: 0 })
   const [plantilla, setPlantilla] = useState<PlantillaActual | null>(null)
   const [originales, setOriginales] = useState<Ctx['originales']>({
     cacheados: 0,
@@ -260,6 +266,15 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
     setCola((await listOutbox()).map(mapaCola))
     setPendientes(await contadorPendientes())
     setFallidos(await contadorFallidos())
+    // FR-017: la cuota se relee en cada refresco (tras capturar o sincronizar).
+    // `estimarCuota` no lanza y degrada a null si el navegador no la expone.
+    const est = await estimarCuota()
+    const fotosPendientes = await contadorFotosPendientes()
+    setCuota({ usadaPct: est.usadaPct, fotosPendientes })
+    const alta = cuotaEsAlta(est.usadaPct)
+    setCuotaAviso(alta)
+    // Mientras la cuota esté alta, el worker prioriza las fotos ya sincronizables.
+    setPriorizarFotos(alta)
   }, [])
 
   const sincronizarAhora = useCallback(() => {
@@ -271,7 +286,6 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
           const ultimo = r.sincronizados[r.sincronizados.length - 1]
           if (ultimo) setRecienSincronizado(ultimo)
         }
-        if (r.estado === 'fallo' && r.error) setCuotaAviso(true)
       } finally {
         setSincronizando(false)
         await refrescar()
@@ -889,6 +903,7 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
     cola,
     recienSincronizado,
     cuotaAviso,
+    cuota,
     respuestas,
     entradasBitacora,
     plantilla,

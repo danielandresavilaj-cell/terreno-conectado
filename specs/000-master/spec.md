@@ -231,7 +231,7 @@ Fuera de alcance explícito — cualquier inclusión requiere enmienda a este sp
 | Boceto del flujo de captura y sincronización | Avance | §3.1 de este spec (mermaid) + `specs/003-motor-sincronizacion/` |
 | Plan de pruebas de validación | Avance | `test-plan.md` |
 | Prototipo o maqueta demostrativa | Final | `frontend/` + `backend/` + demo desplegada (ADR-002) + guion de demo (§9) |
-| Informe final y presentación de resultados | Final | `docs-evidencia/informe-final/` (Fase 3; consolida specs, resultados de test-plan y ADRs) |
+| Informe final y presentación de resultados | Final | `docs-evidencia/informe-final/informe.md` + `docs-evidencia/informe-final/presentacion.md` (Fase 3; consolida specs, resultados de test-plan y ADRs) |
 | Plan de trabajo / Carta Gantt | Transversal | Intactos en el informe APT §7–8; el avance SDD se evidencia en `tasks/` e historial git |
 
 ## 13. Criterios de aceptación de la demo final
