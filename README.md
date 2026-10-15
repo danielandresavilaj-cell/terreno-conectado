@@ -214,16 +214,18 @@ los flujos en **perfil móvil**, incluidos los siete escenarios de caos de `test
 ```bash
 # Opción A (recomendada): define DEMO_PASSWORD, JWT_ACCESS_SECRET y VITE_DEMO_PASSWORD
 # en tu `.env` local (cópialo de `.env.example`). El harness lo carga solo.
-# El bundle de Vite incrusta en tiempo de BUILD la URL de la API y la password demo
-# (`seed.ts` lanza si falta `VITE_DEMO_PASSWORD`); `vite preview` no las lee, sólo
-# sirve el `dist/` ya construido. Sin estas dos, el build arranca en blanco.
-npm run build                       # backend/dist + bundle de Vite (usa las VITE_* del .env)
+# El E2E usa backend :3310; la URL de API se incrusta al compilar, no al arrancar
+# vite preview. Construye shared/backend y luego el frontend con la URL correcta:
+npm run build --workspace @terreno/shared
+npm run build --workspace @terreno/backend
+npx cross-env VITE_API_URL=http://127.0.0.1:3310/api/v1 npm run build --workspace @terreno/frontend
 npm run e2e                         # stack + specs + teardown en un comando
 npm run e2e -- --grep "caos 7"      # un solo escenario
 
 # Opción B: sin `.env`, pásalas en el comando (cross-platform con cross-env)
 npx cross-env DEMO_PASSWORD=… JWT_ACCESS_SECRET=… \
   VITE_DEMO_PASSWORD=… VITE_API_URL=http://127.0.0.1:3310/api/v1 npm run build
+npm run e2e
 ```
 
 Requiere **Docker** y esas variables: el harness no tiene contraseña por omisión y falla ruidosamente
@@ -409,7 +411,9 @@ Let's Encrypt): Caddy expone 80/443 y enruta `/` → frontend (nginx estático) 
 2. Evidencias de la asignatura en el repositorio [Capstone](https://github.com/danielandresavilaj-cell/Capstone) — Fase 1 completa (informe APT, guía 1.5, presentación, Carta Gantt y evidencias individuales) y plantillas de Fase 2
 3. [specs/000-master/spec.md](specs/000-master/spec.md)
 4. [research.md](research.md) · [data-model.md](data-model.md) · [test-plan.md](test-plan.md)
-5. [docs/guia-del-tablero.md](docs/guia-del-tablero.md) — cómo navegar, leer y trabajar con el [tablero compartido](https://github.com/users/danielandresavilaj-cell/projects/1)
+5. [docs-evidencia/informe-final/informe.md](docs-evidencia/informe-final/informe.md) — informe final de validación Fase 2
+6. [docs-evidencia/informe-final/presentacion.md](docs-evidencia/informe-final/presentacion.md) — guion de diapositivas para la demo final
+7. [docs/guia-del-tablero.md](docs/guia-del-tablero.md) — cómo navegar, leer y trabajar con el [tablero compartido](https://github.com/users/danielandresavilaj-cell/projects/1)
 
 ## Tablero del equipo
 

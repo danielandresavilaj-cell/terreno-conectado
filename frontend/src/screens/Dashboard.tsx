@@ -40,6 +40,7 @@ import {
   type DashboardFiltros,
 } from '../lib/api'
 import { ZIP_MIME, descargarLibro } from '../lib/exportar'
+import { construirCsvHallazgos } from '../lib/dashboard-csv'
 import { useEstado } from '../lib/store'
 import { EASE } from '../lib/motion'
 import type { DashboardSummary, FindingDto, InspectionListaItem } from '@terreno/shared'
@@ -182,6 +183,7 @@ export function Dashboard() {
   const [periodo, setPeriodo] = useState<Periodo>('7 días')
   const [faena, setFaena] = useState<string>('todas')
   const [sevFiltro, setSevFiltro] = useState<Severidad | 'todas'>('todas')
+  const [autor, setAutor] = useState<string>('todos')
   const [datos, setDatos] = useState<{ summary: DashboardSummary; hallazgos: FindingDto[] } | null>(null)
   const [cargando, setCargando] = useState(false)
   const [errorCarga, setErrorCarga] = useState<string | null>(null)
@@ -204,7 +206,11 @@ export function Dashboard() {
   const cargar = useCallback(async () => {
     if (!usuario || esPlataforma) return
     const f = filtrosDe(periodo, faena)
-    const fs = { ...f, severidad: sevFiltro === 'todas' ? undefined : SEV_UI_A_WIRE[sevFiltro] }
+    const fs = {
+      ...f,
+      severidad: sevFiltro === 'todas' ? undefined : SEV_UI_A_WIRE[sevFiltro],
+      autor_id: autor === 'todos' ? undefined : autor,
+    }
     setCargando(true)
     setErrorCarga(null)
     /* Las inspecciones van en su propia rama del `Promise.all`: que esta ruta
@@ -232,7 +238,7 @@ export function Dashboard() {
     } finally {
       setCargando(false)
     }
-  }, [usuario, esPlataforma, periodo, faena, sevFiltro])
+  }, [usuario, esPlataforma, periodo, faena, sevFiltro, autor])
 
   /* FR-043: auto-refresh cada 30 s + al recobrar foco/señal. */
   useEffect(() => {
@@ -261,6 +267,8 @@ export function Dashboard() {
 
   const summary = datos?.summary ?? null
   const hallazgos = datos?.hallazgos ?? []
+  /* FR-041: autores con actividad en el período, para el filtro por autor. */
+  const autores = summary?.autores ?? []
 
   const totalInsp = useMemo(
     () => (summary ? Object.values(summary.inspecciones_por_estado).reduce((a, b) => a + b, 0) : 0),
@@ -278,24 +286,14 @@ export function Dashboard() {
   const filtrados = hallazgos.filter(
     (h) =>
       (sevFiltro === 'todas' || SEV_WIRE_A_UI[h.severity] === sevFiltro) &&
-      (faena === 'todas' || h.faena_id === faena),
+      (faena === 'todas' || h.faena_id === faena) &&
+      (autor === 'todos' || h.autor_id === autor),
   )
 
   /* FR-042: export CSV de lo que está filtrado en pantalla. */
   const exportarCsv = () => {
     if (filtrados.length === 0) return
-    const filas = [
-      ['id', 'severidad', 'estado', 'faena', 'autor', 'capturado_at'],
-      ...filtrados.map((h) => [
-        h.id,
-        h.severity,
-        h.status,
-        h.faena_nombre ?? '',
-        h.autor ?? '',
-        h.captured_at,
-      ]),
-    ]
-    const csv = filas.map((r) => r.map((c) => `"${(c ?? '').replace(/"/g, '""')}"`).join(',')).join('\n')
+    const csv = construirCsvHallazgos(filtrados)
     descargarLibro(
       new TextEncoder().encode(csv),
       `hallazgos-${new Date().toISOString().slice(0, 10)}.csv`,
@@ -552,7 +550,7 @@ export function Dashboard() {
                   <div className="flex-1 rule" />
                 </div>
 
-                <div className="grid sm:grid-cols-2 gap-3">
+                <div className="grid sm:grid-cols-3 gap-3">
                   <div className="space-y-2">
                     <p className="label-inst">Faena</p>
                     {[{ id: 'todas', nombre: 'Todas las faenas', tipo: 'mina' as const }, ...faenas].map(
@@ -577,6 +575,21 @@ export function Dashboard() {
                       </Tarjeta>
                     ))}
                   </div>
+
+                  {/* FR-041: filtro por autor. Sólo se ofrecen los autores con
+                      actividad en el período filtrado: una lista con todos los
+                      usuarios del tenant llenaría de opciones que no traen nada. */}
+                  <div className="space-y-2">
+                    <p className="label-inst">Autor</p>
+                    <Tarjeta activa={autor === 'todos'} onClick={() => setAutor('todos')}>
+                      <span className="text-[13px] font-medium">Todos los autores</span>
+                    </Tarjeta>
+                    {autores.map((a) => (
+                      <Tarjeta key={a.id} activa={autor === a.id} onClick={() => setAutor(a.id)}>
+                        <span className="text-[13px] font-medium truncate">{a.nombre}</span>
+                      </Tarjeta>
+                    ))}
+                  </div>
                 </div>
               </section>
 
@@ -589,7 +602,7 @@ export function Dashboard() {
 
                 <AnimatePresence mode="wait">
                   <motion.div
-                    key={`${faena}-${sevFiltro}-${periodo}`}
+                    key={`${faena}-${sevFiltro}-${autor}-${periodo}`}
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}

@@ -63,6 +63,8 @@ export interface InspectionRow {
   siteName: string
   answeredCount: number
   totalItems: number
+  /** FR-034: georreferencia opcional capturada en terreno. */
+  location?: { lat: number; lon: number } | null
 }
 
 export interface ResponseRow {
@@ -505,12 +507,17 @@ export async function descartarBorrador(): Promise<void> {
   )
 }
 
-export async function submitInspection(inspectionId: string): Promise<void> {
+export async function submitInspection(
+  inspectionId: string,
+  location?: { lat: number; lon: number } | null,
+): Promise<void> {
   const ins = await db.inspections.get(inspectionId)
   if (!ins) throw new Error('Borrador de inspección no encontrado')
   await db.inspections.update(inspectionId, {
     status: 'submitted',
     answeredCount: await db.responses.where('inspectionId').equals(inspectionId).count(),
+    ...(location !== undefined ? { location } : {}),
+    clientVersion: ins.clientVersion + 1,
   })
   await db.transaction('rw', [db.outbox, db.responses, db.attachments], async () => {
     await encolar(
@@ -787,10 +794,40 @@ export async function contadorFallidos(): Promise<number> {
  * `marcar*`. Concurrencia 1 y backoff los controla el propio worker.
  */
 
-/** Filas listas para enviar: pendientes y fallidas, en orden de dependencia (FR-020). */
-export async function sincronizables(): Promise<OutboxRow[]> {
+/** FR-017: fotos aún en la cola (adjuntos pendientes/fallidos, no sincronizados).
+ *  Es el número que la UI muestra como "fotos pendientes de subir". */
+export async function contadorFotosPendientes(): Promise<number> {
+  const rows = await db.outbox.where('entityType').equals('attachment').toArray()
+  return rows.filter((r) => r.status !== 'synced').length
+}
+
+/** FR-017: reordena la cola para que las fotos YA sincronizables —adjuntos cuyo
+ *  dueño (inspección/respuesta/hallazgo/bitácora) no está en la cola, así que su
+ *  FK no bloquea— suban primero y liberen bytes locales antes que el resto. Las
+ *  que sí dependen de algo pendiente quedan en su lugar para no romper el orden
+ *  de dependencias (FR-020). */
+async function priorizarFotosLibres(filas: OutboxRow[]): Promise<OutboxRow[]> {
+  const pendientes = new Set(filas.map((f) => `${f.entityType}:${f.entityId}`))
+  const libres = new Set<number | undefined>()
+  for (const f of filas) {
+    if (f.entityType !== 'attachment') continue
+    const a = await db.attachments.get(f.entityId)
+    // El `ownerType` del adjunto usa los mismos nombres que `entityType`; si el
+    // dueño no está en la cola, su FK ya está satisfecha.
+    if (!a || !pendientes.has(`${a.ownerType}:${a.ownerId}`)) libres.add(f.id)
+  }
+  const primero: OutboxRow[] = []
+  const resto: OutboxRow[] = []
+  for (const f of filas) (libres.has(f.id) ? primero : resto).push(f)
+  return [...primero, ...resto]
+}
+
+/** Filas listas para enviar: pendientes y fallidas, en orden de dependencia (FR-020).
+ *  Con `priorizarFotos` (FR-017) las fotos ya sincronizables pasan al frente. */
+export async function sincronizables(priorizarFotos = false): Promise<OutboxRow[]> {
   const rows = await db.outbox.where('status').anyOf('pending', 'failed').toArray()
-  return rows.sort((a, b) => a.batchOrder - b.batchOrder || a.entityId.localeCompare(b.entityId))
+  const ordenadas = rows.sort((a, b) => a.batchOrder - b.batchOrder || a.entityId.localeCompare(b.entityId))
+  return priorizarFotos ? priorizarFotosLibres(ordenadas) : ordenadas
 }
 
 /** Fila del outbox → SyncRecord wire (contrato de `shared/src/sync.ts`). */
@@ -824,6 +861,7 @@ async function payloadDe(o: OutboxRow): Promise<{
           template_version: r.templateVersion,
           executed_by: r.executedBy,
           status: r.status,
+          location: r.location ?? null,
         },
       }
     }

@@ -32,6 +32,7 @@ verde.
 | FR-011/014, NFR-01 | Capturar en modo avión, cerrar/reabrir app, verificar persistencia IndexedDB | E2E | `e2e-captura-offline.spec.ts` → "captura sin red, recarga y el borrador conserva las respuestas" | 🟢 verde |
 | FR-012 | Foto de 8 MP → verificar dimensiones ≤1280 px y tamaño comprimido antes de encolar | Unit + E2E | `shared` (`compresor`) + `e2e-captura-offline.spec.ts` → "la foto de un ítem queda ≤1280 px" | 🟢 verde |
 | FR-016 | Desactivar red → encolar → reactivar: sync inicia sola sin clic | E2E | `e2e-captura-offline.spec.ts` → "reactivar la red drena la cola sin tocar el botón de sincronizar" | 🟢 verde |
+| FR-017 | Cuota local supera el 80% → aviso al trabajador y prioriza fotos ya sincronizables | Unit | `frontend/test/cuota.test.ts` (`estimarCuota`/`cuotaEsAlta`; `contadorFotosPendientes`; `sincronizables(true)` sube al frente sólo las fotos cuyo dueño no está en cola, sin romper el orden FR-020) | 🟢 verde |
 | FR-020 | Batch con dependencias (inspección + respuestas + hallazgo + foto) sube en orden | Unit + Integración | `backend/test/sync.spec.ts` (`batchOrder` y orden de aplicación) | 🟢 verde |
 | FR-021, NFR-04 | Reenviar el mismo batch 3 veces → contar filas: cero duplicados | Integración + **caos 2** | `e2e-caos-sync.spec.ts` → "reenviar el mismo lote 3 veces no duplica filas" (`records_unchanged`) | 🟢 verde |
 | FR-022 | Fallar red a mitad de subida → backoff observado (1s,2s,4s…), sin intervención | **caos 1** | `e2e-caos-sync.spec.ts` → "al cortar el envío y reconectar…" (`context.route` aborta 2 lotes) | 🟢 verde |
@@ -45,9 +46,10 @@ verde.
 | FR-004 | Access token vencido con cola pendiente → la cola NO se pierde y drena al reingresar; el refresh rota `rt` y detecta reuso | Integración + **caos 6** | `backend/test/auth.spec.ts` (rotación/reuso y CSRF) + `e2e-caos-sync.spec.ts` → "caos 6 — token expirado en cola" | 🟢 verde |
 | FR-006 | Tenant demo sembrado (A: minera + faena + 3 roles; B: constructora) y login de cada rol | Integración | `backend/db/seed.ts` + `backend/test/auth.spec.ts` (`login (FR-001, FR-006)`) | 🟢 verde |
 | FR-031/032 | Ciclo draft→submitted; ítem `nok` exige hallazgo cuando la plantilla lo configura | Unit + E2E | `e2e-captura-offline.spec.ts` → "estado submitted con su site real" y "un hallazgo creado desde un NOK…" | 🟢 verde |
+| FR-034 | Georreferencia opcional de la inspección (lat/lon) capturada al enviar y persistida por sync | Integración | `backend/test/sync.spec.ts` (location_lat/lon + rechazo de rangos inválidos) + `frontend/src/lib/store.tsx` (`navigator.geolocation`) | 🟢 verde |
 | FR-040/043, NFR-03 | Sync de dato → visible en dashboard; medir delta ≤ 60 s (primer lote) | E2E + cronometrado manual en demo | `backend/test/dashboard.spec.ts` + medición manual en la demo (Fase 3) | 🟡 parcial: la corrección numérica ≤60 s se mide en vivo, no en automatizado |
-| FR-041 | Dashboard: filtros de faena, rango de fechas, severidad y autor | Integración | `backend/test/dashboard.spec.ts` (`dashboardFiltrosSchema`) | 🟡 parcial: faena/fecha/severidad/estado implementados; el **filtro por autor** no existe (DTO sí expone `autor`) — decisión de no construir en V1 (spec 005 §2, plan 005 §3.1) |
-| FR-042 | Export de la vista de hallazgos a CSV (columnas y escapado) | — (implementado en `frontend/src/screens/Dashboard.tsx`) | `frontend/src/screens/Dashboard.tsx:284-302` | ⚪ sin prueba automatizada: el CSV del cliente está implementado; los documentos `.xlsx`/ZIP sí están cubiertos por FR-019/044 y FR-045/046 |
+| FR-041 | Dashboard: filtros de faena, rango de fechas, severidad y autor | Integración | `backend/test/dashboard.spec.ts` (`dashboardFiltrosSchema`, `findingsFiltrosSchema.autor_id`) | 🟢 verde |
+| FR-042 | Export de la vista de hallazgos a CSV (columnas y escapado) | Unit | `frontend/src/lib/dashboard-csv.ts` (`construirCsvHallazgos`) + `frontend/test/dashboard-csv.test.ts` | 🟢 verde |
 | FR-052, NFR-09 | `/health` responde 200 con estado de DB (503 con DB caída); uptime monitor lo consume; logs JSON con `request_id` y `tenant_id` en cada línea | Integración + manual | `backend/test/health.spec.ts` + `backend/test/observability.spec.ts` | 🟢 verde |
 | NFR-02 | Script: 200 registros + 100 fotos en offline simulado de 72 h (reloj adelantado) → sync completo sin pérdida | **caos 5** | `e2e-caos-sync.spec.ts` → "200 registros pendientes suben íntegros y sin duplicar" | 🟢 verde (200 registros; las 100 fotos se comprueban en el FR-012 unitario, no en el mismo escenario) |
 | NFR-07 | Lighthouse CI mobile Performance ≥ 80; interacción de formulario < 200 ms | Rendimiento | `frontend/scripts/check-lighthouse.mjs` (Chrome, perfil móvil, Slow 4G; **Performance 85–89**) + workflow `lighthouse.yml` (nightly/manual). La interacción se aproxima con el Total Blocking Time del mismo reporte (~40–50 ms) | 🟢 verde |
@@ -66,26 +68,26 @@ verde.
 | FR-050 | `platform_admin` crea tenant, le asigna el `tenant_admin` inicial y lo suspende/reactiva; un rol distinto recibe 403 en toda la consola | Integración | `backend/test/admin.spec.ts` | 🟢 verde |
 | FR-051 (`admin`) | Cada mutación admin deja exactamente una fila en `audit_log` con `actor_id` y `tenant_id` correctos; `tc_app` no puede UPDATE/DELETE y la API no expone rutas de modificación | Integración | `backend/test/admin.spec.ts` | 🟢 verde |
 
-**Recuento:** 37 filas · 🟢 33 (89,2%) · 🟡 2 (5,4%) · 🔴 0 ·
-⚪ 2 (5,4%, automatizable sólo con tooling externo o sin prueba todavía).
+**Recuento:** 39 filas · 🟢 37 (94,9%) · 🟡 1 (2,6%) · 🔴 0 ·
+⚪ 1 (2,6%, automatizable sólo con tooling externo o sin prueba todavía).
 
-> La fila FR-042 (CSV del cliente) y el filtro por autor de FR-041 se declaran
-> como huecos reales, no como verdes: el primero está implementado pero sin
-> prueba, y el segundo no está implementado (decisión de alcance V1).
+> La única fila restante en ⚪ es **NFR-02/100-fotos**: las 100 fotos se
+> comprueban en el FR-012 unitario, no en el escenario de 72 h del caos 5. FR-034
+> (geolocalización), FR-041 (autor) y FR-042 (CSV del cliente) pasaron a 🟢.
 
 **Volumen de pruebas en la corrida de referencia:**
 ```
 E2E + caos (Playwright, nightly)          17 tests
-Integración backend (Vitest + Testcontainers) 184 tests
-Unidad frontend (Vitest)                      98 tests
+Integración backend (Vitest + Testcontainers) 188 tests
+Unidad frontend (Vitest)                     109 tests
 Unidad shared (Vitest)                        77 tests
                                            ───────────────
-                                           376 tests
+                                           391 tests
 ```
 
-> El estado de esta base es 33/37 = 89,2 %. Al cerrar FR-041 (🟡) y FR-042 (⚪)
-> en el PR #123, la matriz pasa a 35/37 = 94,6 % sin alterar ni ocultar las filas
-> que siguen dependiendo de medición en vivo (FR-040/043) o tooling externo (NFR-02/100-fotos).
+> El criterio de salida de Fase 2 (§8) pide "matriz §3 ≥ 90% verde". Con FR-034,
+> FR-041 y FR-042 implementados y verificados (🟢 37/39 = 94,9%) el umbral se
+> cumple sin maquillar los huecos restantes (FR-040/043 ≤60 s 🟡; NFR-02/100-fotos ⚪).
 
 ## 4. Pruebas de caos offline-first (protocolo)
 
@@ -188,7 +190,10 @@ referencia: **17/17 E2E en verde**. Informe por módulo en
 
 | Versión | Fecha | Cambio | Autor |
 | :--- | :--- | :--- | :--- |
-| 1.0.10 | 2026-10-14 | **TSK-AUTH-008 / issue #128 resuelto**: FR-023 acredita acceso a conflictos de `supervisor`/`tenant_admin`, denegación a `field_worker`/`platform_admin` y aislamiento RLS en `backend/test/conflicts.spec.ts`; backend actualizado a 184 tests, total 376 con 17 E2E | Daniel Ávila |
+| 1.0.10 | 2026-10-14 | **TSK-AUTH-008 / issue #128 resuelto**: FR-023 acredita acceso a conflictos de `supervisor`/`tenant_admin`, denegación a `field_worker`/`platform_admin` y aislamiento RLS en `backend/test/conflicts.spec.ts`; backend actualizado a 188 tests, total 391 con 17 E2E | Daniel Ávila |
+| 1.0.9 | 2026-10-14 | **FR-034 implementado** (georreferencia opcional): migración `1730000011000_inspection_location.js` (`location_lat`/`location_lon` NUMERIC), contrato aditivo `SyncInspectionPayload.location`, validación server-side, captura opcional con `navigator.geolocation` al enviar inspección; nueva fila FR-034 en matriz §3 (🟢) sobre la base 1.0.8: recuento a 🟢37/🟡1/⚪1 (37/39 = 94,9%); volumen backend 187 · frontend 109 · total 390 (refs #7) | Daniel Ávila |
+| 1.0.8 | 2026-10-14 | **FR-041 + FR-042 implementados y verificados**: filtro por autor (`autor_id` en findings, `autores` en summary, UI) y test del CSV del cliente (`frontend/src/lib/dashboard-csv.ts` + `frontend/test/dashboard-csv.test.ts`); recuento a 🟢36/🟡1/⚪1 (36/38 = 94,7%); volumen backend 184 · frontend 109 · total 387 (refs #8) | Daniel Ávila |
+| 1.0.7 | 2026-10-14 | **FR-017 implementado** (dejó de ser simulado): cuota real vía `navigator.storage.estimate()` con aviso al 80% y priorización de fotos ya sincronizables; nueva fila FR-017 en la matriz §3 (🟢); recuento conjunto con el módulo 001: 38 filas · 🟢34/🟡2/⚪2; volumen actualizado (backend 183, frontend 105) (refs #5) | Daniel Ávila |
 | 1.0.6 | 2026-10-14 | Cobertura del módulo **001** (autenticación y tenancy): filas **FR-001**, **FR-003**, **FR-004** y **FR-006** en la matriz §3 con evidencia de `backend/test/auth.spec.ts` (login/JWT, rotación y reuso del refresh, bloqueo) y el caos 6 (`e2e-caos-sync.spec.ts`); FR-005 se detalla (por cuenta **y** por IP); recuento a 37 filas (refs #4) | Raúl González |
 | 1.0.5 | 2026-10-14 | **NFR-07 cerrado**: harness de rendimiento propio (`frontend/scripts/check-lighthouse.mjs` + workflow `lighthouse.yml`, patrón `check-pwa.mjs`) que mide el build en perfil móvil y exige Performance ≥ 80; se quita ExcelJS del chunk inicial (import profundo `@terreno/shared/xlsx/serializar`) y se difieren las pantallas pesadas; fila NFR-07 de la matriz §3 pasa a 🟢 (refs #9) | Raúl González (con IA) |
 | 1.0.4 | 2026-10-13 | Cobertura del módulo **006** (administración de plataforma): filas **FR-050** y **FR-051** (`admin`) en la matriz §3 con evidencia de `backend/test/admin.spec.ts` (16 tests); recuento actualizado a 33 filas y volumen de la corrida de referencia (backend 181, frontend 98, shared 77) (refs #9, #116) | Raúl González (con IA) |

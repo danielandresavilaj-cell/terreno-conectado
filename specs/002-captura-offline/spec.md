@@ -38,7 +38,7 @@ Verificado sobre `main` al 2026-10-13.
 | FR-014 persistencia | ✅ | IndexedDB; E2E "cerrar/reabrir conserva el borrador" |
 | FR-015 UUIDv7 cliente | ✅ | `shared` (`uuidv7`), `db.ts` (`getDeviceId`) |
 | FR-016 disparo en `online` | ✅ | `store.tsx` (efecto sobre `online`); E2E "reactivar la red drena la cola" |
-| FR-017 aviso de cuota | ✅ | `store.tsx` (`cuotaAviso`), `seed.ts` (umbral) |
+| FR-017 aviso de cuota | ✅ | `frontend/src/lib/cuota.ts` (`estimarCuota` con `navigator.storage.estimate()`, `cuotaEsAlta`, umbral 80%), `store.tsx` (`cuota`, `cuotaAviso`), `db.ts` (`contadorFotosPendientes`, `sincronizables(priorizarFotos)`), `sync.ts` (`setPriorizarFotos`); `frontend/test/cuota.test.ts` |
 | FR-018 caché de plantillas | ✅ | `db.ts` (`plantillas`, `plantillaOriginales`, cursor en `meta`); E2E "con la red apagada la plantilla se renderiza" |
 | FR-019 export en dispositivo | ✅ | `frontend/src/lib/exportar.ts` + `shared` (`rellenar`, `serializar`); E2E + unit |
 

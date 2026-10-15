@@ -36,6 +36,8 @@ export interface SyncInspectionPayload {
   template_version: number
   executed_by: string
   status: SyncInspectionStatus
+  /** FR-034: georreferencia opcional de la inspección (captura en terreno). */
+  location?: { lat: number; lon: number } | null
 }
 
 export interface SyncResponsePayload {

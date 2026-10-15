@@ -14,7 +14,7 @@ import { Inject, Injectable } from '@nestjs/common'
 import { DbService } from '../db/db.service'
 import type { JwtClaims } from '../auth/auth.types'
 import { exigirDashboard, DASHBOARD_ROLES } from './dashboard.auth'
-import { parsearFiltrosPeriodo, type FiltrosPeriodo } from './dashboard.contract'
+import { parsearFiltrosPeriodo, parsearFiltrosFindings, type FiltrosPeriodo } from './dashboard.contract'
 import type {
   DashboardFindingsResponse,
   DashboardSummary,
@@ -32,6 +32,8 @@ export interface DashboardFiltros {
 export interface FindingsFiltros extends DashboardFiltros {
   severidad?: string | null
   estado?: string | null
+  /** FR-041: filtra por el usuario que ejecutó la inspección (id, no nombre). */
+  autor_id?: string | null
   limit: number
   offset: number
 }
@@ -84,7 +86,7 @@ export class DashboardService {
     const tenantId = u.tenant_id as string
     const { siteId, desde, hasta } = normalizeFiltro(filtros)
 
-    const [estados, porSev, latencia, sincronizaciones, conflictos, urgentes] = await Promise.all([
+    const [estados, porSev, latencia, sincronizaciones, conflictos, urgentes, autores] = await Promise.all([
       this.db.queryAsTenant<{ status: string; n: number }>(
         tenantId,
         `SELECT status, count(*)::int AS n
@@ -145,6 +147,18 @@ export class DashboardService {
             AND f.captured_at <= COALESCE($3::timestamptz, 'infinity'::timestamptz)`,
         [siteId, desde, hasta],
       ),
+      // FR-041: autores con actividad en el período → opciones del filtro por autor.
+      this.db.queryAsTenant<{ id: string; nombre: string }>(
+        tenantId,
+        `SELECT DISTINCT u.id, u.full_name AS nombre
+           FROM inspection i
+           JOIN app_user u ON u.id = i.executed_by
+          WHERE ($1::uuid IS NULL OR i.site_id = $1)
+            AND i.captured_at >= COALESCE($2::timestamptz, '-infinity'::timestamptz)
+            AND i.captured_at <= COALESCE($3::timestamptz, 'infinity'::timestamptz)
+          ORDER BY u.full_name`,
+        [siteId, desde, hasta],
+      ),
     ])
 
     const porEstado = { draft: 0, in_progress: 0, submitted: 0, reviewed: 0 }
@@ -159,6 +173,7 @@ export class DashboardService {
     return {
       site_id: siteId,
       faenas: faenas.items,
+      autores,
       inspecciones_por_estado: porEstado,
       hallazgos_por_severidad: porSeveridad,
       hallazgos_urgentes: urgentes[0]?.n ?? 0,
@@ -175,9 +190,7 @@ export class DashboardService {
   async findings(u: JwtClaims, f: FindingsFiltros): Promise<DashboardFindingsResponse> {
     this.exigir(u)
     const tenantId = u.tenant_id as string
-    const { siteId, desde, hasta } = normalizeFiltro(f)
-    const severidad = f.severidad || null
-    const estado = f.estado || null
+    const { siteId, desde, hasta, severidad, estado, autorId } = parsearFiltrosFindings(f)
 
     interface Row {
       id: string
@@ -186,6 +199,7 @@ export class DashboardService {
       description: string
       faena_id: string | null
       faena_nombre: string | null
+      autor_id: string | null
       autor: string | null
       captured_ms: number | null
       synced_ms: number | null
@@ -201,7 +215,8 @@ export class DashboardService {
           AND f.captured_at >= COALESCE($2::timestamptz, '-infinity'::timestamptz)
           AND f.captured_at <= COALESCE($3::timestamptz, 'infinity'::timestamptz)
           AND ($4::text IS NULL OR f.severity = $4)
-          AND ($5::text IS NULL OR f.status = $5)`
+          AND ($5::text IS NULL OR f.status = $5)
+          AND ($6::uuid IS NULL OR i.executed_by = $6)`
     const base = `
         FROM finding f
         LEFT JOIN inspection i ON i.id = f.inspection_id
@@ -219,7 +234,7 @@ export class DashboardService {
         tenantId,
         `SELECT f.id, f.severity, f.status, f.description,
                 i.site_id AS faena_id, s.name AS faena_nombre,
-                u.full_name AS autor,
+                i.executed_by AS autor_id, u.full_name AS autor,
                 (extract(epoch FROM f.captured_at) * 1000)::float8 AS captured_ms,
                 (extract(epoch FROM i.synced_at) * 1000)::float8 AS synced_ms,
                 a.id AS foto_id, a.mime AS foto_mime, a.bytes AS foto_bytes,
@@ -227,13 +242,13 @@ export class DashboardService {
          ${base}
          ${where}
          ORDER BY f.captured_at DESC
-         LIMIT $6 OFFSET $7`,
-        [siteId, desde, hasta, severidad, estado, f.limit, f.offset],
+         LIMIT $7 OFFSET $8`,
+        [siteId, desde, hasta, severidad, estado, autorId, f.limit, f.offset],
       ),
       this.db.queryAsTenant<{ n: number }>(
         tenantId,
         `SELECT count(*)::int AS n ${base} ${where}`,
-        [siteId, desde, hasta, severidad, estado],
+        [siteId, desde, hasta, severidad, estado, autorId],
       ),
     ])
 
@@ -244,6 +259,7 @@ export class DashboardService {
       description: r.description,
       faena_id: r.faena_id,
       faena_nombre: r.faena_nombre,
+      autor_id: r.autor_id,
       autor: r.autor,
       captured_at: r.captured_ms == null ? '' : new Date(r.captured_ms).toISOString(),
       synced_at: r.synced_ms == null ? null : new Date(r.synced_ms).toISOString(),
