@@ -195,6 +195,3 @@ export const COLA_INICIAL: RegistroCola[] = [
     intentos: 3,
   },
 ]
-
-/** FR-017: aviso de cuota de almacenamiento local. */
-export const CUOTA = { usadaPct: 83, fotosPendientes: 14 }

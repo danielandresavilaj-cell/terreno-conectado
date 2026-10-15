@@ -102,6 +102,16 @@ export async function fetchLote(
 let enCurso = false
 let retryTimer: number | undefined
 
+/* FR-017: cuando el almacenamiento local supera el umbral, el store enciende
+ * esta bandera y cada lote (incluidos los reintentos con backoff) prioriza las
+ * fotos ya sincronizables. Vive en el módulo para que el reintento programado
+ * —que no recibe argumentos— también la honre. */
+let priorizarFotos = false
+
+export function setPriorizarFotos(v: boolean): void {
+  priorizarFotos = v
+}
+
 /** Concurrencia 1: anula el reintento pendiente si no queda nada que enviar. */
 function cancelarReintento(): void {
   if (retryTimer !== undefined) {
@@ -147,7 +157,7 @@ export async function sincronizarCola(): Promise<ResultadoSync> {
    * congelado. Es el invariante de "ningún registro se pierde". */
   let enVuelo: OutboxRow[] = []
   try {
-    const filas = (await sincronizables()).slice(0, MAX_REGISTROS_LOTE)
+    const filas = (await sincronizables(priorizarFotos)).slice(0, MAX_REGISTROS_LOTE)
     if (filas.length === 0) {
       cancelarReintento()
       return { estado: 'vacio', sincronizados: [], fallidos: [], sincronizables: 0, enviados: 0, error: null }
