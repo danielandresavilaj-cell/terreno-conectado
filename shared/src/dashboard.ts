@@ -18,6 +18,13 @@ export interface SiteDto {
   tipo: 'mina' | 'obra'
 }
 
+/** Autor (usuario que ejecutó inspecciones) para poblar el filtro por autor
+ *  (FR-041). Sólo los que tienen actividad en el período consultado. */
+export interface AutorDto {
+  id: string
+  nombre: string
+}
+
 /** `GET /api/v1/sites` — identidad del dispositivo offline (FR-006, TSK-WS-011). */
 export interface SitesResponse {
   items: SiteDto[]
@@ -34,6 +41,8 @@ export interface FindingDto {
   /** Sitio (faena) al que pertenece el hallazgo vía su inspección. */
   faena_id: string | null
   faena_nombre: string | null
+  /** Usuario que ejecutó la inspección (FR-041): id para filtrar, nombre para mostrar. */
+  autor_id: string | null
   autor: string | null
   captured_at: string
   synced_at: string | null
@@ -48,6 +57,8 @@ export interface FindingDto {
 export interface DashboardSummary {
   site_id: string | null
   faenas: SiteDto[]
+  /** Autores con actividad en el período (FR-041), para el filtro por autor. */
+  autores: AutorDto[]
   inspecciones_por_estado: Record<'draft' | 'in_progress' | 'submitted' | 'reviewed', number>
   hallazgos_por_severidad: Record<SyncSeverity, number>
   /** FR-035: abiertos (no resueltos) de severidad alta o crítica. */

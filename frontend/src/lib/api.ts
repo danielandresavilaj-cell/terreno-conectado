@@ -173,6 +173,8 @@ export function getSummary(f: DashboardFiltros = {}): Promise<DashboardSummary> 
 export interface FindingsFiltros extends DashboardFiltros {
   severidad?: string | null
   estado?: string | null
+  /** FR-041: id del autor (usuario que ejecutó la inspección). */
+  autor_id?: string | null
   limit?: number
   offset?: number
 }
@@ -182,6 +184,7 @@ export function getFindings(f: FindingsFiltros = {}): Promise<DashboardFindingsR
     `/dashboard/findings${qsFiltros(f, {
       severidad: f.severidad,
       estado: f.estado,
+      autor_id: f.autor_id,
       limit: f.limit,
       offset: f.offset,
     })}`,

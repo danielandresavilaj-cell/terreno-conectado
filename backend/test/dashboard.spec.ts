@@ -334,6 +334,27 @@ describe('GET /api/v1/dashboard/findings (FR-040)', () => {
     expect(faenaB.body.items[0].faena_nombre).toBe('Faena El Roble')
   })
 
+  it('FR-041: filtra por autor (id) y expone los autores con actividad del período', async () => {
+    const porAutor = await getQuery(supervisorToken, '/api/v1/dashboard/findings', { autor_id: workerA })
+    expect(porAutor.status).toBe(200)
+    expect(porAutor.body.total).toBe(1)
+    expect(porAutor.body.items[0].autor_id).toBe(workerA)
+
+    // Un autor sin hallazgos en el período → vacío (no es error).
+    const otro = await getQuery(supervisorToken, '/api/v1/dashboard/findings', { autor_id: uuid() })
+    expect(otro.status).toBe(200)
+    expect(otro.body.total).toBe(0)
+
+    // `autor_id` que no es UUID → 400 (no una consulta silenciosamente vacía).
+    expect(
+      (await getQuery(supervisorToken, '/api/v1/dashboard/findings', { autor_id: 'abc' })).status,
+    ).toBe(400)
+
+    // `summary` ofrece los autores del período para poblar el filtro.
+    const sum = await get(supervisorToken, '/api/v1/dashboard/summary')
+    expect(sum.body.autores).toContainEqual({ id: workerA, nombre: 'Pedro Trabajador' })
+  })
+
   it('un supervisor del tenant B no ve hallazgos del A (RLS)', async () => {
     const res = await get(supervisorBTok, '/api/v1/dashboard/findings')
     expect(res.status).toBe(200)
