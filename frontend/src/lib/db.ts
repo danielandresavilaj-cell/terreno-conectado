@@ -17,7 +17,6 @@ import {
   type TemplateOriginalMeta,
   type TemplatePublicadaDto,
 } from '@terreno/shared'
-import { PLANTILLA } from './seed'
 import { type PlanPurga } from './plantillas'
 import type { Identidad, Usuario } from './types'
 
@@ -986,35 +985,10 @@ export async function marcarEnviando(filas: OutboxRow[]): Promise<void> {
 
 /* ------------------------------------------------------------ seed demo */
 
+/** Marca de versión del primer arranque. Ya NO se siembra contenido demo con
+ * IDs fijos (F-01); solo se registra que el dispositivo ya inicializó, para
+ * no repetir el trabajo en cada arranque. */
 const SEED_VERSION = '3'
-const PNG_BLANCO =
-  'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='
-
-/**
- * Primer arranque: siembra el outbox/entidades demo (mismo contenido realista
- * del mockup, pero persistido de verdad) para que FR-013 se vea desde el
- * primer frame — y ahora con la IDENTIDAD REAL de la sesión (TSK-WS-011): los
- * IDs de tenant/site/ejecutor/template son los que el backend espera, así el
- * primer sync es un lote válido de verdad (nada de IDs falsos 'f-01/u-carla').
- *
- * Re-siembra (con borrado) SOLO si cambió la semilla (SEED_VERSION) o si el
- * dispositivo quedó con datos de otro tenant: en un equipo compartido, los
- * borradores de la empresa A no pueden sincronizarse con la sesión de B sin
- * violar el aislamiento (NFR-05). Dentro del mismo tenant no se toca nada.
- */
-/**
- * Ids REALES de los ítems del fixture publicado del tenant A
- * (`backend/db/seed.ts`, catálogo materializado de la revisión v1), en el
- * mismo orden que `PLANTILLA`. Las respuestas de la semilla demo los referencian
- * para que el primer lote sea aceptable por el servidor.
- */
-const ITEM_ID_FIJO: readonly string[] = [
-  '01890000-0000-7000-8000-00000000f101',
-  '01890000-0000-7000-8000-00000000f102',
-  '01890000-0000-7000-8000-00000000f103',
-  '01890000-0000-7000-8000-00000000f104',
-  '01890000-0000-7000-8000-00000000f105',
-]
 
 /** Ya no se siembra contenido demo con IDs fijos (F-01). Se deja como NO-OP
  * para preservar compatibilidad con las llamadas existentes; el outbox empieza
@@ -1049,12 +1023,4 @@ export async function seedDemoDataIfNeeded(
     key: 'seedVersion',
     value: JSON.stringify({ version: SEED_VERSION, tenantId: identidad.tenantId }),
   })
-}
-
-const TIPO_ENTIDAD_ENTITY: Record<OutboxTipo, OutboxRow['entityType']> = {
-  inspeccion: 'inspection',
-  respuesta: 'response',
-  hallazgo: 'finding',
-  foto: 'attachment',
-  bitacora: 'log_entry',
 }
