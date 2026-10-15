@@ -1,6 +1,6 @@
 # TEST PLAN — Plan de pruebas de validación
 
-**Versión:** 1.0.8 · **Fecha:** 2026-09-14 · actualizado 2026-10-14 · **Autor:** Raúl González (validación) · **Relacionado:** spec maestro §5–6, constitución Artículos III/IV/VII
+**Versión:** 1.0.9 · **Fecha:** 2026-09-14 · actualizado 2026-10-14 · **Autor:** Raúl González (validación) · **Relacionado:** spec maestro §5–6, constitución Artículos III/IV/VII
 **Evidencia APT:** "Plan de pruebas de validación" (informe §6) y soporte de la competencia "Realizar pruebas de certificación de productos y procesos".
 
 ## 1. Principio rector
@@ -46,6 +46,7 @@ verde.
 | FR-004 | Access token vencido con cola pendiente → la cola NO se pierde y drena al reingresar; el refresh rota `rt` y detecta reuso | Integración + **caos 6** | `backend/test/auth.spec.ts` (rotación/reuso y CSRF) + `e2e-caos-sync.spec.ts` → "caos 6 — token expirado en cola" | 🟢 verde |
 | FR-006 | Tenant demo sembrado (A: minera + faena + 3 roles; B: constructora) y login de cada rol | Integración | `backend/db/seed.ts` + `backend/test/auth.spec.ts` (`login (FR-001, FR-006)`) | 🟢 verde |
 | FR-031/032 | Ciclo draft→submitted; ítem `nok` exige hallazgo cuando la plantilla lo configura | Unit + E2E | `e2e-captura-offline.spec.ts` → "estado submitted con su site real" y "un hallazgo creado desde un NOK…" | 🟢 verde |
+| FR-034 | Georreferencia opcional de la inspección (lat/lon) capturada al enviar y persistida por sync | Integración | `backend/test/sync.spec.ts` (location_lat/lon + rechazo de rangos inválidos) + `frontend/src/lib/store.tsx` (`navigator.geolocation`) | 🟢 verde |
 | FR-040/043, NFR-03 | Sync de dato → visible en dashboard; medir delta ≤ 60 s (primer lote) | E2E + cronometrado manual en demo | `backend/test/dashboard.spec.ts` + medición manual en la demo (Fase 3) | 🟡 parcial: la corrección numérica ≤60 s se mide en vivo, no en automatizado |
 | FR-041 | Dashboard: filtros de faena, rango de fechas, severidad y autor | Integración | `backend/test/dashboard.spec.ts` (`dashboardFiltrosSchema`, `findingsFiltrosSchema.autor_id`) | 🟢 verde |
 | FR-042 | Export de la vista de hallazgos a CSV (columnas y escapado) | Unit | `frontend/src/lib/dashboard-csv.ts` (`construirCsvHallazgos`) + `frontend/test/dashboard-csv.test.ts` | 🟢 verde |
@@ -67,26 +68,26 @@ verde.
 | FR-050 | `platform_admin` crea tenant, le asigna el `tenant_admin` inicial y lo suspende/reactiva; un rol distinto recibe 403 en toda la consola | Integración | `backend/test/admin.spec.ts` | 🟢 verde |
 | FR-051 (`admin`) | Cada mutación admin deja exactamente una fila en `audit_log` con `actor_id` y `tenant_id` correctos; `tc_app` no puede UPDATE/DELETE y la API no expone rutas de modificación | Integración | `backend/test/admin.spec.ts` | 🟢 verde |
 
-**Recuento:** 38 filas · 🟢 36 (94,7%) · 🟡 1 (2,6%) · 🔴 0 ·
+**Recuento:** 39 filas · 🟢 37 (94,9%) · 🟡 1 (2,6%) · 🔴 0 ·
 ⚪ 1 (2,6%, automatizable sólo con tooling externo o sin prueba todavía).
 
 > La única fila restante en ⚪ es **NFR-02/100-fotos**: las 100 fotos se
-> comprueban en el FR-012 unitario, no en el escenario de 72 h del caos 5. El
-> filtro por autor (FR-041) y el CSV del cliente (FR-042) pasaron a 🟢.
+> comprueban en el FR-012 unitario, no en el escenario de 72 h del caos 5. FR-034
+> (geolocalización), FR-041 (autor) y FR-042 (CSV del cliente) pasaron a 🟢.
 
 **Volumen de pruebas en la corrida de referencia:**
 ```
 E2E + caos (Playwright, nightly)          17 tests
-Integración backend (Vitest + Testcontainers) 184 tests
+Integración backend (Vitest + Testcontainers) 187 tests
 Unidad frontend (Vitest)                     109 tests
 Unidad shared (Vitest)                        77 tests
                                            ───────────────
-                                           387 tests
+                                           390 tests
 ```
 
-> El criterio de salida de Fase 2 (§8) pide "matriz §3 ≥ 90% verde". Con FR-041
-> y FR-042 implementados y verificados (🟢 36/38 = 94,7%) el umbral se cumple sin
-> maquillar los huecos restantes (FR-040/043 ≤60 s 🟡; NFR-02/100-fotos ⚪).
+> El criterio de salida de Fase 2 (§8) pide "matriz §3 ≥ 90% verde". Con FR-034,
+> FR-041 y FR-042 implementados y verificados (🟢 37/39 = 94,9%) el umbral se
+> cumple sin maquillar los huecos restantes (FR-040/043 ≤60 s 🟡; NFR-02/100-fotos ⚪).
 
 ## 4. Pruebas de caos offline-first (protocolo)
 
@@ -189,6 +190,7 @@ referencia: **17/17 E2E en verde**. Informe por módulo en
 
 | Versión | Fecha | Cambio | Autor |
 | :--- | :--- | :--- | :--- |
+| 1.0.9 | 2026-10-14 | **FR-034 implementado** (georreferencia opcional): migración `1730000011000_inspection_location.js` (`location_lat`/`location_lon` NUMERIC), contrato aditivo `SyncInspectionPayload.location`, validación server-side, captura opcional con `navigator.geolocation` al enviar inspección; nueva fila FR-034 en matriz §3 (🟢) sobre la base 1.0.8: recuento a 🟢37/🟡1/⚪1 (37/39 = 94,9%); volumen backend 187 · frontend 109 · total 390 (refs #7) | Daniel Ávila |
 | 1.0.8 | 2026-10-14 | **FR-041 + FR-042 implementados y verificados**: filtro por autor (`autor_id` en findings, `autores` en summary, UI) y test del CSV del cliente (`frontend/src/lib/dashboard-csv.ts` + `frontend/test/dashboard-csv.test.ts`); recuento a 🟢36/🟡1/⚪1 (36/38 = 94,7%); volumen backend 184 · frontend 109 · total 387 (refs #8) | Daniel Ávila |
 | 1.0.7 | 2026-10-14 | **FR-017 implementado** (dejó de ser simulado): cuota real vía `navigator.storage.estimate()` con aviso al 80% y priorización de fotos ya sincronizables; nueva fila FR-017 en la matriz §3 (🟢); recuento conjunto con el módulo 001: 38 filas · 🟢34/🟡2/⚪2; volumen actualizado (backend 183, frontend 105) (refs #5) | Daniel Ávila |
 | 1.0.6 | 2026-10-14 | Cobertura del módulo **001** (autenticación y tenancy): filas **FR-001**, **FR-003**, **FR-004** y **FR-006** en la matriz §3 con evidencia de `backend/test/auth.spec.ts` (login/JWT, rotación y reuso del refresh, bloqueo) y el caos 6 (`e2e-caos-sync.spec.ts`); FR-005 se detalla (por cuenta **y** por IP); recuento a 37 filas (refs #4) | Raúl González |

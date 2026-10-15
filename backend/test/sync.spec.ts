@@ -302,6 +302,43 @@ describe('lote completo (FR-020, FR-024, NFR-03)', () => {
   })
 })
 
+describe('georreferencia opcional (FR-034)', () => {
+  it('persiste location_lat/location_lon cuando el payload las envía', async () => {
+    const { batch, inspectionId } = baseBatch()
+    ;(batch.records[0].payload as { location?: unknown }).location = { lat: -33.456789, lon: -70.648321 }
+    const res = await post(access, batch)
+    expect(res.status).toBe(200)
+    const row = await ownerPool.query(
+      'SELECT location_lat, location_lon FROM inspection WHERE id = $1',
+      [inspectionId],
+    )
+    expect(row.rows).toHaveLength(1)
+    expect(Number(row.rows[0].location_lat)).toBeCloseTo(-33.456789, 6)
+    expect(Number(row.rows[0].location_lon)).toBeCloseTo(-70.648321, 6)
+  })
+
+  it('rechaza coordenadas fuera de rangos geográficos con 400', async () => {
+    const { batch } = baseBatch()
+    ;(batch.records[0].payload as { location?: unknown }).location = { lat: 91, lon: 0 }
+    const res = await post(access, batch)
+    expect(res.status).toBe(400)
+    expect(await count('SELECT 1 FROM sync_log WHERE batch_id = $1', [batch.batch_id])).toBe(0)
+  })
+
+  it('acepta inspección sin ubicación (null / omitida)', async () => {
+    const { batch, inspectionId } = baseBatch()
+    // baseBatch ya no envía location; verificamos que las columnas queden NULL.
+    const res = await post(access, batch)
+    expect(res.status).toBe(200)
+    const row = await ownerPool.query(
+      'SELECT location_lat, location_lon FROM inspection WHERE id = $1',
+      [inspectionId],
+    )
+    expect(row.rows[0].location_lat).toBeNull()
+    expect(row.rows[0].location_lon).toBeNull()
+  })
+})
+
 describe('referencias inválidas (FR-021 parcial)', () => {
   it('registro con referencia inexistente → status partial y errors[] acotado', async () => {
     const { batch } = baseBatch()

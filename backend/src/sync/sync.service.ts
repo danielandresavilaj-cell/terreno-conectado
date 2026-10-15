@@ -281,6 +281,7 @@ export class SyncService {
         if (!INSPECTION_STATUSES.has(x.status)) {
           throw new BadRequestException(`${at}.payload.status inválido`)
         }
+        this.assertLocation(x.location, `${at}.payload.location`)
         break
       }
       case 'response': {
@@ -375,6 +376,24 @@ export class SyncService {
     }
   }
 
+  private assertLocation(value: unknown, field: string): { lat: number; lon: number } | null {
+    if (value === undefined || value === null) return null
+    if (typeof value !== 'object' || value === null) {
+      throw new BadRequestException(`${field} debe ser un objeto {lat,lon}`)
+    }
+    const loc = value as { lat?: unknown; lon?: unknown }
+    if (typeof loc.lat !== 'number' || typeof loc.lon !== 'number') {
+      throw new BadRequestException(`${field}.lat y ${field}.lon deben ser números`)
+    }
+    if (!Number.isFinite(loc.lat) || !Number.isFinite(loc.lon)) {
+      throw new BadRequestException(`${field} contiene coordenadas no finitas`)
+    }
+    if (loc.lat < -90 || loc.lat > 90 || loc.lon < -180 || loc.lon > 180) {
+      throw new BadRequestException(`${field} fuera de rangos geográficos válidos`)
+    }
+    return { lat: loc.lat, lon: loc.lon }
+  }
+
   /* ------------------------------------------------------------ proceso */
 
   private async process(
@@ -422,6 +441,7 @@ export class SyncService {
     switch (rec.entity_type) {
       case 'inspection': {
         const p = rec.payload as unknown as SyncInspectionPayload
+        const loc = this.assertLocation(p.location, 'payload.location')
         return this.db.withTenantTransaction(tenantId, (run) =>
           this.applyAny(run, tenantId, syncLogId, rec, {
             table: 'inspection',
@@ -439,15 +459,18 @@ export class SyncService {
               p.status,
               rec.captured_at,
               rec.client_version,
+              loc?.lat ?? null,
+              loc?.lon ?? null,
             ],
             insertSql: `INSERT INTO inspection
               (id, tenant_id, site_id, template_id, template_version, executed_by,
-               status, captured_at, client_version, synced_at)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, now())
+               status, captured_at, client_version, location_lat, location_lon, synced_at)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, now())
              RETURNING id`,
             updateSql: `UPDATE inspection SET
               site_id = $3, template_id = $4, template_version = $5, executed_by = $6,
               status = $7, captured_at = $8, client_version = $9,
+              location_lat = $10, location_lon = $11,
               synced_at = now(), updated_at = now()
              WHERE id = $1 AND tenant_id = $2`,
             updateValues: () => [
@@ -460,6 +483,8 @@ export class SyncService {
               p.status,
               rec.captured_at,
               rec.client_version,
+              loc?.lat ?? null,
+              loc?.lon ?? null,
             ],
             payloadFrom: (r) => ({
               site_id: r.site_id,
@@ -467,6 +492,10 @@ export class SyncService {
               template_version: r.template_version,
               executed_by: r.executed_by,
               status: r.status,
+              location:
+                r.location_lat == null || r.location_lon == null
+                  ? null
+                  : { lat: Number(r.location_lat), lon: Number(r.location_lon) },
             }),
           }),
         )

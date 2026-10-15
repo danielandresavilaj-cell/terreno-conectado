@@ -843,7 +843,29 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
     if (!usuario) return
     void (async () => {
       const draftId = await getDraftInspectionId()
-      if (draftId) await submitInspection(draftId)
+      if (!draftId) return
+      // FR-034: georreferencia opcional al cerrar la inspección. Si no hay
+      // permiso, señal o la API no existe, se envía `null` (graceful degrade).
+      let location: { lat: number; lon: number } | null = null
+      try {
+        const pos = await new Promise<GeolocationPosition | null>((resolve) => {
+          if (!navigator.geolocation) {
+            resolve(null)
+            return
+          }
+          navigator.geolocation.getCurrentPosition(
+            (p) => resolve(p),
+            () => resolve(null),
+            { enableHighAccuracy: true, timeout: 5000, maximumAge: 60000 },
+          )
+        })
+        if (pos) {
+          location = { lat: pos.coords.latitude, lon: pos.coords.longitude }
+        }
+      } catch {
+        location = null
+      }
+      await submitInspection(draftId, location)
       setRespuestas({})
       await refrescar()
       // FR-004: apenas se encola, si hay señal se intenta el flush.
