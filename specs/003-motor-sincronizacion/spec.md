@@ -3,7 +3,7 @@
 | | |
 | :--- | :--- |
 | **Estado** | COMPLETO (ciclo del módulo, F2 · 2026-10-13) |
-| **Versión** | 0.4.0 |
+| **Versión** | 0.4.1 |
 | **Autor** | Daniel Ávila |
 | **Padre** | specs/000-master/spec.md |
 | **Depende de** | 001 (JWT/tenant), 002 (outbox local) |
@@ -20,7 +20,7 @@ Requisitos que este spec detalla: **FR-020 → FR-029** y soporte a **NFR-03, NF
 - **FR-020** Subida por lotes con orden de dependencias (`site → template → inspection → responses → findings → log_entries → attachments`).
 - **FR-021** Idempotencia: upsert por UUIDv7 de cliente + `client_version`.
 - **FR-022** Backoff exponencial 1 s → 5 min sin intervención.
-- **FR-023** Conflictos: LWW por `captured_at`/`client_version`, ambas versiones en `CONFLICT_RECORD`, visibles al supervisor.
+- **FR-023** Conflictos: LWW por `captured_at`/`client_version`, ambas versiones en `CONFLICT_RECORD`, visibles al `supervisor` y `tenant_admin` de su tenant.
 - **FR-024** `SYNC_LOG` auditable + métrica de latencia `captured_at → synced_at`.
 - **FR-025** Rechazo del lote completo ante cruce de tenant (+ incidente en `AUDIT_LOG`).
 - **FR-026** Marcado `synced` y actualización del contador de pendientes.
@@ -32,14 +32,14 @@ El alcance excede el "walking skeleton": incluye la **descarga incremental hacia
 
 ## 2. Estado de implementación
 
-Verificado sobre `main` al 2026-10-13.
+Verificado sobre `main` al 2026-10-14.
 
 | Requisito | Estado | Evidencia |
 | :--- | :--- | :--- |
 | FR-020 orden de dependencias | ✅ | `backend/src/sync/sync.service.ts`; `backend/test/sync.spec.ts` (`batchOrder`) |
 | FR-021 idempotencia (upsert) | ✅ | `sync.service.ts` (`ON CONFLICT … WHERE excluded.client_version >`) |
 | FR-022 backoff cliente | ✅ | `frontend/src/lib/sync.ts` (`MAX_BACKOFF_MS`); caos 1 |
-| FR-023 LWW + `CONFLICT_RECORD` | ✅ | `sync.service.ts` (`decideLww`, `recordConflict`); caos 3 |
+| FR-023 LWW + `CONFLICT_RECORD` | ✅ | `sync.service.ts` (`decideLww`, `recordConflict`, `CONFLICT_VIEWER_ROLES`); `backend/test/conflicts.spec.ts` (supervisor/tenant_admin 200, field_worker/platform_admin 403, RLS cross-tenant); caos 3 |
 | FR-024 `SYNC_LOG` + latencia | ✅ | `sync.service.ts` (`beginSyncLog`/`finishSyncLog`) |
 | FR-025 rechazo cross-tenant + auditoría | ✅ | `sync.service.ts` (`auditTenantMismatch`); caos 7 |
 | FR-026 marcado `synced` + contador | ✅ | `frontend/src/lib/sync.ts`, `frontend/src/lib/db.ts` |
@@ -141,6 +141,7 @@ El delta **nunca** re-encuadra un turno en curso: la plantilla activa de un borr
 
 | Versión | Fecha | Cambio | Autor |
 | :--- | :--- | :--- | :--- |
+| 0.4.1 | 2026-10-14 | **FR-023 / TSK-AUTH-008 (#128):** `GET /conflicts` alinea sus roles con el contrato canónico (`supervisor`, `tenant_admin`); `conflicts.spec.ts` verifica denegación a worker/platform y aislamiento RLS | Daniel Ávila |
 | 0.4.0 | 2026-10-13 | **Spec completado (F2).** Documenta el estado real de FR-020…029 (todos implementados), cierra la **descarga incremental**: delta de plantillas por cursor `published_seq` y **decisión V1 de datos de referencia por snapshot completo** (§6). Apunta a `plans/003-motor-sincronizacion/plan.md` y a las tasks TSK-SYNC | Daniel Ávila |
 | 0.3.0 | 2026-10-07 | **Módulo 007 (Enmienda 002):** alcance +FR-027–029 — delta de plantillas `GET /api/v1/templates?since=`, versión congelada, imports idempotentes (`TEMPLATE_IMPORT`) | Raúl González (con IA) |
 | 0.2.0 | 2026-10-07 | TSK-WS-007/008/009 implementados: contrato de ingesta (`SyncBatchRequest/Response`), upsert versión-condicionado e idempotente, LWW determinista + `CONFLICT_RECORD` append-only (worst/winner payload), `sync_log` en dos fases, `GET /api/v1/conflicts` (supervisor/admin), worker de cola cliente | Daniel Ávila |

@@ -11,7 +11,7 @@ import request from 'supertest'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { AppModule } from '../src/app.module'
 import { configureApp } from '../src/app.setup'
-import { DEMO_PASSWORD, TENANT_A_ID, seedDatabase } from '../db/seed'
+import { DEMO_PASSWORD, TENANT_A_ID, TENANT_B_ID, seedDatabase } from '../db/seed'
 
 /**
  * TSK-WS-009 — Resolución LWW + CONFLICT_RECORD (FR-023, Artículo III).
@@ -25,7 +25,8 @@ import { DEMO_PASSWORD, TENANT_A_ID, seedDatabase } from '../db/seed'
  *  - `captured_at` iguales → gana mayor `client_version`.
  *  - reintento de un registro PERDEDOR es idempotente (dedupe del par): el
  *    conflicto no se duplica ni se altera la fila.
- *  - el conflicto es visible para el supervisor y prohibido para field_worker.
+ *  - el conflicto es visible para supervisor y tenant_admin; prohibido para
+ *    field_worker y platform_admin, con aislamiento tenant vía RLS.
  */
 
 const MIGRATIONS_DIR = resolve(process.cwd(), 'db', 'migrations')
@@ -36,6 +37,8 @@ let ownerPool: Pool
 let app: INestApplication
 let trabajadorToken: string
 let supervisorToken: string
+let tenantAdminToken: string
+let platformToken: string
 let siteId: string
 let userId: string
 
@@ -128,6 +131,18 @@ beforeAll(async () => {
     .send({ email: 'supervisor@minera.cl', password: DEMO_PASSWORD })
   expect(loginSupervisor.status).toBe(200)
   supervisorToken = loginSupervisor.body.access_token as string
+
+  const loginTenantAdmin = await server()
+    .post('/api/v1/auth/login')
+    .send({ email: 'admin@minera.cl', password: DEMO_PASSWORD })
+  expect(loginTenantAdmin.status).toBe(200)
+  tenantAdminToken = loginTenantAdmin.body.access_token as string
+
+  const loginPlatform = await server()
+    .post('/api/v1/auth/login')
+    .send({ email: 'admin@terreno.local', password: DEMO_PASSWORD })
+  expect(loginPlatform.status).toBe(200)
+  platformToken = loginPlatform.body.access_token as string
 
   const sites = await ownerPool.query('SELECT id FROM site WHERE tenant_id = $1 LIMIT 1', [
     TENANT_A_ID,
@@ -267,8 +282,43 @@ describe('visibilidad para el supervisor (FR-023)', () => {
     expect(row?.winner_payload.status).toBe('submitted')
   })
 
-  it('un field_worker no puede ver conflictos (403) y sin sesión 401', async () => {
+  it('tenant_admin ve conflictos de su tenant y nunca los de otro tenant', async () => {
+    const ownId = uuid()
+    const v1 = inspectionRecord({
+      id: ownId,
+      clientVersion: 1,
+      capturedAt: '2026-10-06T17:00:00.000Z',
+      status: 'in_progress',
+    })
+    const v2 = inspectionRecord({
+      id: ownId,
+      clientVersion: 2,
+      capturedAt: '2026-10-06T18:00:00.000Z',
+      status: 'submitted',
+    })
+    await post(trabajadorToken, singleBatch(v1))
+    await post(trabajadorToken, singleBatch(v2))
+
+    // La fila B se inserta con la conexión owner para probar que RLS filtra
+    // incluso si existe un conflicto ajeno; el token A nunca debe verla.
+    const foreignId = uuid()
+    await ownerPool.query(
+      `INSERT INTO conflict_record
+         (id, tenant_id, entity_type, entity_id, winner_payload, loser_payload)
+       VALUES ($1, $2, 'inspection', $3, '{"status":"submitted"}', '{"status":"in_progress"}')`,
+      [uuid(), TENANT_B_ID, foreignId],
+    )
+
+    const res = await getConflicts(tenantAdminToken)
+    expect(res.status).toBe(200)
+    const ids = (res.body.items as Array<{ entity_id: string }>).map((item) => item.entity_id)
+    expect(ids).toContain(ownId)
+    expect(ids).not.toContain(foreignId)
+  })
+
+  it('field_worker y platform_admin no pueden ver conflictos (403); sin sesión → 401', async () => {
     expect((await getConflicts(trabajadorToken)).status).toBe(403)
+    expect((await getConflicts(platformToken)).status).toBe(403)
     expect((await server().get('/api/v1/conflicts')).status).toBe(401)
   })
 })

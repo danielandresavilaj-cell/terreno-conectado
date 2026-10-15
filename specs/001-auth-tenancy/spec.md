@@ -3,7 +3,7 @@
 | | |
 | :--- | :--- |
 | **Estado** | COMPLETO (ciclo del módulo, F2 · 2026-10-14) |
-| **Versión** | 1.0.0 |
+| **Versión** | 1.0.1 |
 | **Autor** | Raúl González |
 | **Padre** | specs/000-master/spec.md |
 | **Depende de** | — (primer módulo: todo lo demás lo consume) |
@@ -64,7 +64,7 @@ Puntos de enforcement en el código:
 - **Operativos** (`field_worker`, `supervisor`) ven sólo lo asignado a su rol/faena (`ROLES_OPERATIVOS`, `template_assignment`).
 - El dashboard es de `supervisor` y `tenant_admin` (`DASHBOARD_ROLES`, `dashboard.auth.ts:14`); `GET /sites` admite también a `field_worker` (`dashboard.service.ts:62`) para que la PWA arranque con su faena.
 
-> **Observación (fuera de la zona de este módulo):** `backend/src/sync/sync.service.ts:87` define `CONFLICT_VIEWER_ROLES = {supervisor, admin, admin_plataforma}`. Los nombres `admin`/`admin_plataforma` no son los roles canónicos (`tenant_admin`/`platform_admin`), así que en el código actual un `tenant_admin` no coincidiría (un `platform_admin` tampoco lo hace, pero eso es correcto: sólo `supervisor` y `tenant_admin` deberían ver conflictos). La matriz de arriba es la intención canónica; el desajuste queda registrado como **TSK-AUTH-008** (issue #128) para el módulo 003 (sync), que debe alinear `CONFLICT_VIEWER_ROLES` con los roles canónicos y añadir su prueba.
+> **TSK-AUTH-008 resuelto (issue #128):** `backend/src/sync/sync.service.ts` limita `GET /conflicts` a los roles canónicos `supervisor` y `tenant_admin`; `backend/test/conflicts.spec.ts` verifica ambos permisos, rechaza `field_worker`/`platform_admin` y comprueba aislamiento cross-tenant por RLS.
 
 ## 4. Hash y política de contraseñas (FR-001, NFR-06)
 
@@ -193,6 +193,7 @@ El tenant B existe para probar el aislamiento (FR-002) y el rechazo cross-tenant
 
 | Versión | Fecha | Cambio | Autor |
 | :--- | :--- | :--- | :--- |
+| 1.0.1 | 2026-10-14 | **TSK-AUTH-008 resuelto** (issue #128): el módulo 003 alinea `CONFLICT_VIEWER_ROLES` a `supervisor`/`tenant_admin`; tests cubren acceso autorizado, roles denegados y aislamiento cross-tenant | Daniel Ávila |
 | 1.0.0 | 2026-10-14 | **Spec completado (F2).** Documenta el estado real de FR-001…006: matriz rol × recurso × acción (§3), argon2id + política de contraseñas (§4), contratos `login`/`refresh`/`me` con rate-limit (§5), modelo de sesión D5 ratificado (§6), RLS (§7) y tenant demo (§8). Registra la desviación `sessionStorage` vs "solo en memoria" (**TSK-AUTH-006**) y el desajuste de roles de `CONFLICT_VIEWER_ROLES` en el módulo de sync (**TSK-AUTH-008**, issue #128). Añade filas FR-001/003/004/006 a `test-plan.md` §3 | Raúl González |
 | 0.2.0 | 2026-10-06 | **Decisión D5:** refresh en cookie httpOnly con rotación + detección de reuso y CSRF double-submit (issue #11) | Raúl González |
 | 0.1.0 | 2026-09-14 | Esqueleto inicial desde spec maestro v1.0.0 | Raúl González (con IA) |

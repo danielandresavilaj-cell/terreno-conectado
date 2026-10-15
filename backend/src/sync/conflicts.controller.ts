@@ -1,5 +1,5 @@
 /**
- * `GET /api/v1/conflicts` — lectura de conflictos LWW para supervisor/admin
+ * `GET /api/v1/conflicts` — lectura de conflictos LWW para supervisor/tenant_admin
  * (FR-023, lo consume el dashboard en TSK-WS-011). Los conflictos son
  * append-only: esta ruta sólo lee, nunca modifica.
  */

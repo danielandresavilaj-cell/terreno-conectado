@@ -3,7 +3,7 @@
 | | |
 | :--- | :--- |
 | **Estado** | COMPLETO (ciclo del módulo, F2 · 2026-10-13) |
-| **Versión** | 0.3.1 |
+| **Versión** | 0.3.2 |
 | **Autor** | Daniel Ávila |
 | **Padre** | specs/000-master/spec.md |
 | **Depende de** | 003 (datos sincronizados + `SYNC_LOG`), 004 (dominio) |
@@ -48,7 +48,7 @@ Todos bajo `/api/v1`, con Bearer JWT y roles `supervisor`/`tenant_admin` (`field
 | `sites` | GET | Faenas del tenant + nombre del tenant (bootstrapea el filtro y la captura offline) |
 | `dashboard/inspections/:id/export` | GET | FR-042/FR-044: `.xlsx` rellenado + hoja de evidencias |
 | `dashboard/inspections/export-lote` | POST | FR-045/FR-046: ZIP del período + manifiesto (filtro en el body) |
-| `conflicts` | GET | Registro LWW visible al supervisor (FR-023 consume aquí) |
+| `conflicts` | GET | Registro LWW visible al `supervisor` y `tenant_admin` de su tenant (FR-023 consume aquí; RLS limita el tenant) |
 
 ### 3.1 Validación de filtros
 
@@ -100,6 +100,7 @@ El alcance V1 del **resumen ejecutivo** es **read-only** y se apoya en las métr
 
 | Versión | Fecha | Cambio | Autor |
 | :--- | :--- | :--- | :--- |
+| 0.3.2 | 2026-10-14 | Precisa el contrato de `GET /conflicts`: supervisor y `tenant_admin` del tenant, con aislamiento RLS (TSK-AUTH-008, issue #128) | Daniel Ávila |
 | 0.3.1 | 2026-10-14 | **G3 (resumen ejecutivo) y cierre TSK-REP-003:** §7 define el resumen ejecutivo V1 como read-only sobre KPIs del dashboard; TSK-REP-003 verificado (métrica de latencia media+p95 en `backend/test/dashboard.spec.ts`, umbral ≤60 s medido en vivo). Actualiza referencia del CSV a `frontend/src/lib/dashboard-csv.ts` (refs #8) | Daniel Ávila |
 | 0.3.0 | 2026-10-14 | **FR-041 filtro por autor implementado y FR-042 CSV testeado.** `dashboard/findings?autor_id=` filtra por `inspection.executed_by`; `summary.autores` publica los autores con actividad del período para poblar el filtro; `FindingDto.autor_id`; UI con filtro por autor; CSV de hallazgos extraído a `frontend/src/lib/dashboard-csv.ts` con tests unitarios. Pasa de 🟡 a ✅ (FR-041) y de ⚪ a ✅ (FR-042). Ver `tasks/005-reportes-gerencia/tasks.md` TSK-REP-004 / TSK-REP-005 | Daniel Ávila |
 | 0.2.0 | 2026-10-13 | **Spec completado (F2).** Documenta el estado real de FR-040…043 y NFR-03: métricas, contratos del dashboard, validación única de filtros, métrica de latencia (media+p95) y export (CSV cliente + `.xlsx` servidor). Registra FR-041 autor y FR-043 ≤60 s como 🟡 (parcial / medido en vivo). Apunta al plan técnico | Daniel Ávila |

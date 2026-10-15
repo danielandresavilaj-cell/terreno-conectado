@@ -1,6 +1,6 @@
 # TEST PLAN — Plan de pruebas de validación
 
-**Versión:** 1.0.9 · **Fecha:** 2026-09-14 · actualizado 2026-10-14 · **Autor:** Raúl González (validación) · **Relacionado:** spec maestro §5–6, constitución Artículos III/IV/VII
+**Versión:** 1.0.10 · **Fecha:** 2026-09-14 · actualizado 2026-10-14 · **Autor:** Raúl González (validación) · **Relacionado:** spec maestro §5–6, constitución Artículos III/IV/VII
 **Evidencia APT:** "Plan de pruebas de validación" (informe §6) y soporte de la competencia "Realizar pruebas de certificación de productos y procesos".
 
 ## 1. Principio rector
@@ -36,7 +36,7 @@ verde.
 | FR-020 | Batch con dependencias (inspección + respuestas + hallazgo + foto) sube en orden | Unit + Integración | `backend/test/sync.spec.ts` (`batchOrder` y orden de aplicación) | 🟢 verde |
 | FR-021, NFR-04 | Reenviar el mismo batch 3 veces → contar filas: cero duplicados | Integración + **caos 2** | `e2e-caos-sync.spec.ts` → "reenviar el mismo lote 3 veces no duplica filas" (`records_unchanged`) | 🟢 verde |
 | FR-022 | Fallar red a mitad de subida → backoff observado (1s,2s,4s…), sin intervención | **caos 1** | `e2e-caos-sync.spec.ts` → "al cortar el envío y reconectar…" (`context.route` aborta 2 lotes) | 🟢 verde |
-| FR-023 | Editar misma inspección en 2 contextos offline → LWW aplica + CONFLICT_RECORD con ambas versiones | Integración + **caos 3** | `e2e-caos-integridad.spec.ts` → "dos dispositivos offline editan el mismo registro" | 🟢 verde |
+| FR-023 | Editar misma inspección en 2 contextos offline → LWW aplica + CONFLICT_RECORD con ambas versiones; visible a supervisor/tenant_admin y aislado por tenant | Integración + **caos 3** | `backend/test/conflicts.spec.ts` (roles/RLS) + `e2e-caos-integridad.spec.ts` → "dos dispositivos offline editan el mismo registro" | 🟢 verde |
 | FR-024 | Tras sync: SYNC_LOG completo y `synced_at - captured_at` registrado | Integración | `backend/test/sync.spec.ts` + aserción de `sync_log` en el E2E de FR-016 | 🟢 verde |
 | FR-025, NFR-05 | JWT tenant A intenta batch con `tenant_id` B → 4xx + AUDIT_LOG de incidente | Integración + **caos 7** | `e2e-caos-integridad.spec.ts` → "JWT del tenant A con payload del tenant B" | 🟢 verde |
 | FR-002, NFR-05 | Usuario tenant A consulta todos los endpoints de lectura → jamás aparece dato B (fixture B sembrada) | Integración (RLS, Testcontainers) | `backend/test/rls.spec.ts` | 🟢 verde |
@@ -78,11 +78,11 @@ verde.
 **Volumen de pruebas en la corrida de referencia:**
 ```
 E2E + caos (Playwright, nightly)          17 tests
-Integración backend (Vitest + Testcontainers) 187 tests
+Integración backend (Vitest + Testcontainers) 188 tests
 Unidad frontend (Vitest)                     109 tests
 Unidad shared (Vitest)                        77 tests
                                            ───────────────
-                                           390 tests
+                                           391 tests
 ```
 
 > El criterio de salida de Fase 2 (§8) pide "matriz §3 ≥ 90% verde". Con FR-034,
@@ -190,6 +190,7 @@ referencia: **17/17 E2E en verde**. Informe por módulo en
 
 | Versión | Fecha | Cambio | Autor |
 | :--- | :--- | :--- | :--- |
+| 1.0.10 | 2026-10-14 | **TSK-AUTH-008 / issue #128 resuelto**: FR-023 acredita acceso a conflictos de `supervisor`/`tenant_admin`, denegación a `field_worker`/`platform_admin` y aislamiento RLS en `backend/test/conflicts.spec.ts`; backend actualizado a 188 tests, total 391 con 17 E2E | Daniel Ávila |
 | 1.0.9 | 2026-10-14 | **FR-034 implementado** (georreferencia opcional): migración `1730000011000_inspection_location.js` (`location_lat`/`location_lon` NUMERIC), contrato aditivo `SyncInspectionPayload.location`, validación server-side, captura opcional con `navigator.geolocation` al enviar inspección; nueva fila FR-034 en matriz §3 (🟢) sobre la base 1.0.8: recuento a 🟢37/🟡1/⚪1 (37/39 = 94,9%); volumen backend 187 · frontend 109 · total 390 (refs #7) | Daniel Ávila |
 | 1.0.8 | 2026-10-14 | **FR-041 + FR-042 implementados y verificados**: filtro por autor (`autor_id` en findings, `autores` en summary, UI) y test del CSV del cliente (`frontend/src/lib/dashboard-csv.ts` + `frontend/test/dashboard-csv.test.ts`); recuento a 🟢36/🟡1/⚪1 (36/38 = 94,7%); volumen backend 184 · frontend 109 · total 387 (refs #8) | Daniel Ávila |
 | 1.0.7 | 2026-10-14 | **FR-017 implementado** (dejó de ser simulado): cuota real vía `navigator.storage.estimate()` con aviso al 80% y priorización de fotos ya sincronizables; nueva fila FR-017 en la matriz §3 (🟢); recuento conjunto con el módulo 001: 38 filas · 🟢34/🟡2/⚪2; volumen actualizado (backend 183, frontend 105) (refs #5) | Daniel Ávila |
