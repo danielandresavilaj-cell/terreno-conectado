@@ -411,9 +411,10 @@ Let's Encrypt): Caddy expone 80/443 y enruta `/` → frontend (nginx estático) 
 2. Evidencias de la asignatura en el repositorio [Capstone](https://github.com/danielandresavilaj-cell/Capstone) — Fase 1 completa (informe APT, guía 1.5, presentación, Carta Gantt y evidencias individuales) y plantillas de Fase 2
 3. [specs/000-master/spec.md](specs/000-master/spec.md)
 4. [research.md](research.md) · [data-model.md](data-model.md) · [test-plan.md](test-plan.md)
-5. [docs-evidencia/informe-final/informe.md](docs-evidencia/informe-final/informe.md) — informe final de validación Fase 2
-6. [docs-evidencia/informe-final/presentacion.md](docs-evidencia/informe-final/presentacion.md) — guion de diapositivas para la demo final
-7. [docs/guia-del-tablero.md](docs/guia-del-tablero.md) — cómo navegar, leer y trabajar con el [tablero compartido](https://github.com/users/danielandresavilaj-cell/projects/1)
+5. [docs/checklist-validacion-manual.md](docs/checklist-validacion-manual.md) — checklist de validación manual por perfil y modo (7 pantallas × 4 roles)
+6. [docs-evidencia/informe-final/informe.md](docs-evidencia/informe-final/informe.md) — informe final de validación Fase 2
+7. [docs-evidencia/informe-final/presentacion.md](docs-evidencia/informe-final/presentacion.md) — guion de diapositivas para la demo final
+8. [docs/guia-del-tablero.md](docs/guia-del-tablero.md) — cómo navegar, leer y trabajar con el [tablero compartido](https://github.com/users/danielandresavilaj-cell/projects/1)
 
 ## Tablero del equipo
 
