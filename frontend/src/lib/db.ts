@@ -1016,8 +1016,11 @@ const ITEM_ID_FIJO: readonly string[] = [
   '01890000-0000-7000-8000-00000000f105',
 ]
 
+/** Ya no se siembra contenido demo con IDs fijos (F-01). Se deja como NO-OP
+ * para preservar compatibilidad con las llamadas existentes; el outbox empieza
+ * vacío. */
 export async function seedDemoDataIfNeeded(
-  cola: Array<{
+  _cola: Array<{
     uuid: string
     titulo: string
     detalle: string
@@ -1028,7 +1031,7 @@ export async function seedDemoDataIfNeeded(
     intentos?: number
   }>,
   identidad: Identidad,
-  usuario: Usuario,
+  _usuario: Usuario,
 ): Promise<void> {
   const previoRaw = await db.meta.get('seedVersion')
   let previo: { version: string; tenantId: string } | null = null
@@ -1039,183 +1042,13 @@ export async function seedDemoDataIfNeeded(
   } catch {
     previo = null
   }
-  if (
-    previo &&
-    previo.version === SEED_VERSION &&
-    previo.tenantId === identidad.tenantId
-  ) {
+  if (previo && previo.version === SEED_VERSION && previo.tenantId === identidad.tenantId) {
     return
   }
-
-  const sitio = identidad.faenas[0]
-  if (!sitio) {
-    await db.meta.put({
-      key: 'seedVersion',
-      value: JSON.stringify({ version: SEED_VERSION, tenantId: identidad.tenantId }),
-    })
-    return
-  }
-
-  const ts = ahoraIso()
-  const filas: OutboxRow[] = cola
-    .filter((r) => r.tipo !== 'respuesta')
-    .map((r, i) => ({
-      entityType: TIPO_ENTIDAD_ENTITY[r.tipo as OutboxTipo] ?? 'finding',
-      entityId: r.uuid,
-      tipo: r.tipo as OutboxTipo,
-      titulo: r.titulo,
-      detalle: r.detalle,
-      batchOrder: r.orden,
-      status: r.estado as SyncEstado,
-      retries: r.intentos ?? 0,
-      tenantId: identidad.tenantId,
-      capturedAt: new Date(Date.now() - (cola.length - i) * 60_000).toISOString(),
-      updatedAt: ts,
-    }))
-
-  const templateId = await getTemplateId()
-
-  /* El blob de la foto demo se resuelve ANTES de abrir la transacción.
-   * `fetch` no es una operación de IndexedDB: Dexie no puede mantener viva la
-   * transacción a través de una E/S de red, así que el commit ocurre antes de
-   * que el `await` resuelva y Dexie aborta con "Transaction committed too
-   * early" (el login completo se caía en el primer arranque de cada
-   * dispositivo). Aquí la espera queda fuera y dentro sólo hay escrituras
-   * sincrónicas de la base. */
-  const foto = cola.find((c) => c.tipo === 'foto')
-  const blobFoto = foto ? await (await fetch(PNG_BLANCO)).blob() : null
-
-  await db.transaction(
-    'rw',
-    [db.outbox, db.inspections, db.responses, db.findings, db.logEntries, db.attachments, db.meta],
-    async () => {
-      await db.outbox.clear()
-      await db.inspections.clear()
-      await db.responses.clear()
-      await db.findings.clear()
-      await db.logEntries.clear()
-      await db.attachments.clear()
-
-      await db.outbox.bulkAdd(filas)
-      const insp = cola.find((c) => c.tipo === 'inspeccion')
-      if (insp) {
-        await db.inspections.add({
-          id: insp.uuid,
-          tenantId: identidad.tenantId,
-          siteId: sitio.id,
-          templateId,
-          templateVersion: 3,
-          executedBy: usuario.id,
-          status: 'submitted',
-          capturedAt: ts,
-          syncedAt: ts,
-          clientVersion: 0,
-          templateName: 'Seguridad en rajo',
-          siteName: sitio.nombre,
-          answeredCount: 5,
-          totalItems: 8,
-        })
-        /* Respuestas del checklist: se crean COMO ENTIDAD y como filas del
-         * outbox (orden 2). Así el hallazgo r-3 y la foto r-4 encuentran su
-         * inspección/respuesta en el MISMO lote (FR-021) y el primer sync
-         * entero cae al tenant de verdad. */
-        /* `template_item_id` viaja al servidor como UUID (contrato del lote
-         * de sync) y el catálogo materializado usa los ids del fixture
-         * publicado (`01890000-...-f1xx`, backend/db/seed.ts). Con los ids
-         * legibles de la semilla demo ('i-01'…) el backend rechazaba el
-         * lote entero con HTTP 400 y el primer sync de cada dispositivo
-         * nuevo quedaba sin enviar. Se mapea posición→id real del fixture; si
-         * el servidor publica otra plantilla, la posición simplemente no tiene
-         * contraparte y la respuesta demo no se encola. */
-        for (const [indice, item] of PLANTILLA.slice(0, 5).entries()) {
-          const itemIdReal = ITEM_ID_FIJO[indice]
-          if (!itemIdReal) continue
-          const responseId = uuidv7()
-          await db.responses.add({
-            id: responseId,
-            inspectionId: insp.uuid,
-            templateItemId: itemIdReal,
-            tenantId: identidad.tenantId,
-            valueOk: indice === 1 ? 'nok' : 'ok',
-            valueText: null,
-            valueNumber: indice === 3 ? 180 : null,
-            capturedAt: ts,
-            clientVersion: 0,
-          })
-          await db.outbox.add({
-            entityType: 'response',
-            entityId: responseId,
-            tipo: 'respuesta',
-            titulo: 'Respuestas de checklist',
-            detalle: `Ítem ${item.texto} · ${indice === 1 ? 'nok' : 'ok'}`,
-            batchOrder: 2,
-            status: 'pending',
-            retries: 0,
-            tenantId: identidad.tenantId,
-            capturedAt: ts,
-            updatedAt: ts,
-          })
-        }
-      }
-      const hallazgo = cola.find((c) => c.tipo === 'hallazgo')
-      if (hallazgo && insp) {
-        const responseId = (await db.responses
-          .where('templateItemId')
-          .equals(ITEM_ID_FIJO[1])
-          .and((r) => r.inspectionId === insp.uuid)
-          .first())?.id
-        await db.findings.add({
-          id: hallazgo.uuid,
-          inspectionId: insp.uuid,
-          responseId: responseId ?? null,
-          tenantId: identidad.tenantId,
-          severity: 'high',
-          description: 'Sin señalización en ruta de evacuación',
-          status: 'open',
-          capturedAt: ts,
-          clientVersion: 0,
-        })
-      }
-      const logRows = cola.filter((c) => c.tipo === 'bitacora')
-      for (const l of logRows) {
-        await db.logEntries.add({
-          id: l.uuid,
-          siteId: sitio.id,
-          authorId: usuario.id,
-          tenantId: identidad.tenantId,
-          entryText:
-            l.detalle.startsWith('2 entradas')
-              ? 'Relevo de turno con el jefe Jh. Salas. Se deja faena nivelada. Queda pendiente la señalización de la ruta de evacuación por falta de conos.'
-              : 'Viento sostenido del este, visibilidad buena. Se postergó el movimiento de la shovel por polvo en la rampa de acceso.',
-          tags: l.detalle === 'Turno B · 2 entradas' ? ['Turno B', 'Relevo'] : ['Clima'],
-          shiftDate: ts.slice(0, 10),
-          capturedAt: ts,
-          clientVersion: 0,
-        })
-      }
-      const foto = cola.find((c) => c.tipo === 'foto')
-      if (foto && blobFoto) {
-        const blob = blobFoto
-        await db.attachments.add({
-          id: foto.uuid,
-          tenantId: identidad.tenantId,
-          ownerType: 'finding',
-          ownerId: hallazgo?.uuid ?? '',
-          mime: 'image/png',
-          bytes: blob.size,
-          blob,
-          ancho: 1,
-          alto: 1,
-          capturedAt: ts,
-          clientVersion: 0,
-        })
-      }
-      await db.meta.put({
-        key: 'seedVersion',
-        value: JSON.stringify({ version: SEED_VERSION, tenantId: identidad.tenantId }),
-      })
-    },
-  )
+  await db.meta.put({
+    key: 'seedVersion',
+    value: JSON.stringify({ version: SEED_VERSION, tenantId: identidad.tenantId }),
+  })
 }
 
 const TIPO_ENTIDAD_ENTITY: Record<OutboxTipo, OutboxRow['entityType']> = {

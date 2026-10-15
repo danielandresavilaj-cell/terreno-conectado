@@ -134,64 +134,7 @@ export const DEFINICION_DEMO: TemplateDefinition = {
   })),
 }
 
-/** Cola local inicial: mezcla de estados para que el outbox tenga contenido
- *  realista desde el primer frame (FR-013, FR-020). El `tenantId` lo fija la
- *  siembra con la identidad real de la sesión (TSK-WS-011); los IDs de
- *  inspección/hallazgo/bitácora apuntan a entidades que la siembra crea con
- *  los mismos UUIDv7, así el primer sync es un lote VÁLIDO de verdad: todo lo
- *  que apunta a una entidad ya sincronizada está en cola, y las respuestas del
- *  checklist también. El fake "foto 1280×960" se siembra como PNG 1×1 (la
- *  metadata del detalle es la del mockup, los bytes reales son mínimos). */
-export const COLA_INICIAL: RegistroCola[] = [
-  {
-    id: 'r-1',
-    uuid: '0198c2f0-a41d-7b2e-9f10-4c7e5a1b0031',
-    tipo: 'inspeccion',
-    titulo: 'Inspección · Seguridad en rajo',
-    detalle: 'Sector Norte · 8 ítems',
-    estado: 'pending',
-    orden: 1,
-    tenantId: '',
-  },
-  {
-    id: 'r-2',
-    uuid: '0198c2f0-a41d-7b2e-9f10-4c7e5a1b0032',
-    tipo: 'bitacora',
-    titulo: 'Bitácora de turno',
-    detalle: 'Turno B · 2 entradas',
-    estado: 'pending',
-    orden: 5,
-    tenantId: '',
-  },
-  {
-    id: 'r-3',
-    uuid: '0198c2f0-a41d-7b2e-9f10-4c7e5a1b0033',
-    tipo: 'hallazgo',
-    titulo: 'Hallazgo · Severidad alta',
-    detalle: 'Sin señalización en ruta de evacuación',
-    estado: 'pending',
-    orden: 3,
-    tenantId: '',
-  },
-  {
-    id: 'r-4',
-    uuid: '0198c2f0-a41d-7b2e-9f10-4c7e5a1b0034',
-    tipo: 'foto',
-    titulo: 'Foto comprimida',
-    detalle: '1280×960 · q0.7 · 214 KB',
-    estado: 'pending',
-    orden: 4,
-    tenantId: '',
-  },
-  {
-    id: 'r-5',
-    uuid: '0198c2f0-a41d-7b2e-9f10-4c7e5a1b0035',
-    tipo: 'bitacora',
-    titulo: 'Bitácora de turno',
-    detalle: 'Geolocalización 23.4°S 69.8°W',
-    estado: 'failed',
-    orden: 5,
-    tenantId: '',
-    intentos: 3,
-  },
-]
+/** Cola local inicial: vacía. La semilla de demo con UUIDs fijos provocaba
+ * `duplicate key` al sincronizar (F-01). Ya no se siembra contenido demo en
+ * IndexedDB. */
+export const COLA_INICIAL: RegistroCola[] = []
