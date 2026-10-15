@@ -22,7 +22,7 @@ import { BadgeSync, SYNC_META } from '../components/Badges'
 import { CountUp } from '../components/CountUp'
 import { Boton } from '../components/ui'
 import { useEstado } from '../lib/store'
-import { CUOTA } from '../lib/seed'
+import { UMBRAL_CUOTA_PCT } from '../lib/cuota'
 import { EASE } from '../lib/motion'
 import type { RegistroCola } from '../lib/types'
 
@@ -36,8 +36,10 @@ const ORDEN_TIPO: Record<string, string> = {
 }
 
 export function Cola() {
-  const { cola, pendientes, online, recienSincronizado, setOnline, sincronizarAhora } = useEstado()
+  const { cola, pendientes, online, recienSincronizado, setOnline, sincronizarAhora, cuota } = useEstado()
   const [filtro, setFiltro] = useState<'todos' | 'pendientes' | 'fallidos'>('todos')
+  const cuotaPct = cuota.usadaPct
+  const cuotaAlta = cuotaPct !== null && cuotaPct >= UMBRAL_CUOTA_PCT
 
   const lista = cola
     .filter((r) =>
@@ -159,26 +161,26 @@ export function Cola() {
           <div>
             <p className="label-inst">Almacenamiento local estimado</p>
             <p className="mt-1 text-[12px] text-ink-2">
-              {CUOTA.usadaPct}% de la cuota · {CUOTA.fotosPendientes} fotos pendientes de subir
+              {cuotaPct === null ? 'Estimación no disponible' : `${cuotaPct}% de la cuota`} ·{' '}
+              {cuota.fotosPendientes} fotos pendientes de subir
             </p>
           </div>
           <span
             className="num-inst text-[15px] font-semibold"
-            style={{ color: CUOTA.usadaPct >= 80 ? 'var(--color-sev-media)' : 'var(--color-ink-2)' }}
+            style={{ color: cuotaAlta ? 'var(--color-sev-media)' : 'var(--color-ink-2)' }}
           >
-            {CUOTA.usadaPct}%
+            {cuotaPct === null ? '—' : `${cuotaPct}%`}
           </span>
         </div>
         <div className="meter h-2 rounded-full bg-s3 overflow-hidden">
           <motion.span
             className="block h-full rounded-full"
             initial={{ scaleX: 0.02 }}
-            animate={{ scaleX: CUOTA.usadaPct / 100 }}
+            animate={{ scaleX: (cuotaPct ?? 0) / 100 }}
             transition={{ duration: 0.7, ease: EASE.out, delay: 0.15 }}
             style={{
               transformOrigin: 'left center',
-              background:
-                CUOTA.usadaPct >= 80 ? 'var(--color-sev-media)' : 'var(--color-synced)',
+              background: cuotaAlta ? 'var(--color-sev-media)' : 'var(--color-synced)',
             }}
           />
         </div>
