@@ -171,3 +171,106 @@ npm run e2e -- --grep "caos 7"
 Trazas, vídeo y `error-context.md` (el DOM real del momento del fallo) quedan en
 `frontend/e2e/.stack/test-results/` y se publican como artefacto cuando el
 nightly falla.
+
+---
+
+## 9. Validación manual V1 — checklist #130 (⭐ H-01…H-10)
+
+> Ejecutada el **2026-10-15** sobre `main` (`c7f616b`), automatizando el bloque
+> **⭐ Humo (H-01…H-10)** y la **matriz rol × pantalla (§4)** del
+> [`checklist-validacion-manual.md`](./checklist-validacion-manual.md) (issue
+> #130). El recorrido vive en
+> `frontend/e2e/specs/checklist-smoke.spec.ts` (5 tests, reejecutable).
+
+### 9.1 Entorno
+
+- API `:3000` (build de `c7f616b`) + Postgres 16 (Docker) + **build de
+  producción** de la PWA servido con `vite preview :4173`.
+- **Offline real** (`context.setOffline`), no el interruptor mock. Es la única
+  forma de ejercitar de verdad FR-011/014/016/017 en el reload: sólo el service
+  worker de `vite-plugin-pwa` puede servir `index.html` sin red (ver F-02).
+- Cómo repetirlo:
+
+  ```bash
+  npm run build --workspace @terreno/frontend
+  npx vite preview --port 4173 --strictPort   # en frontend/
+  # backend/.env: ALLOWED_ORIGIN=http://localhost:5173,http://localhost:4173
+  E2E_WEB_URL=http://localhost:4173 E2E_API_URL=http://localhost:3000/api/v1 \
+    npx playwright test checklist-smoke --project=mobile-chromium
+  ```
+
+### 9.2 Resultados
+
+**⭐ H-01…H-10 — 10/10 OK.**
+
+| Caso | Resultado | Notas |
+| :-- | :--: | :-- |
+| H-01 Iniciar sesión | ✅ | Cae en **Inspección** ("Chequeo de seguridad minera", plantilla A). |
+| H-02 Cortar la señal | ✅ | Chip → "Sin señal"; la app sigue usable. |
+| H-03 Capturar con hallazgo | ✅ | NOK "Señalización…" → hallazgo **Alta** + descripción; "Guardado en dispositivo". |
+| H-04 Adjuntar foto | ✅ | JPEG 3000×2000 comprimido en el device; sube el adjunto. |
+| H-05 Enviar (sin señal) | ✅ | Inspección a la cola; "Pendientes" sube. |
+| H-06 Bitácora | ✅ | Entrada con tag + faena; aparece en la línea de tiempo. |
+| H-07 Persistencia (F5) | ✅ | Tras recargar offline persisten borrador, pendientes y bitácora. |
+| H-08 Reconectar | ✅ | La cola drena **sola**; "Pendientes" → 0; "En línea". |
+| H-09 Supervisor ve el dato | ✅ | Gerencia: métricas + el hallazgo del recorrido. |
+| H-10 Aislamiento (tenant B) | ✅ | "Inspección de obra"; **nunca** la plantilla ni los datos de A. |
+
+**§4 Matriz rol × pantalla — OK.** Pestañas observadas por perfil: `field_worker`
+{Inspección, Bitácora, Cola}; `supervisor` + {Gerencia, Conflictos};
+`tenant_admin` + {Plantillas, Importar} (sin Inspección/Bitácora);
+`platform_admin` sólo {Gerencia} ("Operación Plataforma").
+
+**Casos de API (§2.4-B, §2.5, §3) — OK** (curl; mismo stack):
+
+| Caso | Resultado | Notas |
+| :-- | :--: | :-- |
+| X-06 Health | ✅ | `{"status":"ok","db":"up"}` (incluye `version`, `uptime_s`). |
+| PA-05 Token plataforma | ✅ | `user.role = platform_admin` (ver N-01). |
+| PA-06 Audit log | ✅ | `200 { items, limit, offset }`. |
+| PA-07 Crear tenant | ✅ | `201`, `status:"active"`. |
+| PA-08 Asignar admin | ✅ | usuario `tenant_admin`. |
+| PA-09/10 Suspender / reactivar | ✅ | `suspended` → `active`. |
+| PA-11 Validación slug | ✅ | `400` con detalle legible. |
+| PA-12 403 a rol no-plataforma | ✅ | `403` con `supervisor@minera.cl`. |
+| PA-13 Rastro de auditoría | ✅ | 4 entradas con `action`/`entity`/`actor_id`/`tenant_id`. |
+| TB-04/05 Aislamiento B | ✅ | `summary` y `templates` sólo de B ("Obra Costanera", "Inspección de obra"). |
+| X-05 RLS transversal | ✅ | Sin fugas de A en `/sites`, `/dashboard/findings`, `/conflicts`. |
+
+### 9.3 Hallazgos
+
+**F-01 — Alta · el seed demo local deja registros con UUID fijo.**
+`COLA_INICIAL` (`frontend/src/lib/seed.ts`) siembra filas de outbox con UUID
+**fijos**; p. ej. la inspección `0198c2f0-a41d-7b2e-9f10-4c7e5a1b0031`. En cuanto
+un dispositivo la sincroniza, la fila existe en el servidor; cualquier
+dispositivo **nuevo** re-encola el mismo id y el batch se rechaza con
+`duplicate key value violates unique constraint "inspection_pkey"`. Resultado:
+las filas quedan `failed` de forma permanente y **"Pendientes" nunca vuelve a 0**
+en un dispositivo nuevo (contradice el cierre de H-08/FR-016 en ese escenario).
+
+- **Pasos:** iniciar sesión en un dispositivo nuevo (IndexedDB vacía) con datos
+  demo → esperar el sync automático → abrir **Cola**.
+- **Esperado:** "Pendientes" → 0 (todo sincronizado).
+- **Obtenido:** 5 filas `failed` con `duplicate key`; el contador no baja de 5.
+- **Evidencia:** logs del backend, repetidos en cada sesión:
+  `registro rechazado inspection:0198c2f0-…-0031 — duplicate key value violates unique constraint "inspection_pkey"`.
+- **Sospecha / FR:** datos demo (seed del frontend); refuerza la decisión de
+  **retirar los datos sembrados** por defecto. *En corrección (ver §10).*
+
+**F-02 — Media · el checklist describe el offline con el interruptor mock, que
+no sirve para H-07.**
+§0.4 propone validar 📴 con el interruptor "Sin señal". Pero `online` **no se
+persiste**: al montar, `frontend/src/lib/store.tsx` hace
+`setOnline(navigator.onLine)`. Con el interruptor, un F5 vuelve a poner la app
+en línea y **drena** la cola, así que H-07 ("sigue todo: pendientes…") no se
+puede cumplir con el mock. H-07 exige **offline real** (modo avión / DevTools
+Offline)… y en el server de **desarrollo** de Vite no hay service worker, por lo
+que sin red ni siquiera carga el documento
+(`net::ERR_INTERNET_DISCONNECTED`). Conclusión: **H-02…H-08 sólo se pueden
+validar contra el build de producción (PWA)**, no contra `vite` dev.
+- **Sugerencia:** en §0.1/§0.4, indicar el build de producción para el bloque
+  offline (el checklist ya lo pide para 📲 PWA en §3, X-07).
+
+**N-01 — Baja · nit de documentación.** El checklist (PA-05) espera
+`user.rol = platform_admin`, pero `/auth/login` devuelve **`user.role`**. El
+resultado del caso es correcto; sólo el nombre del campo está desactualizado.
