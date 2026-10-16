@@ -26,8 +26,10 @@ COPY frontend ./frontend
 # En despliegue same-origin (Caddy sirve `/` y `/api/*`) la API es relativa.
 ARG VITE_API_URL=/api/v1
 ARG VITE_DEMO_PASSWORD
+ARG VITE_PUBLIC_DEMO=false
 ENV VITE_API_URL=$VITE_API_URL
 ENV VITE_DEMO_PASSWORD=$VITE_DEMO_PASSWORD
+ENV VITE_PUBLIC_DEMO=$VITE_PUBLIC_DEMO
 
 RUN npm run build --workspace @terreno/shared \
  && npm run build --workspace @terreno/frontend

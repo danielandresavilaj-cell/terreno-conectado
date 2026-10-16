@@ -73,6 +73,7 @@ import { actualizarCatalogo, leerCatalogo } from './catalogo-formularios'
 import { comprimirImagen } from './compresor'
 import { sincronizarCola, setPriorizarFotos, setSincronizacionPermitida } from './sync'
 import { cuotaEsAlta, estimarCuota } from './cuota'
+import { guardarSinSenalManual, leerSinSenalManual } from './preferencia-senal'
 import {
   elegirPlantillaActiva,
   planificarPurga,
@@ -271,7 +272,15 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
   const [usuario, setUsuario] = useState<Usuario | null>(null)
   const [identidad, setIdentidad] = useState<Identidad | null>(null)
   const [hidratando, setHidratando] = useState(true)
-  const [online, setOnline] = useState(false)
+  const [conConexion, setConConexion] = useState(() => navigator.onLine)
+  const [sinSenalManual, setSinSenalManual] = useState(leerSinSenalManual)
+  const online = conConexion && !sinSenalManual
+  const setOnline = useCallback((v: boolean) => {
+    guardarSinSenalManual(!v)
+    setSinSenalManual(!v)
+    // Cerrar la barrera inmediatamente, antes del siguiente efecto de React.
+    setSincronizacionPermitida(v && navigator.onLine)
+  }, [])
   const [pantalla, setPantalla] = useState<Pantalla>('captura')
   const [cola, setCola] = useState<RegistroCola[]>([])
   const [respuestas, setRespuestas] = useState<Record<string, RespuestaItem>>({})
@@ -602,10 +611,11 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
       setEntradasBitacora(mapEntradas(entradas, u.nombre))
       setHidratando(false)
       await refrescar()
-      // FR-004: al entrar se intenta drenar la cola pendiente.
-      void sincronizarAhora()
+      // FR-004: el efecto de transporte drena al cambiar usuario/conexión.
+      // La hidratación no debe depender de `online`: restaurar la sesión en
+      // cada evento de red puede cerrar una sesión válida durante una carrera.
     },
-    [refrescar, sincronizarAhora, cargarPlantilla],
+    [refrescar, cargarPlantilla],
   )
 
   /* FR-006: al arrancar se restaura la sesión. Con token se refresca el perfil
@@ -700,8 +710,8 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
   }, [salir])
 
   const toggleOnline = useCallback(() => {
-    setOnline((v) => !v)
-  }, [])
+    setOnline(!online)
+  }, [online, setOnline])
 
   /* El estado de señal gobierna toda la capa de transporte. Cuando vuelve,
    * recién entonces se drena la cola y se actualiza el catálogo offline. */
@@ -715,22 +725,23 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
     void recargarPlantillas()
   }, [online, refrescar, sincronizarAhora, recargarPlantillas])
 
-  /* FR-016: el evento `online` del navegador dispara la sincronización sin
-   * intervención del usuario; `offline` apaga el indicador. El toggle del
-   * mockup sigue siendo útil en el demo (simular señal). */
+  /* FR-016: escuchar la red una sola vez. No depender de sincronizarAhora:
+   * cambia con `online` y antes reinicializaba el switch a navigator.onLine
+   * en cada clic. La preferencia manual persiste y no la pisa un reconnect. */
   useEffect(() => {
-    const conectar = () => {
-      setOnline(true)
+    const conectar = () => setConConexion(true)
+    const desconectar = () => {
+      setSincronizacionPermitida(false)
+      setConConexion(false)
     }
-    const desconectar = () => setOnline(false)
     window.addEventListener('online', conectar)
     window.addEventListener('offline', desconectar)
-    setOnline(navigator.onLine)
+    setConConexion(navigator.onLine)
     return () => {
       window.removeEventListener('online', conectar)
       window.removeEventListener('offline', desconectar)
     }
-  }, [sincronizarAhora, recargarPlantillas])
+  }, [])
 
   const resolverDraft = useCallback(
     async (u: Usuario) => {
@@ -886,7 +897,7 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
 
   const enviarInspeccion = useCallback(() => {
     if (!usuario || !plantilla || plantilla.estado !== 'ok' || envioInspeccionEnCurso.current) return
-    const errores = erroresDeEnvio(plantilla.definition, respuestas)
+    const errores = erroresDeEnvio(plantilla.definition, respuestas, erroresCampo)
     if (Object.keys(errores).length > 0) {
       setErroresCampo(errores)
       return
@@ -931,7 +942,7 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
         setEnviandoInspeccion(false)
       }
     })()
-  }, [usuario, plantilla, respuestas, refrescar, sincronizarAhora])
+  }, [usuario, plantilla, respuestas, erroresCampo, refrescar, sincronizarAhora])
 
   const agregarBitacora = useCallback(
     (texto: string, tags: string[], faenaId: string) => {

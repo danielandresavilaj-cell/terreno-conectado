@@ -25,6 +25,7 @@ RUN npm ci
 COPY tsconfig.base.json ./
 COPY shared ./shared
 COPY backend ./backend
+COPY infra/tools ./infra/tools
 RUN npm run build --workspace @terreno/shared \
  && npm run build --workspace @terreno/backend
 

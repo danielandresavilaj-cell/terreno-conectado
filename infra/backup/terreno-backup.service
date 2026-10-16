@@ -1,0 +1,10 @@
+[Unit]
+Description=Terreno: backup consistente cifrado fuera del VPS
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/node /opt/terreno/infra/tools/ops.mjs backup
+StandardOutput=journal
+StandardError=journal

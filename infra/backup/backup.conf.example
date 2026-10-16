@@ -1,0 +1,9 @@
+# Valores sin comillas. Copiar a backup.conf (ignorado por git).
+BACKUP_REMOTE=oci:terreno-backups/demo
+RCLONE_CONFIG=/opt/terreno/secrets/rclone.conf
+AGE_RECIPIENT=age1REEMPLAZAR
+# Guardar copia de la identidad FUERA del servidor antes del primer backup.
+AGE_IDENTITY=/opt/terreno/secrets/backup.key
+BACKUP_DIR=/opt/terreno/backups
+# Opcional: webhook HTTPS privado para avisar de fallos (sin datos de clientes).
+ALERT_WEBHOOK=

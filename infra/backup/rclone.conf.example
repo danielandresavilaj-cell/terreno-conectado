@@ -1,0 +1,8 @@
+[oci]
+type = oracleobjectstorage
+provider = user_principal_auth
+namespace = REEMPLAZAR_NAMESPACE
+compartment = REEMPLAZAR_OCID_COMPARTMENT
+region = sa-santiago-1
+config_file = /opt/terreno/secrets/oci-config
+config_profile = DEFAULT

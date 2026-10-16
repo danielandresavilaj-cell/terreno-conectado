@@ -358,8 +358,18 @@ delta sync y caché (#42), export en dispositivo, servidor y lote (#43).
 
 ## Despliegue (demo Fase 3)
 
-> **Estado:** artefactos listos y versionados; el **provisionamiento real es después del HITO 2**
-> (congelación). Ver `adr/002-arquitectura-despliegue.md`.
+**Actualización 2026-10-16:** la demo pública está operativa en
+https://terreno-conectado-demo.duckdns.org/. Corre en Oracle Always Free, conserva Docker
+Compose y same-origin, y tiene imágenes ARM por SHA, copia selectiva sin respuestas previas y
+backups cifrados de base de datos y adjuntos. Ver la [guía Oracle/DuckDNS](infra/ORACLE-FREE.md)
+y la adenda 1 del ADR-002.
+
+> **Estado:** el provisionamiento, TLS, importación selectiva, reinicio y restauración aislada
+> ya fueron verificados. La aprobación cruzada del PR #160 y pruebas manuales de dispositivo
+> (carga pública de Excel, foto offline y PWA instalada) siguen pendientes.
+
+La documentación de Hetzner que sigue es **histórica**: describe el diseño anterior y no es el
+procedimiento de operación de la demo publicada.
 
 Topología **same-origin** en **1 VPS (Hetzner CAX11)** con Docker Compose + Caddy (TLS automático
 Let's Encrypt): Caddy expone 80/443 y enruta `/` → frontend (nginx estático) y `/api/*` + `/health`
