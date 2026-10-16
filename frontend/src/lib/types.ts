@@ -56,6 +56,9 @@ export interface ItemPlantilla {
 
 export interface RegistroCola {
   id: string
+  /** Identificador interno de la fila del outbox. Sólo se usa para descartar
+   *  localmente una unidad completa pendiente o fallida. */
+  outboxId: number
   /** UUIDv7 simulado — FR-015. */
   uuid: string
   tipo: 'inspeccion' | 'respuesta' | 'hallazgo' | 'foto' | 'bitacora'

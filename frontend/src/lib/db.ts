@@ -564,6 +564,62 @@ export async function limpiarDatosLocalesPrueba(tenantId: string): Promise<void>
   )
 }
 
+/**
+ * Descarta una unidad completa aún local de la cola.
+ *
+ * Una inspección no se puede borrar por partes: sus respuestas, hallazgos y
+ * adjuntos forman un árbol que el batch debe conservar en orden (FR-020). Por
+ * eso la acción borra el árbol y todas sus filas de outbox en UNA transacción.
+ * Las filas `syncing` y `synced` están protegidas para no competir con el
+ * worker ni dar la impresión de borrar información ya confirmada por el
+ * servidor.
+ */
+export async function descartarRegistroCola(outboxId: number, tenantId: string): Promise<void> {
+  await db.transaction(
+    'rw',
+    [db.outbox, db.inspections, db.responses, db.findings, db.logEntries, db.attachments, db.meta],
+    async () => {
+      const fila = await db.outbox.get(outboxId)
+      if (!fila || fila.tenantId !== tenantId) throw new Error('El registro de cola ya no está disponible.')
+      if (fila.status !== 'pending' && fila.status !== 'failed') {
+        throw new Error('Sólo se pueden descartar registros pendientes o fallidos.')
+      }
+
+      if (fila.entityType === 'log_entry') {
+        await db.outbox.where('[entityType+entityId]').equals(['log_entry', fila.entityId]).delete()
+        await db.logEntries.delete(fila.entityId)
+        return
+      }
+
+      if (fila.entityType !== 'inspection') {
+        throw new Error('Descartá la inspección completa para conservar la integridad de sus datos.')
+      }
+
+      const inspeccion = await db.inspections.get(fila.entityId)
+      if (!inspeccion || inspeccion.tenantId !== tenantId) {
+        throw new Error('La inspección local ya no está disponible.')
+      }
+      const respuestas = await db.responses.where('inspectionId').equals(inspeccion.id).toArray()
+      const hallazgos = await db.findings.where('inspectionId').equals(inspeccion.id).toArray()
+      const duenos = [inspeccion.id, ...respuestas.map((r) => r.id), ...hallazgos.map((h) => h.id)]
+      const adjuntos = await db.attachments.where('ownerId').anyOf(duenos).toArray()
+      const claves = new Set([
+        `inspection:${inspeccion.id}`,
+        ...respuestas.map((r) => `response:${r.id}`),
+        ...hallazgos.map((h) => `finding:${h.id}`),
+        ...adjuntos.map((a) => `attachment:${a.id}`),
+      ])
+
+      await db.outbox.filter((r) => r.tenantId === tenantId && claves.has(`${r.entityType}:${r.entityId}`)).delete()
+      await db.attachments.bulkDelete(adjuntos.map((a) => a.id))
+      await db.responses.bulkDelete(respuestas.map((r) => r.id))
+      await db.findings.bulkDelete(hallazgos.map((h) => h.id))
+      await db.inspections.delete(inspeccion.id)
+      if ((await getDraftInspectionId()) === inspeccion.id) await setDraftInspectionId(null)
+    },
+  )
+}
+
 export async function submitInspection(
   inspectionId: string,
   location?: { lat: number; lon: number } | null,
