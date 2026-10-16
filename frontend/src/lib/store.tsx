@@ -20,6 +20,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useRef,
   useState,
   type ReactNode,
 } from 'react'
@@ -74,7 +75,7 @@ import {
   setToken,
 } from './api'
 import { comprimirImagen } from './compresor'
-import { sincronizarCola, setPriorizarFotos } from './sync'
+import { sincronizarCola, setPriorizarFotos, setSincronizacionPermitida } from './sync'
 import { cuotaEsAlta, estimarCuota } from './cuota'
 import {
   cursorDesdeGuardado,
@@ -165,6 +166,7 @@ interface Ctx {
   toggleOnline: () => void
   sincronizarAhora: () => void
   sincronizando: boolean
+  enviandoInspeccion: boolean
   /** Descarta el borrador congelado que no se puede resolver (FR-028).
    *  Acción explícita del usuario, nunca automática: reencuadrar por la
    *  espalda invalidaría lo ya respondido. */
@@ -278,6 +280,8 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
   const [entradasBitacora, setEntradasBitacora] = useState<Ctx['entradasBitacora']>([])
   const [recienSincronizado, setRecienSincronizado] = useState<string | null>(null)
   const [sincronizando, setSincronizando] = useState(false)
+  const [enviandoInspeccion, setEnviandoInspeccion] = useState(false)
+  const envioInspeccionEnCurso = useRef(false)
   const [cuotaAviso, setCuotaAviso] = useState(false)
   const [cuota, setCuota] = useState<Ctx['cuota']>({ usadaPct: null, fotosPendientes: 0 })
   const [plantilla, setPlantilla] = useState<PlantillaActual | null>(null)
@@ -306,6 +310,9 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
   }, [])
 
   const sincronizarAhora = useCallback(() => {
+    // El modo sin señal debe ser una barrera real: el submit conserva la cola
+    // local y no puede iniciar un fetch sólo porque el navegador tenga Wi‑Fi.
+    if (!online) return
     void (async () => {
       setSincronizando(true)
       try {
@@ -319,7 +326,7 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
         await refrescar()
       }
     })()
-  }, [refrescar])
+  }, [online, refrescar])
 
 /* ── FR-018/027/028 · sincronización de plantillas ─────────────────────────
    *
@@ -715,16 +722,18 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
 
   const toggleOnline = useCallback(() => {
     setOnline((v) => !v)
-    // El valor del cierre es el estado previo: si estaba offline, al encender
-    // la señal se inicia el flush (FR-016, FR-022) y se trae el delta de
-    // plantillas: sin esto, volver la señal sólo subiría cola y el dispositivo
-    // seguiría capturando contra un caché viejo (FR-027).
+  }, [])
+
+  /* El estado de señal gobierna toda la capa de transporte. Cuando vuelve,
+   * recién entonces se drena la cola y se actualiza el catálogo offline. */
+  useEffect(() => {
+    setSincronizacionPermitida(online)
     if (!online) {
-      void sincronizarAhora()
-      void recargarPlantillas()
-    } else {
       void refrescar()
+      return
     }
+    void sincronizarAhora()
+    void recargarPlantillas()
   }, [online, refrescar, sincronizarAhora, recargarPlantillas])
 
   /* FR-016: el evento `online` del navegador dispara la sincronización sin
@@ -733,8 +742,6 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
   useEffect(() => {
     const conectar = () => {
       setOnline(true)
-      void sincronizarAhora()
-      void recargarPlantillas()
     }
     const desconectar = () => setOnline(false)
     window.addEventListener('online', conectar)
@@ -896,37 +903,45 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
   )
 
   const enviarInspeccion = useCallback(() => {
-    if (!usuario) return
+    if (!usuario || envioInspeccionEnCurso.current) return
+    envioInspeccionEnCurso.current = true
+    setEnviandoInspeccion(true)
     void (async () => {
-      const draftId = await getDraftInspectionId()
-      if (!draftId) return
-      // FR-034: georreferencia opcional al cerrar la inspección. Si no hay
-      // permiso, señal o la API no existe, se envía `null` (graceful degrade).
-      let location: { lat: number; lon: number } | null = null
       try {
-        const pos = await new Promise<GeolocationPosition | null>((resolve) => {
-          if (!navigator.geolocation) {
-            resolve(null)
-            return
+        const draftId = await getDraftInspectionId()
+        if (!draftId) return
+        // FR-034: georreferencia opcional al cerrar la inspección. Si no hay
+        // permiso, señal o la API no existe, se envía `null` (graceful degrade).
+        let location: { lat: number; lon: number } | null = null
+        try {
+          const pos = await new Promise<GeolocationPosition | null>((resolve) => {
+            if (!navigator.geolocation) {
+              resolve(null)
+              return
+            }
+            navigator.geolocation.getCurrentPosition(
+              (p) => resolve(p),
+              () => resolve(null),
+              { enableHighAccuracy: true, timeout: 5000, maximumAge: 60000 },
+            )
+          })
+          if (pos) {
+            location = { lat: pos.coords.latitude, lon: pos.coords.longitude }
           }
-          navigator.geolocation.getCurrentPosition(
-            (p) => resolve(p),
-            () => resolve(null),
-            { enableHighAccuracy: true, timeout: 5000, maximumAge: 60000 },
-          )
-        })
-        if (pos) {
-          location = { lat: pos.coords.latitude, lon: pos.coords.longitude }
+        } catch {
+          location = null
         }
-      } catch {
-        location = null
+        await submitInspection(draftId, location)
+        setRespuestas({})
+        setHayBorrador(false)
+        await refrescar()
+        // FR-004: si hay señal la cola se drena; con el switch apagado
+        // `sincronizarAhora` no inicia ninguna conexión.
+        void sincronizarAhora()
+      } finally {
+        envioInspeccionEnCurso.current = false
+        setEnviandoInspeccion(false)
       }
-      await submitInspection(draftId, location)
-      setRespuestas({})
-      setHayBorrador(false)
-      await refrescar()
-      // FR-004: apenas se encola, si hay señal se intenta el flush.
-      void sincronizarAhora()
     })()
   }, [usuario, refrescar, sincronizarAhora])
 
@@ -975,6 +990,7 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
     toggleOnline,
     sincronizarAhora,
     sincronizando,
+    enviandoInspeccion,
     descartarBorradorYRecargar,
     seleccionarFormulario,
     limpiarDatosPrueba,

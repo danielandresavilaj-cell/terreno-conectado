@@ -50,6 +50,7 @@ export function Captura() {
     respuestas,
     pendientes,
     enviarInspeccion,
+    enviandoInspeccion,
     crearHallazgo,
     online,
     usuario,
@@ -314,8 +315,8 @@ export function Captura() {
                 terreno un control que no cambia nada parece una falla. El
                 estado de autoguardado queda visible en la cabecera y junto a
                 la cola local de este mismo pie. */}
-            <Boton tamano="sm" variante="primaria" onClick={() => void enviarInspeccion()}>
-              Enviar inspección
+            <Boton tamano="sm" variante="primaria" disabled={enviandoInspeccion} onClick={() => void enviarInspeccion()}>
+              {enviandoInspeccion ? 'Enviando…' : 'Enviar inspección'}
             </Boton>
           </div>
         )}

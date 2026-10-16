@@ -101,6 +101,12 @@ export async function fetchLote(
 
 let enCurso = false
 let retryTimer: number | undefined
+/**
+ * El interruptor de señal del demo es una condición de negocio, no sólo un
+ * cambio visual: si está apagado ningún lote puede salir, aunque el navegador
+ * siga físicamente conectado a Internet.
+ */
+let sincronizacionPermitida = true
 
 /* FR-017: cuando el almacenamiento local supera el umbral, el store enciende
  * esta bandera y cada lote (incluidos los reintentos con backoff) prioriza las
@@ -110,6 +116,13 @@ let priorizarFotos = false
 
 export function setPriorizarFotos(v: boolean): void {
   priorizarFotos = v
+}
+
+/** Activa o detiene los envíos locales. Al perder señal se cancela cualquier
+ * reintento pendiente; las filas permanecen en cola para el próximo regreso. */
+export function setSincronizacionPermitida(permitida: boolean): void {
+  sincronizacionPermitida = permitida
+  if (!permitida) cancelarReintento()
 }
 
 /** Concurrencia 1: anula el reintento pendiente si no queda nada que enviar. */
@@ -147,6 +160,10 @@ function entityIdDeError(err: string): string | null {
  * se reportan en `ResultadoSync.error`.
  */
 export async function sincronizarCola(): Promise<ResultadoSync> {
+  if (!sincronizacionPermitida) {
+    cancelarReintento()
+    return { estado: 'vacio', sincronizados: [], fallidos: [], sincronizables: 0, enviados: 0, error: null }
+  }
   if (enCurso) return { estado: 'en_curso', sincronizados: [], fallidos: [], sincronizables: 0, enviados: 0, error: null }
   enCurso = true
   /* Filas del intento en curso, para poder recuperarlas si algo revienta.
@@ -158,6 +175,12 @@ export async function sincronizarCola(): Promise<ResultadoSync> {
   let enVuelo: OutboxRow[] = []
   try {
     const filas = (await sincronizables(priorizarFotos)).slice(0, MAX_REGISTROS_LOTE)
+    // El switch pudo apagarse mientras IndexedDB resolvía la cola. Se vuelve a
+    // comprobar antes de cambiar una fila a `syncing` o abrir la conexión HTTP.
+    if (!sincronizacionPermitida) {
+      cancelarReintento()
+      return { estado: 'vacio', sincronizados: [], fallidos: [], sincronizables: 0, enviados: 0, error: null }
+    }
     if (filas.length === 0) {
       cancelarReintento()
       return { estado: 'vacio', sincronizados: [], fallidos: [], sincronizables: 0, enviados: 0, error: null }

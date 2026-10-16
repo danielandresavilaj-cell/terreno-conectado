@@ -395,8 +395,11 @@ export function crearAsignacion(payload: {
 }
 
 /** Quita una asignación (FR-008). */
-export function eliminarAsignacion(assignmentId: string): Promise<void> {
-  return apiFetch(`/templates/assignments/${assignmentId}`, { method: 'DELETE' })
+export async function eliminarAsignacion(assignmentId: string): Promise<void> {
+  // DELETE responde 204 por contrato: no hay JSON que interpretar. Usar
+  // `apiFetch` acá convertía una eliminación exitosa en un falso error al
+  // ejecutar `response.json()` sobre el cuerpo vacío.
+  await apiFetchResp(`/templates/assignments/${assignmentId}`, { method: 'DELETE' })
 }
 
 /* ---------------------------------------------- plantillas (escritura) */

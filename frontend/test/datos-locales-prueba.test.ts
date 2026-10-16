@@ -14,7 +14,7 @@ beforeEach(async () => {
 })
 
 describe('limpiarDatosLocalesPrueba', () => {
-  it('borra la captura y cola locales de un tenant, sin tocar su plantilla cacheada ni otro tenant', async () => {
+  it('restablece también el caché de formularios del tenant, sin tocar otro tenant', async () => {
     const inspeccionA = await ensureDraftInspection({
       tenantId: TENANT_A,
       siteId: 'faena-a',
@@ -46,6 +46,6 @@ describe('limpiarDatosLocalesPrueba', () => {
     expect(await db.outbox.filter((fila) => fila.tenantId === TENANT_A).count()).toBe(0)
     expect(await db.logEntries.filter((fila) => fila.tenantId === TENANT_A).count()).toBe(0)
     expect(await db.inspections.where('tenantId').equals(TENANT_B).count()).toBe(1)
-    expect(await db.plantillaOriginales.count()).toBe(1)
+    expect(await db.plantillaOriginales.count()).toBe(0)
   })
 })

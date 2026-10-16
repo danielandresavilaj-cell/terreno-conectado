@@ -567,16 +567,21 @@ export async function limpiarDatosLocalesPrueba(tenantId: string): Promise<void>
 export async function submitInspection(
   inspectionId: string,
   location?: { lat: number; lon: number } | null,
-): Promise<void> {
-  const ins = await db.inspections.get(inspectionId)
-  if (!ins) throw new Error('Borrador de inspección no encontrado')
-  await db.inspections.update(inspectionId, {
-    status: 'submitted',
-    answeredCount: await db.responses.where('inspectionId').equals(inspectionId).count(),
-    ...(location !== undefined ? { location } : {}),
-    clientVersion: ins.clientVersion + 1,
-  })
-  await db.transaction('rw', [db.outbox, db.responses, db.attachments], async () => {
+): Promise<boolean> {
+  /* El check y el encolado viven en LA MISMA transacción. Dos pulsaciones muy
+   * rápidas pueden leer el borrador antes de que la primera lo cierre; sin
+   * esta barrera ambas agregaban las mismas respuestas al outbox. */
+  return db.transaction('rw', [db.inspections, db.outbox, db.responses, db.attachments, db.meta], async () => {
+    const ins = await db.inspections.get(inspectionId)
+    if (!ins) throw new Error('Borrador de inspección no encontrado')
+    if (ins.status === 'submitted' || ins.status === 'reviewed') return false
+
+    await db.inspections.update(inspectionId, {
+      status: 'submitted',
+      answeredCount: await db.responses.where('inspectionId').equals(inspectionId).count(),
+      ...(location !== undefined ? { location } : {}),
+      clientVersion: ins.clientVersion + 1,
+    })
     await encolar(
       'inspection',
       inspectionId,
@@ -609,8 +614,9 @@ export async function submitInspection(
         ins.tenantId,
       )
     }
+    await setDraftInspectionId(null)
+    return true
   })
-  await setDraftInspectionId(null)
 }
 
 export async function respuestaDelItem(
