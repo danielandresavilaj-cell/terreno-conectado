@@ -40,6 +40,15 @@ export interface CambioCelda {
 
 const RE_HORA = /^([01]\d|2[0-3]):[0-5]\d(:[0-5]\d)?$/
 
+/**
+ * Copia bytes a un `ArrayBuffer` propio. ExcelJS lo admite tanto en Node como
+ * en el navegador; usarlo evita depender del global `Buffer`, que el browser
+ * no define.
+ */
+export function aArrayBuffer(bytes: Uint8Array): ArrayBuffer {
+  return new Uint8Array(bytes).buffer
+}
+
 /** Rellena con ceros a la izquierda hasta dos dígitos (hora/fecha). */
 function dos(n: number): string {
   return String(n).padStart(2, '0')
@@ -132,7 +141,7 @@ function normalizarCelda(celda: ExcelJS.Cell): CeldaLibro | null {
 /** Lee un libro desde un buffer y lo normaliza a cuadrículas (`HojaLibro[]`). */
 export async function leerCuadricula(buffer: Uint8Array): Promise<HojaLibro[]> {
   const wb = new ExcelJS.Workbook()
-  await wb.xlsx.load(Buffer.from(buffer) as unknown as Parameters<typeof wb.xlsx.load>[0])
+  await wb.xlsx.load(aArrayBuffer(buffer) as Parameters<typeof wb.xlsx.load>[0])
   return wb.worksheets.map((hoja) => {
     const filas: (CeldaLibro | null)[][] = []
     for (let r = 1; r <= hoja.rowCount; r++) {
@@ -150,14 +159,14 @@ export async function leerCuadricula(buffer: Uint8Array): Promise<HojaLibro[]> {
  * Es el punto de entrada del export rellenado (TSK-FORM-010, FR-019/044):
  * misma escolta y mismo módulo que el import (ADR-003 d5).
  */
-export async function escribirLibro(buffer: Uint8Array, cambios: CambioCelda[]): Promise<Buffer> {
+export async function escribirLibro(buffer: Uint8Array, cambios: CambioCelda[]): Promise<Uint8Array> {
   const wb = new ExcelJS.Workbook()
-  await wb.xlsx.load(Buffer.from(buffer) as unknown as Parameters<typeof wb.xlsx.load>[0])
+  await wb.xlsx.load(aArrayBuffer(buffer) as Parameters<typeof wb.xlsx.load>[0])
   for (const cambio of cambios) {
     const hoja = wb.getWorksheet(cambio.hoja)
     if (!hoja) throw new Error(`hoja '${cambio.hoja}' no existe en el libro`)
     hoja.getCell(cambio.celda).value = cambio.valor
   }
   const out = await wb.xlsx.writeBuffer()
-  return Buffer.from(out)
+  return new Uint8Array(out)
 }

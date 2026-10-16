@@ -4,6 +4,14 @@ import { defineConfig } from 'vite'
 import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
+  // ExcelJS publica una build específica para browser. La entrada por defecto
+  // incluye módulos Node (`fs`, `Buffer`) y rompe al importar una planilla en
+  // Vite; el alias mantiene la entrada Node para backend/shared tests.
+  resolve: {
+    alias: {
+      exceljs: 'exceljs/dist/exceljs.min.js',
+    },
+  },
   plugins: [
     react(),
     tailwindcss(),
