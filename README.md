@@ -358,6 +358,12 @@ delta sync y caché (#42), export en dispositivo, servidor y lote (#43).
 
 ## Despliegue (demo Fase 3)
 
+**Actualización 2026-10-16:** el despliegue objetivo pasa a Oracle Always Free, conservando
+Docker Compose y same-origin. Ver [guía Oracle/DuckDNS](infra/ORACLE-FREE.md) y la adenda 1
+del ADR-002: copia selectiva sin respuestas, imágenes ARM por SHA y backups cifrados DB+archivos.
+La guía Hetzner que sigue documenta el diseño anterior. No hay URL pública hasta provisionar
+las cuentas, verificar TLS y registrar las pruebas de aceptación de la tarea #159.
+
 > **Estado:** artefactos listos y versionados; el **provisionamiento real es después del HITO 2**
 > (congelación). Ver `adr/002-arquitectura-despliegue.md`.
 

@@ -1,124 +1,130 @@
-name: Deploy (demo Fase 3)
-
-# Se dispara a mano (`workflow_dispatch`) a propósito: el provisionamiento real
-# es DESPUÉS del HITO 2 (congelación). No auto-despliega en cada push a main.
+name: Deploy (demo Oracle Always Free)
 on:
   workflow_dispatch:
     inputs:
       ref:
-        description: 'Commit/rama/tag a desplegar (vacío = main)'
-        required: false
-        default: ''
-
+        description: Commit/rama/tag (vacío = main)
+        default: main
+        required: true
+      publish_only:
+        description: Sólo construir imágenes (primer despliegue sin VPS)
+        type: boolean
+        default: true
 permissions:
   contents: read
   packages: write
-
-env:
-  REGISTRY: ghcr.io
-
+concurrency:
+  group: terreno-demo-deploy
+  cancel-in-progress: false
 jobs:
-  build-and-push:
-    name: Construir y publicar imágenes (GHCR)
+  verify:
+    runs-on: ubuntu-latest
+    outputs:
+      sha: ${{ steps.commit.outputs.sha }}
+    env:
+      DEMO_PASSWORD: ${{ secrets.VITE_DEMO_PASSWORD }}
+      VITE_DEMO_PASSWORD: ${{ secrets.VITE_DEMO_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+      - id: commit
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: test -n "$VITE_DEMO_PASSWORD"
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run build
+      - run: npm test
+      - run: node frontend/scripts/check-pwa.mjs
+  images:
+    needs: verify
     runs-on: ubuntu-latest
     outputs:
       prefix: ${{ steps.meta.outputs.prefix }}
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.ref || github.sha }}
-
+          ref: ${{ needs.verify.outputs.sha }}
+      - uses: docker/setup-qemu-action@v3
       - uses: docker/setup-buildx-action@v3
-
-      - name: Login en GHCR
-        uses: docker/login-action@v3
+      - uses: docker/login-action@v3
         with:
-          registry: ${{ env.REGISTRY }}
+          registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-
       - id: meta
-        name: Calcular prefijo de imágenes
-        run: |
-          prefix="ghcr.io/${GITHUB_REPOSITORY,,}"
-          echo "prefix=$prefix" >> "$GITHUB_OUTPUT"
-
-      - name: Backend (runtime)
-        uses: docker/build-push-action@v6
+        env:
+          REPOSITORY: ${{ github.repository }}
+        run: echo "prefix=ghcr.io/${REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+      - uses: docker/build-push-action@v6
         with:
           context: .
           file: backend/Dockerfile
           target: runtime
+          platforms: linux/amd64,linux/arm64
           push: true
-          tags: |
-            ${{ steps.meta.outputs.prefix }}-backend:latest
-            ${{ steps.meta.outputs.prefix }}-backend:${{ github.sha }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-      - name: 'Backend (tools: migraciones/seed)'
-        uses: docker/build-push-action@v6
+          tags: ${{ steps.meta.outputs.prefix }}-backend:${{ needs.verify.outputs.sha }}
+          cache-from: type=gha,scope=backend
+          cache-to: type=gha,mode=max,scope=backend
+      - uses: docker/build-push-action@v6
         with:
           context: .
           file: backend/Dockerfile
           target: build
+          platforms: linux/amd64,linux/arm64
           push: true
-          tags: |
-            ${{ steps.meta.outputs.prefix }}-backend-tools:latest
-            ${{ steps.meta.outputs.prefix }}-backend-tools:${{ github.sha }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-      - name: Frontend (PWA + nginx)
-        uses: docker/build-push-action@v6
+          tags: ${{ steps.meta.outputs.prefix }}-backend-tools:${{ needs.verify.outputs.sha }}
+          cache-from: type=gha,scope=tools
+          cache-to: type=gha,mode=max,scope=tools
+      - uses: docker/build-push-action@v6
         with:
           context: .
           file: infra/frontend.Dockerfile
+          platforms: linux/amd64,linux/arm64
           push: true
+          tags: ${{ steps.meta.outputs.prefix }}-frontend:${{ needs.verify.outputs.sha }}
           build-args: |
             VITE_API_URL=/api/v1
             VITE_DEMO_PASSWORD=${{ secrets.VITE_DEMO_PASSWORD }}
-          tags: |
-            ${{ steps.meta.outputs.prefix }}-frontend:latest
-            ${{ steps.meta.outputs.prefix }}-frontend:${{ github.sha }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
+            VITE_PUBLIC_DEMO=true
+          cache-from: type=gha,scope=frontend
+          cache-to: type=gha,mode=max,scope=frontend
   deploy:
-    name: Desplegar en el VPS
-    needs: build-and-push
+    if: ${{ !inputs.publish_only }}
+    needs: [verify, images]
     runs-on: ubuntu-latest
     environment: production
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.ref || github.sha }}
-
-      - name: Copiar manifiestos al VPS
-        uses: appleboy/scp-action@v0.1.7
+          ref: ${{ needs.verify.outputs.sha }}
+      - uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
-          source: 'infra/docker-compose.prod.yml,infra/Caddyfile,infra/postgres/init,infra/backup'
-          target: '/opt/terreno'
-
-      - name: Migrar y levantar
-        uses: appleboy/ssh-action@v1.2.0
+          fingerprint: ${{ secrets.VPS_HOST_FINGERPRINT }}
+          source: infra/docker-compose.prod.yml,infra/Caddyfile,infra/postgres/init,infra/tools,infra/backup
+          target: /opt/terreno
+      - uses: appleboy/ssh-action@v1.2.0
         env:
+          DEPLOY_SHA: ${{ needs.verify.outputs.sha }}
           GHCR_USERNAME: ${{ secrets.GHCR_USERNAME }}
           GHCR_READ_TOKEN: ${{ secrets.GHCR_READ_TOKEN }}
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
-          envs: GHCR_USERNAME,GHCR_READ_TOKEN
+          fingerprint: ${{ secrets.VPS_HOST_FINGERPRINT }}
+          envs: DEPLOY_SHA,GHCR_USERNAME,GHCR_READ_TOKEN
+          command_timeout: 20m
           script: |
-            set -euo pipefail
-            test -n "$GHCR_USERNAME" && test -n "$GHCR_READ_TOKEN"
+            set -eu
+            test -n "$GHCR_READ_TOKEN"
             echo "$GHCR_READ_TOKEN" | docker login ghcr.io --username "$GHCR_USERNAME" --password-stdin
-            cd /opt/terreno/infra
-            docker compose -f docker-compose.prod.yml pull
-            docker compose -f docker-compose.prod.yml --profile tools run --rm migrate
-            docker compose -f docker-compose.prod.yml up -d
-            docker compose -f docker-compose.prod.yml ps
+            node /opt/terreno/infra/tools/ops.mjs deploy "$DEPLOY_SHA"

@@ -46,6 +46,13 @@ pgdata/
 
 # Bytes de adjuntos sincronizados (TSK-WS-007, SYNC_VOLUME)
 .vol/
+infra/config-bundle/
+infra/backups/
+infra/.release*
+infra/backup/*.conf
+infra/backup/*.key
+infra/.operations.lock/
+infra/secrets/
 
 # Nota: `.github/` ya NO se excluye.
 # Se excluía como rodeo porque el PAT de `git:https://github.com` no tiene el

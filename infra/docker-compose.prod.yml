@@ -1,4 +1,4 @@
-# Compose de PRODUCCIÓN para el VPS (Hetzner CAX11, ADR-002).
+# Compose de demo para Oracle Always Free ARM (ADR-002, TSK-DEPLOY-001).
 #
 # Topología same-origin: Caddy es el único que expone puertos (80/443) y enruta
 #   /            -> frontend (nginx estático, red interna)
@@ -8,7 +8,7 @@
 # Uso (desde `infra/`):
 #   cp .env.prod.example .env && editar
 #   docker compose -f docker-compose.prod.yml --profile tools run --rm migrate
-#   docker compose -f docker-compose.prod.yml --profile tools run --rm seed
+#   docker compose -f docker-compose.prod.yml --profile tools run --rm config
 #   docker compose -f docker-compose.prod.yml up -d
 #
 # Las imágenes se construyen y publican en GHCR con `.github/workflows/deploy.yml`.
@@ -55,6 +55,12 @@ services:
       - sync_data:/data/sync
     expose:
       - '3000'
+    healthcheck:
+      test: ['CMD', 'node', '-e', "fetch('http://127.0.0.1:3000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
     depends_on:
       db:
         condition: service_healthy
@@ -95,6 +101,21 @@ services:
       DATABASE_URL: ${DATABASE_URL:?}
       DEMO_PASSWORD: ${DEMO_PASSWORD:?}
     command: npm run db:seed --workspace @terreno/backend
+    depends_on:
+      db:
+        condition: service_healthy
+
+  config:
+    image: ${IMAGE_BACKEND_TOOLS:?}
+    profiles: ['tools']
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?}
+      DEMO_PASSWORD: ${DEMO_PASSWORD:?}
+      SYNC_VOLUME: /data/sync
+    volumes:
+      - sync_data:/data/sync
+      - ${CONFIG_BUNDLE:-./config-bundle}:/bundle:ro
+    command: node infra/tools/config.mjs import /bundle
     depends_on:
       db:
         condition: service_healthy

@@ -7,6 +7,36 @@
 
 ## Parte A — Lo que SÍ se provisiona (demo académica, ≤ US$7/mes)
 
+### Adenda 1 — Oracle Always Free (2026-10-16, TSK-DEPLOY-001, #159)
+
+Daniel solicita y aprueba el plan en el chat: priorizar US$0, demo abierta,
+subdominio gratuito y copia de configuración sin respuestas. Se conserva la
+topología A.1; cambia el proveedor previsto de Hetzner a **Oracle A1 ARM**.
+La revisión cruzada del ADR/PR por Raúl sigue el proceso de CONTRIBUTING;
+no se presume su aprobación ni capacidad gratuita reservada.
+
+Objetivo: Ubuntu 24.04, hasta 2 OCPU/12 GB, 50 GB de arranque + 50 GB de datos,
+PostgreSQL 16 y adjuntos en volúmenes Docker. DuckDNS + Caddy para HTTPS.
+Actions construye amd64/ARM por SHA real; GHCR almacena imágenes inmutables por versión.
+Presupuesto US$0 dentro de cuotas verificadas; no usar crédito temporal como base ni
+activar pago por uso. Oracle exige verificación con tarjeta, no ofrece SLA gratuito y
+puede recuperar instancias inactivas. Si no hay capacidad gratuita, no se crea un VPS pago.
+
+Se descarta Render Free para esta topología: disco efímero y Postgres con vencimiento.
+Separar frontend/API/almacenamiento añadiría cambios que el usuario no solicita.
+La base gestionada Oracle Autonomous **no sustituye** a PostgreSQL con RLS.
+
+Backups diarios coherentes de DB+archivos, cifrados con age y copiados a bucket privado
+Object Storage fuera del host; hasta siete bajo 10 GiB. Identidad y secretos de recuperación
+también fuera del servidor. Fallos por código de salida/systemd y webhook opcional.
+Restauración a stack vacío y rollback condicionado a compatibilidad de esquema.
+
+Fuentes de cuotas a revalidar al provisionar:
+[Oracle](https://docs.oracle.com/en-us/iaas/Content/FreeTier/freetier_topic-Always_Free_Resources.htm),
+[Render](https://render.com/docs/free). Procedimiento ejecutable: `infra/ORACLE-FREE.md`.
+Las referencias Hetzner/Fly.io y precios originales que siguen son antecedentes del diseño,
+no la selección ni presupuesto de esta adenda.
+
 ### A.1 Topología elegida: 1 VPS + Docker Compose + Caddy
 
 ```
