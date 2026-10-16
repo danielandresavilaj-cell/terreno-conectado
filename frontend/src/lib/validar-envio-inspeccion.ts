@@ -10,8 +10,11 @@ export type RespuestaParaEnvio = { campo: CampoValor | null; hallazgoId?: string
 export function erroresDeEnvio(
   definition: TemplateDefinition,
   respuestas: Readonly<Record<string, RespuestaParaEnvio | undefined>>,
+  erroresEdicion: Readonly<Record<string, string>> = {},
 ): Record<string, string> {
-  const errores: Record<string, string> = {}
+  // Un texto numérico inválido no reemplaza el último valor persistido. No
+  // permitir que ese valor viejo oculte el error que el usuario ve al editar.
+  const errores: Record<string, string> = { ...erroresEdicion }
   for (const item of itemsDe(definition)) {
     const respuesta = respuestas[item.id]
     const validacion = validateValorCampo(item, respuesta?.campo ?? null)
