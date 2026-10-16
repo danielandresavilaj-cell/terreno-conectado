@@ -272,9 +272,11 @@ export function Captura() {
             plantilla que no es la del turno (FR-028). */}
         {!congeladaAusente && (
           <div className="flex gap-2">
-            <Boton tamano="sm" variante="secundaria">
-              Guardar borrador
-            </Boton>
+            {/* FR-014 guarda cada respuesta inmediatamente en el dispositivo.
+                No se ofrece un segundo "Guardar" sin trabajo que hacer: en
+                terreno un control que no cambia nada parece una falla. El
+                estado de autoguardado queda visible en la cabecera y junto a
+                la cola local de este mismo pie. */}
             <Boton tamano="sm" variante="primaria" onClick={() => void enviarInspeccion()}>
               Enviar inspección
             </Boton>
