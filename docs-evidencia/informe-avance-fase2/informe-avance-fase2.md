@@ -1,25 +1,20 @@
 <!-- cover -->
-# DUOC UC
-## Escuela de Informática y Telecomunicaciones
-### Ingeniería en Informática
-
+ESCUELA DE INFORMÁTICA Y TELECOMUNICACIONES
+INGENIERÍA EN INFORMÁTICA · Sede Alameda
 Asignatura: Capstone (PTY4614)
-
+<!-- rule -->
 # INFORME DE AVANCE
 # PROYECTO APT — FASE 2
-
-**“Terreno Conectado, Decisiones en Tiempo Real”**
-*Datos al día, donde no hay señal.*
-
-Integrantes:
-**Daniel Ávila** — RUT: 21.256.327-7
-**Raúl González** — RUT: 21.357.918-5
-
-Carrera: Ingeniería en Informática
-Sede: Alameda
-Docente: Carlos Herrera
-
-Santiago de Chile, octubre de 2026
+## “Terreno Conectado, Decisiones en Tiempo Real”
+### Datos al día, donde no hay señal.
+<!-- box -->
+**Integrantes**
+Daniel Ávila — RUT: 21.256.327-7
+Raúl González — RUT: 21.357.918-5
+**Docente:** Carlos Herrera
+<!-- endbox -->
+<!-- gap -->
+Santiago de Chile · octubre de 2026
 <!-- endcover -->
 
 <!-- pagebreak -->
