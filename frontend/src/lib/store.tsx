@@ -40,20 +40,16 @@ import {
   getDraftInspectionId,
   getInspection,
   getTemplateId,
-  guardarCursorPlantilla,
   guardarFotoRespuesta,
   guardarOriginalPlantilla,
   guardarPlantillaSeleccionada,
-  guardarPlantillasCache,
   guardarSesionCaché,
-  leerCursorPlantilla,
   leerPlantillaSeleccionada,
   limpiarDatosLocalesPrueba,
   listarOriginalesPlantilla,
   listLogEntries,
   listOutbox,
   migrarFotosLegacy,
-  plantillasCacheadas,
   quitarFotoRespuesta,
   respuestaDelItem,
   seedDemoDataIfNeeded,
@@ -67,20 +63,18 @@ import {
   clearToken,
   EVENTO_LOGOUT,
   getPlantillaOriginal,
-  getPlantillas,
   getSites,
   getToken,
   login,
   me,
   setToken,
 } from './api'
+import { actualizarCatalogo, leerCatalogo } from './catalogo-formularios'
 import { comprimirImagen } from './compresor'
 import { sincronizarCola, setPriorizarFotos, setSincronizacionPermitida } from './sync'
 import { cuotaEsAlta, estimarCuota } from './cuota'
 import {
-  cursorDesdeGuardado,
   elegirPlantillaActiva,
-  fusionarDelta,
   planificarPurga,
   revisionesParaOriginal,
   type MarcoBorrador,
@@ -331,7 +325,7 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
 /* ── FR-018/027/028 · sincronización de plantillas ─────────────────────────
    *
    * Va en pasos explícitos porque cada uno puede fallar sin arrastrar a los
-   * demás: (1) delta por cursor → caché local, (2) descarga de los originales
+   * demás: (1) catálogo asignado completo → caché por sesión, (2) descarga de los originales
    * que faltan, (3) purga por presupuesto. La plantilla activa se resuelve DESPUÉS
    * contra el borrador congelado: el delta nunca reencuadra un turno en curso.
    */
@@ -399,40 +393,10 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
 
   const sincronizarPlantillas = useCallback(
     async (
-      tenantId: string,
-      siteId?: string | null,
+      ambito: Usuario,
     ): Promise<{ items: TemplatePublicadaDto[]; enRed: boolean; purgados: number }> => {
-      // La caché local es multi-tenant en el mismo dispositivo: se filtra por el
-      // tenant de la sesión activa (FR-007).
-      let items: TemplatePublicadaDto[] = (await plantillasCacheadas()).filter(
-        (i) => i.tenant_id === tenantId,
-      )
-      let enRed = false
-
-      if (getToken()) {
-        // El `since` es el cursor persistido POR TENANT; nunca un umbral
-        // derivado de `version` (éste saltaba revisiones de otras plantillas).
-        const cursorGuardado = await leerCursorPlantilla(tenantId)
-        // FR-009: el worker pide sólo lo asignado a su faena y rol; el admin
-        // pasa siteId nulo/indefinido y ve todo lo publicado.
-        const { items: recibidas, latest_seq: latestSeq } = await getPlantillas(
-          cursorGuardado ?? undefined,
-          siteId ?? null,
-        )
-        // El delta sólo se da por integrado si el caché local acepta TODO lo
-        // recibido: ante un corte a mitad (caos #8) el cursor no avanza y la
-        // siguiente pasada repite el mismo delta en vez de perder revisiones.
-        let completo = true
-        try {
-          await guardarPlantillasCache(recibidas)
-        } catch {
-          completo = false
-        }
-        const { cursor } = cursorDesdeGuardado(cursorGuardado, recibidas, latestSeq, completo)
-        if (cursor !== null) await guardarCursorPlantilla(tenantId, cursor)
-        items = completo ? fusionarDelta(items, recibidas) : items
-        enRed = true
-      }
+      const { tenantId, faenaId: siteId } = ambito
+      const { items, enRed } = await actualizarCatalogo(ambito)
 
       const purgados = await sincronizarOriginales(tenantId, items, siteId ?? null)
       return { items, enRed, purgados }
@@ -499,18 +463,19 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
   )
 
   const cargarPlantilla = useCallback(
-    async (tenantId: string, siteId?: string | null): Promise<PlantillaActual> => {
+    async (ambito: Usuario): Promise<PlantillaActual> => {
+      const { tenantId, faenaId: siteId } = ambito
       let items: TemplatePublicadaDto[] = []
       let enRed = false
       let purgados = 0
       try {
-        const r = await sincronizarPlantillas(tenantId, siteId)
+        const r = await sincronizarPlantillas(ambito)
         items = r.items
         enRed = r.enRed
         purgados = r.purgados
       } catch {
-        /* sin red o sin sesión: el delta no llegó, manda lo que haya en caché. */
-        items = (await plantillasCacheadas()).filter((i) => i.tenant_id === tenantId)
+        /* Sólo se recupera el catálogo confirmado para esta sesión y faena. */
+        items = await leerCatalogo(ambito)
       }
       setOriginales({
         cacheados: (await listarOriginalesPlantilla(tenantId)).length,
@@ -529,7 +494,7 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
    * reutiliza el borrador congelado sin tocar su marco (FR-028). */
   const recargarPlantillas = useCallback(() => {
     if (!usuario) return
-    void cargarPlantilla(usuario.tenantId, usuario.faenaId || null)
+    void cargarPlantilla(usuario)
   }, [usuario, cargarPlantilla])
 
   /* Salida explícita del bloqueo FR-028. El borrador congelado cuya revisión no
@@ -541,7 +506,7 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
     setRespuestas({})
     setHayBorrador(false)
     await refrescar()
-    await cargarPlantilla(usuario.tenantId, usuario.faenaId || null)
+    await cargarPlantilla(usuario)
   }, [usuario, refrescar, cargarPlantilla])
 
   const seleccionarFormulario = useCallback(
@@ -574,7 +539,7 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
     setHayBorrador(false)
     setEntradasBitacora([])
     await refrescar()
-    await cargarPlantilla(usuario.tenantId, usuario.faenaId || null)
+    await cargarPlantilla(usuario)
   }, [usuario, refrescar, cargarPlantilla])
 
   const arrancarSesión = useCallback(
@@ -585,7 +550,7 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
       await migrarFotosLegacy()
       // FR-038: la plantilla activa se hidrata ANTES de tocar el borrador, así
       // el borrador queda ligado al marco de la plantilla vigente.
-      const activa = await cargarPlantilla(u.tenantId, u.faenaId || null)
+      const activa = await cargarPlantilla(u)
       if (u.faenaId && (u.rol === 'field_worker' || u.rol === 'supervisor')) {
         // No se crea un borrador sólo por iniciar sesión: así el trabajador
         // puede elegir un formulario antes de que una revisión quede congelada.
