@@ -9,6 +9,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { motion, useReducedMotion } from 'motion/react'
 import type { CampoValor, TemplateItem } from '@terreno/shared'
+import { CamaraCaptura } from './CamaraCaptura'
 import { EASE } from '../lib/motion'
 import {
   esEdicionNumericaPosible,
@@ -259,29 +260,18 @@ export function CampoSeleccionMultiple({ valor, onCambio, item }: PropsCampo) {
 }
 
 /* ── foto ────────────────────────────────────────────────────────────────
- * `capture="environment"` abre la cámara trasera en móvil. El binario se
- * comprime (FR-012) y vive en un ATTACHMENT `owner_type='response'` (FR-037,
- * TSK-FORM-004); el valor del campo queda como referencia no vacía
+ * La cámara se abre con `getUserMedia` y prefiere el lente trasero. El binario
+ * se comprime (FR-012) y vive en un ATTACHMENT `owner_type='response'`
+ * (FR-037, TSK-FORM-004); el valor del campo queda como referencia no vacía
  * ('capturada'). */
 export function CampoFoto({ valor, onCambio, onFoto, error }: PropsCampo & {
   onFoto: (archivo: File) => void
 }) {
-  const ref = useRef<HTMLInputElement>(null)
+  const [camaraAbierta, setCamaraAbierta] = useState(false)
   const hay = typeof valor === 'string' && valor.length > 0
   return (
     <div className="flex items-center gap-3 w-full sm:w-auto justify-start sm:justify-end shrink-0">
-      <input
-        ref={ref}
-        type="file"
-        accept="image/*"
-        capture="environment"
-        className="hidden"
-        onChange={(e) => {
-          const f = e.target.files?.[0]
-          if (f) onFoto(f)
-          e.target.value = ''
-        }}
-      />
+      <CamaraCaptura abierta={camaraAbierta} alCerrar={() => setCamaraAbierta(false)} alCapturar={onFoto} />
       {hay ? (
         <>
           <span className="text-[13px] font-medium text-synced whitespace-nowrap">
@@ -301,7 +291,7 @@ export function CampoFoto({ valor, onCambio, onFoto, error }: PropsCampo & {
       ) : (
         <button
           type="button"
-          onClick={() => ref.current?.click()}
+          onClick={() => setCamaraAbierta(true)}
           className="h-11 px-4 rounded-[10px] border border-line-soft bg-s0 text-[13px] font-medium cursor-pointer hover:border-beam transition-colors duration-150"
         >
           Tomar foto
