@@ -206,3 +206,11 @@ estén libres.
 ### Node
 `engines` pide **Node ≥ 22.12**. Verifica con `node -v`; una versión vieja da errores confusos de
 `fetch`, ESM o `--env-file`.
+
+### Binding nativo de SWC
+
+El script `npm test --workspace @terreno/backend` detecta Windows y configura
+automáticamente una caché local `.swc-native-cache/` (ignorada por Git). Evita
+que SWC intente cargar su binding nativo desde una caché de `AppData` con ACL no
+válida. Si las pruebas llegan a `Could not find a working container runtime strategy`, SWC ya
+arrancó: inicia Docker Desktop y vuelve a ejecutar el mismo script.
