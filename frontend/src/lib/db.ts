@@ -526,9 +526,10 @@ export async function descartarBorrador(): Promise<void> {
 }
 
 /**
- * Borra sólo los datos locales de prueba de una empresa. No toca revisiones de
- * formularios, sus originales cacheados ni registros que ya existan en el
- * servidor; sirve para reiniciar un dispositivo antes de una demostración.
+ * Restablece por completo los datos locales de prueba de una empresa. Incluye
+ * la caché offline de formularios, sus originales y la última selección, para
+ * que el dispositivo vuelva a mostrar exactamente lo que el servidor asigne
+ * después del reinicio. No borra registros del servidor.
  */
 export async function limpiarDatosLocalesPrueba(tenantId: string): Promise<void> {
   const borradorId = await getDraftInspectionId()
@@ -536,7 +537,17 @@ export async function limpiarDatosLocalesPrueba(tenantId: string): Promise<void>
 
   await db.transaction(
     'rw',
-    [db.outbox, db.inspections, db.responses, db.findings, db.logEntries, db.attachments, db.meta],
+    [
+      db.outbox,
+      db.inspections,
+      db.responses,
+      db.findings,
+      db.logEntries,
+      db.attachments,
+      db.plantillas,
+      db.plantillaOriginales,
+      db.meta,
+    ],
     async () => {
       await db.outbox.filter((fila) => fila.tenantId === tenantId).delete()
       await db.inspections.filter((fila) => fila.tenantId === tenantId).delete()
@@ -544,6 +555,10 @@ export async function limpiarDatosLocalesPrueba(tenantId: string): Promise<void>
       await db.findings.filter((fila) => fila.tenantId === tenantId).delete()
       await db.logEntries.filter((fila) => fila.tenantId === tenantId).delete()
       await db.attachments.filter((fila) => fila.tenantId === tenantId).delete()
+      await db.plantillas.filter((fila) => fila.tenant_id === tenantId).delete()
+      await db.plantillaOriginales.where('tenant_id').equals(tenantId).delete()
+      await db.meta.delete(`${CURSOR_PREFIX}${tenantId}`)
+      await db.meta.where('key').startsWith(`${SELECCION_PLANTILLA_PREFIX}${tenantId}:`).delete()
       if (borrador?.tenantId === tenantId) await setDraftInspectionId(null)
     },
   )

@@ -114,8 +114,8 @@ export function Cola() {
           <div className="min-w-0">
             <p className="label-inst">Reinicio de pruebas locales</p>
             <p className="mt-1 text-[12px] text-ink-2 leading-relaxed max-w-[66ch]">
-              Borra de este dispositivo los borradores, respuestas, fotos, bitácoras y registros de cola de esta empresa.
-              No borra formularios ni información que ya esté en el servidor.
+              Borra de este dispositivo los borradores, respuestas, fotos, bitácoras, cola y caché de formularios de esta empresa.
+              No borra información que ya esté en el servidor.
             </p>
           </div>
           {confirmarLimpieza ? (
