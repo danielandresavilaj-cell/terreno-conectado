@@ -90,10 +90,19 @@ async function deploy() {
     dc('--profile', 'tools', 'run', '--rm', 'migrate')
     dc('up', '-d', '--wait', 'backend', 'frontend', 'caddy')
     await healthy()
-    for (const path of ['/health', '/']) {
-      const response = await fetch(`https://${env.DOMAIN}${path}`, { signal: AbortSignal.timeout(15000) })
-      if (!response.ok) throw new Error(`HTTPS ${path}: ${response.status}`)
+    // El primer certificado puede tardar después de que Caddy figure "running".
+    let publicReady = false
+    for (let attempt = 0; attempt < 30; attempt++) {
+      try {
+        const response = await fetch(`https://${env.DOMAIN}/health`, { signal: AbortSignal.timeout(5000) })
+        if (!response.ok || (await response.json()).db !== 'up') throw new Error('API pública no disponible')
+        const page = await fetch(`https://${env.DOMAIN}/`, { signal: AbortSignal.timeout(5000) })
+        if (!page.ok || !page.headers.get('content-type')?.includes('text/html')) throw new Error('Página pública no disponible')
+        publicReady = true
+        break
+      } catch { await new Promise((r) => setTimeout(r, 2000)) }
     }
+    if (!publicReady) throw new Error('El borde HTTPS no quedó disponible; revisar DNS, TLS y Caddy')
     if (released) {
       writeFileSync(join(root, '.env.previous'), previous, { mode: 0o600 })
       copyFileSync(join(root, '.release'), join(root, '.release.previous'))
