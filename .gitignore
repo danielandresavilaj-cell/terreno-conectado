@@ -29,6 +29,10 @@ coverage/
 playwright-report/
 test-results/
 
+# Binding nativo de SWC en Windows: se materializa fuera de AppData para que
+# sus ACL sean verificables por el runtime. Nunca contiene código del proyecto.
+.swc-native-cache/
+
 # Reporte crudo de Lighthouse (NFR-07): se publica como artefacto en CI
 frontend/lighthouse-report.json
 
