@@ -85,6 +85,7 @@ Delta de revisiones publicadas (FR-027). El cursor es `published_seq` (secuencia
 - **Timeout de envío** — 30 s; corta el turno para que un `online` falso no cuelgue la cola.
 - **Backoff** — 1 s → 2 s → 4 s … máx. 5 min, auto-reprogramado, sin intervención (FR-022).
 - **Desenlace** — marca cada fila `synced` (o `failed` con `lastError` + 1 intento); `records_unchanged` cuenta como éxito; actualiza el contador de pendientes (FR-026).
+- **Descarte local explícito** — una inspección o bitácora `pending`/`failed` puede descartarse desde Cola tras confirmación. La inspección se borra con sus respuestas, hallazgos, adjuntos y filas de outbox relacionadas dentro de una transacción; una bitácora se borra con su fila de outbox. Filas `syncing` y `synced` no son descartables para no competir con el worker ni aparentar que se borró información confirmada en el servidor.
 
 ## 6. Descarga incremental (FR-027/028/029) — cierre del ítem abierto
 
@@ -142,6 +143,7 @@ El delta **nunca** re-encuadra un turno en curso: la plantilla activa de un borr
 | Versión | Fecha | Cambio | Autor |
 | :--- | :--- | :--- | :--- |
 | 0.4.1 | 2026-10-14 | **FR-023 / TSK-AUTH-008 (#128):** `GET /conflicts` alinea sus roles con el contrato canónico (`supervisor`, `tenant_admin`); `conflicts.spec.ts` verifica denegación a worker/platform y aislamiento RLS | Daniel Ávila |
+| 0.4.2 | 2026-10-16 | **TSK-SYNC-007 (#157):** descarte local explícito y transaccional de inspecciones/bitácoras pendientes o fallidas | Raúl González |
 | 0.4.0 | 2026-10-13 | **Spec completado (F2).** Documenta el estado real de FR-020…029 (todos implementados), cierra la **descarga incremental**: delta de plantillas por cursor `published_seq` y **decisión V1 de datos de referencia por snapshot completo** (§6). Apunta a `plans/003-motor-sincronizacion/plan.md` y a las tasks TSK-SYNC | Daniel Ávila |
 | 0.3.0 | 2026-10-07 | **Módulo 007 (Enmienda 002):** alcance +FR-027–029 — delta de plantillas `GET /api/v1/templates?since=`, versión congelada, imports idempotentes (`TEMPLATE_IMPORT`) | Raúl González (con IA) |
 | 0.2.0 | 2026-10-07 | TSK-WS-007/008/009 implementados: contrato de ingesta (`SyncBatchRequest/Response`), upsert versión-condicionado e idempotente, LWW determinista + `CONFLICT_RECORD` append-only (worst/winner payload), `sync_log` en dos fases, `GET /api/v1/conflicts` (supervisor/admin), worker de cola cliente | Daniel Ávila |

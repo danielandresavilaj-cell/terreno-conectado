@@ -36,11 +36,17 @@ const ORDEN_TIPO: Record<string, string> = {
 }
 
 export function Cola() {
-  const { cola, pendientes, online, recienSincronizado, setOnline, sincronizarAhora, cuota, limpiarDatosPrueba } = useEstado()
+  const {
+    cola, pendientes, online, recienSincronizado, setOnline, sincronizarAhora, cuota,
+    limpiarDatosPrueba, descartarRegistroCola,
+  } = useEstado()
   const [filtro, setFiltro] = useState<'todos' | 'pendientes' | 'fallidos'>('todos')
   const [confirmarLimpieza, setConfirmarLimpieza] = useState(false)
   const [limpiando, setLimpiando] = useState(false)
   const [limpiezaLista, setLimpiezaLista] = useState(false)
+  const [registroADescartar, setRegistroADescartar] = useState<RegistroCola | null>(null)
+  const [descartando, setDescartando] = useState(false)
+  const [errorDescarte, setErrorDescarte] = useState<string | null>(null)
   const cuotaPct = cuota.usadaPct
   const cuotaAlta = cuotaPct !== null && cuotaPct >= UMBRAL_CUOTA_PCT
 
@@ -109,6 +115,44 @@ export function Cola() {
         ))}
       </div>
 
+      {registroADescartar && (
+        <section className="panel p-4 border-failed/35 bg-failed/[0.04]" role="alert">
+          <p className="text-[13px] font-semibold">¿Descartar {registroADescartar.tipo === 'inspeccion' ? 'esta inspección' : 'esta bitácora'}?</p>
+          <p className="mt-1 text-[12px] text-ink-2 leading-relaxed">
+            {registroADescartar.tipo === 'inspeccion'
+              ? 'Se eliminarán de este dispositivo la inspección, sus respuestas, hallazgos, fotos y registros de cola. Esta acción no borra información ya enviada al servidor.'
+              : 'Se eliminarán de este dispositivo la bitácora y su registro de cola. Esta acción no borra información ya enviada al servidor.'}
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Boton
+              tamano="sm"
+              variante="peligro"
+              disabled={descartando}
+              onClick={() => {
+                setDescartando(true)
+                setErrorDescarte(null)
+                void (async () => {
+                  try {
+                    await descartarRegistroCola(registroADescartar.outboxId)
+                    setRegistroADescartar(null)
+                  } catch (error) {
+                    setErrorDescarte(error instanceof Error ? error.message : 'No se pudo descartar el registro.')
+                  } finally {
+                    setDescartando(false)
+                  }
+                })()
+              }}
+            >
+              {descartando ? 'Descartando…' : 'Sí, descartar'}
+            </Boton>
+            <Boton tamano="sm" variante="fantasma" disabled={descartando} onClick={() => setRegistroADescartar(null)}>
+              Cancelar
+            </Boton>
+          </div>
+          {errorDescarte && <p className="mt-3 text-[12px] text-failed">{errorDescarte}</p>}
+        </section>
+      )}
+
       <section className="panel p-4 border-line-soft">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="min-w-0">
@@ -167,7 +211,16 @@ export function Cola() {
               <div className="flex-1 rule" />
             </div>
             {items.map((r) => (
-              <FilaRegistro key={r.id} r={r} sweep={recienSincronizado === r.id} />
+              <FilaRegistro
+                key={r.id}
+                r={r}
+                sweep={recienSincronizado === r.id}
+                onReintentar={sincronizarAhora}
+                onDescartar={() => {
+                  setErrorDescarte(null)
+                  setRegistroADescartar(r)
+                }}
+              />
             ))}
           </section>
         )
@@ -264,7 +317,17 @@ export function Cola() {
  * cambia de alto, el resto se acomoda en lugar de saltar. Las transiciones de
  * estado son interrupibles porque son cambios de color CSS, no keyframes.
  */
-function FilaRegistro({ r, sweep }: { r: RegistroCola; sweep: boolean }) {
+function FilaRegistro({
+  r,
+  sweep,
+  onReintentar,
+  onDescartar,
+}: {
+  r: RegistroCola
+  sweep: boolean
+  onReintentar: () => void
+  onDescartar: () => void
+}) {
   const reducir = useReducedMotion()
   const [recien, setRecien] = useState(false)
   const t = useRef<number | undefined>(undefined)
@@ -307,28 +370,29 @@ function FilaRegistro({ r, sweep }: { r: RegistroCola; sweep: boolean }) {
       <div className="flex items-center gap-3 shrink-0">
         <span className="hidden sm:block label-inst max-w-[140px] truncate">{m.desc}</span>
         <BadgeSync estado={r.estado} />
-        <button
-          aria-label={`Reintentar ${r.titulo}`}
-          className={[
-            /* 44px en móvil (spec 002: guantes). El icono sigue en 13px, lo
-               que crece es el área tocable, no el dibujo: con h-8 el botón
-               quedaba en 32px y fallaba el objetivo táctil mínimo. */
-            'h-11 w-11 sm:h-8 sm:w-8 rounded-lg grid place-items-center transition-colors duration-150 cursor-pointer',
-            r.estado === 'failed'
-              ? 'text-failed hover:bg-failed/12'
-              : 'text-ink-3 hover:bg-s3',
-          ].join(' ')}
-        >
-          <svg width="13" height="13" viewBox="0 0 14 14" fill="none" aria-hidden>
-            <path
-              d="M11.5 7a4.5 4.5 0 1 1-1.6-3.47"
-              stroke="currentColor"
-              strokeWidth="1.4"
-              strokeLinecap="round"
-            />
-            <path d="M11.9 1.6v2.9H9" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-        </button>
+        {r.estado === 'failed' && (
+          <button
+            aria-label={`Reintentar ${r.titulo}`}
+            onClick={onReintentar}
+            className="h-11 w-11 sm:h-8 sm:w-8 rounded-lg grid place-items-center transition-colors duration-150 cursor-pointer text-failed hover:bg-failed/12"
+          >
+            <svg width="13" height="13" viewBox="0 0 14 14" fill="none" aria-hidden>
+              <path d="M11.5 7a4.5 4.5 0 1 1-1.6-3.47" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+              <path d="M11.9 1.6v2.9H9" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+        )}
+        {(r.tipo === 'inspeccion' || r.tipo === 'bitacora') && (r.estado === 'pending' || r.estado === 'failed') && (
+          <button
+            aria-label={`Descartar ${r.titulo}`}
+            onClick={onDescartar}
+            className="h-11 w-11 sm:h-8 sm:w-8 rounded-lg grid place-items-center transition-colors duration-150 cursor-pointer text-ink-3 hover:bg-failed/12 hover:text-failed"
+          >
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden>
+              <path d="M2.5 3.5h9M5.25 3.5V2.25h3.5V3.5m-5 0 .55 8h5.4l.55-8" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+        )}
       </div>
     </motion.div>
   )

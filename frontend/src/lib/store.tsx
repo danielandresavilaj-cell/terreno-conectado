@@ -35,6 +35,7 @@ import {
   contadorFotosPendientes,
   contadorPendientes,
   descartarBorrador,
+  descartarRegistroCola as descartarRegistroColaDb,
   ensureDraftInspection,
   getDeviceId,
   getDraftInspectionId,
@@ -167,6 +168,7 @@ interface Ctx {
   descartarBorradorYRecargar: () => Promise<void>
   seleccionarFormulario: (revisionId: string) => Promise<{ ok: boolean; error?: string }>
   limpiarDatosPrueba: () => Promise<void>
+  descartarRegistroCola: (outboxId: number) => Promise<void>
 
   pendientes: number
   fallidos: number
@@ -184,6 +186,7 @@ const StoreCtx = createContext<Ctx | null>(null)
 function mapaCola(o: OutboxRow): RegistroCola {
   return {
     id: `${o.entityType}:${o.entityId}`,
+    outboxId: o.id as number,
     uuid: o.entityId,
     tipo: o.tipo,
     titulo: o.titulo,
@@ -544,6 +547,14 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
     await refrescar()
     await cargarPlantilla(usuario)
   }, [usuario, refrescar, cargarPlantilla])
+
+  const descartarRegistroCola = useCallback(async (outboxId: number) => {
+    if (!usuario) return
+    await descartarRegistroColaDb(outboxId, usuario.tenantId)
+    const entradas = await listLogEntries(null)
+    setEntradasBitacora(mapEntradas(entradas, usuario.nombre))
+    await refrescar()
+  }, [usuario, refrescar])
 
   const arrancarSesión = useCallback(
     async (perfil: { id: string; tenant_id: string | null; email: string; role: string; full_name: string }, i: Identidad) => {
@@ -971,6 +982,7 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
     descartarBorradorYRecargar,
     seleccionarFormulario,
     limpiarDatosPrueba,
+    descartarRegistroCola,
     pendientes,
     fallidos,
     enCola: cola,
