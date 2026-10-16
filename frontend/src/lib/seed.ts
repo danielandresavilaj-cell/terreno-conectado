@@ -30,6 +30,7 @@ export const DEMO_CUENTAS: Array<Pick<Usuario, 'nombre' | 'rol'> & { email: stri
   { nombre: 'Andrés Admin', rol: 'tenant_admin', email: 'admin@minera.cl' },
   { nombre: 'Bárbara Trabajadora', rol: 'field_worker', email: 'trabajador@andes.cl' },
   { nombre: 'Bruno Supervisor', rol: 'supervisor', email: 'supervisor@andes.cl' },
+  { nombre: 'Camila Administradora', rol: 'tenant_admin', email: 'admin@andes.cl' },
   { nombre: 'Operación Plataforma', rol: 'platform_admin', email: 'admin@terreno.local' },
 ] as const
 

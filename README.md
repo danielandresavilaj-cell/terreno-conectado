@@ -266,6 +266,7 @@ dispara el flush solo al reconectar, con concurrencia 1 y backoff 1 s→5 min (F
 | A (Minera El Cobre SpA) | admin | `admin@minera.cl` |
 | B (Constructora Andes SpA) | trabajador | `trabajador@andes.cl` |
 | B (Constructora Andes SpA) | supervisor | `supervisor@andes.cl` |
+| B (Constructora Andes SpA) | admin | `admin@andes.cl` |
 | — (plataforma) | admin_plataforma | `admin@terreno.local` |
 
 **Variables de entorno:** copia `.env.example` a `.env` (no se versiona). Ningún secreto se versiona

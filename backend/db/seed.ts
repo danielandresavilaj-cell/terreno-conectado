@@ -288,6 +288,7 @@ export async function seedDatabase(db: SeedQueryable): Promise<void> {
     ['01890000-0000-7000-8000-0000000000a5', TENANT_A_ID, 'admin@minera.cl', 'tenant_admin', 'Andrés Admin'],
     ['01890000-0000-7000-8000-0000000000b3', TENANT_B_ID, 'trabajador@andes.cl', 'field_worker', 'Bárbara Trabajadora'],
     ['01890000-0000-7000-8000-0000000000b4', TENANT_B_ID, 'supervisor@andes.cl', 'supervisor', 'Bruno Supervisor'],
+    ['01890000-0000-7000-8000-0000000000b5', TENANT_B_ID, 'admin@andes.cl', 'tenant_admin', 'Camila Administradora'],
   ]
   for (const [id, tenantId, email, role, fullName] of users) {
     await db.query(
