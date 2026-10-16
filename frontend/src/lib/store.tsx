@@ -611,10 +611,11 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
       setEntradasBitacora(mapEntradas(entradas, u.nombre))
       setHidratando(false)
       await refrescar()
-      // FR-004: al entrar se intenta drenar la cola pendiente.
-      void sincronizarAhora()
+      // FR-004: el efecto de transporte drena al cambiar usuario/conexión.
+      // La hidratación no debe depender de `online`: restaurar la sesión en
+      // cada evento de red puede cerrar una sesión válida durante una carrera.
     },
-    [refrescar, sincronizarAhora, cargarPlantilla],
+    [refrescar, cargarPlantilla],
   )
 
   /* FR-006: al arrancar se restaura la sesión. Con token se refresca el perfil
