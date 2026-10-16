@@ -105,3 +105,39 @@ export const inspectionsResponseSchema = z.object({
 
 export type InspectionListaItem = z.infer<typeof inspectionListaItemSchema>
 export type InspectionsResponse = z.infer<typeof inspectionsResponseSchema>
+
+/** Respuesta leída con la definición congelada de su inspección. */
+export const inspectionRespuestaSchema = z.object({
+  id: z.string().uuid(),
+  prompt: z.string(),
+  response_type: z.enum([
+    'ok_nok_na',
+    'text',
+    'numeric',
+    'date',
+    'time',
+    'select_single',
+    'select_multiple',
+    'photo',
+  ]),
+  value: z.union([z.string(), z.number(), z.array(z.string()), z.null()]),
+})
+
+/** Vista auditable de una inspección y sus respuestas, sin alterar el registro. */
+export const inspectionDetalleSchema = z.object({
+  id: z.string().uuid(),
+  faena_nombre: z.string(),
+  template_nombre: z.string().nullable(),
+  template_version: z.number().int(),
+  ejecutado_por: z.string(),
+  status: z.enum(['draft', 'in_progress', 'submitted', 'reviewed']),
+  captured_at: z.string().datetime(),
+  secciones: z.array(
+    z.object({
+      title: z.string(),
+      respuestas: z.array(inspectionRespuestaSchema),
+    }),
+  ),
+})
+
+export type InspectionDetalle = z.infer<typeof inspectionDetalleSchema>

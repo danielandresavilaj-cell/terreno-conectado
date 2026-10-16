@@ -32,6 +32,7 @@ import { Barra, CountUp } from '../components/CountUp'
 import { Boton, Tarjeta } from '../components/ui'
 import {
   getFindings,
+  getDetalleInspeccion,
   getInspecciones,
   getSummary,
   descargarInspeccion,
@@ -43,7 +44,7 @@ import { ZIP_MIME, descargarLibro } from '../lib/exportar'
 import { construirCsvHallazgos } from '../lib/dashboard-csv'
 import { useEstado } from '../lib/store'
 import { EASE } from '../lib/motion'
-import type { DashboardSummary, FindingDto, InspectionListaItem } from '@terreno/shared'
+import type { DashboardSummary, FindingDto, InspectionDetalle, InspectionListaItem } from '@terreno/shared'
 import type { InspeccionEstado, Severidad } from '../lib/types'
 
 const PERIODOS = ['24 h', '7 días', '30 días'] as const
@@ -120,6 +121,12 @@ type Lote =
       loteId: string | null
     }
 
+type DetalleInspeccion =
+  | { fase: 'inactivo' }
+  | { fase: 'cargando'; id: string }
+  | { fase: 'error'; id: string; mensaje: string }
+  | { fase: 'ok'; detalle: InspectionDetalle }
+
 /**
  * Título por código del error del lote.
  *
@@ -194,6 +201,7 @@ export function Dashboard() {
   const [errorInspecciones, setErrorInspecciones] = useState<string | null>(null)
   const [descargandoId, setDescargandoId] = useState<string | null>(null)
   const [errorDescarga, setErrorDescarga] = useState<{ id: string; mensaje: string } | null>(null)
+  const [detalleInspeccion, setDetalleInspeccion] = useState<DetalleInspeccion>({ fase: 'inactivo' })
   /* FR-045: el lote del período lleva estado propio y NO es el de la carga del
    * panel. Armar un ZIP son varios `.xlsx` en el servidor: si compartiera estado
    * con el auto-refresh, un fallo del lote taparía las métricas y un refresco
@@ -322,6 +330,15 @@ export function Dashboard() {
       setErrorDescarga({ id: i.id, mensaje: motivoDe(err) })
     } finally {
       setDescargandoId(null)
+    }
+  }
+
+  const revisar = async (i: InspectionListaItem) => {
+    setDetalleInspeccion({ fase: 'cargando', id: i.id })
+    try {
+      setDetalleInspeccion({ fase: 'ok', detalle: await getDetalleInspeccion(i.id) })
+    } catch (err) {
+      setDetalleInspeccion({ fase: 'error', id: i.id, mensaje: motivoDe(err) })
     }
   }
 
@@ -709,9 +726,17 @@ export function Dashboard() {
                         descargando={descargandoId === i.id}
                         error={errorDescarga?.id === i.id ? errorDescarga.mensaje : null}
                         onDescargar={descargar}
+                        revisando={detalleInspeccion.fase === 'cargando' && detalleInspeccion.id === i.id}
+                        onRevisar={revisar}
                       />
                     ))}
                   </div>
+                )}
+                {detalleInspeccion.fase !== 'inactivo' && (
+                  <PanelDetalleInspeccion
+                    estado={detalleInspeccion}
+                    onCerrar={() => setDetalleInspeccion({ fase: 'inactivo' })}
+                  />
                 )}
               </section>
             </>
@@ -807,11 +832,15 @@ function FilaInspeccion({
   descargando,
   error,
   onDescargar,
+  revisando,
+  onRevisar,
 }: {
   i: InspectionListaItem
   descargando: boolean
   error: string | null
   onDescargar: (i: InspectionListaItem) => void
+  revisando: boolean
+  onRevisar: (i: InspectionListaItem) => void
 }) {
   const meta = ESTADO_META[i.status]
   /* `template_nombre` a `null` = la plantilla se borró. El registro se conserva
@@ -839,28 +868,33 @@ function FilaInspeccion({
         </span>
         <span className="num-inst text-[13px]">{i.respuestas}</span>
         <span className="num-inst text-[13px] text-ink-2">{fechaCorta(i.captured_at)}</span>
-        <Boton
-          tamano="sm"
-          variante="secundaria"
-          disabled={sinPlantilla || descargando}
-          aria-busy={descargando}
-          aria-describedby={sinPlantilla ? `inspeccion-${i.id}-sin-plantilla` : undefined}
-          onClick={() => onDescargar(i)}
-          icono={
-            <svg width="13" height="13" viewBox="0 0 14 14" fill="none" aria-hidden>
-              <path
-                d="M7 1.8v7.4M4.2 6.6 7 9.4l2.8-2.8"
-                stroke="currentColor"
-                strokeWidth="1.4"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-              <path d="M2.2 11.4h9.6" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-            </svg>
-          }
-        >
-          {sinPlantilla ? 'No disponible' : descargando ? 'Generando…' : 'Descargar'}
-        </Boton>
+        <div className="flex items-center justify-end gap-2">
+          <Boton tamano="sm" variante="fantasma" disabled={revisando} aria-busy={revisando} onClick={() => onRevisar(i)}>
+            {revisando ? 'Abriendo…' : 'Revisar'}
+          </Boton>
+          <Boton
+            tamano="sm"
+            variante="secundaria"
+            disabled={sinPlantilla || descargando}
+            aria-busy={descargando}
+            aria-describedby={sinPlantilla ? `inspeccion-${i.id}-sin-plantilla` : undefined}
+            onClick={() => onDescargar(i)}
+            icono={
+              <svg width="13" height="13" viewBox="0 0 14 14" fill="none" aria-hidden>
+                <path
+                  d="M7 1.8v7.4M4.2 6.6 7 9.4l2.8-2.8"
+                  stroke="currentColor"
+                  strokeWidth="1.4"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+                <path d="M2.2 11.4h9.6" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+              </svg>
+            }
+          >
+            {sinPlantilla ? 'No disponible' : descargando ? 'Generando…' : 'Descargar'}
+          </Boton>
+        </div>
       </div>
 
       {sinPlantilla && (
@@ -875,6 +909,64 @@ function FilaInspeccion({
         </p>
       )}
     </div>
+  )
+}
+
+function textoRespuesta(valor: InspectionDetalle['secciones'][number]['respuestas'][number]['value']): string {
+  if (valor === null) return 'Sin respuesta'
+  if (Array.isArray(valor)) return valor.join(' · ')
+  if (valor === 'capturada') return 'Foto capturada'
+  if (valor === 'ok' || valor === 'nok' || valor === 'na') return valor.toUpperCase()
+  return String(valor)
+}
+
+function PanelDetalleInspeccion({
+  estado,
+  onCerrar,
+}: {
+  estado: Exclude<DetalleInspeccion, { fase: 'inactivo' }>
+  onCerrar: () => void
+}) {
+  const detalle = estado.fase === 'ok' ? estado.detalle : null
+  return (
+    <section className="mt-4 panel p-5" aria-live="polite">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="label-inst">Revisión de respuestas</p>
+          <h3 className="mt-1 text-[17px] font-semibold">
+            {detalle?.template_nombre ?? 'Inspección seleccionada'}
+          </h3>
+          {detalle && (
+            <p className="mt-1 text-[13px] text-ink-2">
+              Respondida por <strong className="text-ink">{detalle.ejecutado_por}</strong> · {detalle.faena_nombre} · {fechaCorta(detalle.captured_at)}
+            </p>
+          )}
+        </div>
+        <Boton tamano="sm" variante="fantasma" onClick={onCerrar}>Cerrar</Boton>
+      </div>
+
+      {estado.fase === 'cargando' && <p className="mt-4 text-[13px] text-ink-2">Cargando respuestas…</p>}
+      {estado.fase === 'error' && <p role="alert" className="mt-4 text-[13px] text-failed">No se pudo abrir: {estado.mensaje}</p>}
+      {detalle && (
+        <div className="mt-5 space-y-4">
+          {detalle.secciones.map((seccion) => (
+            <div key={seccion.title}>
+              <p className="label-inst mb-2">{seccion.title}</p>
+              <div className="divide-y divide-line-soft rounded-xl border border-line-soft bg-s0">
+                {seccion.respuestas.map((respuesta) => (
+                  <div key={respuesta.id} className="flex flex-wrap items-start justify-between gap-3 px-3.5 py-3">
+                    <span className="text-[13px] text-ink-2 max-w-[62ch]">{respuesta.prompt}</span>
+                    <span className={['text-[13px] font-medium', respuesta.value === null ? 'text-ink-3' : 'text-ink'].join(' ')}>
+                      {textoRespuesta(respuesta.value)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
   )
 }
 

@@ -18,6 +18,7 @@ import type {
   ConflictRecordDto,
   DashboardFindingsResponse,
   DashboardSummary,
+  InspectionDetalle,
   InspectionsResponse,
   ListConflictsResponse,
   SitesResponse,
@@ -202,6 +203,11 @@ export function getFindings(f: FindingsFiltros = {}): Promise<DashboardFindingsR
  */
 export function getInspecciones(f: DashboardFiltros = {}): Promise<InspectionsResponse> {
   return apiFetch<InspectionsResponse>(`/dashboard/inspections${qsFiltros(f)}`)
+}
+
+/** Respuestas inmutables y autor de una inspección para revisión de supervisión. */
+export function getDetalleInspeccion(inspeccionId: string): Promise<InspectionDetalle> {
+  return apiFetch<InspectionDetalle>(`/dashboard/inspections/${encodeURIComponent(inspeccionId)}`)
 }
 
 /**

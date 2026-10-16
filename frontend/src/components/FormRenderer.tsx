@@ -86,6 +86,12 @@ function FilaCampo({
   const campo = r?.campo ?? null
   const error = erroresCampo[item.id]
   const props = item.props ?? {}
+  const rangoNumerico =
+    item.response_type === 'numeric' && (typeof props.min === 'number' || typeof props.max === 'number')
+      ? `Rango permitido: ${typeof props.min === 'number' ? props.min : '—'} a ${
+          typeof props.max === 'number' ? props.max : '—'
+        }`
+      : null
   // FR-032: un nok en ítem con hallazgo obligatorio muestra la acción.
   const requiereHallazgo = campo === 'nok' && (item.require_finding_on_nok ?? false)
   const conHallazgo = !!r?.hallazgoId
@@ -156,6 +162,7 @@ function FilaCampo({
         <div className="min-w-0 sm:pt-0.5">
           <p className="text-[14px] leading-snug">{item.prompt}</p>
           {item.help && <p className="mt-1 text-[12px] text-ink-3">{item.help}</p>}
+          {rangoNumerico && <p className="label-inst mt-1.5">{rangoNumerico}</p>}
           {props.required && item.response_type !== 'ok_nok_na' && (
             <p className="label-inst mt-1.5">Obligatorio</p>
           )}

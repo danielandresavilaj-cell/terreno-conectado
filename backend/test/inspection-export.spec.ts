@@ -34,7 +34,7 @@ import {
 } from '@terreno/shared/xlsx'
 import { AppModule } from '../src/app.module'
 import { configureApp } from '../src/app.setup'
-import { inspectionsResponseSchema } from '../src/dashboard/dashboard.contract'
+import { inspectionDetalleSchema, inspectionsResponseSchema } from '../src/dashboard/dashboard.contract'
 import {
   DEMO_PASSWORD,
   SITE_A_ID,
@@ -531,6 +531,40 @@ describe('GET /api/v1/dashboard/inspections (FR-044)', () => {
     expect(res.status).toBe(200)
     const ids = (res.body.items as Array<{ id: string }>).map((i) => i.id)
     expect(ids).not.toContain(inspectionParidad)
+  })
+})
+
+describe('GET /api/v1/dashboard/inspections/:id — revisión de respuestas', () => {
+  it('devuelve respuestas con la definición congelada y el trabajador que ejecutó la inspección', async () => {
+    const res = await server()
+      .get(`/api/v1/dashboard/inspections/${inspectionParidad}`)
+      .set(auth(supervisorToken))
+
+    expect(res.status).toBe(200)
+    expect(inspectionDetalleSchema.safeParse(res.body).success).toBe(true)
+    expect(res.body).toMatchObject({
+      id: inspectionParidad,
+      ejecutado_por: 'Pedro Trabajador',
+      faena_nombre: 'Faena El Roble',
+      template_version: 1,
+    })
+    const respuestas = res.body.secciones.flatMap((s: { respuestas: unknown[] }) => s.respuestas) as Array<{
+      response_type: string
+      value: unknown
+    }>
+    expect(respuestas.find((r) => r.response_type === 'numeric')?.value).toBe(7)
+    expect(respuestas.find((r) => r.response_type === 'select_multiple')?.value).toEqual(
+      opcionesDe('select_multiple').slice(0, 2),
+    )
+  })
+
+  it('respeta RLS y permisos del dashboard', async () => {
+    expect(
+      (await server().get(`/api/v1/dashboard/inspections/${inspectionParidad}`).set(auth(trabajadorToken))).status,
+    ).toBe(403)
+    expect(
+      (await server().get(`/api/v1/dashboard/inspections/${inspectionParidad}`).set(auth(supervisorBToken))).status,
+    ).toBe(404)
   })
 })
 

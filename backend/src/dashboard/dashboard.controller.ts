@@ -48,7 +48,7 @@ import {
   ZIP_MIME,
 } from './inspection-export-lote.service'
 import { InspectionExportService } from './inspection-export.service'
-import { exigirUuid, type InspectionsResponse } from './dashboard.contract'
+import { exigirUuid, type InspectionDetalle, type InspectionsResponse } from './dashboard.contract'
 
 type AuthedRequest = Request & { user?: JwtClaims }
 
@@ -115,6 +115,13 @@ export class DashboardController {
       desde: s(q.desde),
       hasta: s(q.hasta),
     })
+  }
+
+  /** Respuestas y autor de una inspección, para revisión dentro de la app. */
+  @UseGuards(AuthGuard)
+  @Get('dashboard/inspections/:id')
+  detalleInspeccion(@Req() req: AuthedRequest, @Param('id') id: string): Promise<InspectionDetalle> {
+    return this.exportacion.detalle(req.user as JwtClaims, exigirUuid(id, 'inspección'))
   }
 
   /**
