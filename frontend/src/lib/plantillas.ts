@@ -115,6 +115,7 @@ export type ResolucionPlantilla =
 export function elegirPlantillaActiva(
   items: readonly TemplatePublicadaDto[],
   borrador: MarcoBorrador | null,
+  revisionPreferida?: string | null,
 ): ResolucionPlantilla {
   if (borrador) {
     if (borrador.templateRevisionId) {
@@ -132,6 +133,10 @@ export function elegirPlantillaActiva(
       : { estado: 'no-disponible', marco: borrador }
   }
   if (items.length === 0) return { estado: 'sin-plantillas' }
+  if (revisionPreferida) {
+    const preferida = items.find((i) => i.revision_id === revisionPreferida)
+    if (preferida) return { estado: 'ok', revision: preferida }
+  }
   return { estado: 'ok', revision: [...items].sort(compararPorSecuencia)[0] }
 }
 

@@ -74,6 +74,17 @@ describe('plantilla activa sin borrador', () => {
     expect(r.estado === 'ok' && r.revision.revision_id).toBe(uuid(12))
   })
 
+  it('respeta la plantilla elegida por el trabajador cuando no hay borrador', () => {
+    const items = [
+      publicada({ revision_id: uuid(11), published_seq: 4 }),
+      publicada({ revision_id: uuid(12), published_seq: 12 }),
+    ]
+
+    const r = elegirPlantillaActiva(items, null, uuid(11))
+
+    expect(r.estado === 'ok' && r.revision.revision_id).toBe(uuid(11))
+  })
+
   it('sin plantillas devuelve sin-plantillas (la UI usa la demo local)', () => {
     expect(elegirPlantillaActiva([], null).estado).toBe('sin-plantillas')
   })

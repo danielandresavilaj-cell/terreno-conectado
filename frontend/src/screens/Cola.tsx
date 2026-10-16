@@ -36,8 +36,11 @@ const ORDEN_TIPO: Record<string, string> = {
 }
 
 export function Cola() {
-  const { cola, pendientes, online, recienSincronizado, setOnline, sincronizarAhora, cuota } = useEstado()
+  const { cola, pendientes, online, recienSincronizado, setOnline, sincronizarAhora, cuota, limpiarDatosPrueba } = useEstado()
   const [filtro, setFiltro] = useState<'todos' | 'pendientes' | 'fallidos'>('todos')
+  const [confirmarLimpieza, setConfirmarLimpieza] = useState(false)
+  const [limpiando, setLimpiando] = useState(false)
+  const [limpiezaLista, setLimpiezaLista] = useState(false)
   const cuotaPct = cuota.usadaPct
   const cuotaAlta = cuotaPct !== null && cuotaPct >= UMBRAL_CUOTA_PCT
 
@@ -105,6 +108,53 @@ export function Cola() {
           </button>
         ))}
       </div>
+
+      <section className="panel p-4 border-line-soft">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="min-w-0">
+            <p className="label-inst">Reinicio de pruebas locales</p>
+            <p className="mt-1 text-[12px] text-ink-2 leading-relaxed max-w-[66ch]">
+              Borra de este dispositivo los borradores, respuestas, fotos, bitácoras y registros de cola de esta empresa.
+              No borra formularios ni información que ya esté en el servidor.
+            </p>
+          </div>
+          {confirmarLimpieza ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <Boton
+                tamano="sm"
+                variante="peligro"
+                disabled={limpiando}
+                onClick={() => {
+                  setLimpiando(true)
+                  void (async () => {
+                    try {
+                      await limpiarDatosPrueba()
+                      setConfirmarLimpieza(false)
+                      setLimpiezaLista(true)
+                    } finally {
+                      setLimpiando(false)
+                    }
+                  })()
+                }}
+              >
+                {limpiando ? 'Limpiando…' : 'Confirmar limpieza'}
+              </Boton>
+              <Boton tamano="sm" variante="fantasma" disabled={limpiando} onClick={() => setConfirmarLimpieza(false)}>
+                Cancelar
+              </Boton>
+            </div>
+          ) : (
+            <Boton tamano="sm" variante="secundaria" onClick={() => setConfirmarLimpieza(true)}>
+              Limpiar datos de prueba
+            </Boton>
+          )}
+        </div>
+        {limpiezaLista && (
+          <p className="mt-3 text-[12px] text-synced" role="status" aria-live="polite">
+            Datos locales de prueba eliminados. Ya podés comenzar una captura limpia.
+          </p>
+        )}
+      </section>
 
       {/* ── Lista agrupada por tipo ───────────────────────────────────────── */}
       {Object.entries(ORDEN_TIPO).map(([tipo, etiqueta]) => {

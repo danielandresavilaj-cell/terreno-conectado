@@ -311,6 +311,7 @@ export async function plantillasCacheadas(): Promise<PlantillaCacheRow[]> {
  */
 
 const CURSOR_PREFIX = 'tc_plantilla_cursor:'
+const SELECCION_PLANTILLA_PREFIX = 'tc_plantilla_seleccion:'
 
 export async function leerCursorPlantilla(tenantId: string): Promise<number | null> {
   const row = await db.meta.get(`${CURSOR_PREFIX}${tenantId}`)
@@ -319,6 +320,24 @@ export async function leerCursorPlantilla(tenantId: string): Promise<number | nu
 
 export async function guardarCursorPlantilla(tenantId: string, seq: number): Promise<void> {
   await db.meta.put({ key: `${CURSOR_PREFIX}${tenantId}`, value: seq })
+}
+
+/** La última plantilla elegida se recuerda por empresa y faena, no globalmente. */
+function claveSeleccionPlantilla(tenantId: string, siteId: string): string {
+  return `${SELECCION_PLANTILLA_PREFIX}${tenantId}:${siteId}`
+}
+
+export async function leerPlantillaSeleccionada(tenantId: string, siteId: string): Promise<string | null> {
+  const row = await db.meta.get(claveSeleccionPlantilla(tenantId, siteId))
+  return typeof row?.value === 'string' ? row.value : null
+}
+
+export async function guardarPlantillaSeleccionada(
+  tenantId: string,
+  siteId: string,
+  revisionId: string,
+): Promise<void> {
+  await db.meta.put({ key: claveSeleccionPlantilla(tenantId, siteId), value: revisionId })
 }
 
 /* ------------------------------------- originales .xlsx (FR-018, TSK-FORM-009) */
@@ -502,6 +521,30 @@ export async function descartarBorrador(): Promise<void> {
       await db.findings.where('inspectionId').equals(id).delete()
       await db.inspections.delete(id)
       await setDraftInspectionId(null)
+    },
+  )
+}
+
+/**
+ * Borra sólo los datos locales de prueba de una empresa. No toca revisiones de
+ * formularios, sus originales cacheados ni registros que ya existan en el
+ * servidor; sirve para reiniciar un dispositivo antes de una demostración.
+ */
+export async function limpiarDatosLocalesPrueba(tenantId: string): Promise<void> {
+  const borradorId = await getDraftInspectionId()
+  const borrador = borradorId ? await db.inspections.get(borradorId) : undefined
+
+  await db.transaction(
+    'rw',
+    [db.outbox, db.inspections, db.responses, db.findings, db.logEntries, db.attachments, db.meta],
+    async () => {
+      await db.outbox.filter((fila) => fila.tenantId === tenantId).delete()
+      await db.inspections.filter((fila) => fila.tenantId === tenantId).delete()
+      await db.responses.filter((fila) => fila.tenantId === tenantId).delete()
+      await db.findings.filter((fila) => fila.tenantId === tenantId).delete()
+      await db.logEntries.filter((fila) => fila.tenantId === tenantId).delete()
+      await db.attachments.filter((fila) => fila.tenantId === tenantId).delete()
+      if (borrador?.tenantId === tenantId) await setDraftInspectionId(null)
     },
   )
 }
