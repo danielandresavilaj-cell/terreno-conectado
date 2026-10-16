@@ -48,3 +48,9 @@
 | 0.1.2 | 2026-10-08 | TSK-FORM-001 → ✅ Hecho (PR #79): renderer data-driven en la captura (8 tipos), endpoints de lectura de plantillas con delta `since`, caché Dexie por tenant y seed con definiciones reales; issue #34 cerrado | Daniel Ávila |
 | 0.1.1 | 2026-10-08 | Compuerta cerrada: documentación del módulo en `main` (PRs #62–#70) y TSK-FORM-002 → ✅ Hecho (PR #71) · TSK-FORM-003 → ✅ Hecho (PR #74); issues #35/#36 cerrados y tarjetas en Done | Daniel Ávila |
 | 0.1.0 | 2026-10-08 | Tasks del módulo 007 (TSK-FORM-001→012) derivadas del plan homónimo y de la Enmienda 002; espejan issues #34–#45 del board | Raúl González (con IA) |
+### TSK-FORM-014 — Corrección de catálogo asignado (#149)
+
+- Requisitos: FR-009, FR-018, FR-027, FR-028.
+- Causa: caché y cursor compartidos por tenant mezclaban catálogos de roles y no retiraban desasignaciones.
+- Implementación: snapshot completo y atómico por tenant/usuario/rol/faena; fallback offline del mismo ámbito.
+- Evidencia: frontend/test/catalogo-formularios.test.ts (cambio de cuenta, rol y faena, caché legada, altas/bajas y sin conexión).

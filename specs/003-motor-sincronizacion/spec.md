@@ -146,3 +146,5 @@ El delta **nunca** re-encuadra un turno en curso: la plantilla activa de un borr
 | 0.3.0 | 2026-10-07 | **Módulo 007 (Enmienda 002):** alcance +FR-027–029 — delta de plantillas `GET /api/v1/templates?since=`, versión congelada, imports idempotentes (`TEMPLATE_IMPORT`) | Raúl González (con IA) |
 | 0.2.0 | 2026-10-07 | TSK-WS-007/008/009 implementados: contrato de ingesta (`SyncBatchRequest/Response`), upsert versión-condicionado e idempotente, LWW determinista + `CONFLICT_RECORD` append-only (worst/winner payload), `sync_log` en dos fases, `GET /api/v1/conflicts` (supervisor/admin), worker de cola cliente | Daniel Ávila |
 | 0.1.0 | 2026-09-14 | Esqueleto inicial desde spec maestro v1.0.0 | Daniel Ávila (con IA) |
+
+**Enmienda de catálogo asignado (TSK-FORM-014, #149):** el endpoint conserva el contrato delta, pero el catálogo visible de captura se reconcilia mediante una consulta completa sin `since` al iniciar y al recuperar señal. Un alta/baja de asignación no modifica `published_seq`; el cursor de publicaciones no acredita permisos vigentes. El snapshot offline se guarda por tenant/usuario/rol/faena (spec 007, Enmienda 003).

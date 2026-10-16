@@ -79,3 +79,6 @@ Requisitos que este spec detallará: **FR-007–009, 018–019, 027–029, 036�
 | 0.1.2 | 2026-10-08 | Checklist: TSK-FORM-001 renderer data-driven completado (PR #79); se marcan también 002/003 (PRs #71/#74) | Daniel Ávila |
 | 0.1.1 | 2026-10-08 | Nota de desbloqueo actualizada: Enmienda 002 y docs del módulo en `main` (PRs #62–#70); TSK-FORM-002/003 completados (PRs #71/#74) | Daniel Ávila |
 | 0.1.0 | 2026-10-08 | Esqueleto inicial del spec 007 desde la Enmienda 002, ADR-003 y data-model v1.1.0; espeja TSK-FORM-001→012 | Raúl González (con IA) |
+### Enmienda 003 — Catálogo asignado offline (TSK-FORM-014, #149)
+
+FR-009/018/027: el catálogo visible se persiste por tenant, usuario, rol y faena. La caché legada por tenant no acredita asignaciones y no se muestra hasta obtener un catálogo del servidor para ese ámbito. Al iniciar o recuperar señal se consulta el catálogo completo sin cursor: los cambios de asignación no incrementan published_seq. El snapshot reemplaza la lista visible de forma atómica, incluyendo una lista vacía; sin red se usa exclusivamente el último snapshot del ámbito. Se conservan las definiciones históricas y las capturas; un borrador desasignado queda no disponible conforme a FR-028.
