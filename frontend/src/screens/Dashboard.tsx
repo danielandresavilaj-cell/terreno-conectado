@@ -814,9 +814,10 @@ function FilaInspeccion({
   onDescargar: (i: InspectionListaItem) => void
 }) {
   const meta = ESTADO_META[i.status]
-  /* `template_nombre` a `null` = la plantilla se borró. No se inventa una: se
-   * dice, y el botón se deja activo porque el motivo real lo da el servidor al
-   * pulsar (un 404 con su texto, no un fallo genérico). */
+  /* `template_nombre` a `null` = la plantilla se borró. El registro se conserva
+   * para auditoría, pero no hay revisión ni original desde los que reconstruir
+   * un .xlsx. Dejar la acción activa garantiza un 404 evitable y parece un
+   * fallo operativo, por eso se explica y se deshabilita desde el listado. */
   const sinPlantilla = i.template_nombre === null
 
   return (
@@ -841,8 +842,9 @@ function FilaInspeccion({
         <Boton
           tamano="sm"
           variante="secundaria"
-          disabled={descargando}
+          disabled={sinPlantilla || descargando}
           aria-busy={descargando}
+          aria-describedby={sinPlantilla ? `inspeccion-${i.id}-sin-plantilla` : undefined}
           onClick={() => onDescargar(i)}
           icono={
             <svg width="13" height="13" viewBox="0 0 14 14" fill="none" aria-hidden>
@@ -857,14 +859,14 @@ function FilaInspeccion({
             </svg>
           }
         >
-          {descargando ? 'Generando…' : 'Descargar'}
+          {sinPlantilla ? 'No disponible' : descargando ? 'Generando…' : 'Descargar'}
         </Boton>
       </div>
 
       {sinPlantilla && (
-        <p className="mt-2 text-[11px] text-ink-3 leading-relaxed">
-          La plantilla ya no existe en el tenant: la descarga probablemente devuelva «no
-          encontrado» en lugar de un libro. El registro de la inspección sigue siendo válido.
+        <p id={`inspeccion-${i.id}-sin-plantilla`} className="mt-2 text-[11px] text-ink-3 leading-relaxed">
+          La plantilla ya no existe en el tenant, por lo que no hay documento original que
+          reconstruir. El registro de la inspección sigue siendo válido para auditoría.
         </p>
       )}
       {error && (
