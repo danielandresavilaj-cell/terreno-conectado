@@ -42,9 +42,12 @@ import {
   guardarCursorPlantilla,
   guardarFotoRespuesta,
   guardarOriginalPlantilla,
+  guardarPlantillaSeleccionada,
   guardarPlantillasCache,
   guardarSesionCaché,
   leerCursorPlantilla,
+  leerPlantillaSeleccionada,
+  limpiarDatosLocalesPrueba,
   listarOriginalesPlantilla,
   listLogEntries,
   listOutbox,
@@ -93,6 +96,7 @@ import {
 import { columnasDesdeValor, esOkNokNa, itemsDe, valorDesdeColumnas } from './valores'
 
 export type Pantalla =
+  | 'formularios'
   | 'captura'
   | 'bitacora'
   | 'cola'
@@ -145,6 +149,10 @@ interface Ctx {
 
   /** Plantilla activa (FR-036); null sólo durante la hidratación inicial. */
   plantilla: PlantillaActual | null
+  /** Sólo incluye formularios publicados y asignados al rol/faena de la sesión. */
+  formularios: TemplatePublicadaDto[]
+  /** Impide cambiar de formulario sin decidir qué hacer con el borrador actual. */
+  hayBorrador: boolean
   /** Originales `.xlsx` cacheados y avisa de purga (FR-018); 0 = sin purgar. */
   originales: { cacheados: number; presupuestoBytes: number; purgados: number }
   /** Errores de validación por ítem (FR-039); vacío = todo válido. */
@@ -161,6 +169,8 @@ interface Ctx {
    *  Acción explícita del usuario, nunca automática: reencuadrar por la
    *  espalda invalidaría lo ya respondido. */
   descartarBorradorYRecargar: () => Promise<void>
+  seleccionarFormulario: (revisionId: string) => Promise<{ ok: boolean; error?: string }>
+  limpiarDatosPrueba: () => Promise<void>
 
   pendientes: number
   fallidos: number
@@ -230,6 +240,22 @@ function mapEntradas(rows: Array<{ id: string; capturedAt: string; authorId: str
   }))
 }
 
+function plantillaDesdeRevision(
+  revision: TemplatePublicadaDto,
+  origen: 'servidor' | 'caché',
+): PlantillaActual {
+  return {
+    templateId: revision.template_id,
+    revisionId: revision.revision_id,
+    nombre: revision.name,
+    version: revision.version,
+    origen,
+    definition: revision.definition,
+    estado: 'ok',
+    revisionPendiente: null,
+  }
+}
+
 /** Revisión congelada del borrador en curso; `null` si no hay borrador (FR-028).
  *  Es la que la purga de originales nunca puede borrar (FR-018/019). */
 async function revisionActivaId(): Promise<string | null> {
@@ -255,6 +281,8 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
   const [cuotaAviso, setCuotaAviso] = useState(false)
   const [cuota, setCuota] = useState<Ctx['cuota']>({ usadaPct: null, fotosPendientes: 0 })
   const [plantilla, setPlantilla] = useState<PlantillaActual | null>(null)
+  const [formularios, setFormularios] = useState<TemplatePublicadaDto[]>([])
+  const [hayBorrador, setHayBorrador] = useState(false)
   const [originales, setOriginales] = useState<Ctx['originales']>({
     cacheados: 0,
     presupuestoBytes: PRESUPUESTO_ORIGINALES_BYTES,
@@ -409,7 +437,11 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
    * congelado. Devuelve un estado explícito 'no-disponible' si la revisión del
    * borrador no está: la UI lo dice en vez de reencuadrar (FR-028). */
   const elegirActiva = useCallback(
-    async (items: TemplatePublicadaDto[], enRed: boolean): Promise<PlantillaActual> => {
+    async (
+      items: TemplatePublicadaDto[],
+      enRed: boolean,
+      revisionPreferida?: string | null,
+    ): Promise<PlantillaActual> => {
       const draftId = await getDraftInspectionId()
       let marco: MarcoBorrador | null = null
       if (draftId) {
@@ -422,19 +454,10 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
           }
         }
       }
-      const r = elegirPlantillaActiva(items, marco)
+      const r = elegirPlantillaActiva(items, marco, revisionPreferida)
       let p: PlantillaActual
       if (r.estado === 'ok') {
-        p = {
-          templateId: r.revision.template_id,
-          revisionId: r.revision.revision_id,
-          nombre: r.revision.name,
-          version: r.revision.version,
-          origen: enRed ? 'servidor' : 'caché',
-          definition: r.revision.definition,
-          estado: 'ok',
-          revisionPendiente: null,
-        }
+        p = plantillaDesdeRevision(r.revision, enRed ? 'servidor' : 'caché')
       } else if (r.estado === 'no-disponible') {
         // Sin definición que renderizar: la UI explica el bloqueo en vez de
         // mostrar otra plantilla (reencuadrar invalidaría lo ya respondido).
@@ -461,6 +484,7 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
         }
       }
       setPlantilla(p)
+      setHayBorrador(marco !== null)
       setErroresCampo({})
       return p
     },
@@ -486,7 +510,9 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
         presupuestoBytes: PRESUPUESTO_ORIGINALES_BYTES,
         purgados,
       })
-      return elegirActiva(items, enRed)
+      setFormularios(items)
+      const seleccionada = siteId ? await leerPlantillaSeleccionada(tenantId, siteId) : null
+      return elegirActiva(items, enRed, seleccionada)
     },
     [sincronizarPlantillas, elegirActiva],
   )
@@ -505,6 +531,41 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
   const descartarBorradorYRecargar = useCallback(async () => {
     if (!usuario) return
     await descartarBorrador()
+    setRespuestas({})
+    setHayBorrador(false)
+    await refrescar()
+    await cargarPlantilla(usuario.tenantId, usuario.faenaId || null)
+  }, [usuario, refrescar, cargarPlantilla])
+
+  const seleccionarFormulario = useCallback(
+    async (revisionId: string): Promise<{ ok: boolean; error?: string }> => {
+      if (!usuario || !usuario.faenaId) return { ok: false, error: 'No se encontró una faena para esta sesión.' }
+      const revision = formularios.find((item) => item.revision_id === revisionId)
+      if (!revision) return { ok: false, error: 'El formulario ya no está asignado a tu faena.' }
+
+      const draftId = await getDraftInspectionId()
+      const borrador = draftId ? await getInspection(draftId) : undefined
+      if (borrador && borrador.templateRevisionId !== revisionId) {
+        return { ok: false, error: 'Tenés un borrador en curso. Continuálo o descartalo antes de cambiar.' }
+      }
+
+      await guardarPlantillaSeleccionada(usuario.tenantId, usuario.faenaId, revisionId)
+      setPlantilla(plantillaDesdeRevision(revision, 'caché'))
+      setErroresCampo({})
+      if (!borrador) setRespuestas({})
+      setHayBorrador(!!borrador)
+      return { ok: true }
+    },
+    [usuario, formularios],
+  )
+
+  const limpiarDatosPrueba = useCallback(async () => {
+    if (!usuario) return
+    await limpiarDatosLocalesPrueba(usuario.tenantId)
+    setRespuestas({})
+    setErroresCampo({})
+    setHayBorrador(false)
+    setEntradasBitacora([])
     await refrescar()
     await cargarPlantilla(usuario.tenantId, usuario.faenaId || null)
   }, [usuario, refrescar, cargarPlantilla])
@@ -519,45 +580,38 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
       // el borrador queda ligado al marco de la plantilla vigente.
       const activa = await cargarPlantilla(u.tenantId, u.faenaId || null)
       if (u.faenaId && (u.rol === 'field_worker' || u.rol === 'supervisor')) {
-        // FR-014: al reabrir, se restaura el borrador en curso y sus respuestas.
-        const ins = await ensureDraftInspection({
-          tenantId: u.tenantId,
-          siteId: u.faenaId,
-          executedBy: u.id,
-          templateName: activa.nombre,
-          siteName: u.faena,
-          totalItems: itemsDe(activa.definition).length,
-          templateId: activa.templateId,
-          templateVersion: activa.version ?? undefined,
-          // FR-028: se congela la revisión EXACTA, no sólo el par
-          // plantilla+versión (que no desambigua dos revisiones publicadas).
-          templateRevisionId: activa.revisionId,
-        })
+        // No se crea un borrador sólo por iniciar sesión: así el trabajador
+        // puede elegir un formulario antes de que una revisión quede congelada.
+        const draftId = await getDraftInspectionId()
+        const ins = draftId ? await getInspection(draftId) : undefined
         const draftRespuestas: Record<string, RespuestaItem> = {}
-        for (const item of itemsDe(activa.definition)) {
-          const r = await respuestaDelItem(ins.id, item.id)
-          if (!r) continue
-          const campo = valorDesdeColumnas(item, r)
-          if (
-            campo === null &&
-            !r.valueOk &&
-            !r.valueText &&
-            r.valueNumber === null &&
-            (r.valueJson ?? null) === null
-          )
-            continue
-          draftRespuestas[item.id] = {
-            itemId: item.id,
-            campo,
-            valor: esOkNokNa(campo) ? campo : null,
-            hallazgoId: r.valueOk === 'nok' ? r.id : undefined,
+        if (ins) {
+          for (const item of itemsDe(activa.definition)) {
+            const r = await respuestaDelItem(ins.id, item.id)
+            if (!r) continue
+            const campo = valorDesdeColumnas(item, r)
+            if (
+              campo === null &&
+              !r.valueOk &&
+              !r.valueText &&
+              r.valueNumber === null &&
+              (r.valueJson ?? null) === null
+            )
+              continue
+            draftRespuestas[item.id] = {
+              itemId: item.id,
+              campo,
+              valor: esOkNokNa(campo) ? campo : null,
+              hallazgoId: r.valueOk === 'nok' ? r.id : undefined,
+            }
           }
         }
         setRespuestas(draftRespuestas)
+        setHayBorrador(!!ins)
       }
       setUsuario(u)
       setIdentidad(i)
-      setPantalla(u.rol === 'field_worker' ? 'captura' : 'dashboard')
+      setPantalla(u.rol === 'field_worker' ? (await getDraftInspectionId() ? 'captura' : 'formularios') : 'dashboard')
       const entradas = await listLogEntries(null)
       setEntradasBitacora(mapEntradas(entradas, u.nombre))
       setHidratando(false)
@@ -694,7 +748,7 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
 
   const resolverDraft = useCallback(
     async (u: Usuario) => {
-      return ensureDraftInspection({
+      const borrador = await ensureDraftInspection({
         tenantId: u.tenantId,
         siteId: u.faenaId,
         executedBy: u.id,
@@ -705,6 +759,8 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
         templateVersion: plantilla?.version ?? undefined,
         templateRevisionId: plantilla?.revisionId ?? null,
       })
+      setHayBorrador(true)
+      return borrador
     },
     [plantilla],
   )
@@ -867,6 +923,7 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
       }
       await submitInspection(draftId, location)
       setRespuestas({})
+      setHayBorrador(false)
       await refrescar()
       // FR-004: apenas se encola, si hay señal se intenta el flush.
       void sincronizarAhora()
@@ -907,6 +964,8 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
     respuestas,
     entradasBitacora,
     plantilla,
+    formularios,
+    hayBorrador,
     originales,
     erroresCampo,
     loginInApp,
@@ -917,6 +976,8 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
     sincronizarAhora,
     sincronizando,
     descartarBorradorYRecargar,
+    seleccionarFormulario,
+    limpiarDatosPrueba,
     pendientes,
     fallidos,
     enCola: cola,

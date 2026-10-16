@@ -310,11 +310,14 @@ export function Importar() {
           </h1>
           <p className="mt-2 text-[13px] text-ink-2 leading-relaxed">
             Versión {publicado.version ?? '—'} · estado{' '}
-            <span className="text-synced">published</span>. Ya está disponible para la captura de
-            los dispositivos del tenant (FR-027).
+            <span className="text-synced">published</span>. El siguiente paso es asignarla a las
+            faenas y roles que deben verla en terreno.
           </p>
-          <div className="mt-6 flex justify-center">
-            <Boton variante="primaria" onClick={() => ir('dashboard')}>
+          <div className="mt-6 flex flex-wrap justify-center gap-2">
+            <Boton variante="primaria" onClick={() => ir('plantillas')}>
+              Asignar a equipo
+            </Boton>
+            <Boton variante="secundaria" onClick={() => ir('dashboard')}>
               Volver a Gerencia
             </Boton>
           </div>

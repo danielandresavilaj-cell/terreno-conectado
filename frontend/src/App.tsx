@@ -12,6 +12,7 @@ import { ProveedorEstado, useEstado, type Pantalla } from './lib/store'
  * primera visita a una pantalla pesada baja su chunk (y muestra el mismo
  * arranque mínimo que la restauración de sesión mientras llega). */
 const Captura = lazy(() => import('./screens/Captura').then((m) => ({ default: m.Captura })))
+const Formularios = lazy(() => import('./screens/Formularios').then((m) => ({ default: m.Formularios })))
 const Bitacora = lazy(() => import('./screens/Bitacora').then((m) => ({ default: m.Bitacora })))
 const Cola = lazy(() => import('./screens/Cola').then((m) => ({ default: m.Cola })))
 const Dashboard = lazy(() => import('./screens/Dashboard').then((m) => ({ default: m.Dashboard })))
@@ -26,8 +27,8 @@ const Plantillas = lazy(() => import('./screens/Plantillas').then((m) => ({ defa
  * línea de lógica de autorización real — que es justamente lo que este mockup
  * NO implementa. */
 const POR_ROL: Record<string, Pantalla[]> = {
-  field_worker: ['captura', 'bitacora', 'cola'],
-  supervisor: ['captura', 'bitacora', 'cola', 'dashboard', 'conflictos'],
+  field_worker: ['formularios', 'captura', 'bitacora', 'cola'],
+  supervisor: ['formularios', 'captura', 'bitacora', 'cola', 'dashboard', 'conflictos'],
   tenant_admin: ['cola', 'dashboard', 'conflictos', 'plantillas', 'importar'],
   platform_admin: ['dashboard'],
 }
@@ -87,6 +88,7 @@ function Raiz() {
   return (
     <Shell>
       <Suspense fallback={<PantallaCargando />}>
+        {pantalla === 'formularios' && <Formularios />}
         {pantalla === 'captura' && <Captura />}
         {pantalla === 'bitacora' && <Bitacora />}
         {pantalla === 'cola' && <Cola />}
