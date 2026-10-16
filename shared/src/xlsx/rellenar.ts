@@ -28,7 +28,7 @@
 import type { TemplateDefinition, TemplateItem } from '../templates'
 import type { ImportSourceOrigin, TemplateImportProposal } from './types'
 import ExcelJS from 'exceljs'
-import { escribirLibro } from './escolta'
+import { aArrayBuffer, escribirLibro } from './escolta'
 
 /** Respuesta de un ítem, ya serializada al texto que se escribe en el libro. */
 export interface RespuestaRellenable {
@@ -238,7 +238,7 @@ async function agregarHojaEvidencias(
   evidencias: EvidenciaRellenable[],
 ): Promise<Uint8Array> {
   const wb = new ExcelJS.Workbook()
-  await wb.xlsx.load(Buffer.from(libro) as unknown as Parameters<typeof wb.xlsx.load>[0])
+  await wb.xlsx.load(aArrayBuffer(libro) as Parameters<typeof wb.xlsx.load>[0])
 
   const previa = wb.getWorksheet(nombreHoja)
   if (previa) wb.removeWorksheet(previa.id)

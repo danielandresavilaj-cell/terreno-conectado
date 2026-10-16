@@ -17,6 +17,11 @@ export default defineConfig({
   // `VITE_*` (p. ej. `VITE_DEMO_PASSWORD`, que `seed.ts` exige al importar).
   // En CI no hay `.env` y las `VITE_*` llegan por el entorno del job.
   envDir: '..',
+  resolve: {
+    alias: {
+      exceljs: 'exceljs/dist/exceljs.min.js',
+    },
+  },
   test: {
     environment: 'node',
     include: ['test/**/*.test.ts'],

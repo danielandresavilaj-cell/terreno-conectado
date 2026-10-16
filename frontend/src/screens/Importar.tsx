@@ -45,20 +45,6 @@ import { FIELD_PROPS_SCHEMA, RESPONSE_TYPES } from '@terreno/shared'
 import type { FieldProps, ResponseType, TemplateRevisionDetailDto } from '@terreno/shared'
 import type { ProposedItem, TemplateImportProposal } from '@terreno/shared/xlsx'
 
-/* `@terreno/shared/xlsx` (escolta ExcelJS) usa el `Buffer` de Node al leer/
- * escribir el libro; el bundle de ExcelJS lo provee en el navegador. El
- * tsconfig del frontend restringe `types` (sin `@types/node`), así que
- * declaramos acá la forma mínima que consume el módulo en lugar de arrastrar
- * todo Node al programa del navegador.
- *
- * El módulo se limita a `Buffer.from(...)`: el base64 de las evidencias
- * (FR-019/037) lo hace con `btoa`, que existe igual en Node y en el navegador,
- * para que este declare no tenga que ampliar el tipo global. */
-declare global {
-  type Buffer = Uint8Array
-  const Buffer: { from(data: Uint8Array | ArrayBuffer): Buffer }
-}
-
 const PASOS = ['Subir', 'Preview', 'Editar', 'Borrador', 'Publicar'] as const
 
 /** Etiquetas en español de los 8 tipos (FR-036). */
