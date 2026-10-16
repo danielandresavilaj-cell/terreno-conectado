@@ -51,6 +51,7 @@ export function Captura() {
     pendientes,
     enviarInspeccion,
     enviandoInspeccion,
+    erroresCampo,
     crearHallazgo,
     online,
     usuario,
@@ -72,7 +73,7 @@ export function Captura() {
    * trabajador vuelve a abrirlo), para que no dependan de que recuerde llenar
    * dos campos administrativos en terreno. */
   useEffect(() => {
-    if (!plantilla || plantilla.estado === 'no-disponible') return
+    if (!plantilla || plantilla.estado !== 'ok') return
     const clave = plantilla.revisionId ?? plantilla.templateId ?? plantilla.nombre
     if (formulariosInicializados.current.has(clave)) return
 
@@ -147,6 +148,7 @@ export function Captura() {
    * las respuestas ya escritas pertenecen a esa revisión, y validar un ítem
    * contra otra dejaría el turno inconsistente al enviarlo. */
   const congeladaAusente = plantilla.estado === 'no-disponible'
+  const sinFormularios = plantilla.estado === 'sin-plantillas'
   const exportando = estadoExport.fase === 'trabajando'
 
   /* El sheet de hallazgo trabaja sobre el item legacy: se adapta desde el
@@ -199,7 +201,7 @@ export function Captura() {
         {/* Progreso: barra que crece en scaleX. Comunica avance sin texto.
             Sin la revisión congelada no hay ítems que contar: una barra en 0%
             sobre una lista vacía sería ruido (FR-028). */}
-        {!congeladaAusente && (
+        {!congeladaAusente && !sinFormularios && (
           <div className="mt-5 panel p-4">
             <div className="flex items-end justify-between gap-4 mb-3">
               <div>
@@ -275,6 +277,17 @@ export function Captura() {
             )}
           </div>
         </div>
+      ) : sinFormularios ? (
+        <div className="panel p-5">
+          <p className="label-inst">Formularios asignados</p>
+          <h2 className="mt-2 text-[17px] font-semibold">No tenés formularios asignados</h2>
+          <p className="mt-2 text-[13px] text-ink-2 leading-relaxed">
+            Tu rol y faena no tienen una plantilla disponible. Pedile a un administrador que te asigne un formulario antes de iniciar una inspección.
+          </p>
+          <Boton tamano="sm" variante="secundaria" className="mt-4" onClick={() => ir('formularios')}>
+            Ver formularios asignados
+          </Boton>
+        </div>
       ) : (
         definition.sections.map((sec, si) => (
           <FormRenderer
@@ -308,7 +321,7 @@ export function Captura() {
         </div>
         {/* Sin la revisión congelada no se envía nada: el lote iría contra una
             plantilla que no es la del turno (FR-028). */}
-        {!congeladaAusente && (
+        {!congeladaAusente && !sinFormularios && (
           <div className="flex gap-2">
             {/* FR-014 guarda cada respuesta inmediatamente en el dispositivo.
                 No se ofrece un segundo "Guardar" sin trabajo que hacer: en
@@ -322,12 +335,18 @@ export function Captura() {
         )}
       </div>
 
+      {!congeladaAusente && !sinFormularios && Object.keys(erroresCampo).length > 0 && (
+        <p role="alert" className="-mt-3 text-[12px] font-medium text-failed">
+          Completá los campos obligatorios marcados antes de enviar la inspección.
+        </p>
+      )}
+
       {/* ── Export del documento original (FR-019) ──────────────────────
        *  Se genera entero en el dispositivo a partir del `.xlsx` cacheado con la
        *  plantilla: respuestas en sus celdas + hoja "Evidencias". No hay red en
        *  esta ruta (Art. I), y el botón se deshabilita —lo dice, no falla— cuando
        *  el original no está: bajarlo en el momento rompería la promesa offline. */}
-      <div className="panel p-4">
+      {!sinFormularios && <div className="panel p-4">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="min-w-0">
             <p className="label-inst">FR-019 · Documento original rellenado</p>
@@ -360,7 +379,7 @@ export function Captura() {
             Documento exportado · {estadoExport.resumen}
           </p>
         )}
-      </div>
+      </div>}
 
       {/* FR-018: los originales `.xlsx` viven en el dispositivo con un tope de
        * 25 MB. Si una pasada los truncó, el trabajador tiene que saberlo: un

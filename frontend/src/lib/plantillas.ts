@@ -126,11 +126,9 @@ export function elegirPlantillaActiva(
       (i) => i.template_id === borrador.templateId && i.version === borrador.templateVersion,
     )
     if (porMarco) return { estado: 'ok', revision: porMarco }
-    // Sin caché ninguna hay nada que renderizar: la demo local es el único
-    // camino posible (un borrador pre-009 sin revisión no se puede "congelar").
-    return items.length === 0
-      ? { estado: 'sin-plantillas' }
-      : { estado: 'no-disponible', marco: borrador }
+    // Un borrador legado tampoco puede reencuadrarse con una demo: se bloquea
+    // para que el usuario decida si lo descarta, igual que una revisión actual.
+    return { estado: 'no-disponible', marco: borrador }
   }
   if (items.length === 0) return { estado: 'sin-plantillas' }
   if (revisionPreferida) {

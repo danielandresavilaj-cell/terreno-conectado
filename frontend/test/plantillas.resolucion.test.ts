@@ -56,9 +56,9 @@ describe('plantilla activa con borrador congelado', () => {
     expect(r.estado === 'ok' && r.revision.revision_id).toBe(uuid(16))
   })
 
-  it('borrador legado sin caché: cae a la demo en vez de bloquear el turno', () => {
+  it('borrador legado sin caché: se bloquea sin cargar una demo', () => {
     const r = elegirPlantillaActiva([], { ...BORRADOR_V4, templateRevisionId: null })
-    expect(r.estado).toBe('sin-plantillas')
+    expect(r.estado).toBe('no-disponible')
   })
 })
 
@@ -85,7 +85,7 @@ describe('plantilla activa sin borrador', () => {
     expect(r.estado === 'ok' && r.revision.revision_id).toBe(uuid(11))
   })
 
-  it('sin plantillas devuelve sin-plantillas (la UI usa la demo local)', () => {
+  it('sin plantillas devuelve sin-plantillas', () => {
     expect(elegirPlantillaActiva([], null).estado).toBe('sin-plantillas')
   })
 
