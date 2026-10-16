@@ -6,10 +6,15 @@
  * targets grandes (≥44 px), alto contraste, pensados para guantes y sol.
  */
 
-import { useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { motion, useReducedMotion } from 'motion/react'
 import type { CampoValor, TemplateItem } from '@terreno/shared'
 import { EASE } from '../lib/motion'
+import {
+  esEdicionNumericaPosible,
+  numeroDesdeEdicion,
+  numeroDentroDeRango,
+} from '../lib/campo-numerico'
 
 const INPUT =
   'h-11 w-full sm:w-auto sm:max-w-[190px] px-3 rounded-[10px] bg-s0 border border-line-soft text-[14px] placeholder:text-ink-3 focus:border-beam transition-colors duration-150 shrink-0'
@@ -104,22 +109,47 @@ export function CampoTexto({ valor, onCambio, item }: PropsCampo) {
 /* ── numérico (decimal con coma o punto) ───────────────────────────────── */
 export function CampoNumerico({ valor, onCambio, item }: PropsCampo) {
   const props = item.props ?? {}
+  const valorInicial = typeof valor === 'number' ? String(valor) : typeof valor === 'string' ? valor : ''
+  const [texto, setTexto] = useState(valorInicial)
+  const editando = useRef(false)
+
+  // Una respuesta restaurada, un valor automático o un cambio desde otra
+  // pantalla actualizan el control. Mientras se escribe, en cambio, no se
+  // pisa el texto parcial por el último número válido guardado.
+  useEffect(() => {
+    if (!editando.current) setTexto(valorInicial)
+  }, [valorInicial])
+
+  const confirmar = () => {
+    editando.current = false
+    if (texto === '') {
+      onCambio('')
+      return
+    }
+    const numero = numeroDesdeEdicion(texto)
+    // En blur sí se comunica el error de formato/rango al store. Durante la
+    // escritura sólo se guarda cuando el valor completo ya es válido.
+    onCambio(numero ?? texto)
+  }
+
   return (
     <input
-      value={typeof valor === 'number' ? String(valor) : typeof valor === 'string' ? valor : ''}
+      value={texto}
       inputMode="decimal"
       placeholder="0,00"
       min={typeof props.min === 'number' ? props.min : undefined}
       max={typeof props.max === 'number' ? props.max : undefined}
+      onFocus={() => {
+        editando.current = true
+      }}
       onChange={(e) => {
         const t = e.target.value
-        if (t === '') {
-          onCambio('')
-          return
-        }
-        const n = Number(t.replace(',', '.'))
-        onCambio(Number.isNaN(n) ? t : n)
+        if (!esEdicionNumericaPosible(t)) return
+        setTexto(t)
+        const numero = numeroDesdeEdicion(t)
+        if (numero !== null && numeroDentroDeRango(numero, props)) onCambio(numero)
       }}
+      onBlur={confirmar}
       className={INPUT}
     />
   )

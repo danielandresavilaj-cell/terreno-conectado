@@ -15,7 +15,7 @@
  * · NO anima: el focus de los campos de texto, el scroll, el hover de las filas.
  */
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { motion } from 'motion/react'
 import { Chip } from '../components/Badges'
 import { Boton } from '../components/ui'
@@ -30,6 +30,7 @@ import {
 } from '../lib/exportar'
 import { contestado, itemsDe } from '../lib/valores'
 import { EASE } from '../lib/motion'
+import { fechaHoraLocal } from '../lib/fecha-hora-actual'
 import type { TemplateItem } from '@terreno/shared'
 import type { ItemPlantilla } from '../lib/types'
 
@@ -54,13 +55,38 @@ export function Captura() {
     usuario,
     originales,
     descartarBorradorYRecargar,
+    responderCampo,
+    ir,
   } = useEstado()
   const [sheetItem, setSheetItem] = useState<ItemPlantilla | null>(null)
   const [confirmarDescarte, setConfirmarDescarte] = useState(false)
   const [estadoExport, setEstadoExport] = useState<EstadoExport>({ fase: 'inactivo' })
   const [hayOriginal, setHayOriginal] = useState(false)
+  const formulariosInicializados = useRef(new Set<string>())
 
   const revisionId = plantilla?.revisionId ?? null
+
+  /* Al abrir un formulario, fecha y hora representan el momento de inicio del
+   * recorrido. Se escriben una vez en el borrador (y no se reescriben si el
+   * trabajador vuelve a abrirlo), para que no dependan de que recuerde llenar
+   * dos campos administrativos en terreno. */
+  useEffect(() => {
+    if (!plantilla || plantilla.estado === 'no-disponible') return
+    const clave = plantilla.revisionId ?? plantilla.templateId ?? plantilla.nombre
+    if (formulariosInicializados.current.has(clave)) return
+
+    const automaticos = itemsDe(plantilla.definition).filter(
+      (item) => item.response_type === 'date' || item.response_type === 'time',
+    )
+    if (automaticos.length === 0) return
+
+    formulariosInicializados.current.add(clave)
+    const { fecha, hora } = fechaHoraLocal()
+    for (const item of automaticos) {
+      if (respuestas[item.id]?.campo !== null && respuestas[item.id]?.campo !== undefined) continue
+      responderCampo(item.id, item.response_type === 'date' ? fecha : hora)
+    }
+  }, [plantilla, respuestas, responderCampo])
 
   /* El botón de exportar se habilita sólo con el original de ESTA revisión en el
    * dispositivo (FR-019). Se consulta al montar y cada vez que cambia la revisión
@@ -149,6 +175,9 @@ export function Captura() {
             </p>
           </div>
           <div className="flex items-center gap-2">
+            <Boton tamano="sm" variante="secundaria" onClick={() => ir('formularios')}>
+              Ver formularios
+            </Boton>
             <Chip color={online ? 'var(--color-synced)' : 'var(--color-pending)'}>
               {online ? 'Guardado en cola · online' : 'Guardado en dispositivo'}
             </Chip>
@@ -157,6 +186,14 @@ export function Captura() {
             </Chip>
           </div>
         </div>
+
+        {itemsDe(plantilla.definition).some(
+          (item) => item.response_type === 'date' || item.response_type === 'time',
+        ) && (
+          <p className="mt-3 text-[12px] text-ink-2">
+            La fecha y la hora se registran automáticamente al abrir el formulario.
+          </p>
+        )}
 
         {/* Progreso: barra que crece en scaleX. Comunica avance sin texto.
             Sin la revisión congelada no hay ítems que contar: una barra en 0%
