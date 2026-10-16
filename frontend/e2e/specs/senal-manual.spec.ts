@@ -7,6 +7,8 @@ test('la desconexión y recuperación reales se detectan sin intervención manua
   // Cortar antes prueba una descarga inicial incompleta, no la captura offline.
   await expect(page.getByRole('heading', { name: 'Elegí qué vas a inspeccionar' })).toBeVisible()
   await page.evaluate(() => navigator.serviceWorker.ready.then(() => null))
+  // La primera página puede no estar controlada hasta la siguiente navegación.
+  await page.reload()
   await expect.poll(() => page.evaluate(() => navigator.serviceWorker.controller !== null)).toBe(true)
   const signal = page.getByRole('switch', { name: /señal/i })
   await expect(signal).toHaveAttribute('aria-checked', 'true')
