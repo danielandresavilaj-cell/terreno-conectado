@@ -53,7 +53,11 @@ Montar el volumen de datos siguiendo **los comandos que entrega OCI para el disp
 No formatear dispositivos por nombre supuesto. Montarlo por UUID, persistente en `/etc/fstab`.
 En el servidor nuevo y antes de iniciar Docker con datos, configurar Docker `data-root`
 en ese volumen (`/mnt/terreno/docker`) y rotación de logs: driver `json-file`, `max-size: 10m`,
-`max-file: 3`. Reiniciar Docker y comprobar `docker info` antes de crear contenedores.
+`max-file: 3`. Copiar `docker-data.conf` a
+`/etc/systemd/system/docker.service.d/terreno-data.conf` y ejecutar
+`systemctl daemon-reload`: Docker debe depender del montaje para no abrir una base vacía
+en el disco de arranque si el volumen falta. Reiniciar Docker y comprobar `docker info`
+antes de crear contenedores.
 
 Copiar `infra/` a `/opt/terreno/infra` (sin `.env` local). Generar allí secretos nuevos:
 
@@ -122,8 +126,10 @@ destinatario público age y `ALERT_WEBHOOK` HTTPS privado si se desean avisos ex
 Sin webhook, los fallos quedan en stderr, código de salida y unidad systemd fallida.
 El workflow `Demo health and backup audit` verifica HTTPS, timer, resultado del servicio,
 antigüedad del último backup (26 h) y retención. Falla visiblemente en Actions; activar
-las notificaciones de workflows del titular en GitHub. Es manual en la rama del PR;
-su programación diaria (03:30 UTC) sólo entra en vigor cuando se incorpore a `main`.
+las notificaciones de workflows del titular en GitHub. GitHub debe registrar este
+workflow nuevo en `main` antes de permitir su disparo manual o su programación diaria
+(03:30 UTC). Mientras el PR siga abierto, ejecutar la misma auditoría por SSH:
+`node /opt/terreno/infra/tools/check-backup.mjs` y verificar `/health` por HTTPS.
 
 ```bash
 node /opt/terreno/infra/tools/ops.mjs backup

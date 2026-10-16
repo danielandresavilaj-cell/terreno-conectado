@@ -27,4 +27,22 @@ SSH sin password/root y con host Ed25519 verificado contra consola OCI firmada.
 Bucket Standard privado; instance principal limitado al bucket `terreno-backups`.
 Rclone oficial v1.75.2 verificado por SHA256 (paquete Ubuntu no trae backend OCI).
 Timer diario instalado. Clave age de recuperación copiada fuera de Oracle.
-Clave API administrativa temporal: revocación obligatoria al terminar.
+Clave API administrativa temporal eliminada en OCI (lista vacía verificada en consola);
+clave privada y configuración temporales eliminadas localmente. SSH/age siguen privados.
+
+Demo pública operativa: https://terreno-conectado-demo.duckdns.org/ . Logins de los
+7 perfiles, cookies seguras/refresh API, aislamiento, descarga original con checksum y
+alta/baja de asignación verificados. Base inicial sin inspecciones ni respuestas.
+Backup OCI real restaurado en stack aislado: 2 empresas/7 usuarios/8 revisiones/
+4 asignaciones/6 originales SHA256; rol tc_app sin BYPASSRLS. Stack de ensayo eliminado.
+Reinicio completo del VPS conservó configuración y archivos; Docker depende del volumen.
+
+En E2E se detectaron y corrigieron el reinicio involuntario del switch manual por
+dependencias de efectos, su preferencia perdida al recargar, y el GET `/auth/me`
+incorrecto (el contrato real es `/me`). Se evita rehidratar sesión en cada cambio de red.
+Un error numérico visible también bloquea el envío aunque exista un valor válido anterior.
+El manifiesto PWA se sirve como application/manifest+json. Falta registrar evidencia
+final del último SHA, instalación física y el recorrido público de Excel/foto: el
+navegador denegó la carga, que no se reintentó por otro mecanismo. No dar por aprobado
+ese recorrido ni cerrar el issue. Auditoría externa requiere registrar workflow en main;
+el PR #160 tiene revisión solicitada a ev6rlasting y exige su aprobación antes de merge.

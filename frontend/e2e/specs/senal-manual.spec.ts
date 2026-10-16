@@ -3,6 +3,11 @@ import { CUENTAS, conectarDb, leerCola, loginEnApp } from '../helpers/e2e'
 
 test('la desconexión y recuperación reales se detectan sin intervención manual', async ({ page, context }) => {
   await loginEnApp(page, CUENTAS.trabajadorA)
+  // Primer arranque con red hasta que la PWA termine de cachear sus pantallas.
+  // Cortar antes prueba una descarga inicial incompleta, no la captura offline.
+  await expect(page.getByRole('heading', { name: 'Elegí qué vas a inspeccionar' })).toBeVisible()
+  await page.evaluate(() => navigator.serviceWorker.ready.then(() => null))
+  await expect.poll(() => page.evaluate(() => navigator.serviceWorker.controller !== null)).toBe(true)
   const signal = page.getByRole('switch', { name: /señal/i })
   await expect(signal).toHaveAttribute('aria-checked', 'true')
   await context.setOffline(true)
