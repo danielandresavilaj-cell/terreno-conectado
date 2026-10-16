@@ -114,8 +114,8 @@ jobs:
       - uses: appleboy/ssh-action@v1.2.0
         env:
           DEPLOY_SHA: ${{ needs.verify.outputs.sha }}
-          GHCR_USERNAME: ${{ secrets.GHCR_USERNAME }}
-          GHCR_READ_TOKEN: ${{ secrets.GHCR_READ_TOKEN }}
+          GHCR_USERNAME: ${{ secrets.GHCR_USERNAME || github.actor }}
+          GHCR_READ_TOKEN: ${{ secrets.GHCR_READ_TOKEN || github.token }}
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}

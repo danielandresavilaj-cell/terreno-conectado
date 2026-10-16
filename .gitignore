@@ -53,6 +53,7 @@ infra/backup/*.conf
 infra/backup/*.key
 infra/.operations.lock/
 infra/secrets/
+infra/.config-imported
 
 # Nota: `.github/` ya NO se excluye.
 # Se excluía como rodeo porque el PAT de `git:https://github.com` no tiene el

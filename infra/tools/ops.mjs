@@ -88,6 +88,12 @@ async function deploy() {
     dc('up', '-d', '--wait', 'db')
     if (released) dc('stop', 'backend')
     dc('--profile', 'tools', 'run', '--rm', 'migrate')
+    if (!released && !existsSync(join(root, '.config-imported'))) {
+      // Antes de exponer la API: exige paquete completo y destino sin datos.
+      dc('--profile', 'tools', 'run', '--rm', 'config')
+      dc('run', '--rm', '--no-deps', '-T', '--entrypoint', 'chown', 'config', '-R', '1000:1000', '/data/sync')
+      writeFileSync(join(root, '.config-imported'), new Date().toISOString(), { mode: 0o600 })
+    }
     dc('up', '-d', '--wait', 'backend', 'frontend', 'caddy')
     await healthy()
     // El primer certificado puede tardar después de que Caddy figure "running".
