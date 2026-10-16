@@ -1,0 +1,32 @@
+name: Demo health and backup audit
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '30 3 * * *'
+permissions:
+  contents: read
+concurrency:
+  group: terreno-demo-health
+  cancel-in-progress: false
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check public HTTPS and database
+        run: |
+          curl --fail --silent --show-error --retry 3 --max-time 15 https://terreno-conectado-demo.duckdns.org/health | jq -e '.db == "up"'
+          curl --fail --silent --show-error --retry 3 --max-time 15 -o /dev/null https://terreno-conectado-demo.duckdns.org/
+      - name: Check daily backup timer and remote retention
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          fingerprint: ${{ secrets.VPS_HOST_FINGERPRINT }}
+          command_timeout: 3m
+          script: |
+            set -eu
+            systemctl is-active --quiet terreno-backup.timer
+            test "$(systemctl show terreno-backup.service --property=Result --value)" = success
+            node /opt/terreno/infra/tools/check-backup.mjs

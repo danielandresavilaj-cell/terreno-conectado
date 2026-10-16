@@ -16,6 +16,10 @@ el entorno usa Node y funciona también desde macOS/Windows.
 4. Registrar en ADR el nombre reservado, región, titular y límites confirmados.
    El PR lleva la aprobación del otro integrante antes de provisionar (Constitución VI).
 
+Ejecución autorizada directamente por el titular el 2026-10-16: región principal
+existente Valparaíso (`sa-valparaiso-1`), instancia `terreno-conectado-demo` y
+`terreno-conectado-demo.duckdns.org`. La revisión cruzada del PR #160 queda pendiente.
+
 Objetivo: una VM Ubuntu 24.04 ARM A1, 2 OCPU/12 GB, disco de arranque 50 GB y
 volumen de datos 50 GB (100 GB combinados, por debajo de 200 GB gratuitos).
 Bucket **privado Standard** para backups, sin versionado, replicación ni servicios pagados.
@@ -31,11 +35,14 @@ y https://www.oracle.com/cloud/free/faq/ (revalidar antes de crear recursos).
 ## 2. Servidor y secretos
 
 Crear llave SSH dedicada y VM con acceso por esa llave. Conservar la llave privada
-en el equipo del titular. En OCI abrir 80/443 y 22 sólo desde la IP administrativa.
+en el equipo del titular. En OCI abrir 80/443. Para despliegues con runners hospedados
+de GitHub, sus IP son dinámicas: el puerto 22 acepta conexiones de Internet, pero
+únicamente autentica con la llave dedicada, sin contraseñas ni acceso root. Si se limita
+22 a una IP administrativa, el deploy hospedado no funciona hasta permitir su origen.
 No abrir 3000, 5173 ni 5432. Instalar con usuario `ubuntu`:
 
 ```bash
-sudo bash infra/tools/bootstrap-ubuntu.sh ubuntu IP_ADMINISTRATIVA/32
+sudo bash infra/tools/bootstrap-ubuntu.sh ubuntu 0.0.0.0/0
 ```
 
 El script requiere Ubuntu 24.04, instala Docker/Compose, Node 22, age y rclone,
@@ -103,14 +110,20 @@ Primer arranque requiere red; luego la captura usa la caché y cola offline exis
 
 Configurar `rclone config --config /opt/terreno/secrets/rclone.conf` con backend
 `oracleobjectstorage` (rclone ≥ 1.60), nombre `oci`, región y namespace de la cuenta,
-proveedor `user_principal_auth`, archivo OCI de un usuario dedicado y sus credenciales
-limitadas al bucket privado. Guía oficial: https://rclone.org/oracleobjectstorage/.
+proveedor `instance_principal_auth`, con un dynamic group que incluya únicamente esta
+instancia y política limitada al bucket privado. No dejar claves de administrador en
+la máquina. El ejemplo `user_principal_auth` es una alternativa de recuperación con
+usuario dedicado y permisos mínimos. Guía oficial: https://rclone.org/oracleobjectstorage/.
 No usar una URL pública/PAR. Crear el prefijo remoto `oci:terreno-backups/demo`.
 Generar identidad age con `age-keygen -o /opt/terreno/secrets/backup.key`;
 guardar **copia fuera de Oracle**, junto con `.env` y las credenciales de recuperación.
 Copiar `backup/backup.conf.example` a `backup/backup.conf` y completar sus rutas,
 destinatario público age y `ALERT_WEBHOOK` HTTPS privado si se desean avisos externos.
 Sin webhook, los fallos quedan en stderr, código de salida y unidad systemd fallida.
+El workflow `Demo health and backup audit` verifica HTTPS, timer, resultado del servicio,
+antigüedad del último backup (26 h) y retención. Falla visiblemente en Actions; activar
+las notificaciones de workflows del titular en GitHub. Es manual en la rama del PR;
+su programación diaria (03:30 UTC) sólo entra en vigor cuando se incorpore a `main`.
 
 ```bash
 node /opt/terreno/infra/tools/ops.mjs backup

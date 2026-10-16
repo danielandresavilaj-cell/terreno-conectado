@@ -9,7 +9,7 @@ Plan aprobado por Daniel en este chat el 2026-10-16; ADR-002, adenda 1.
 - [x] Runbook de cuentas, infraestructura, DNS, TLS, operación y recuperación.
 - [x] Validación local: lint, typecheck, build/PWA; 396 tests; imágenes ARM de tools/API/frontend.
 - [x] Ensayo real aislado DB+archivos: cifrado age, transporte rclone, restore y rechazo de sobrescritura.
-- [ ] Registrar cuentas Oracle/DuckDNS; reservar capacidad gratuita y subdominio.
+- [x] Registrar cuentas Oracle/DuckDNS; reservar capacidad gratuita y subdominio.
 - [ ] Aprobar ADR actualizado en PR por el otro integrante, según CONTRIBUTING.
 - [ ] Provisionar, importar configuración y verificar flujos HTTPS en dispositivos.
 - [ ] Verificar restore, alertas y consumo en Oracle antes de entregar enlace.
@@ -18,5 +18,13 @@ Evidencia 2026-10-16: export local selectivo preparado (2 empresas, 7 usuarios, 
 7 formularios, 8 revisiones, 4 asignaciones; 6 imports con originales). Paquete y secretos
 ignorados por Git. Ensayo de restore en dos stacks desechables, con la imagen runtime de
 producción y rol `tc_app` sin BYPASSRLS. Transporte local con rclone: acceso al bucket OCI,
-TLS público y pruebas en dispositivo quedan pendientes de cuentas. Workflow validado con
+TLS público y pruebas en dispositivo quedan pendientes del arranque. Workflow validado con
 actionlint. Credenciales nuevas de demo y SSH configuradas en GitHub Secrets sin exponerlas.
+
+Provisionamiento autorizado explícitamente por Daniel: Valparaíso (`sa-valparaiso-1`),
+A1 2 OCPU/12 GB, arranque 50 GB y datos 50 GB montados por UUID. Solo 22/80/443;
+SSH sin password/root y con host Ed25519 verificado contra consola OCI firmada.
+Bucket Standard privado; instance principal limitado al bucket `terreno-backups`.
+Rclone oficial v1.75.2 verificado por SHA256 (paquete Ubuntu no trae backend OCI).
+Timer diario instalado. Clave age de recuperación copiada fuera de Oracle.
+Clave API administrativa temporal: revocación obligatoria al terminar.

@@ -15,6 +15,13 @@ topología A.1; cambia el proveedor previsto de Hetzner a **Oracle A1 ARM**.
 La revisión cruzada del ADR/PR por Raúl sigue el proceso de CONTRIBUTING;
 no se presume su aprobación ni capacidad gratuita reservada.
 
+Registro de ejecución: Daniel autorizó expresamente el provisionamiento en el chat
+el 2026-10-16. La cuenta activa tiene región principal **Valparaíso
+(`sa-valparaiso-1`)**; se usa esa región, no se abre otra cuenta para Santiago.
+Instancia `terreno-conectado-demo`, A1 2 OCPU/12 GB y 100 GB combinados;
+subdominio `terreno-conectado-demo.duckdns.org`. La revisión cruzada del PR #160
+sigue pendiente; la autorización del titular no se atribuye a Raúl.
+
 Objetivo: Ubuntu 24.04, hasta 2 OCPU/12 GB, 50 GB de arranque + 50 GB de datos,
 PostgreSQL 16 y adjuntos en volúmenes Docker. DuckDNS + Caddy para HTTPS.
 Actions construye amd64/ARM por SHA real; GHCR almacena imágenes inmutables por versión.
