@@ -3,7 +3,7 @@
 | | |
 | :--- | :--- |
 | **Estado** | COMPLETO (ciclo del módulo, F2 · 2026-10-13) |
-| **Versión** | 0.3.0 |
+| **Versión** | 0.3.1 |
 | **Autor** | Daniel Ávila |
 | **Padre** | specs/000-master/spec.md |
 | **Depende de** | 001 (sesión/tenant), 004 (plantillas a renderizar offline) |
@@ -16,7 +16,7 @@ Requisitos que este spec detalla: **FR-010 → FR-019** y soporte a **NFR-01, NF
 
 - **FR-010** PWA instalable (manifest + service worker), operativa sin red tras la primera carga.
 - **FR-011** Crear/editar inspecciones, respuestas de checklist, hallazgos (texto + foto) y bitácora offline, en IndexedDB (Dexie).
-- **FR-012** Compresión de foto en cliente (≤1280 px lado mayor, q0.7) antes de encolar; feature flag `photos`.
+- **FR-012** Compresión de foto en cliente (≤1280 px lado mayor, q0.7) antes de encolar; feature flag `photos`. La evidencia se toma desde la cámara del dispositivo cuando está disponible; elegir un archivo es la alternativa explícita ante permisos denegados o falta de cámara.
 - **FR-013** Estado por registro: `pending`, `syncing`, `synced`, `failed`, con contador de pendientes.
 - **FR-014** Persistencia al cerrar/reabrir/reiniciar el dispositivo.
 - **FR-015** UUIDv7 generados en el cliente.
@@ -81,6 +81,8 @@ Las **plantillas** no dependen de la caché HTTP del SW: viven en Dexie (FR-018)
 
 Canvas en cliente: lado mayor ≤ 1280 px, calidad 0.7, `imageSmoothingQuality: high`, salida JPEG, **antes** de encolar. El blob comprimido vive en IndexedDB (`attachments`). El hallazgo no depende de la foto (fallback sin imagen).
 
+La toma usa `getUserMedia` y prefiere la cámara trasera. El stream se detiene al capturar, cancelar o cerrar el diálogo. Si el navegador no expone una cámara o el permiso se deniega, el diálogo informa la causa y ofrece elegir un archivo sin interrumpir la captura offline.
+
 ## 8. Criterios de aceptación y pruebas
 
 - **Caos asociados** (`test-plan.md` §4): FR-011/014/NFR-01 (captura en modo avión), FR-012 (dimensiones ≤1280 px), FR-016 (drenado automático al reconectar), FR-018 (render sin red), NFR-02 (72 h offline).
@@ -97,6 +99,7 @@ Canvas en cliente: lado mayor ≤ 1280 px, calidad 0.7, `imageSmoothingQuality: 
 
 | Versión | Fecha | Cambio | Autor |
 | :--- | :--- | :--- | :--- |
+| 0.3.1 | 2026-10-16 | TSK-OFF-002 (#150): cámara del dispositivo para fotos de ítems y hallazgos; fallback explícito de archivo y apagado del stream | Raúl González (con IA) |
 | 0.3.0 | 2026-10-13 | **Spec completado (F2).** Documenta el estado real de FR-010…019 con evidencia: esquema Dexie por versiones, caché de plantillas + cursor por tenant, Workbox, compresión y export offline | Daniel Ávila |
 | 0.2.0 | 2026-10-07 | **Módulo 007 (Enmienda 002):** alcance +FR-018 (caché de plantillas publicadas asignadas) y +FR-019 (export `.xlsx` rellenado + hoja Evidencias en el dispositivo) | Raúl González (con IA) |
 | 0.1.0 | 2026-09-14 | Esqueleto inicial desde spec maestro v1.0.0 | Daniel Ávila (con IA) |

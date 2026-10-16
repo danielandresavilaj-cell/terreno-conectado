@@ -30,7 +30,7 @@ verde.
 | Requisito | Prueba | Nivel | Evidencia | Estado |
 | :--- | :--- | :--- | :--- | :--- |
 | FR-011/014, NFR-01 | Capturar en modo avión, cerrar/reabrir app, verificar persistencia IndexedDB | E2E | `e2e-captura-offline.spec.ts` → "captura sin red, recarga y el borrador conserva las respuestas" | 🟢 verde |
-| FR-012 | Foto de 8 MP → verificar dimensiones ≤1280 px y tamaño comprimido antes de encolar | Unit + E2E | `shared` (`compresor`) + `e2e-captura-offline.spec.ts` → "la foto de un ítem queda ≤1280 px" | 🟢 verde |
+| FR-012 | Foto de 8 MP → verificar dimensiones ≤1280 px y tamaño comprimido antes de encolar; abrir cámara, tomar foto, cancelar y denegar permiso | Unit + E2E + manual móvil | `shared` (`compresor`) + `e2e-captura-offline.spec.ts` → "la foto de un ítem queda ≤1280 px"; protocolo manual: `CamaraCaptura` abre el lente trasero, detiene el indicador al cerrar y ofrece archivo si no hay permiso | 🟢 verde (compresión) · protocolo manual pendiente por dispositivo |
 | FR-016 | Desactivar red → encolar → reactivar: sync inicia sola sin clic | E2E | `e2e-captura-offline.spec.ts` → "reactivar la red drena la cola sin tocar el botón de sincronizar" | 🟢 verde |
 | FR-017 | Cuota local supera el 80% → aviso al trabajador y prioriza fotos ya sincronizables | Unit | `frontend/test/cuota.test.ts` (`estimarCuota`/`cuotaEsAlta`; `contadorFotosPendientes`; `sincronizables(true)` sube al frente sólo las fotos cuyo dueño no está en cola, sin romper el orden FR-020) | 🟢 verde |
 | FR-020 | Batch con dependencias (inspección + respuestas + hallazgo + foto) sube en orden | Unit + Integración | `backend/test/sync.spec.ts` (`batchOrder` y orden de aplicación) | 🟢 verde |

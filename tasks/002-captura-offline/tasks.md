@@ -15,6 +15,7 @@ La auditoría del 2026-10-14 sobre `main` encontró que **FR-017 estaba simulado
 | ID | Tarea | Requisito(s) | Depende de | Criterio de aceptación | Estado |
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | TSK-OFF-001 | Cuota real de almacenamiento: aviso al superar el 80% y priorización de fotos ya sincronizables | FR-017 | — | `estimarCuota` con `navigator.storage.estimate()` (degrada sin dato); `contadorFotosPendientes`; `sincronizables(priorizarFotos)` sube al frente sólo las fotos cuyo dueño no está en cola; `Cola.tsx`/`Shell.tsx` usan el valor real; `frontend/test/cuota.test.ts` verde; spec 002 §2 corregido | ✅ Hecho |
+| TSK-OFF-002 | Cámara del dispositivo para evidencia | FR-011, FR-012, FR-037 | — | `Tomar foto` abre `getUserMedia` con cámara trasera preferida, captura un JPEG local y detiene el stream al terminar; selector de archivo sólo como fallback explícito. Cubre fotos de ítems y hallazgos. Issue #150. | ✅ Hecho |
 
 ## Criterios de salida del módulo
 
@@ -26,4 +27,5 @@ La auditoría del 2026-10-14 sobre `main` encontró que **FR-017 estaba simulado
 
 | Versión | Fecha | Cambio | Autor |
 | :--- | :--- | :--- | :--- |
+| 0.1.1 | 2026-10-16 | TSK-OFF-002 (#150): cámara con `getUserMedia`, foto JPEG local y fallback de archivo en ítems y hallazgos | Raúl González (con IA) |
 | 0.1.0 | 2026-10-14 | Creación: implementación real de FR-017 (TSK-OFF-001) | Daniel Ávila |

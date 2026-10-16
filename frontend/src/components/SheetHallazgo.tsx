@@ -21,6 +21,7 @@ import { Boton } from './ui'
 import { SEV_META } from './Badges'
 import { EASE } from '../lib/motion'
 import type { ItemPlantilla, Severidad } from '../lib/types'
+import { CamaraCaptura } from './CamaraCaptura'
 
 const SEVS: Severidad[] = ['baja', 'media', 'alta', 'critica']
 
@@ -37,7 +38,7 @@ export function SheetHallazgo({
   const [sev, setSev] = useState<Severidad>('media')
   const [desc, setDesc] = useState('')
   const [foto, setFoto] = useState<File | null>(null)
-  const inputFoto = useRef<HTMLInputElement | null>(null)
+  const [camaraAbierta, setCamaraAbierta] = useState(false)
   const origen = useRef<HTMLElement | null>(null)
 
   useEffect(() => {
@@ -186,16 +187,10 @@ export function SheetHallazgo({
             {/* FR-011/012: evidencia fotográfica capturada en el dispositivo.
                 Se guarda el blob sin comprimir acá; la compresión (≤1280px q0.7)
                 llega con TSK-WS-006. */}
-            <input
-              ref={inputFoto}
-              type="file"
-              accept="image/*"
-              capture="environment"
-              className="hidden"
-              onChange={(e) => setFoto(e.target.files?.[0] ?? null)}
-            />
+            <CamaraCaptura abierta={camaraAbierta} alCerrar={() => setCamaraAbierta(false)} alCapturar={setFoto} />
             <button
-              onClick={() => inputFoto.current?.click()}
+              type="button"
+              onClick={() => setCamaraAbierta(true)}
               className={[
                 'mt-4 w-full flex items-center gap-3 rounded-[10px] border px-3.5 py-3 text-left cursor-pointer',
                 'transition-colors duration-200 ease-out',
