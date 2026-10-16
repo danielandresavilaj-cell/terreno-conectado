@@ -24,7 +24,7 @@ import {
   useState,
   type ReactNode,
 } from 'react'
-import { COLA_INICIAL, DEFINICION_DEMO } from './seed'
+import { COLA_INICIAL } from './seed'
 import type { Identidad, RegistroCola, Rol, Severidad, Usuario } from './types'
 import {
   addFinding,
@@ -39,7 +39,6 @@ import {
   getDeviceId,
   getDraftInspectionId,
   getInspection,
-  getTemplateId,
   guardarFotoRespuesta,
   guardarOriginalPlantilla,
   guardarPlantillaSeleccionada,
@@ -89,6 +88,7 @@ import {
   type TemplatePublicadaDto,
 } from '@terreno/shared'
 import { columnasDesdeValor, esOkNokNa, itemsDe, valorDesdeColumnas } from './valores'
+import { erroresDeEnvio } from './validar-envio-inspeccion'
 
 export type Pantalla =
   | 'formularios'
@@ -201,6 +201,9 @@ const SEV_TO_EN: Record<Severidad, 'low' | 'medium' | 'high' | 'critical'> = {
   alta: 'high',
   critica: 'critical',
 }
+
+/** Una sesión sin asignaciones no recibe una plantilla de demostración. */
+const DEFINICION_VACIA: TemplateDefinition = { sections: [] }
 
 /** Perfil de `/auth/me` (o `/auth/login`) → `Usuario` de la UI + identidad. */
 function identidadDeSites(tenantNombre: string, tenantId: string, items: Array<{ id: string; nombre: string; tipo: 'mina' | 'obra' }>): Identidad {
@@ -438,18 +441,18 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
           nombre: 'Plantilla no disponible',
           version: r.marco.templateVersion,
           origen: 'caché',
-          definition: DEFINICION_DEMO,
+          definition: DEFINICION_VACIA,
           estado: 'no-disponible',
           revisionPendiente: r.marco.templateRevisionId,
         }
       } else {
         p = {
-          templateId: await getTemplateId(),
+          templateId: '',
           revisionId: null,
-          nombre: 'Seguridad en rajo',
+          nombre: 'Sin formularios asignados',
           version: null,
-          origen: 'demo',
-          definition: DEFINICION_DEMO,
+          origen: 'caché',
+          definition: DEFINICION_VACIA,
           estado: 'sin-plantillas',
           revisionPendiente: null,
         }
@@ -720,6 +723,9 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
 
   const resolverDraft = useCallback(
     async (u: Usuario) => {
+      if (!plantilla || plantilla.estado !== 'ok') {
+        throw new Error('No hay un formulario asignado disponible para iniciar una inspección')
+      }
       const borrador = await ensureDraftInspection({
         tenantId: u.tenantId,
         siteId: u.faenaId,
@@ -868,7 +874,13 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
   )
 
   const enviarInspeccion = useCallback(() => {
-    if (!usuario || envioInspeccionEnCurso.current) return
+    if (!usuario || !plantilla || plantilla.estado !== 'ok' || envioInspeccionEnCurso.current) return
+    const errores = erroresDeEnvio(plantilla.definition, respuestas)
+    if (Object.keys(errores).length > 0) {
+      setErroresCampo(errores)
+      return
+    }
+    setErroresCampo({})
     envioInspeccionEnCurso.current = true
     setEnviandoInspeccion(true)
     void (async () => {
@@ -908,7 +920,7 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
         setEnviandoInspeccion(false)
       }
     })()
-  }, [usuario, refrescar, sincronizarAhora])
+  }, [usuario, plantilla, respuestas, refrescar, sincronizarAhora])
 
   const agregarBitacora = useCallback(
     (texto: string, tags: string[], faenaId: string) => {

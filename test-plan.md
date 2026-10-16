@@ -57,7 +57,7 @@ verde.
 | FR-008/009 | Asignación faena+rol: el worker solo ve revisiones publicadas asignadas a su faena y rol | Integración | `backend/test/templates.delta.spec.ts` | 🟢 verde |
 | FR-018 | Plantillas en caché local → captura de formulario 100% sin red (Artículo I) | E2E | `e2e-captura-offline.spec.ts` → "con la red apagada tras un arranque con señal, la plantilla se renderiza" | 🟢 verde |
 | FR-027/028 | Delta `since=<template_version>` trae solo cambios; inspección en curso conserva su versión congelada | Integración | `backend/test/templates.delta.spec.ts` | 🟢 verde |
-| FR-036/039 | Respuesta de los 8 tipos de campo; valor inválido rechazado en el dispositivo antes de encolar | Unit + E2E | `shared/src/templates.test.ts` + `e2e-captura-offline.spec.ts` → "un valor fuera de rango se rechaza EN EL DISPOSITIVO" | 🟢 verde |
+| FR-009, FR-032, FR-036/039 | Sesión sin asignación no recibe formulario; inspección con obligatorios vacíos, valor inválido o NOK sin hallazgo no se encola | Unit + E2E | `frontend/test/validar-envio-inspeccion.test.ts`, `frontend/test/plantillas.resolucion.test.ts` y `shared/src/templates.test.ts`; protocolo E2E de captura | 🟢 verde (unit) · E2E a ejecutar en CI |
 | FR-037 + FR-012 | Foto de ítem comprimida y asociada a la respuesta (`ATTACHMENT`) | Unit + E2E | `backend/test/sync.spec.ts` + E2E de FR-012 | 🟢 verde |
 | FR-029 | Reintentar un import sincronizado 3 veces → cero duplicados (idempotencia del motor batch) | Integración | `backend/test/import-wizard.spec.ts` | 🟢 verde |
 | FR-019/044 | Export rellenado + hoja "Evidencias" idéntico en dispositivo y en servidor | E2E + Integración | `backend/test/inspection-export.spec.ts`, `shared/src/rellenar.test.ts`, `serializar.test.ts` | 🟢 verde |

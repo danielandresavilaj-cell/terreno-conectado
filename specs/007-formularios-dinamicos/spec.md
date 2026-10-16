@@ -51,6 +51,7 @@ Requisitos que este spec detallará: **FR-007–009, 018–019, 027–029, 036�
       · **FR-045/046/047**: el lote es un ZIP con un `.xlsx` por inspección + manifiesto, tope de 50, fallo parcial no aborta, y una fila de `audit_log` por lote.
 - [x] Criterios de aceptación y pruebas con libros reales y caos — ampliar test-plan.md §3 con FR-036/039/049 → TSK-FORM-011 (PR #100)
 - [x] Plan técnico → `plans/007-formularios-dinamicos/plan.md` (PR #67)
+- [x] Validación completa antes de enviar y estado vacío sin asignación (FR-009, FR-032, FR-039) → TSK-FORM-016 (#151)
 - [ ] V2 (fuera de V1): Word/PDF/OCR de formularios de papel, catálogo de plantillas de plataforma, analítica con IA (FR-048)
 
 ## Criterios de aceptación del módulo (resumen)
@@ -82,3 +83,7 @@ Requisitos que este spec detallará: **FR-007–009, 018–019, 027–029, 036�
 ### Enmienda 003 — Catálogo asignado offline (TSK-FORM-014, #149)
 
 FR-009/018/027: el catálogo visible se persiste por tenant, usuario, rol y faena. La caché legada por tenant no acredita asignaciones y no se muestra hasta obtener un catálogo del servidor para ese ámbito. Al iniciar o recuperar señal se consulta el catálogo completo sin cursor: los cambios de asignación no incrementan published_seq. El snapshot reemplaza la lista visible de forma atómica, incluyendo una lista vacía; sin red se usa exclusivamente el último snapshot del ámbito. Se conservan las definiciones históricas y las capturas; un borrador desasignado queda no disponible conforme a FR-028.
+
+### Enmienda 004 — Compuerta de envío y estado sin asignación (TSK-FORM-016, #151)
+
+FR-009/032/039: antes de encolar una inspección, el dispositivo vuelve a validar todos sus ítems contra la definición congelada. Los obligatorios vacíos, valores inválidos y un NOK sin su hallazgo requerido muestran error y conservan el borrador. Si el catálogo del ámbito está vacío, la captura muestra un estado vacío: no carga una plantilla demo ni crea o envía inspecciones. Un borrador existente sin revisión cacheada sigue bloqueado explícitamente conforme a FR-028.
