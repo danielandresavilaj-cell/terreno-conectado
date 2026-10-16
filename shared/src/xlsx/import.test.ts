@@ -63,6 +63,18 @@ describe('proponerImport — detección automática de tipos', () => {
     expect(hora.prompt).toBe('Hora')
   })
 
+  it('propone el rango operativo de -10 a 45 °C para temperatura', async () => {
+    const wb = nuevaHoja('Ambiente')
+    const ws = wb.getWorksheet('Ambiente')!
+    ws.getCell('A2').value = 'Temperatura ambiente (número)'
+    ws.getCell('A3').value = 18
+    ws.getCell('A4').value = 22
+    const res = await proponerImport(await aBuffer(wb), 'temperatura.xlsx')
+    expect(res.ok).toBe(true)
+    if (!res.ok) return
+    expect(res.propuesta.secciones[0].items[0].props).toEqual({ required: true, min: -10, max: 45 })
+  })
+
   it('detecta ok/nok/na insensible a mayúsculas', async () => {
     const wb = nuevaHoja('Checklist')
     const ws = wb.getWorksheet('Checklist')!

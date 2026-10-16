@@ -143,8 +143,10 @@ export function parsearFiltrosPeriodo(filtros: unknown): FiltrosPeriodo {
 export {
   inspectionListaItemSchema,
   inspectionsResponseSchema,
+  inspectionDetalleSchema,
   type InspectionListaItem,
   type InspectionsResponse,
+  type InspectionDetalle,
 } from '@terreno/shared'
 
 /* ── Lote de exportaciones (TSK-FORM-010, FR-045/046/047) ──────────────────── */

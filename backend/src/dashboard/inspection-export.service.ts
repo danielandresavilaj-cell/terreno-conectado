@@ -10,6 +10,7 @@ import {
   nombreArchivoSchema,
   parseTemplateDefinition,
   type CampoValor,
+  type InspectionDetalle,
   type TemplateDefinition,
   type TemplateItem,
   type InspectionsResponse,
@@ -175,6 +176,71 @@ export class InspectionExportService {
         status: r.status,
         captured_at: new Date(r.captured_ms).toISOString(),
         respuestas: r.respuestas,
+      })),
+    }
+  }
+
+  /**
+   * Lectura auditable de una inspección. Cada respuesta pertenece al trabajador
+   * de la inspección (`executed_by`), por lo que no se duplica ese dato en cada
+   * fila. Se usa siempre la definición congelada de esa versión de plantilla.
+   */
+  async detalle(u: JwtClaims, inspectionId: string): Promise<InspectionDetalle> {
+    exigirDashboard(u)
+    const tenantId = u.tenant_id as string
+    const [inspeccion] = await this.db.queryAsTenant<{
+      id: string
+      faena_nombre: string
+      template_id: string
+      template_nombre: string | null
+      template_version: number
+      ejecutado_por: string
+      status: 'draft' | 'in_progress' | 'submitted' | 'reviewed'
+      captured_ms: number
+    }>(
+      tenantId,
+      `SELECT i.id, s.name AS faena_nombre, i.template_id,
+              t.name AS template_nombre, i.template_version,
+              COALESCE(a.full_name, 'Usuario no disponible') AS ejecutado_por,
+              i.status, (extract(epoch FROM i.captured_at) * 1000)::float8 AS captured_ms
+         FROM inspection i
+         JOIN site s ON s.id = i.site_id
+         LEFT JOIN template t ON t.id = i.template_id
+         LEFT JOIN app_user a ON a.id = i.executed_by
+        WHERE i.id = $1`,
+      [inspectionId],
+    )
+    if (!inspeccion) throw new NotFoundException('Inspección no encontrada')
+
+    const definition = this.definitionDe(
+      await this.revisionDe(tenantId, {
+        id: inspeccion.id,
+        template_id: inspeccion.template_id,
+        template_version: inspeccion.template_version,
+      }),
+    )
+    const campos = await this.camposDe(
+      tenantId,
+      inspeccion.id,
+      definition.sections.flatMap((seccion) => seccion.items),
+    )
+
+    return {
+      id: inspeccion.id,
+      faena_nombre: inspeccion.faena_nombre,
+      template_nombre: inspeccion.template_nombre,
+      template_version: inspeccion.template_version,
+      ejecutado_por: inspeccion.ejecutado_por,
+      status: inspeccion.status,
+      captured_at: new Date(inspeccion.captured_ms).toISOString(),
+      secciones: definition.sections.map((seccion) => ({
+        title: seccion.title,
+        respuestas: seccion.items.map((item) => ({
+          id: item.id,
+          prompt: item.prompt,
+          response_type: item.response_type,
+          value: campos[item.id] ?? null,
+        })),
       })),
     }
   }

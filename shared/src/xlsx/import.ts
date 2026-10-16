@@ -54,6 +54,7 @@ const HINTS: Record<string, ResponseType> = {
 const RE_HINT = /^\s*(.+?)\s+\(([^()]*)\)\s*$/
 const RE_FECHA = /^\d{4}-\d{2}-\d{2}$/
 const RE_HORA = /^([01]\d|2[0-3]):[0-5]\d(:[0-5]\d)?$/
+const RE_TEMPERATURA = /\btemp(?:eratura)?\b/i
 const OK_NOK_NA = new Set(['ok', 'nok', 'na', 'n/a'])
 const MAX_COLUMNA = 26 * 26 // ZZ
 const UMBRAL_SELECT = 12
@@ -170,6 +171,18 @@ function propsNumericas(nums: number[], requerido: boolean): FieldProps {
   return props
 }
 
+/**
+ * Un rango de filas de ejemplo no siempre es un límite operacional. Para la
+ * temperatura sí hay un rango de captura seguro por defecto en este producto:
+ * evita que un libro con muestras estrechas convierta, por accidente, 18–22 °C
+ * en la única temperatura posible. La persona administradora puede ajustarlo
+ * en la revisión del importador antes de publicar.
+ */
+function propsOperativas(prompt: string, type: ResponseType, props: FieldProps): FieldProps {
+  if (type !== 'numeric' || !RE_TEMPERATURA.test(prompt)) return props
+  return { ...props, min: -10, max: 45 }
+}
+
 function minMaxDe<T>(celdas: CeldaLibro[], get: (c: CeldaLibro) => T): { min?: T; max?: T } {
   const valores = celdas
     .map(get)
@@ -253,7 +266,8 @@ export function proponerDesdeCuadriculas(hojas: HojaLibro[], nombre_archivo: str
           .slice(encabezadoIdx + 1)
           .map((fila) => fila[col] ?? null)
 
-        const { type, props } = detectarCampo(hint, columnaDatos)
+        const { type, props: propsDetectadas } = detectarCampo(hint, columnaDatos)
+        const props = propsOperativas(prompt, type, propsDetectadas)
         const datos = conDato(columnaDatos)
 
         const source: ImportSourceOrigin = {
