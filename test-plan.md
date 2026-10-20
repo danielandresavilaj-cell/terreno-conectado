@@ -13,7 +13,7 @@ Cada promesa del spec maestro tiene una prueba que la verifica (NFR-12). Las pru
 | :--- | :--- | :--- | :--- |
 | Unit | Vitest | Lógica de cola de sync, compresión de foto, upsert/conflictos, validaciones | Cada push (CI) |
 | Integración API | Vitest + Testcontainers (Postgres real con RLS) | Endpoints, idempotencia, políticas RLS, auth | Cada push (CI) |
-| E2E | Playwright (Chromium, perfil **móvil**) | Flujos completos con `context.setOffline(true/false)` | **Nightly** + `workflow_dispatch` (CI) |
+| E2E | Playwright (Chromium, perfil **móvil**) | Flujos completos con `context.setOffline(true/false)` | `workflow_dispatch` manual (CI) |
 | Caos offline | Playwright + scripts de corte aleatorio | Escenarios §4 | Semanal y antes de la demo |
 | Adversarial cross-model | Modelo de IA ≠ implementador + suite guiada por spec | Ataque a invariantes §5 | Al cierre de cada módulo |
 | Rendimiento | Lighthouse CI + k6 básico | NFR-07, NFR-03 | Pre-deploy |
@@ -78,7 +78,7 @@ verde.
 
 **Volumen de pruebas en la corrida de referencia:**
 ```
-E2E + caos (Playwright, nightly)          17 tests
+E2E + caos (Playwright, manual)           17 tests
 Integración backend (Vitest + Testcontainers) 188 tests
 Unidad frontend (Vitest)                     109 tests
 Unidad shared (Vitest)                        77 tests
@@ -105,7 +105,7 @@ Escenarios ejecutados con Playwright (offline automático) y manualmente en la d
 ### 4.0 Implementación (issue #10)
 
 Los siete escenarios están automatizados en `frontend/e2e/specs/` y corren en
-el workflow nightly `.github/workflows/e2e.yml`. Ninguno toca `ci.yml`: la capa
+el workflow manual `.github/workflows/e2e.yml`. Ninguno toca `ci.yml`: la capa
 rápida de cada PR sigue igual, y la capa lenta (Postgres + backend + navegador)
 no puede bloquear un merge.
 
@@ -185,7 +185,7 @@ cambio de flujo de formularios. Informe por módulo en
 | Ambiente | Propósito | Infra |
 | :--- | :--- | :--- |
 | local | dev + CI, Docker Compose idéntico al deploy | Máquina del integrante |
-| CI | unit + integración (Testcontainers) + E2E nightly | GitHub Actions (minutos gratis) |
+| CI | unit + integración (Testcontainers) + E2E manual | GitHub Actions (minutos gratis) |
 | demo | despliegue en VPS para validación en vivo | ADR-002 (≤ US$7/mes) |
 
 ## 8. Criterios de salida por fase (alineado al Gantt APT)

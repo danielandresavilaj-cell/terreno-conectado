@@ -4,14 +4,10 @@ name: E2E
 #
 # Deliberadamente NO corre en `pull_request`: los E2E levantan Postgres +
 # backend + browser, tardan minutos y un rojo ahí bloquearía el merge de un
-# PR cuyo CI normal ya está verde. La puerta de calidad de esta capa es el
-# nightly (test-plan §8, Fase 2) más el disparo manual antes de la demo.
+# PR cuyo CI normal ya está verde. Por ahora se ejecuta sólo a demanda: evita
+# notificaciones repetidas mientras se estabiliza el harness. Debe lanzarse
+# antes de una demo o publicación.
 on:
-  schedule:
-    # 03:17 UTC. Minuto impar a propósito: en el minute 0 GitHub ejecuta el
-    # mayor número de jobs a la vez y las colas se alargan (la documentación
-    # de Actions recomienda apartarse de los múltiplos de 15).
-    - cron: '17 3 * * *'
   workflow_dispatch:
 
 permissions:
