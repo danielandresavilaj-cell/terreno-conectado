@@ -19,6 +19,7 @@ import { expect, test, type Browser, type Page } from '@playwright/test'
 
 import {
   CUENTAS,
+  ITEMS_FIXTURE_A,
   SITES,
   TENANTS,
   conectarDb,
@@ -29,12 +30,9 @@ import {
   leerStack,
   loginEnApp,
   responderOkNokNa,
+  responderTemperaturaValida,
   vaciarCola,
 } from '../helpers/e2e'
-
-const P = {
-  barriers: 'Barriers perimetrales del nivel de trabajo completos y estables',
-} as const
 
 const RUTA_LOTE = '**/sync/batch'
 const API_URL = (): string => leerStack().apiUrl
@@ -116,9 +114,10 @@ async function abrirDispositivo(browser: Browser, correo = CUENTAS.trabajadorA) 
   return { ctx, page }
 }
 
-/** Encola una inspección respondiendo un ítem y pulsando enviar. */
+/** Encola una inspección válida creada por la propia prueba. */
 async function enviarUna(page: Page): Promise<void> {
-  await responderOkNokNa(page, P.barriers, 'OK')
+  await responderOkNokNa(page, ITEMS_FIXTURE_A.barriers, 'OK')
+  await responderTemperaturaValida(page)
   const boton = page.getByRole('button', { name: 'Enviar inspección' })
   await boton.scrollIntoViewIfNeeded()
   await boton.click()

@@ -730,7 +730,7 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
       window.removeEventListener('online', conectar)
       window.removeEventListener('offline', desconectar)
     }
-  }, [sincronizarAhora, recargarPlantillas])
+  }, [])
 
   const resolverDraft = useCallback(
     async (u: Usuario) => {

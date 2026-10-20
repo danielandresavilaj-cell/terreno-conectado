@@ -13,7 +13,7 @@ Cada promesa del spec maestro tiene una prueba que la verifica (NFR-12). Las pru
 | :--- | :--- | :--- | :--- |
 | Unit | Vitest | Lógica de cola de sync, compresión de foto, upsert/conflictos, validaciones | Cada push (CI) |
 | Integración API | Vitest + Testcontainers (Postgres real con RLS) | Endpoints, idempotencia, políticas RLS, auth | Cada push (CI) |
-| E2E | Playwright (Chromium, perfil **móvil**) | Flujos completos con `context.setOffline(true/false)` | **Nightly** + `workflow_dispatch` (CI) |
+| E2E | Playwright (Chromium, perfil **móvil**) | Flujos completos con `context.setOffline(true/false)` | `workflow_dispatch` manual (CI) |
 | Caos offline | Playwright + scripts de corte aleatorio | Escenarios §4 | Semanal y antes de la demo |
 | Adversarial cross-model | Modelo de IA ≠ implementador + suite guiada por spec | Ataque a invariantes §5 | Al cierre de cada módulo |
 | Rendimiento | Lighthouse CI + k6 básico | NFR-07, NFR-03 | Pre-deploy |
@@ -78,7 +78,7 @@ verde.
 
 **Volumen de pruebas en la corrida de referencia:**
 ```
-E2E + caos (Playwright, nightly)          17 tests
+E2E + caos (Playwright, manual)           17 tests
 Integración backend (Vitest + Testcontainers) 188 tests
 Unidad frontend (Vitest)                     109 tests
 Unidad shared (Vitest)                        77 tests
@@ -105,9 +105,14 @@ Escenarios ejecutados con Playwright (offline automático) y manualmente en la d
 ### 4.0 Implementación (issue #10)
 
 Los siete escenarios están automatizados en `frontend/e2e/specs/` y corren en
-el workflow nightly `.github/workflows/e2e.yml`. Ninguno toca `ci.yml`: la capa
+el workflow manual `.github/workflows/e2e.yml`. Ninguno toca `ci.yml`: la capa
 rápida de cada PR sigue igual, y la capa lenta (Postgres + backend + navegador)
 no puede bloquear un merge.
+
+Cada spec parte con el dispositivo limpio, selecciona explícitamente el
+formulario asignado y crea sólo los registros que comprueba. La cola inicia en
+cero: el harness no depende de filas de demostración ni de textos visibles de
+una plantilla para localizar sus controles.
 
 | # | Mecanismo en el harness | Spec |
 | :-- | :--- | :--- |
@@ -119,7 +124,7 @@ no puede bloquear un merge.
 | 6 | Se sustituye el token por uno vencido y se comprueba que la cola no se pierde | `e2e-caos-sync.spec.ts` |
 | 7 | Lote con `tenant_id` del tenant B bajo el JWT del A: 409 + `audit_log` | `e2e-caos-integridad.spec.ts` |
 
-**Criterio de éxito global:** los escenarios 1–7 con `0 pérdidas ∧ 0 duplicados ∧ 0 fugas cross-tenant`. Cualquier fallo bloquea la demo (Artículo III). **Resultado 2026-10-13: los 7 en verde.**
+**Criterio de éxito global:** los escenarios 1–7 con `0 pérdidas ∧ 0 duplicados ∧ 0 fugas cross-tenant`. Cualquier fallo bloquea la demo (Artículo III). **Resultado histórico 2026-10-13: los 7 en verde.** La corrida programada que falló el 2026-10-20 se corrige en TSK-E2E-002 / issue #161 y debe volver a validarse en CI antes de cerrar la tarea.
 
 ### 4.1 Pruebas de caos del módulo 007 (TSK-FORM-011)
 
@@ -163,7 +168,9 @@ código: hacen falta la app real y la base real para verlos. Eso es el argumento
 a favor de que §4 exista como protocolo automatizado y no como lista de
 comprobaciones manuales. El invariante crítico
 (`0 pérdidas ∧ 0 duplicados ∧ 0 fugas`) se sostiene en la corrida de
-referencia: **17/17 E2E en verde**. Informe por módulo en
+referencia histórica: **17/17 E2E en verde**. El estado vigente se confirma en
+la última ejecución de CI; TSK-E2E-002 / issue #161 revalida la suite tras el
+cambio de flujo de formularios. Informe por módulo en
 [`docs/informe-pruebas-validacion.md`](docs/informe-pruebas-validacion.md).
 
 ## 6. Datos de prueba
@@ -178,7 +185,7 @@ referencia: **17/17 E2E en verde**. Informe por módulo en
 | Ambiente | Propósito | Infra |
 | :--- | :--- | :--- |
 | local | dev + CI, Docker Compose idéntico al deploy | Máquina del integrante |
-| CI | unit + integración (Testcontainers) + E2E nightly | GitHub Actions (minutos gratis) |
+| CI | unit + integración (Testcontainers) + E2E manual | GitHub Actions (minutos gratis) |
 | demo | despliegue en VPS para validación en vivo | ADR-002 (≤ US$7/mes) |
 
 ## 8. Criterios de salida por fase (alineado al Gantt APT)

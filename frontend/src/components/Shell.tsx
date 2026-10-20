@@ -311,6 +311,7 @@ function ToggleSenal({
   return (
     <button
       onClick={onToggle}
+      data-testid="signal-toggle"
       role="switch"
       aria-checked={on}
       aria-label={on ? 'Desactivar señal (demo)' : 'Activar señal (demo)'}
