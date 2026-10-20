@@ -69,6 +69,8 @@ export const ITEMS_FIXTURE_A = {
   barriers: '01890000-0000-7000-8000-00000000f101',
   senalizacion: '01890000-0000-7000-8000-00000000f102',
   temperatura: '01890000-0000-7000-8000-00000000f103',
+  fecha: '01890000-0000-7000-8000-00000000f104',
+  turno: '01890000-0000-7000-8000-00000000f106',
   foto: '01890000-0000-7000-8000-00000000f109',
 } as const
 
@@ -177,12 +179,17 @@ export async function campoNumerico(page: Page, itemId = ITEMS_FIXTURE_A.tempera
   return campo
 }
 
-/** Completa el único obligatorio no automático del fixture: temperatura (-10 a 45 °C). */
+/** Completa los obligatorios del fixture y verifica la fecha automática. */
 export async function responderTemperaturaValida(page: Page): Promise<void> {
   const campo = await campoNumerico(page)
   await campo.fill('18')
   await campo.blur()
   await expect(campo).toHaveValue('18')
+  await expect(page.getByTestId(`template-item-${ITEMS_FIXTURE_A.fecha}`).locator('input[type="date"]')).not.toHaveValue('')
+  await page
+    .getByTestId(`template-item-${ITEMS_FIXTURE_A.turno}`)
+    .getByRole('button', { name: 'Diurno', exact: true })
+    .click()
 }
 
 /**
