@@ -385,7 +385,8 @@ async function elegirFotoGrande(page: Page): Promise<void> {
     return btoa(bin)
   })
 
-  await page.locator('input[type="file"][accept="image/*"]').first().setInputFiles({
+  await page.getByRole('button', { name: 'Tomar foto', exact: true }).click()
+  await page.getByRole('dialog', { name: 'Tomar fotografía' }).locator('input[type="file"][accept="image/*"]').setInputFiles({
     name: 'evidencia.jpg',
     mimeType: 'image/jpeg',
     buffer: Buffer.from(base64, 'base64'),

@@ -299,6 +299,7 @@ export async function loginEnApp(page: Page, email: string): Promise<void> {
    * `arrancarSesión` siembra Dexie y pide las plantillas, así que además se
    * espera a que aparezca la barra de navegación del Shell. */
   await page.locator('nav button').first().waitFor({ state: 'visible' })
+  await expect.poll(() => page.evaluate(() => sessionStorage.getItem('tc_access_token'))).toBeTruthy()
   if (email === CUENTAS.trabajadorA || email === CUENTAS.trabajadorB) {
     await abrirFormularioAsignado(page)
   }
