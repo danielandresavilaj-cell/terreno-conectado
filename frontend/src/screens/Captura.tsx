@@ -15,7 +15,7 @@
  * · NO anima: el focus de los campos de texto, el scroll, el hover de las filas.
  */
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { motion } from 'motion/react'
 import { Chip } from '../components/Badges'
 import { Boton } from '../components/ui'
@@ -64,25 +64,25 @@ export function Captura() {
   const [confirmarDescarte, setConfirmarDescarte] = useState(false)
   const [estadoExport, setEstadoExport] = useState<EstadoExport>({ fase: 'inactivo' })
   const [hayOriginal, setHayOriginal] = useState(false)
-  const formulariosInicializados = useRef(new Set<string>())
-
   const revisionId = plantilla?.revisionId ?? null
 
   /* Al abrir un formulario, fecha y hora representan el momento de inicio del
-   * recorrido. Se escriben una vez en el borrador (y no se reescriben si el
-   * trabajador vuelve a abrirlo), para que no dependan de que recuerde llenar
-   * dos campos administrativos en terreno. */
+   * recorrido. Se escriben al faltar en el borrador y no se reescriben si el
+   * trabajador vuelve a abrirlo, para que no dependan de que recuerde llenar
+   * dos campos administrativos en terreno.
+   *
+   * No se marca la revisión como "inicializada" antes de escribir: durante la
+   * hidratación una actualización de estado puede interrumpir esa primera
+   * escritura y dejar fecha/hora vacías para todo el turno. El propio valor
+   * persistido es la condición idempotente. */
   useEffect(() => {
     if (!plantilla || plantilla.estado !== 'ok') return
-    const clave = plantilla.revisionId ?? plantilla.templateId ?? plantilla.nombre
-    if (formulariosInicializados.current.has(clave)) return
 
     const automaticos = itemsDe(plantilla.definition).filter(
       (item) => item.response_type === 'date' || item.response_type === 'time',
     )
     if (automaticos.length === 0) return
 
-    formulariosInicializados.current.add(clave)
     const { fecha, hora } = fechaHoraLocal()
     for (const item of automaticos) {
       if (respuestas[item.id]?.campo !== null && respuestas[item.id]?.campo !== undefined) continue
@@ -163,7 +163,7 @@ export function Captura() {
     })
 
   return (
-    <div className="space-y-6">
+    <div data-testid="capture-screen" className="space-y-6">
       {/* ── Encabezado de la inspección ───────────────────────────────────── */}
       <header>
         <div className="flex flex-wrap items-start justify-between gap-4">

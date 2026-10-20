@@ -40,7 +40,7 @@ export function Formularios() {
             <p className="mt-1 text-[14px] font-semibold truncate">{plantilla.nombre}</p>
             <p className="mt-1 text-[12px] text-ink-2">Terminá o descartá este borrador antes de cambiar de formulario.</p>
           </div>
-          <Boton tamano="sm" variante="primaria" onClick={() => ir('captura')}>
+          <Boton tamano="sm" variante="primaria" onClick={() => ir('captura')} data-testid="continue-draft">
             Continuar
           </Boton>
         </section>

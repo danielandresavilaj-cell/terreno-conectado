@@ -310,11 +310,17 @@ async function abrirFormularioAsignado(page: Page): Promise<void> {
   if (await enviar.isVisible({ timeout: 500 }).catch(() => false)) return
 
   await page.getByRole('heading', { name: 'Elegí qué vas a inspeccionar' }).waitFor({ state: 'visible' })
-  const abrir = page
-    .getByRole('button', { name: /^(Usar este formulario|Abrir formulario|Continuar formulario)$/ })
-    .first()
+  /* Un borrador congelado tiene prioridad sobre la tarjeta: es la única ruta
+   * que conserva sus respuestas y no intenta cambiar de revisión. */
+  const continuar = page.getByTestId('continue-draft')
+  const abrir = (await continuar.isVisible({ timeout: 500 }).catch(() => false))
+    ? continuar
+    : page
+        .getByRole('button', { name: /^(Usar este formulario|Abrir formulario|Continuar formulario)$/ })
+        .first()
   await expect(abrir).toBeVisible()
   await abrir.click()
+  await expect(page.getByTestId('capture-screen')).toBeVisible()
   await expect(enviar).toBeVisible()
 }
 
@@ -522,9 +528,17 @@ export async function esperarColaVacia(
     if (listo) return ultimo
     await page.waitForTimeout(300)
   }
+  const errores = await leerStore<{ status: string; entityType: string; entityId: string; lastError?: string }>(page, 'outbox')
+  const diagnostico = errores
+    .filter((fila) => fila.status === 'failed')
+    .slice(0, 3)
+    .map((fila) => `${fila.entityType}:${fila.entityId}: ${fila.lastError ?? 'sin detalle'}`)
+    .join(' | ')
   throw new Error(
     `la cola no quedó vacía en ${timeout / 1000}s ` +
-      `(último estado: ${JSON.stringify(ultimo.porEstado)}, fallidas: ${ultimo.fallidas})`,
+      `(último estado: ${JSON.stringify(ultimo.porEstado)}, fallidas: ${ultimo.fallidas}` +
+      (diagnostico ? `, diagnóstico: ${diagnostico}` : '') +
+      ')',
   )
 }
 
