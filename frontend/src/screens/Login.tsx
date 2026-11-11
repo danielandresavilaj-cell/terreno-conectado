@@ -25,7 +25,7 @@ import { ApiError } from '../lib/api'
 import { EASE, STAGGER } from '../lib/motion'
 
 export function Login() {
-  const { loginInApp } = useEstado()
+  const { loginInApp, avisoSalida } = useEstado()
   const [email, setEmail] = useState('')
   const [pass, setPass] = useState('')
   const [empresa, setEmpresa] = useState('')
@@ -152,6 +152,14 @@ export function Login() {
           <motion.p {...bloque(0.06 + STAGGER)} className="mt-1.5 text-[13px] text-ink-2">
             Ingresa con el correo y la contraseña que te entregó el administrador de tu empresa.
           </motion.p>
+
+          {avisoSalida && (
+            <p role="status" className="mt-5 rounded-xl border border-sev-media/40 bg-sev-media/10 px-4 py-3 text-[14px] leading-relaxed">
+              {avisoSalida === 'session_replaced'
+                ? 'Iniciaste sesión con esta cuenta en otro dispositivo, así que esta sesión se cerró. Lo que tenías sin enviar sigue guardado en este equipo.'
+                : 'Tu sesión expiró. Ingresa de nuevo; lo que tenías sin enviar sigue guardado en este equipo.'}
+            </p>
+          )}
 
           {/* Credenciales */}
           <form onSubmit={enviar}>

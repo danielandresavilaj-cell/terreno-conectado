@@ -33,6 +33,8 @@ export interface SessionRow {
   token_hash: string
   expires_at: string
   revoked_at: string | null
+  /** TSK-AUTH-011: 'new_login' | 'password_changed' | null (rotación/expiración). */
+  revoked_reason?: string | null
 }
 
 /** Perfil público devuelto por GET /me. */

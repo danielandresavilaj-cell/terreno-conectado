@@ -66,7 +66,7 @@ export interface InspectionRow {
   siteName: string
   answeredCount: number
   totalItems: number
-  /** FR-034: georreferencia opcional capturada en terreno. */
+  /** FR-034 (en desuso desde la Enmienda 004): siempre null en capturas nuevas. */
   location?: { lat: number; lon: number } | null
 }
 
