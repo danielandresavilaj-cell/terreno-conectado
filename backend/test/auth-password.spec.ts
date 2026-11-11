@@ -163,6 +163,30 @@ describe('logout (TSK-AUTH-010)', () => {
   })
 })
 
+describe('sesión reemplazada por otro dispositivo (TSK-AUTH-011)', () => {
+  it('el refresh de la sesión anterior responde session_replaced, no reuso', async () => {
+    const primera = await login('trabajador@andes.cl', DEMO_PASSWORD)
+    const jar = cookies(primera.headers['set-cookie'])
+    const segunda = await login('trabajador@andes.cl', DEMO_PASSWORD)
+    expect(segunda.status).toBe(200)
+
+    const refresh = await server()
+      .post('/api/v1/auth/refresh')
+      .set('Cookie', conCookies(jar))
+      .set('x-csrf-token', jar.get('csrf') ?? '')
+    expect(refresh.status).toBe(401)
+    expect(refresh.body.code).toBe('session_replaced')
+
+    // No se trató como robo: la sesión nueva sigue viva.
+    const jar2 = cookies(segunda.headers['set-cookie'])
+    const sigue = await server()
+      .post('/api/v1/auth/refresh')
+      .set('Cookie', conCookies(jar2))
+      .set('x-csrf-token', jar2.get('csrf') ?? '')
+    expect(sigue.status).toBe(200)
+  })
+})
+
 describe('refresh con empresa suspendida (TSK-AUTH-010)', () => {
   it('deja de renovar la sesión', async () => {
     const res = await login('trabajador@andes.cl', DEMO_PASSWORD)

@@ -47,7 +47,7 @@ export function Bitacora() {
             Turno B · hoy
           </h1>
           <p className="mt-1.5 text-[13px] text-ink-2">
-            {faenas.find((f) => f.id === faena)?.nombre ?? '—'} · geolocalización opcional
+            {faenas.find((f) => f.id === faena)?.nombre ?? '—'}
           </p>
         </div>
         <Boton variante="primaria" onClick={() => setAbierto((v) => !v)}>

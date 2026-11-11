@@ -3,7 +3,7 @@
 | | |
 | :--- | :--- |
 | **ID** | 000-master |
-| **Versión** | 1.2.0 · Enmienda 003 (v1 como producto: cuentas reales, sin modo demo, 2026-11-11) |
+| **Versión** | 1.3.0 · Enmienda 004 (sin geolocalización; métricas de supervisión, 2026-11-11) |
 | **Estado** | APROBADO — Raúl González (2026-09-24) y Daniel Ávila (2026-10-13) · Enmienda 002 aprobada en `main` · Enmienda 003 firmada por Daniel Ávila (2026-11-11), pendiente ratificación de Raúl González |
 | **Autores** | Daniel Ávila (datos/negocio) · Raúl González (infra/plataforma) |
 | **Fuente** | Informe de Definición APT, Fase 1 (2026-09-04) |
@@ -121,7 +121,7 @@ Convención EARS en español: ubicuo (`EL SISTEMA DEBERÁ…`), evento (`CUANDO�
 - **FR-031** EL SISTEMA DEBERÁ gestionar el ciclo de vida de una inspección: `draft → in_progress → submitted → reviewed`.
 - **FR-032** CUANDO un ítem se responde `nok`, EL SISTEMA DEBERÁ exigir (configurable por plantilla) un hallazgo asociado con severidad (`baja/media/alta/crítica`), descripción y evidencia fotográfica opcional.
 - **FR-033** EL SISTEMA DEBERÁ permitir registrar bitácoras de turno: entradas cronológicas con autor, texto, tags y faena asociada.
-- **FR-034** EL SISTEMA DEBERÁ asociar cada captura (inspección/bitácora/hallazgo) a una faena u obra del tenant, con geolocalización opcional si el dispositivo la provee.
+- **FR-034** EL SISTEMA DEBERÁ asociar cada captura (inspección/bitácora/hallazgo) a una faena u obra del tenant, con geolocalización opcional si el dispositivo la provee. *(Enmienda 004: la geolocalización sale de V1; la asociación a faena/obra se mantiene.)*
 - **FR-035** CUANDO un hallazgo de severidad `alta` o `crítica` se sincroniza, EL SISTEMA DEBERÁ destacarlo inmediatamente en el dashboard del supervisor (sin notificaciones push en V1 — fuera de alcance).
 - **FR-036** EL SISTEMA DEBERÁ soportar respuestas dinámicas por ítem mediante `value_json` en `INSPECTION_RESPONSE` para los 8 tipos de campo de V1: `texto`, `numérico`, `fecha`, `hora`, `selección única`, `selección múltiple`, `ok/nok/na` y `foto`.
 - **FR-037** CUANDO un ítem de tipo foto se responde, EL SISTEMA DEBERÁ comprimir el adjunto (FR-012) y asociarlo a la respuesta (`ATTACHMENT` referenciando `INSPECTION_RESPONSE`).
@@ -230,6 +230,11 @@ Fuera de alcance explícito — cualquier inclusión requiere enmienda a este sp
 >   - **FR-042:** la exportación es **XLSX** (documento rellenado, individual y por lote) más **CSV de hallazgos**; el CSV de inspecciones no se implementa.
 >   - **FR-048:** queda en **V2** junto al OCR/IA (bala anterior); no hay flag `ai` en V1.
 
+> **Enmienda 004 (2026-11-11, tras la prueba en producción).**
+>
+> - **FR-034:** la **geolocalización** de la captura sale de V1. Se pedía en cada envío sin explicar su uso y ningún reporte la consumía: era fricción y dato personal sin propósito. Se mantiene la asociación de cada captura a una faena u obra. Las columnas `inspection.location_*` quedan en desuso (datos históricos intactos).
+> - **NFR-03:** la meta de ≤ 60 s aplica al **procesamiento** de un lote en el servidor. El tiempo que un dato espera en el dispositivo sin señal se informa aparte ("espera sin señal") y no se mezcla con la latencia (spec 005, TSK-REP-006).
+
 ## 11. Supuestos y restricciones
 
 - Sin acceso a faenas reales: datos simulados (semillas + faker es-CL) y escenarios de desconexión simulados (informe APT §3.5).
@@ -285,6 +290,7 @@ La demo se considera exitosa si, en vivo ante el docente:
 | 1.0.1 | 2026-09-23 | Título: "Decisiones en Tiempo Real" → "Datos al día donde no hay señal" (Opción A — alinear la promesa con la realidad offline-first) | Raúl González (con IA) |
 | 1.0.1 | 2026-09-24 | Firmado por Raúl González; pendiente firma de Daniel Ávila | Raúl González (con IA) |
 | 1.0.1 | 2026-10-06 | Firmado por Daniel Ávila — firma delegada con autorización explícita del titular, registrada por el agente del equipo | Daniel Ávila |
+| 1.3.0 | 2026-11-11 | **Enmienda 004** — FR-034 sin geolocalización; NFR-03 se mide como procesamiento del lote y la espera sin señal se informa aparte. Pendiente ratificación de Raúl González | Daniel Ávila (con IA) |
 | 1.2.0 | 2026-11-11 | **Enmienda 003** — v1 como producto: FR-053/054/055 (cuentas y faenas por empresa, clave temporal), fuera el modo demo; aclaraciones de alcance de FR-012, 029, 040, 042 y 048 (§10); §12 apunta al informe Fase 1 versionado y a la URL de la v1. Pendiente ratificación de Raúl González | Daniel Ávila (con IA) |
 | 1.1.1 | 2026-10-10 | **Nota de implementación bajo FR-027** (no es Enmienda): documenta que el cursor del delta es `published_seq` (secuencia global de publicación) y no `version`, que es por plantilla. El texto y la numeración de los FR quedan intactos; la nota queda en el punto donde el requisito se lee, para que nadie reintroduzca el defecto. Detalle en `data-model.md` v1.1.2 y `adr/003` Enmienda 2 | Daniel Ávila |
 | 1.1.0 | 2026-10-07 | **Enmienda 002** — módulo 007 formularios dinámicos: §4 nueva fila 007; §5 18 FR nuevos en bloques reservados (007–009, 018–019, 027–029, 036–039, 044–049) sin renumerar; §10 importación asistida de `.xlsx` pasa a V1 y OCR/IA quedan en V2 opcional | Raúl González / Daniel Ávila (PR AMD-002) |

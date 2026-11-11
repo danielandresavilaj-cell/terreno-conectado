@@ -97,9 +97,11 @@ export class AuthService {
     )
     this.ipLimiter.reset(ip)
 
-    // Una sesión activa por usuario (rotaciones conviven en su familia).
+    // Una sesión activa por usuario (rotaciones conviven en su familia). El
+    // motivo deja avisar al otro dispositivo en vez de "expiró" (TSK-AUTH-011).
     await this.db.queryOwner(
-      'UPDATE auth_session SET revoked_at = now() WHERE user_id = $1 AND revoked_at IS NULL',
+      `UPDATE auth_session SET revoked_at = now(), revoked_reason = 'new_login'
+        WHERE user_id = $1 AND revoked_at IS NULL`,
       [user.id],
     )
     const session = await this.createSession(user)
@@ -127,6 +129,15 @@ export class AuthService {
     const session = sessions[0]
     if (!session) {
       throw new UnauthorizedException('Sesión inválida')
+    }
+    if (session.revoked_at && session.revoked_reason === 'new_login') {
+      // Se entró con esta cuenta en otro dispositivo: no es robo, es reemplazo.
+      this.clearAuthCookies(res)
+      throw new UnauthorizedException({
+        statusCode: 401,
+        code: 'session_replaced',
+        message: 'Iniciaste sesión en otro dispositivo; esta sesión se cerró',
+      })
     }
     if (session.revoked_at) {
       // Refresh token ya rotado vuelve a presentarse → posible robo (D5).
@@ -212,7 +223,7 @@ export class AuthService {
       [user.id, await hash(nueva)],
     )
     await this.db.queryOwner(
-      'UPDATE auth_session SET revoked_at = now() WHERE user_id = $1 AND revoked_at IS NULL',
+      "UPDATE auth_session SET revoked_at = now(), revoked_reason = 'password_changed' WHERE user_id = $1 AND revoked_at IS NULL",
       [user.id],
     )
     await this.audit(user.id, user.tenant_id, 'password_changed', 'app_user', user.id, {

@@ -62,6 +62,7 @@ import {
   clearToken,
   EVENTO_CAMBIO_CLAVE,
   EVENTO_LOGOUT,
+  type MotivoSalida,
   getPlantillaOriginal,
   getSites,
   getToken,
@@ -165,6 +166,8 @@ interface Ctx {
   cambiarClaveEnApp: (actual: string, nueva: string) => Promise<void>
   /** TSK-AUTH-010: la sesión expiró con registros por enviar (cola en pausa). */
   sesionExpirada: boolean
+  /** TSK-AUTH-011: motivo del último cierre forzado (para el login). */
+  avisoSalida: MotivoSalida | null
   /** Cierra la sesión en el servidor y en el dispositivo (la cola local queda). */
   salir: () => void
   ir: (p: Pantalla) => void
@@ -281,6 +284,8 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
   const [hidratando, setHidratando] = useState(true)
   const [debeCambiarClave, setDebeCambiarClave] = useState(false)
   const [sesionExpirada, setSesionExpirada] = useState(false)
+  /** TSK-AUTH-011: por qué se cerró la sesión, para explicarlo en el login. */
+  const [avisoSalida, setAvisoSalida] = useState<MotivoSalida | null>(null)
   const [conConexion, setConConexion] = useState(() => navigator.onLine)
   // El estado de señal es el de la red real (navigator.onLine); v1 no tiene
   // interruptor manual.
@@ -682,6 +687,9 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
           }
           return
         }
+        if (err instanceof ApiError && err.codigo === 'session_replaced' && vivo) {
+          setAvisoSalida('session_replaced')
+        }
         clearToken()
         await borrarSesionCaché()
         if (vivo) setHidratando(false)
@@ -700,6 +708,7 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
     async (email: string, password: string, tenant?: string) => {
       const r = await login(email, password, tenant)
       setToken(r.access_token)
+      setAvisoSalida(null)
       if (r.user.must_change_password) {
         // Clave temporal: nada más se carga hasta que la cambie.
         setDebeCambiarClave(true)
@@ -747,7 +756,11 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
   /* Un 401 sin refresh posible cierra la sesión local; la cola queda intacta y
    * se envía cuando el mismo usuario vuelva a ingresar. */
   useEffect(() => {
-    const logout = () => cerrarLocal()
+    const logout = (e: Event) => {
+      const motivo = (e as CustomEvent<MotivoSalida | undefined>).detail
+      setAvisoSalida(motivo ?? 'expirada')
+      cerrarLocal()
+    }
     const cambio = () => setDebeCambiarClave(true)
     window.addEventListener(EVENTO_LOGOUT, logout)
     window.addEventListener(EVENTO_CAMBIO_CLAVE, cambio)
@@ -954,28 +967,9 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
       try {
         const draftId = await getDraftInspectionId()
         if (!draftId) return
-        // FR-034: georreferencia opcional al cerrar la inspección. Si no hay
-        // permiso, señal o la API no existe, se envía `null` (graceful degrade).
-        let location: { lat: number; lon: number } | null = null
-        try {
-          const pos = await new Promise<GeolocationPosition | null>((resolve) => {
-            if (!navigator.geolocation) {
-              resolve(null)
-              return
-            }
-            navigator.geolocation.getCurrentPosition(
-              (p) => resolve(p),
-              () => resolve(null),
-              { enableHighAccuracy: true, timeout: 5000, maximumAge: 60000 },
-            )
-          })
-          if (pos) {
-            location = { lat: pos.coords.latitude, lon: pos.coords.longitude }
-          }
-        } catch {
-          location = null
-        }
-        await submitInspection(draftId, location)
+        // Enmienda 004 (TSK-DOM-006): la ubicación ya no se registra. Se pedía
+        // en cada envío sin explicar para qué y ningún reporte la usaba.
+        await submitInspection(draftId, null)
         setRespuestas({})
         setHayBorrador(false)
         await refrescar()
@@ -1031,6 +1025,7 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
     debeCambiarClave,
     cambiarClaveEnApp,
     sesionExpirada,
+    avisoSalida,
     salir,
     ir: setPantalla,
     sincronizarAhora,

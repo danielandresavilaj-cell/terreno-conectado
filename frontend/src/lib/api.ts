@@ -65,7 +65,7 @@ let refrescoEnCurso: Promise<string> | null = null
  */
 export function refrescarToken(): Promise<string> {
   if (!refrescoEnCurso) {
-    refrescoEnCurso = (async () => {
+    refrescoEnCurso = conLockEntrePestanas(async () => {
       const csrf = leerCsrf()
       if (!csrf) throw new ApiError(401, 'Sin sesión guardada')
       let resp: Response
@@ -80,12 +80,13 @@ export function refrescarToken(): Promise<string> {
       }
       if (!resp.ok) {
         clearToken()
-        throw new ApiError(resp.status === 401 ? 401 : resp.status, 'Sesión expirada')
+        const err = (await resp.json().catch(() => null)) as { code?: string } | null
+        throw new ApiError(resp.status === 401 ? 401 : resp.status, 'Sesión expirada', err?.code)
       }
       const body = (await resp.json()) as { access_token: string }
       setToken(body.access_token)
       return body.access_token
-    })().finally(() => {
+    }).finally(() => {
       refrescoEnCurso = null
     })
   }
@@ -95,13 +96,30 @@ export function refrescarToken(): Promise<string> {
 export class ApiError extends Error {
   readonly status: number
   readonly detalle: string
-  constructor(status: number, mensaje: string) {
+  /** Código de negocio del servidor (p. ej. `session_replaced`). */
+  readonly codigo?: string
+  constructor(status: number, mensaje: string, codigo?: string) {
     super(mensaje)
     this.name = 'ApiError'
     this.status = status
     this.detalle = mensaje
+    this.codigo = codigo
   }
 }
+
+/**
+ * TSK-AUTH-011: serializa el refresh entre pestañas. El refresh token rota en
+ * cada uso; si dos pestañas lo usan a la vez, la segunda presenta uno ya
+ * rotado y el servidor lo trata como robo (cierra la sesión). Con el lock, la
+ * segunda espera y usa la cookie ya renovada. Sin `navigator.locks`, corre igual.
+ */
+function conLockEntrePestanas<T>(fn: () => Promise<T>): Promise<T> {
+  const locks = typeof navigator !== 'undefined' ? navigator.locks : undefined
+  return locks ? (locks.request('tc-refresh', fn) as Promise<T>) : fn()
+}
+
+/** Motivo de un cierre de sesión forzado, para explicarlo en el login. */
+export type MotivoSalida = 'session_replaced' | 'expirada'
 
 export const EVENTO_LOGOUT = 'tc:logout'
 export const EVENTO_CAMBIO_CLAVE = 'tc:cambio-clave'
@@ -165,6 +183,10 @@ async function apiFetchResp(
       } catch (err) {
         // Sin red no se cierra la sesión: el usuario sigue en modo sin conexión.
         if (err instanceof ApiError && err.status === 0) throw err
+        if (err instanceof ApiError && err.codigo === 'session_replaced') {
+          window.dispatchEvent(new CustomEvent<MotivoSalida>(EVENTO_LOGOUT, { detail: 'session_replaced' }))
+          throw new ApiError(401, 'Iniciaste sesión en otro dispositivo', 'session_replaced')
+        }
       }
     }
     window.dispatchEvent(new Event(EVENTO_LOGOUT))

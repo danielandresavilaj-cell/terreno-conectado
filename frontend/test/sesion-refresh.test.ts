@@ -20,7 +20,9 @@ beforeEach(() => {
   eventos = []
   clearToken()
   vi.stubGlobal('document', { cookie: 'otra=1; csrf=token-csrf' })
-  vi.stubGlobal('window', { dispatchEvent: (e: Event) => void eventos.push(e.type) })
+  vi.stubGlobal('window', {
+    dispatchEvent: (e: Event) => void eventos.push(e.type + ((e as CustomEvent).detail ? `:${(e as CustomEvent).detail}` : '')),
+  })
   vi.stubGlobal('fetch', async (url: string, init: RequestInit = {}) => {
     llamadas.push({ url, headers: (init.headers ?? {}) as Record<string, string> })
     const r = respuestas.shift()
@@ -81,5 +83,22 @@ describe('refresh de sesión (TSK-AUTH-010)', () => {
     expect(a).toBe('uno')
     expect(b).toBe('uno')
     expect(llamadas).toHaveLength(1)
+  })
+
+  it('si otro dispositivo tomó la sesión, avisa con session_replaced (TSK-AUTH-011)', async () => {
+    setToken('vencido')
+    respuestas.push(json(401, {}), json(401, { code: 'session_replaced' }))
+    await expect(getSites()).rejects.toMatchObject({ status: 401, codigo: 'session_replaced' })
+    expect(eventos).toContain('tc:logout:session_replaced')
+  })
+
+  it('serializa el refresh entre pestañas con navigator.locks (TSK-AUTH-011)', async () => {
+    const pedidos: string[] = []
+    vi.stubGlobal('navigator', {
+      locks: { request: async (nombre: string, fn: () => Promise<unknown>) => { pedidos.push(nombre); return fn() } },
+    })
+    respuestas.push(json(200, { access_token: 'conlock' }))
+    await expect(refrescarToken()).resolves.toBe('conlock')
+    expect(pedidos).toEqual(['tc-refresh'])
   })
 })
