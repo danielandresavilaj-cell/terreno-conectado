@@ -12,7 +12,7 @@ import {
 import type { Request, Response } from 'express'
 import { AuthGuard } from './auth.guard'
 import { AuthService } from './auth.service'
-import type { JwtClaims, LoginBody } from './auth.types'
+import type { ChangePasswordBody, JwtClaims, LoginBody } from './auth.types'
 
 /**
  * Contratos (spec 001):
@@ -41,6 +41,28 @@ export class AuthController {
     @Res({ passthrough: true }) res: Response,
   ) {
     return this.auth.refresh(req, res)
+  }
+
+  /** TSK-AUTH-010: cambio de la clave propia (también sale de la clave temporal). */
+  @HttpCode(200)
+  @UseGuards(AuthGuard)
+  @Post('password')
+  async password(
+    @Body() body: ChangePasswordBody,
+    @Req() req: Request & { user?: JwtClaims },
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    return this.auth.changePassword(req.user as JwtClaims, body, res)
+  }
+
+  /** TSK-AUTH-010: revoca la sesión de este dispositivo. */
+  @HttpCode(204)
+  @Post('logout')
+  async logout(
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<void> {
+    await this.auth.logout(req, res)
   }
 }
 

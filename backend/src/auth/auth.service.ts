@@ -9,18 +9,20 @@ import {
 import { ConfigService } from '@nestjs/config'
 import { createHash, randomBytes, randomUUID } from 'node:crypto'
 import { SignJWT } from 'jose'
-import { verify } from '@node-rs/argon2'
+import { hash, verify } from '@node-rs/argon2'
 import type { CookieOptions, Request, Response } from 'express'
 import { DbService } from '../db/db.service'
 import { IpRateLimiter } from './ip-rate-limiter'
 import type {
   AuthUserRow,
+  ChangePasswordBody,
   JwtClaims,
   LoginBody,
   LoginResult,
   PublicProfile,
   SessionRow,
 } from './auth.types'
+import { MIN_PASSWORD_LENGTH } from './auth.types'
 
 const ACCESS_TTL_JOSE = '15m'
 const REFRESH_TTL_DAYS = 30
@@ -148,6 +150,12 @@ export class AuthService {
     if (!user || !user.is_active) {
       throw new UnauthorizedException('Cuenta inactiva')
     }
+    if (user.role !== 'platform_admin' && user.tenant_status !== 'active') {
+      // Empresa suspendida: la sesión deja de renovarse.
+      await this.revokeFamily(session, 'refresh_tenant_inactive')
+      this.clearAuthCookies(res)
+      throw new UnauthorizedException('Cuenta inactiva')
+    }
 
     // Rotación D5: revocamos este rt e insertamos uno nuevo en la misma familia.
     await this.db.queryOwner(
@@ -160,10 +168,94 @@ export class AuthService {
     return { access_token: await this.signAccessToken(user) }
   }
 
+  /* ------------------------------------------------------- password (010) */
+
+  /**
+   * Cambio de la clave propia (TSK-AUTH-010). También es la salida obligatoria
+   * de una clave temporal: baja `must_change_password`, revoca TODAS las
+   * sesiones del usuario y abre una nueva en este dispositivo, así el que
+   * cambia la clave sigue dentro y cualquier otra copia queda fuera.
+   */
+  async changePassword(
+    claims: JwtClaims,
+    body: ChangePasswordBody,
+    res: Response,
+  ): Promise<LoginResult> {
+    const actual = typeof body?.current_password === 'string' ? body.current_password : ''
+    const nueva = typeof body?.new_password === 'string' ? body.new_password : ''
+    if (!actual || !nueva) {
+      throw new BadRequestException('Faltan la contraseña actual o la nueva')
+    }
+    if (nueva.length < MIN_PASSWORD_LENGTH) {
+      throw new BadRequestException(
+        `La nueva contraseña debe tener al menos ${MIN_PASSWORD_LENGTH} caracteres`,
+      )
+    }
+    if (nueva === actual) {
+      throw new BadRequestException('La nueva contraseña debe ser distinta de la actual')
+    }
+
+    const users = await this.db.queryOwner<AuthUserRow>(AUTH_USER_SQL_ID, [claims.sub])
+    const user = users[0]
+    if (!user || !user.is_active) {
+      throw new UnauthorizedException('Cuenta inactiva')
+    }
+    if (!(await this.verifyPassword(user.password_hash, actual))) {
+      throw new BadRequestException('La contraseña actual no es correcta')
+    }
+
+    await this.db.queryOwner(
+      `UPDATE app_user
+         SET password_hash = $2, must_change_password = false,
+             failed_login_count = 0, locked_until = NULL, updated_at = now()
+       WHERE id = $1`,
+      [user.id, await hash(nueva)],
+    )
+    await this.db.queryOwner(
+      'UPDATE auth_session SET revoked_at = now() WHERE user_id = $1 AND revoked_at IS NULL',
+      [user.id],
+    )
+    await this.audit(user.id, user.tenant_id, 'password_changed', 'app_user', user.id, {
+      was_temporary: user.must_change_password,
+    })
+
+    const actualizado = { ...user, must_change_password: false }
+    const session = await this.createSession(actualizado)
+    this.setAuthCookies(res, session.token)
+    return {
+      access_token: await this.signAccessToken(actualizado),
+      user: profileOf(actualizado),
+    }
+  }
+
+  /* ---------------------------------------------------------- logout (010) */
+
+  /**
+   * Cierra la sesión de este dispositivo: revoca la familia del refresh token
+   * y borra las cookies. No exige access token (puede haber vencido), pero sí
+   * el header CSRF cuando hay cookie, para que otro sitio no pueda forzarlo.
+   */
+  async logout(req: Request, res: Response): Promise<void> {
+    const token = this.readCookie(req, 'rt')
+    const csrf = this.readCookie(req, 'csrf')
+    if (token) {
+      if (!csrf || req.headers[CSRF_HEADER] !== csrf) {
+        throw new UnauthorizedException('Sesión inválida')
+      }
+      const sessions = await this.db.queryOwner<SessionRow>(
+        'SELECT * FROM auth_session WHERE token_hash = $1',
+        [sha256(token)],
+      )
+      if (sessions[0]) await this.revokeFamily(sessions[0], 'logout')
+    }
+    this.clearAuthCookies(res)
+  }
+
   /* ------------------------------------------------------------------- me */
 
   async me(claims: JwtClaims): Promise<PublicProfile> {
-    const sql = 'SELECT id, tenant_id, email, role, full_name FROM app_user WHERE id = $1'
+    const sql =
+      'SELECT id, tenant_id, email, role, full_name, must_change_password FROM app_user WHERE id = $1'
     const rows = claims.tenant_id
       ? await this.db.queryAsTenant<PublicProfile>(claims.tenant_id, sql, [claims.sub])
       : await this.db.queryOwner<PublicProfile>(sql, [claims.sub]) // platform_admin
@@ -246,6 +338,21 @@ export class AuthService {
     )
   }
 
+  private async audit(
+    actorId: string,
+    tenantId: string | null,
+    action: string,
+    entityType: string,
+    entityId: string,
+    payload: Record<string, unknown>,
+  ): Promise<void> {
+    await this.db.queryOwner(
+      `INSERT INTO audit_log (id, actor_id, tenant_id, action, entity_type, entity_id, payload)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+      [randomUUID(), actorId, tenantId, action, entityType, entityId, JSON.stringify(payload)],
+    )
+  }
+
   private async signAccessToken(user: AuthUserRow): Promise<string> {
     const secret = new TextEncoder().encode(
       this.config.getOrThrow<string>('JWT_ACCESS_SECRET'),
@@ -254,6 +361,7 @@ export class AuthService {
       tenant_id: user.tenant_id,
       rol: user.role,
       full_name: user.full_name,
+      mcp: user.must_change_password,
     })
       .setProtectedHeader({ alg: 'HS256' })
       .setSubject(user.id)
@@ -305,12 +413,13 @@ function profileOf(user: AuthUserRow): PublicProfile {
     email: user.email,
     role: user.role,
     full_name: user.full_name,
+    must_change_password: user.must_change_password,
   }
 }
 
 const AUTH_USER_SQL = `
   SELECT u.id, u.tenant_id, u.email, u.password_hash, u.role, u.full_name,
-         u.is_active, u.failed_login_count, u.locked_until,
+         u.is_active, u.failed_login_count, u.locked_until, u.must_change_password,
          t.slug AS tenant_slug, t.status AS tenant_status
   FROM app_user u
   LEFT JOIN tenant t ON t.id = u.tenant_id
@@ -319,7 +428,7 @@ const AUTH_USER_SQL = `
 
 const AUTH_USER_SQL_ID = `
   SELECT u.id, u.tenant_id, u.email, u.password_hash, u.role, u.full_name,
-         u.is_active, u.failed_login_count, u.locked_until,
+         u.is_active, u.failed_login_count, u.locked_until, u.must_change_password,
          t.slug AS tenant_slug, t.status AS tenant_status
   FROM app_user u
   LEFT JOIN tenant t ON t.id = u.tenant_id
