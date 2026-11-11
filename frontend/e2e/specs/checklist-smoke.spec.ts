@@ -111,7 +111,7 @@ test.describe('Checklist §1 — ⭐ Humo H-01…H-10 (issue #130)', () => {
     await test.step('H-02 · Cortar la señal', async () => {
       // v1: el estado de señal es el de la red real (no hay interruptor demo).
       await context.setOffline(true) // modo avión real del dispositivo
-      await expect(page.getByText('Sin señal', { exact: true }).first()).toBeVisible()
+      await expect(page.getByText('Sin señal', { exact: true }).filter({ visible: true }).first()).toBeVisible()
     })
 
     await test.step('H-03 · Capturar con hallazgo', async () => {
