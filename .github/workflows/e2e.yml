@@ -9,6 +9,12 @@ name: E2E
 # antes de una demo o publicación.
 on:
   workflow_dispatch:
+    inputs:
+      spec:
+        description: Archivo/filtro opcional; vacío ejecuta la suite completa
+        type: string
+        required: false
+        default: ''
 
 permissions:
   contents: read
@@ -64,7 +70,14 @@ jobs:
         run: npx playwright install --with-deps chromium
 
       - name: E2E (captura offline + caos 1–7)
-        run: npm run e2e
+        env:
+          E2E_SPEC: ${{ inputs.spec }}
+        run: |
+          if [ -n "$E2E_SPEC" ]; then
+            npm run e2e -- "$E2E_SPEC"
+          else
+            npm run e2e
+          fi
 
       - name: Publicar trazas y vídeo del fallo
         if: failure()

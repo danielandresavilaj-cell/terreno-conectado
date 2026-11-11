@@ -158,6 +158,11 @@ export function Login() {
             Elegí una cuenta de demostración o entrá con tus credenciales del tenant.
           </motion.p>
 
+          {import.meta.env.VITE_PUBLIC_DEMO === 'true' && (
+            <p className="mb-4 rounded-xl border border-line-soft p-4 text-sm text-muted">
+              Demostración pública: las cuentas son compartidas. Usa únicamente datos y fotos de prueba.
+            </p>
+          )}
           {/* Cuentas demo (FR-006): emails sembrados en el backend con same password */}
           <motion.div {...bloque(0.06 + STAGGER * 2)} className="mt-7 space-y-2">
             <p className="label-inst mb-2.5">Cuentas demo — password {DEMO_PASSWORD}</p>

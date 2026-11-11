@@ -4,6 +4,8 @@
   "private": true,
   "description": "Infraestructura de demo (Docker Compose, Caddy, deploy) — TSK-WS-002+ definen su contenido",
   "scripts": {
+    "test": "node --test tests/*.test.mjs",
+    "test:ops": "node smoke/backup-restore.mjs",
     "up": "docker compose -f docker-compose.yml up -d",
     "down": "docker compose -f docker-compose.yml down",
     "up:prod": "docker compose -f docker-compose.prod.yml up -d",

@@ -75,3 +75,10 @@
 ## 7. Resultado
 
 Stack elegido: **TypeScript full-stack — PWA React/Vite/Dexie + NestJS + PostgreSQL 16 RLS + Docker Compose + Caddy en 1 VPS (~US$5/mes) + GitHub Actions**. Formalizado en **ADR-001**.
+
+## 8. Herramientas operativas de despliegue (TSK-DEPLOY-001, 2026-10-16)
+
+`age` cifra y autentica los backups con destinatario X25519; `rclone` transporta a
+Oracle Object Storage privado y permite comprobar/limitar retención. Son utilidades
+del VPS, no dependencias del aplicativo ni servicios pagos. Node 22 y Docker ya son
+parte del stack. Se evita agregar un SDK de nube al backend. Runbook: infra/ORACLE-FREE.md.
