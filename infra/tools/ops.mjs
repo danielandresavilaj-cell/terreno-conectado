@@ -126,6 +126,27 @@ async function deploy() {
     throw e
   }
 }
+/**
+ * Corte de la demo a la v1 (TSK-DEPLOY-002, Enmienda 003). Irreversible fuera del
+ * respaldo: primero respalda (cifrado, fuera de la VM), luego vacía la base y el
+ * volumen de fotos, aplica el esquema v1 y vuelve a levantar la API sin cuentas.
+ * El siguiente paso es `bootstrap-admin`.
+ */
+function resetV1() {
+  if (process.argv[3] !== '--confirmo-borrar-datos-demo') {
+    throw new Error('Borra TODOS los datos. Uso: ops.mjs reset-v1 --confirmo-borrar-datos-demo')
+  }
+  if (!existsSync(join(root, '.release'))) throw new Error('No hay una versión desplegada: desplegar la v1 primero')
+  backup()
+  dc('stop', 'backend')
+  dc('exec', '-T', 'db', 'psql', '-v', 'ON_ERROR_STOP=1', '-U', env.POSTGRES_USER, '-d', env.POSTGRES_DB, '-c',
+    'DROP SCHEMA public CASCADE; CREATE SCHEMA public; GRANT USAGE ON SCHEMA public TO tc_app;')
+  dc('run', '--rm', '--no-deps', '-T', '--entrypoint', 'sh', 'sync-files', '-c', 'find /data/sync -mindepth 1 -delete')
+  dc('--profile', 'tools', 'run', '--rm', 'migrate')
+  dc('up', '-d', '--wait', 'backend')
+  console.log('Listo: base y fotos vacías con el esquema v1. Siguiente paso: node tools/ops.mjs bootstrap-admin')
+}
+
 async function restore() {
   if (process.argv[4] !== '--confirm-empty-target') throw new Error('Restore sólo en stack vacío: ARCHIVO --confirm-empty-target')
   const config = backupSettings(), staging = temp()
@@ -163,7 +184,8 @@ try {
   else if (process.argv[2] === 'deploy') await deploy()
   else if (process.argv[2] === 'restore') await restore()
   else if (process.argv[2] === 'bootstrap-admin') dc('--profile', 'tools', 'run', '--rm', 'bootstrap-admin')
-  else throw new Error('Uso: ops.mjs backup|deploy SHA|restore ARCHIVO --confirm-empty-target|bootstrap-admin')
+  else if (process.argv[2] === 'reset-v1') resetV1()
+  else throw new Error('Uso: ops.mjs backup|deploy SHA|restore ARCHIVO --confirm-empty-target|bootstrap-admin|reset-v1 --confirmo-borrar-datos-demo')
 } catch (e) {
   console.error(`ERROR operaciones: ${e.message}`)
   // Alertas optativas: endpoint privado del equipo. Nunca incluir credenciales.

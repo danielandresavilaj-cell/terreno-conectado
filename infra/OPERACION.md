@@ -53,13 +53,19 @@ node tools/ops.mjs restore /ruta/terreno-FECHA.tar.age --confirm-empty-target
 
 Verificar luego usuarios, documentos y fotos antes de apuntar el DNS.
 
-## 6. Paso de la demo a la v1 (2026-11-11)
+## 6. Paso de la demo a la v1 (una sola vez)
 
-La VM venía de la demo con cuentas compartidas. El corte a v1 fue:
+La VM venía de la demo con cuentas compartidas y datos ficticios. Corte, desde
+`/opt/terreno/infra`, **después** de desplegar la v1 con el workflow Deploy:
 
-1. Respaldo completo (`node tools/ops.mjs backup`) y verificación con `node tools/check-backup.mjs`.
-2. Despliegue de `main` (v1) con el workflow Deploy.
-3. Base y volumen de fotos vaciados (los datos de la demo eran ficticios) y migraciones aplicadas.
-4. `node tools/ops.mjs bootstrap-admin` ejecutado por el titular.
-5. Prueba de humo: empresa de prueba → su administrador cambia la clave → crea faena y trabajador →
-   el trabajador captura sin señal y sincroniza.
+```bash
+node tools/ops.mjs reset-v1 --confirmo-borrar-datos-demo
+node tools/ops.mjs bootstrap-admin
+```
+
+`reset-v1` saca primero un respaldo cifrado completo (base + fotos, subido fuera de la VM),
+luego vacía la base y el volumen de fotos, aplica las migraciones v1 y levanta la API sin
+cuentas. Se niega a correr sin la marca de confirmación o sin una versión desplegada. Después,
+`bootstrap-admin` crea el primer administrador de plataforma y la prueba de humo es: empresa de
+prueba → su administrador cambia la clave → crea faena y trabajador → el trabajador captura sin
+señal y sincroniza.
