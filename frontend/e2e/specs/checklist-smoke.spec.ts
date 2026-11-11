@@ -68,7 +68,12 @@ async function adjuntarFoto(page: Page): Promise<void> {
 }
 
 async function salir(page: Page): Promise<void> {
-  await page.getByRole('button', { name: 'Salir' }).click()
+  // TSK-AUTH-010: el cierre de sesión vive en "Mi cuenta" y, si hay registros
+  // sin enviar, pide confirmación (la cola queda en el dispositivo).
+  await page.getByRole('button', { name: 'Mi cuenta' }).click()
+  await page.getByRole('button', { name: 'Cerrar sesión', exact: true }).click()
+  const igual = page.getByRole('button', { name: 'Cerrar sesión igual' })
+  if (await igual.isVisible().catch(() => false)) await igual.click()
   await page.getByRole('heading', { name: 'Iniciar sesión' }).waitFor({ state: 'visible' })
 }
 

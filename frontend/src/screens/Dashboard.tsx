@@ -240,8 +240,14 @@ export function Dashboard() {
       const [summary, hallazgos] = await Promise.all([getSummary(f), getFindings(fs), lista])
       setDatos({ summary, hallazgos: hallazgos.items })
     } catch (err) {
-      if (err instanceof ApiError && err.status !== 0) {
-        setErrorCarga(err.detalle)
+      if (err instanceof ApiError) {
+        // Sin red se dice explícitamente: las métricas en pantalla pueden ser
+        // de la última lectura y el supervisor tiene que saberlo.
+        setErrorCarga(
+          err.status === 0
+            ? 'sin conexión con el servidor. Lo que ves es la última lectura; se actualiza al volver la señal.'
+            : err.detalle,
+        )
       }
     } finally {
       setCargando(false)

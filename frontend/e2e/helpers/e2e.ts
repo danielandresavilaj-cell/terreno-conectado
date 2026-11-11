@@ -275,7 +275,6 @@ export async function loginEnApp(page: Page, email: string): Promise<void> {
     .catch(() => false)
   if (hayLogin) {
     const pass = passwordDemo()
-    await page.getByRole('button', { name: new RegExp(correoANombre(email).split(' ')[0]) }).click()
     await page.getByRole('textbox', { name: 'Correo' }).fill(email)
   /* El campo de contraseña se busca por SU TIPO, no por etiqueta: en
    * `screens/Login.tsx` el `<label>` envuelve un `<span>` "Contraseña" y el
@@ -323,18 +322,6 @@ async function abrirFormularioAsignado(page: Page): Promise<void> {
   await abrir.click()
   await expect(page.getByTestId('capture-screen')).toBeVisible()
   await expect(enviar).toBeVisible()
-}
-
-function correoANombre(correo: string): string {
-  const tabla: Record<string, string> = {
-    [CUENTAS.trabajadorA]: 'Pedro Trabajador',
-    [CUENTAS.supervisorA]: 'Sofía Supervisora',
-    [CUENTAS.adminA]: 'Andrés Admin',
-    [CUENTAS.trabajadorB]: 'Bárbara Trabajadora',
-    [CUENTAS.supervisorB]: 'Bruno Supervisor',
-    [CUENTAS.plataforma]: 'Operación Plataforma',
-  }
-  return tabla[correo] ?? correo
 }
 
 /* ------------------------------------------------------------------- DB */

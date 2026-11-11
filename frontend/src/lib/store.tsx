@@ -53,6 +53,7 @@ import {
   quitarFotoRespuesta,
   respuestaDelItem,
   seedDemoDataIfNeeded,
+  setDueñoCola,
   sesionCaché,
   submitInspection,
   upsertResponse,
@@ -60,12 +61,16 @@ import {
 } from './db'
 import {
   ApiError,
+  cambiarClave,
   clearToken,
+  EVENTO_CAMBIO_CLAVE,
   EVENTO_LOGOUT,
   getPlantillaOriginal,
   getSites,
   getToken,
   login,
+  logoutServidor,
+  refrescarToken,
   me,
   setToken,
 } from './api'
@@ -93,6 +98,7 @@ import { columnasDesdeValor, esOkNokNa, itemsDe, valorDesdeColumnas } from './va
 import { erroresDeEnvio } from './validar-envio-inspeccion'
 
 export type Pantalla =
+  | 'cuenta'
   | 'formularios'
   | 'captura'
   | 'bitacora'
@@ -155,7 +161,13 @@ interface Ctx {
   /** Errores de validación por ítem (FR-039); vacío = todo válido. */
   erroresCampo: Record<string, string>
 
-  loginInApp: (email: string, password: string) => Promise<void>
+  loginInApp: (email: string, password: string, tenant?: string) => Promise<void>
+  /** TSK-AUTH-010: clave temporal pendiente; la app muestra el cambio obligatorio. */
+  debeCambiarClave: boolean
+  cambiarClaveEnApp: (actual: string, nueva: string) => Promise<void>
+  /** TSK-AUTH-010: la sesión expiró con registros por enviar (cola en pausa). */
+  sesionExpirada: boolean
+  /** Cierra la sesión en el servidor y en el dispositivo (la cola local queda). */
   salir: () => void
   ir: (p: Pantalla) => void
   setOnline: (v: boolean) => void
@@ -272,6 +284,8 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
   const [usuario, setUsuario] = useState<Usuario | null>(null)
   const [identidad, setIdentidad] = useState<Identidad | null>(null)
   const [hidratando, setHidratando] = useState(true)
+  const [debeCambiarClave, setDebeCambiarClave] = useState(false)
+  const [sesionExpirada, setSesionExpirada] = useState(false)
   const [conConexion, setConConexion] = useState(() => navigator.onLine)
   const [sinSenalManual, setSinSenalManual] = useState(leerSinSenalManual)
   const online = conConexion && !sinSenalManual
@@ -326,7 +340,10 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
       setSincronizando(true)
       try {
         const r = await sincronizarCola()
-        if (r.estado === 'ok' || r.estado === 'parcial') {
+        if (r.estado === 'sin_sesion') {
+          setSesionExpirada(true)
+        } else if (r.estado === 'ok' || r.estado === 'parcial') {
+          setSesionExpirada(false)
           const ultimo = r.sincronizados[r.sincronizados.length - 1]
           if (ultimo) setRecienSincronizado(ultimo)
         }
@@ -568,6 +585,9 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
   const arrancarSesión = useCallback(
     async (perfil: { id: string; tenant_id: string | null; email: string; role: string; full_name: string }, i: Identidad) => {
       const u = usuarioDe(perfil, i)
+      // TSK-AUTH-010: antes de leer cola o borrador, la sesión fija su dueño.
+      await setDueñoCola({ userId: perfil.id, tenantId: perfil.tenant_id ?? '' })
+      setSesionExpirada(false)
       await seedDemoDataIfNeeded(COLA_INICIAL, i, u)
       // TSK-FORM-004: borrares previos con la foto en `valuePhoto` → ATTACHMENT.
       await migrarFotosLegacy()
@@ -618,96 +638,126 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
     [refrescar, cargarPlantilla],
   )
 
-  /* FR-006: al arrancar se restaura la sesión. Con token se refresca el perfil
-   * y la identidad contra el backend; sin red se usa la caché de Dexie (la
-   * captura offline sigue funcionando). Un 401/5xx (o ausencia de token)
-   * devuelve al login. */
+  /** Perfil + identidad del tenant (faenas) → caché offline → sesión activa. */
+  const completarIngreso = useCallback(
+    async (p: { id: string; tenant_id: string | null; email: string; role: string; full_name: string }) => {
+      const sites = p.role === 'platform_admin' ? null : await getSites()
+      const ident = sites
+        ? identidadDeSites(sites.tenant.nombre, sites.tenant.id, sites.items)
+        : { tenantId: '', tenantNombre: 'Plataforma', faenas: [] }
+      const perfil = { id: p.id, tenant_id: p.tenant_id, email: p.email, role: p.role, full_name: p.full_name }
+      await guardarSesionCaché({ perfil, identidad: ident, ts: new Date().toISOString() })
+      await arrancarSesión(perfil, ident)
+    },
+    [arrancarSesión],
+  )
+
+  /* FR-006 + TSK-AUTH-010: al arrancar se restaura la sesión. El token vive en
+   * memoria, así que se pide uno nuevo con la cookie de sesión (refresh). Sin
+   * red se entra con la identidad cacheada: la captura offline sigue y la cola
+   * espera. Sin sesión válida (o primera vez) se muestra el login. */
   useEffect(() => {
     let vivo = true
     void (async () => {
       await getDeviceId() // persiste el UUIDv7 del dispositivo (FR-015) si falta
       const caché = await sesionCaché()
-      let perfil: { id: string; tenant_id: string | null; email: string; role: string; full_name: string } | undefined
-      let ident: Identidad | undefined
       try {
-        if (getToken()) {
-          const p = await me()
-          const sites = p.role === 'platform_admin' ? null : await getSites()
-          ident = sites
-            ? identidadDeSites(sites.tenant.nombre, sites.tenant.id, sites.items)
-            : { tenantId: '', tenantNombre: 'Todos los tenants', faenas: [] }
-          await guardarSesionCaché({
-            perfil: { id: p.id, tenant_id: p.tenant_id, email: p.email, role: p.role, full_name: p.full_name },
-            identidad: ident,
-            ts: new Date().toISOString(),
-          })
-          perfil = p
+        if (!getToken()) await refrescarToken()
+        const p = await me()
+        if (!vivo) return
+        if (p.must_change_password) {
+          setDebeCambiarClave(true)
+          setHidratando(false)
+          return
         }
+        await completarIngreso(p)
       } catch (err) {
         if (err instanceof ApiError && err.status === 0 && caché) {
-          // Sin red: sesión visual desde la caché (las escrituras offline siguen).
-          perfil = caché.perfil
-          ident = caché.identidad
-        } else {
-          // Token inválido/vencido o error del servidor: fuera.
-          clearToken()
-          await borrarSesionCaché()
+          // Sin red: sesión desde la caché (las escrituras offline siguen).
+          if (vivo) await arrancarSesión(caché.perfil, caché.identidad)
+          return
         }
-      }
-      if (!perfil || !ident) {
+        if (err instanceof ApiError && err.status === 403) {
+          if (vivo) {
+            setDebeCambiarClave(true)
+            setHidratando(false)
+          }
+          return
+        }
+        clearToken()
+        await borrarSesionCaché()
         if (vivo) setHidratando(false)
-        return
       }
-      if (vivo) await arrancarSesión(perfil, ident)
     })()
     return () => {
       vivo = false
     }
-  }, [arrancarSesión])
+  }, [arrancarSesión, completarIngreso])
 
   useEffect(() => {
     document.title = `Terreno Conectado · ${pendientes} pendientes`
   }, [pendientes])
 
   const loginInApp = useCallback(
-    async (email: string, password: string) => {
-      const r = await login(email, password)
+    async (email: string, password: string, tenant?: string) => {
+      const r = await login(email, password, tenant)
       setToken(r.access_token)
-      const p = r.user
-      const sites = p.role === 'platform_admin' ? null : await getSites()
-      const ident = sites
-        ? identidadDeSites(sites.tenant.nombre, sites.tenant.id, sites.items)
-        : { tenantId: '', tenantNombre: 'Todos los tenants', faenas: [] }
-      await guardarSesionCaché({
-        perfil: { id: p.id, tenant_id: p.tenant_id, email: p.email, role: p.role, full_name: p.full_name },
-        identidad: ident,
-        ts: new Date().toISOString(),
-      })
-      await arrancarSesión(
-        { id: p.id, tenant_id: p.tenant_id, email: p.email, role: p.role, full_name: p.full_name },
-        ident,
-      )
+      if (r.user.must_change_password) {
+        // Clave temporal: nada más se carga hasta que la cambie.
+        setDebeCambiarClave(true)
+        return
+      }
+      await completarIngreso(r.user)
     },
-    [arrancarSesión],
+    [completarIngreso],
   )
 
-  const salir = useCallback(() => {
+  /** TSK-AUTH-010: cambio de clave (obligatorio o desde "Mi cuenta"). */
+  const cambiarClaveEnApp = useCallback(
+    async (actual: string, nueva: string) => {
+      const r = await cambiarClave(actual, nueva)
+      setToken(r.access_token)
+      if (debeCambiarClave) {
+        setDebeCambiarClave(false)
+        await completarIngreso(r.user)
+      }
+    },
+    [debeCambiarClave, completarIngreso],
+  )
+
+  /** Cierre local (sin tocar la cola): borra token, caché de sesión y vista. */
+  const cerrarLocal = useCallback(() => {
     clearToken()
     void borrarSesionCaché()
+    void setDueñoCola(null)
     setUsuario(null)
     setIdentidad(null)
     setRespuestas({})
     setErroresCampo({})
     setEntradasBitacora([])
+    setDebeCambiarClave(false)
     setPantalla('captura')
   }, [])
 
-  /* TSK-WS-011: cualquier 401 de una ruta de lectura/sesión cierra la sesión. */
+  /** Cierre pedido por el usuario: además revoca la sesión en el servidor. */
+  const salir = useCallback(() => {
+    void logoutServidor()
+    setSesionExpirada(false)
+    cerrarLocal()
+  }, [cerrarLocal])
+
+  /* Un 401 sin refresh posible cierra la sesión local; la cola queda intacta y
+   * se envía cuando el mismo usuario vuelva a ingresar. */
   useEffect(() => {
-    const logout = () => salir()
+    const logout = () => cerrarLocal()
+    const cambio = () => setDebeCambiarClave(true)
     window.addEventListener(EVENTO_LOGOUT, logout)
-    return () => window.removeEventListener(EVENTO_LOGOUT, logout)
-  }, [salir])
+    window.addEventListener(EVENTO_CAMBIO_CLAVE, cambio)
+    return () => {
+      window.removeEventListener(EVENTO_LOGOUT, logout)
+      window.removeEventListener(EVENTO_CAMBIO_CLAVE, cambio)
+    }
+  }, [cerrarLocal])
 
   const toggleOnline = useCallback(() => {
     setOnline(!online)
@@ -983,6 +1033,9 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
     originales,
     erroresCampo,
     loginInApp,
+    debeCambiarClave,
+    cambiarClaveEnApp,
+    sesionExpirada,
     salir,
     ir: setPantalla,
     setOnline,

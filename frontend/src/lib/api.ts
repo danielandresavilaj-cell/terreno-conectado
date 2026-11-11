@@ -1,12 +1,14 @@
-/* Cliente HTTP del dashboard/sesión real — TSK-WS-011 (FR-035/040/043).
+/* Cliente HTTP del dashboard/sesión real — TSK-WS-011 (FR-035/040/043),
+ * sesión v1 en TSK-AUTH-010.
  *
- * Alimenta la sesión (login/me) y las lecturas del supervisor contra el
- * backend NestJS. El access token (HS256, ≤15 min, NFR-06) viaja en
- * `Authorization: Bearer` y vive en sessionStorage: se pierde al cerrar la
- * pestaña, que es lo que espera un dispositivo de faena compartido.
+ * El access token (HS256, ≤15 min, NFR-06) viaja en `Authorization: Bearer`
+ * y vive SÓLO en memoria (D5). La sesión larga es la cookie httpOnly `rt`:
+ * al arrancar o ante un 401 se pide un token nuevo a `/auth/refresh`, con el
+ * header anti-CSRF tomado de la cookie `csrf`. Así una PWA que Android cerró
+ * vuelve a entrar sin pedir la clave.
  *
- * Un 401 en CUALQUIER ruta dispara el evento `tc:logout`: el store se encarga
- * de salir y mostrar el login (el panel se entera solo).
+ * Si el refresh también falla, se emite `tc:logout` y el store muestra el
+ * login. Un 403 `password_change_required` emite `tc:cambio-clave`.
  *
  * El consumo de datos ES read-only: capturas/sync siguen en el outbox local
  * (Dexie); acá solo se lee lo sincronizado.
@@ -34,16 +36,60 @@ import type {
 export const API_BASE: string =
   import.meta.env.VITE_API_URL?.replace(/\/$/, '') ?? 'http://localhost:3000/api/v1'
 
-const TOKEN_KEY = 'tc_access_token'
+let tokenEnMemoria: string | null = null
 
 export function getToken(): string | null {
-  return sessionStorage.getItem(TOKEN_KEY)
+  return tokenEnMemoria
 }
 export function setToken(token: string): void {
-  sessionStorage.setItem(TOKEN_KEY, token)
+  tokenEnMemoria = token
 }
 export function clearToken(): void {
-  sessionStorage.removeItem(TOKEN_KEY)
+  tokenEnMemoria = null
+}
+
+/** Valor de la cookie `csrf` (no es httpOnly: es el doble envío de D5). */
+export function leerCsrf(): string | null {
+  if (typeof document === 'undefined') return null
+  const m = document.cookie.match(/(?:^|;\s*)csrf=([^;]+)/)
+  return m ? decodeURIComponent(m[1]) : null
+}
+
+let refrescoEnCurso: Promise<string> | null = null
+
+/**
+ * Pide un access token nuevo con la cookie `rt` (rotación D5). Una sola
+ * petición en vuelo: si varias rutas reciben 401 a la vez, todas esperan la
+ * misma. Rechaza con `ApiError(0)` sin red y `ApiError(401)` si la sesión ya
+ * no sirve (expirada, revocada o usuario desactivado).
+ */
+export function refrescarToken(): Promise<string> {
+  if (!refrescoEnCurso) {
+    refrescoEnCurso = (async () => {
+      const csrf = leerCsrf()
+      if (!csrf) throw new ApiError(401, 'Sin sesión guardada')
+      let resp: Response
+      try {
+        resp = await fetch(`${API_BASE}/auth/refresh`, {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'x-csrf-token': csrf },
+        })
+      } catch {
+        throw new ApiError(0, 'Sin conexión con el servidor')
+      }
+      if (!resp.ok) {
+        clearToken()
+        throw new ApiError(resp.status === 401 ? 401 : resp.status, 'Sesión expirada')
+      }
+      const body = (await resp.json()) as { access_token: string }
+      setToken(body.access_token)
+      return body.access_token
+    })().finally(() => {
+      refrescoEnCurso = null
+    })
+  }
+  return refrescoEnCurso
 }
 
 export class ApiError extends Error {
@@ -58,6 +104,10 @@ export class ApiError extends Error {
 }
 
 export const EVENTO_LOGOUT = 'tc:logout'
+export const EVENTO_CAMBIO_CLAVE = 'tc:cambio-clave'
+
+/** Rutas que no deben intentar refresh ante un 401 (son la propia sesión). */
+const SIN_REFRESH = ['/auth/login', '/auth/refresh', '/auth/logout', '/auth/password']
 
 async function apiFetch<T>(
   path: string,
@@ -79,6 +129,7 @@ async function apiFetch<T>(
 async function apiFetchResp(
   path: string,
   opts: { method?: string; body?: unknown; token?: string | null } = {},
+  reintento = false,
 ): Promise<Response> {
   const token = opts.token !== undefined ? opts.token : getToken()
   const headers: Record<string, string> = {}
@@ -106,13 +157,26 @@ async function apiFetchResp(
     throw new ApiError(0, 'Sin conexión con el servidor')
   }
 
-  if (resp.status === 401) {
+  if (resp.status === 401 && !SIN_REFRESH.includes(path)) {
+    if (!reintento && opts.token === undefined) {
+      try {
+        await refrescarToken()
+        return apiFetchResp(path, opts, true)
+      } catch (err) {
+        // Sin red no se cierra la sesión: el usuario sigue en modo sin conexión.
+        if (err instanceof ApiError && err.status === 0) throw err
+      }
+    }
     window.dispatchEvent(new Event(EVENTO_LOGOUT))
-    throw new ApiError(401, 'Sesión inválida o expirada')
+    throw new ApiError(401, 'Tu sesión expiró. Ingresa de nuevo.')
   }
   if (!resp.ok) {
-    const body = (await resp.json().catch(() => null)) as { message?: string } | null
-    throw new ApiError(resp.status, body?.message ?? `HTTP ${resp.status}`)
+    const body = (await resp.json().catch(() => null)) as { message?: string | string[]; code?: string } | null
+    if (resp.status === 403 && body?.code === 'password_change_required') {
+      window.dispatchEvent(new Event(EVENTO_CAMBIO_CLAVE))
+    }
+    const msg = Array.isArray(body?.message) ? body.message.join('. ') : body?.message
+    throw new ApiError(resp.status, msg ?? `HTTP ${resp.status}`)
   }
   return resp
 }
@@ -125,10 +189,42 @@ export interface PerfilWire {
   email: string
   role: string
   full_name: string
+  must_change_password?: boolean
 }
 
-export function login(email: string, password: string): Promise<{ access_token: string; user: PerfilWire }> {
-  return apiFetch('/auth/login', { method: 'POST', body: { email, password }, token: null })
+export function login(
+  email: string,
+  password: string,
+  tenant?: string,
+): Promise<{ access_token: string; user: PerfilWire }> {
+  const body: Record<string, string> = { email, password }
+  if (tenant) body.tenant = tenant
+  return apiFetch('/auth/login', { method: 'POST', body, token: null })
+}
+
+/** TSK-AUTH-010: cambio de la clave propia; devuelve una sesión nueva. */
+export function cambiarClave(
+  actual: string,
+  nueva: string,
+): Promise<{ access_token: string; user: PerfilWire }> {
+  return apiFetch('/auth/password', {
+    method: 'POST',
+    body: { current_password: actual, new_password: nueva },
+  })
+}
+
+/** TSK-AUTH-010: revoca la sesión de este dispositivo en el servidor. */
+export async function logoutServidor(): Promise<void> {
+  const csrf = leerCsrf()
+  try {
+    await fetch(`${API_BASE}/auth/logout`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: csrf ? { 'x-csrf-token': csrf } : {},
+    })
+  } catch {
+    // Sin red: la cookie expira sola; el token en memoria ya se borró.
+  }
 }
 
 export function me(): Promise<PerfilWire> {

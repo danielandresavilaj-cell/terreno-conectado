@@ -59,6 +59,8 @@ beforeEach(() => {
   RESPUESTAS.length = 0
   LLAMADAS.length = 0
   eventos = []
+  // TSK-AUTH-010: el token vive en memoria (antes, en sessionStorage).
+  setToken('token-de-prueba')
   vi.stubGlobal('sessionStorage', {
     getItem: () => 'token-de-prueba',
     setItem: () => {},

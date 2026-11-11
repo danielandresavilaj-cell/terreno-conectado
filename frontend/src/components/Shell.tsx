@@ -126,7 +126,7 @@ const NAV: Array<{ id: Pantalla; label: string; roles: Rol[]; icono: ReactNode }
 ]
 
 export function Shell({ children }: { children: ReactNode }) {
-  const { usuario, salir, pantalla, ir, online, toggleOnline, pendientes, cuotaAviso, cuota, setOnline, sincronizarAhora } =
+  const { usuario, salir, pantalla, ir, online, toggleOnline, pendientes, cuotaAviso, cuota, setOnline, sincronizarAhora, sesionExpirada } =
     useEstado()
   const reducir = useReducedMotion()
   const [verAviso, setVerAviso] = useState(false)
@@ -163,8 +163,13 @@ export function Shell({ children }: { children: ReactNode }) {
             <div className="flex-1" />
 
             <ToggleSenal on={online} onToggle={toggleOnline} reducir={!!reducir} />
-            <Boton tamano="sm" variante="fantasma" onClick={salir}>
-              Salir
+            <Boton
+              tamano="sm"
+              variante={pantalla === 'cuenta' ? 'secundaria' : 'fantasma'}
+              onClick={() => ir('cuenta')}
+              aria-current={pantalla === 'cuenta' ? 'page' : undefined}
+            >
+              Mi cuenta
             </Boton>
           </div>
 
@@ -206,6 +211,23 @@ export function Shell({ children }: { children: ReactNode }) {
 
       {/* ── Contenido ─────────────────────────────────────────────────────── */}
       <main className="flex-1 mx-auto w-full max-w-[1180px] px-4 sm:px-6 py-7 pb-barra sm:pb-24">
+        {/* TSK-AUTH-010: la sesión expiró con registros por enviar. La cola está
+            en pausa e intacta; al volver a ingresar se envía sola. */}
+        {sesionExpirada && (
+          <div
+            role="alert"
+            className="mb-5 flex flex-wrap items-center gap-3 rounded-xl border border-sev-media/40 bg-sev-media/10 px-4 py-3"
+          >
+            <p className="flex-1 min-w-[200px] text-[14px] leading-relaxed">
+              Tu sesión expiró. Ingresa de nuevo para enviar{' '}
+              {pendientes === 1 ? '1 registro pendiente' : `${pendientes} registros pendientes`}; nada se
+              ha perdido.
+            </p>
+            <Boton variante="primaria" onClick={salir}>
+              Ingresar de nuevo
+            </Boton>
+          </div>
+        )}
         <AnimatePresence mode="wait" initial={false}>
           <motion.div
             key={pantalla}

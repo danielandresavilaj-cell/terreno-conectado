@@ -376,15 +376,19 @@ export class AuthService {
       httpOnly: true,
       maxAge: REFRESH_TTL_DAYS * 24 * 60 * 60 * 1000,
     })
+    // La cookie csrf vive en `/` (no en COOKIE_PATH): la PWA tiene que poder
+    // leerla con `document.cookie` para mandarla en el header (doble envío).
     res.cookie('csrf', randomBytes(24).toString('hex'), {
       ...this.cookieBase(),
+      path: '/',
       httpOnly: false,
+      maxAge: REFRESH_TTL_DAYS * 24 * 60 * 60 * 1000,
     })
   }
 
   private clearAuthCookies(res: Response): void {
     res.clearCookie('rt', this.cookieBase())
-    res.clearCookie('csrf', this.cookieBase())
+    res.clearCookie('csrf', { ...this.cookieBase(), path: '/', httpOnly: false })
   }
 
   private cookieBase(): CookieOptions {

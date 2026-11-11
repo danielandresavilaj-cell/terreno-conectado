@@ -107,3 +107,12 @@ export function Tarjeta({
     </motion.button>
   )
 }
+
+/** Contenedor de sección (no interactivo): borde suave sobre la superficie s1. */
+export function Panel({ children, className = '' }: { children: ReactNode; className?: string }) {
+  return (
+    <section className={['rounded-xl border border-line-soft bg-s1', className].join(' ')}>
+      {children}
+    </section>
+  )
+}

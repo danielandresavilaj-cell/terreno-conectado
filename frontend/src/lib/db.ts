@@ -38,6 +38,10 @@ export interface OutboxRow {
   retries: number
   lastError?: string
   tenantId: string
+  /** TSK-AUTH-010: dueño de la fila. En un dispositivo compartido cada usuario
+   *  ve y envía sólo lo suyo; las filas previas a v1 no lo traen y se asignan
+   *  al primer usuario de su tenant que entra (`setDueñoCola`). */
+  userId?: string
   capturedAt: string
   updatedAt: string
 }
@@ -191,6 +195,47 @@ db.version(3).stores({
   plantillaOriginales: 'revision_id, tenant_id, cached_at',
 })
 
+/* ------------------------------------------------- dueño de la cola (010) */
+
+let dueño: { userId: string; tenantId: string } | null = null
+
+/**
+ * Fija el usuario de la sesión: la cola, el borrador y los contadores pasan a
+ * mostrar sólo sus filas. Las filas legadas de su tenant (sin `userId`) se le
+ * asignan, que es lo que pasaba antes de v1 en un dispositivo de un solo uso.
+ */
+export async function setDueñoCola(d: { userId: string; tenantId: string } | null): Promise<void> {
+  dueño = d
+  if (!d) return
+  await db.outbox
+    .filter((f) => f.tenantId === d.tenantId && !f.userId)
+    .modify({ userId: d.userId })
+  const legado = await db.meta.get('draftInspectionId')
+  if (legado?.value) {
+    const ins = await db.inspections.get(String(legado.value))
+    if (ins && ins.tenantId === d.tenantId && ins.executedBy === d.userId) {
+      await db.meta.put({ key: claveBorrador(), value: legado.value })
+      await db.meta.delete('draftInspectionId')
+    }
+  }
+}
+
+function esDelDueño(f: OutboxRow): boolean {
+  return !dueño || (f.tenantId === dueño.tenantId && f.userId === dueño.userId)
+}
+
+/** Filas propias de la sesión con alguno de los estados dados. */
+async function filasPropias(...estados: SyncEstado[]): Promise<OutboxRow[]> {
+  const rows = estados.length
+    ? await db.outbox.where('status').anyOf(estados).toArray()
+    : await db.outbox.toArray()
+  return rows.filter(esDelDueño)
+}
+
+function claveBorrador(): string {
+  return dueño ? `draftInspectionId:${dueño.userId}` : 'draftInspectionId'
+}
+
 /* ------------------------------------------------------------------ util */
 
 function ahoraIso(): string {
@@ -215,6 +260,7 @@ function encolar(
     status: 'pending',
     retries: 0,
     tenantId,
+    userId: dueño?.userId,
     capturedAt: ts,
     updatedAt: ts,
   })
@@ -274,7 +320,7 @@ export async function getTemplateId(): Promise<string> {
 }
 
 export async function getDraftInspectionId(): Promise<string | null> {
-  const row = await db.meta.get('draftInspectionId')
+  const row = await db.meta.get(claveBorrador())
   return row?.value ? String(row.value) : null
 }
 
@@ -283,8 +329,8 @@ export async function getInspection(id: string): Promise<InspectionRow | undefin
 }
 
 export async function setDraftInspectionId(id: string | null): Promise<void> {
-  if (id) await db.meta.put({ key: 'draftInspectionId', value: id })
-  else await db.meta.delete('draftInspectionId')
+  if (id) await db.meta.put({ key: claveBorrador(), value: id })
+  else await db.meta.delete(claveBorrador())
 }
 
 /* ------------------------------------------------ plantillas cacheadas */
@@ -888,22 +934,25 @@ export async function addLogEntry(params: {
 }
 
 export async function listOutbox(): Promise<OutboxRow[]> {
-  return db.outbox.orderBy('id').reverse().toArray()
+  return (await db.outbox.orderBy('id').reverse().toArray()).filter(esDelDueño)
 }
 
 export async function listLogEntries(siteId: string | null): Promise<LogEntryRow[]> {
   const rows = siteId
     ? await db.logEntries.where('siteId').equals(siteId).toArray()
     : await db.logEntries.toArray()
-  return rows.sort((a, b) => (a.capturedAt < b.capturedAt ? 1 : -1))
+  const propias = dueño
+    ? rows.filter((r) => r.tenantId === dueño?.tenantId && r.authorId === dueño?.userId)
+    : rows
+  return propias.sort((a, b) => (a.capturedAt < b.capturedAt ? 1 : -1))
 }
 
 export async function contadorPendientes(): Promise<number> {
-  return db.outbox.where('status').anyOf('pending', 'syncing', 'failed').count()
+  return (await filasPropias('pending', 'syncing', 'failed')).length
 }
 
 export async function contadorFallidos(): Promise<number> {
-  return db.outbox.where('status').equals('failed').count()
+  return (await filasPropias('failed')).length
 }
 
 /* ----------------------------------------------- capa de sync (TSK-WS-008)
@@ -917,7 +966,7 @@ export async function contadorFallidos(): Promise<number> {
  *  Es el número que la UI muestra como "fotos pendientes de subir". */
 export async function contadorFotosPendientes(): Promise<number> {
   const rows = await db.outbox.where('entityType').equals('attachment').toArray()
-  return rows.filter((r) => r.status !== 'synced').length
+  return rows.filter((r) => r.status !== 'synced' && esDelDueño(r)).length
 }
 
 /** FR-017: reordena la cola para que las fotos YA sincronizables —adjuntos cuyo
@@ -944,7 +993,7 @@ async function priorizarFotosLibres(filas: OutboxRow[]): Promise<OutboxRow[]> {
 /** Filas listas para enviar: pendientes y fallidas, en orden de dependencia (FR-020).
  *  Con `priorizarFotos` (FR-017) las fotos ya sincronizables pasan al frente. */
 export async function sincronizables(priorizarFotos = false): Promise<OutboxRow[]> {
-  const rows = await db.outbox.where('status').anyOf('pending', 'failed').toArray()
+  const rows = await filasPropias('pending', 'failed')
   const ordenadas = rows.sort((a, b) => a.batchOrder - b.batchOrder || a.entityId.localeCompare(b.entityId))
   return priorizarFotos ? priorizarFotosLibres(ordenadas) : ordenadas
 }
@@ -1092,6 +1141,15 @@ export async function marcarFallido(fila: OutboxRow, mensaje: string): Promise<v
     lastError: mensaje.slice(0, 300),
     updatedAt: ahoraIso(),
   })
+}
+
+/** TSK-AUTH-010: sin sesión válida el lote no se intenta. Las filas vuelven a
+ *  `pending` sin sumar intentos: no es un fallo del registro, falta ingresar. */
+export async function devolverAPendiente(filas: OutboxRow[]): Promise<void> {
+  const ts = ahoraIso()
+  for (const f of filas) {
+    await db.outbox.update(f.id as number, { status: f.status === 'failed' ? 'failed' : 'pending', updatedAt: ts })
+  }
 }
 
 /** Durante el envío la fila pasa a `syncing` (transición visible en la cola). */

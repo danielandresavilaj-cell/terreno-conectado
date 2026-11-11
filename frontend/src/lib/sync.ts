@@ -25,6 +25,7 @@ import {
 } from '@terreno/shared'
 import {
   aSyncRecord,
+  devolverAPendiente,
   getDeviceId,
   marcarEnviando,
   marcarFallido,
@@ -32,7 +33,7 @@ import {
   sincronizables,
   type OutboxRow,
 } from './db'
-import { API_BASE, getToken } from './api'
+import { API_BASE, ApiError, getToken, refrescarToken } from './api'
 
 /** FR-022: tope del backoff exponencial. */
 export const MAX_BACKOFF_MS = 5 * 60 * 1000
@@ -44,7 +45,9 @@ export const MAX_BACKOFF_MS = 5 * 60 * 1000
  */
 export const TIMEOUT_LOTE_MS = 30_000
 
-export type EstadoSync = 'ok' | 'parcial' | 'fallo' | 'vacio' | 'en_curso'
+/** `sin_sesion` (TSK-AUTH-010): la sesión expiró y el refresh no la renovó.
+ *  La cola queda en pausa, intacta, hasta que el usuario vuelva a ingresar. */
+export type EstadoSync = 'ok' | 'parcial' | 'fallo' | 'vacio' | 'en_curso' | 'sin_sesion'
 
 export interface ResultadoSync {
   estado: EstadoSync
@@ -185,6 +188,20 @@ export async function sincronizarCola(): Promise<ResultadoSync> {
       cancelarReintento()
       return { estado: 'vacio', sincronizados: [], fallidos: [], sincronizables: 0, enviados: 0, error: null }
     }
+    // TSK-AUTH-010: el token vive en memoria. Si la app se reabrió o venció,
+    // se renueva con la cookie de sesión antes de armar el lote.
+    if (!getToken()) {
+      try {
+        await refrescarToken()
+      } catch (err) {
+        if (err instanceof ApiError && err.status === 0) {
+          programarReintento(filas)
+          return { estado: 'fallo', sincronizados: [], fallidos: [], sincronizables: filas.length, enviados: 0, error: 'Sin conexión con el servidor' }
+        }
+        cancelarReintento()
+        return { estado: 'sin_sesion', sincronizados: [], fallidos: [], sincronizables: filas.length, enviados: 0, error: 'Tu sesión expiró' }
+      }
+    }
     enVuelo = filas
 
     await marcarEnviando(filas)
@@ -195,7 +212,25 @@ export async function sincronizarCola(): Promise<ResultadoSync> {
       records: registros,
     }
 
-    const resp = await fetchLote(`${API_BASE}/sync/batch`, lote)
+    let resp = await fetchLote(`${API_BASE}/sync/batch`, lote)
+    if (resp.status === 401) {
+      // El token venció en el camino: un refresh y un solo reenvío (el lote es
+      // idempotente por UUIDv7, reenviarlo nunca duplica).
+      let renovado = false
+      try {
+        await refrescarToken()
+        renovado = true
+      } catch {
+        renovado = false
+      }
+      if (renovado) resp = await fetchLote(`${API_BASE}/sync/batch`, lote)
+      if (resp.status === 401) {
+        await devolverAPendiente(filas)
+        enVuelo = []
+        cancelarReintento()
+        return { estado: 'sin_sesion', sincronizados: [], fallidos: [], sincronizables: filas.length, enviados: 0, error: 'Tu sesión expiró' }
+      }
+    }
     if (!resp.ok) {
       const motivo = await resp.text().catch(() => `HTTP ${resp.status}`)
       const err = `HTTP ${resp.status}: ${motivo.slice(0, 120)}`
