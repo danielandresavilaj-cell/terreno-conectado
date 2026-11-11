@@ -216,3 +216,29 @@ describe('proponerImport — integración con el fixture del spike', () => {
     expect(turno.props.options).toEqual(['Día', 'Noche', 'Tarde'])
   })
 })
+
+describe('proponerImport — tabla bajo un bloque de datos generales (TSK-FORM-018)', () => {
+  it('toma como encabezado la fila más ancha, no "Elaborado por | Fecha"', async () => {
+    const wb = nuevaHoja('Inventario', 'PLANTILLA DE INVENTARIO')
+    const ws = wb.getWorksheet('Inventario')!
+    ws.getCell('B2').value = 'ELABORADO POR'
+    ws.getCell('D2').value = 'FECHA'
+    ws.getCell('B4').value = 'NOTAS'
+    ;['N.º DE ELEMENTO', 'PROVEEDOR', 'COSTO POR ELEMENTO', 'CANTIDAD'].forEach((t, i) => {
+      ws.getCell(7, 2 + i).value = t
+    })
+    ws.getCell('D8').value = 1500
+    ws.getCell('E8').value = 3
+    const wsLegal = wb.addWorksheet('Descargo')
+    wsLegal.getCell('B2').value = 'Todos los artículos, las plantillas o la información que se proporcionan son solo de referencia y no constituyen garantía de ningún tipo, explícita o implícita.'
+
+    const res = await proponerImport(await aBuffer(wb), 'inventario.xlsx')
+    expect(res.ok).toBe(true)
+    if (!res.ok) return
+    expect(res.propuesta.secciones).toHaveLength(1)
+    const prompts = res.propuesta.secciones[0].items.map((i) => i.prompt)
+    expect(prompts).toEqual(['N.º DE ELEMENTO', 'PROVEEDOR', 'COSTO POR ELEMENTO', 'CANTIDAD'])
+    expect(res.propuesta.secciones[0].items[2].response_type).toBe('numeric')
+    expect(res.propuesta.secciones[0].items[0].source?.headerRow).toBe(7)
+  })
+})

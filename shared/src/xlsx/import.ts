@@ -10,10 +10,12 @@
  * ## Convención (documentada en spec 007 — "Importación asistida")
  *
  * - Cada **hoja** = una **sección** (título = nombre de la hoja).
- * - **Encabezado** = primera fila poblada: con varias columnas se exigen
- *   **≥ 2 celdas** (las filas previas se ignoran: títulos fusionados,
- *   parámetros, etc.); con una sola columna de datos basta la primera fila
- *   poblada.
+ * - **Encabezado** = la fila **más ancha** (más celdas con dato; ante empate,
+ *   la primera). Así se saltan títulos fusionados y bloques de datos generales
+ *   ("Elaborado por", "Fecha", "Notas") que suelen ir sobre la tabla real
+ *   (TSK-FORM-018). Con una sola columna de datos basta la primera fila poblada.
+ * - Un "encabezado" de más de 120 caracteres es un párrafo (descargos, notas),
+ *   no una pregunta: se descarta.
  * - Cada **columna con encabezado** = un **ítem** propuesto; el prompt es el
  *   encabezado (sin el hint de tipo).
  * - Las **filas siguientes** son datos: se usan para detectar el tipo y para
@@ -58,6 +60,8 @@ const RE_TEMPERATURA = /\btemp(?:eratura)?\b/i
 const OK_NOK_NA = new Set(['ok', 'nok', 'na', 'n/a'])
 const MAX_COLUMNA = 26 * 26 // ZZ
 const UMBRAL_SELECT = 12
+/** Más largo que esto es un párrafo (descargo, instrucciones), no una pregunta. */
+const MAX_PROMPT = 120
 
 function letraDeColumna(idx: number): string {
   let n = idx + 1
@@ -233,9 +237,10 @@ export function proponerDesdeCuadriculas(hojas: HojaLibro[], nombre_archivo: str
       const titulo = hoja.nombre.trim()
       const items: ProposedItem[] = []
 
-      // Encabezado: primera fila poblada. Con varias columnas se exigen ≥ 2
-      // celdas (salta títulos fusionados); con una sola columna de datos basta
-      // la primera fila poblada.
+      // Encabezado: la fila más ancha (TSK-FORM-018). La regla anterior ("la
+      // primera con ≥ 2 celdas") tomaba bloques como "Elaborado por | Fecha"
+      // sobre la tabla y dejaba fuera las columnas reales. Con una sola
+      // columna de datos basta la primera fila poblada.
       const maxCeldasEnFila = hoja.filas.reduce((acc, fila) => {
         const n = conDato(fila).length
         return n > acc ? n : acc
@@ -243,7 +248,7 @@ export function proponerDesdeCuadriculas(hojas: HojaLibro[], nombre_archivo: str
       const encabezadoIdx = hoja.filas.findIndex((fila) => {
         const n = conDato(fila).length
         if (n === 0) return false
-        return maxCeldasEnFila === 1 ? n === 1 : n >= 2
+        return maxCeldasEnFila === 1 ? n === 1 : n === maxCeldasEnFila
       })
       if (encabezadoIdx === -1) continue
 
@@ -259,7 +264,7 @@ export function proponerDesdeCuadriculas(hojas: HojaLibro[], nombre_archivo: str
 
         const m = celdaEncabezado.texto.match(RE_HINT)
         const prompt = (m ? m[1] : celdaEncabezado.texto).trim()
-        if (prompt === '') continue
+        if (prompt === '' || prompt.length > MAX_PROMPT) continue
         const hint = m ? (HINTS[m[2].trim().toLowerCase()] ?? null) : null
 
         const columnaDatos = hoja.filas
