@@ -17,7 +17,8 @@ La auditoría del 2026-10-13 sobre `main` muestra **FR-030…FR-039 ya implement
 | TSK-DOM-001 | Detallar el spec 004 de ESQUELETO a completo: modelo de dominio, tipos de respuesta, validación | FR-030…039 | — | `specs/004-dominio-inspecciones/spec.md` en estado COMPLETO; §2 refleja el estado real con evidencia | ✅ Hecho (0.3.0) |
 | TSK-DOM-002 | Plan técnico del módulo | NFR-11 | 001 | `plans/004-dominio-inspecciones/plan.md` existe y enlaza spec + tasks | ✅ Hecho |
 | TSK-DOM-003 | Implementar FR-034 (geolocalización opcional): migración DB, contrato sync, validación server-side, captura opcional en cliente, tests | FR-034 | 001 | Migración `1730000011000_inspection_location.js`; `SyncInspectionPayload.location`; `backend/test/sync.spec.ts` verde; captura opcional en `frontend/src/lib/store.tsx` | ✅ Hecho (0.2.0) |
-| TSK-DOM-004 | Verificación: actualizar filas FR-031/032/034 de la matriz §3 y evidencias del spec 004 | FR-030…039 | 003 | `test-plan.md` refleja FR-034 implementado; spec 004 §2 con evidencia actualizada | ⬜ Por hacer |
+| TSK-DOM-004 | Verificación: actualizar filas FR-031/032/034 de la matriz §3 y evidencias del spec 004 | FR-030…039 | 003 | `test-plan.md` refleja FR-034 implementado; spec 004 §2 con evidencia actualizada | ✅ Hecho (FR-034 🟢; FR-031/032 cerrados por TSK-DOM-005) |
+| TSK-DOM-005 | **Integridad y ciclo de supervisión**: autoría desde el JWT, `reviewed` sólo por supervisión, FR-024 lotes rechazados en `sync_log`, RLS estricta de `audit_log`/`auth_session`, imports sólo `tenant_admin`, revisión de inspección/hallazgo/conflicto | FR-024, FR-031, FR-032, FR-051 | 004 | `backend/test/supervision.spec.ts` verde; UI con "Marcar como revisada", estado de hallazgo y conflictos revisados persistentes | ✅ Hecho |
 
 ## Criterios de salida del módculo
 

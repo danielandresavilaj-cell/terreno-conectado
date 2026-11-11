@@ -3,7 +3,7 @@
 | | |
 | :--- | :--- |
 | **Estado** | COMPLETO (ciclo del módulo, F2 · 2026-10-13) |
-| **Versión** | 0.4.1 |
+| **Versión** | 0.5.0 |
 | **Autor** | Daniel Ávila |
 | **Padre** | specs/000-master/spec.md |
 | **Depende de** | 001 (JWT/tenant), 002 (outbox local) |
@@ -31,6 +31,13 @@ Requisitos que este spec detalla: **FR-020 → FR-029** y soporte a **NFR-03, NF
 El alcance excede el "walking skeleton": incluye la **descarga incremental hacia el cliente** (FR-027/028/029), que la versión 0.3.0 dejó abierta.
 
 ## 2. Estado de implementación
+
+> **Actualización v1 (2026-11-11, Enmienda 003).**
+> - **FR-029 aclarado:** el import de plantillas es una acción **en línea** del `tenant_admin` (no viaja por el batch ni usa UUIDv7 de cliente). La fila que antes lo daba por ✅ con evidencia en `sync.service.ts` era incorrecta.
+> - **Orden real del lote (`BATCH_ORDER`):** `inspection → response → finding → attachment → log_entry`. `site` y `template` no se sincronizan por el batch (faenas se leen con `GET /sites`; plantillas con el delta de §6).
+> - **Autoría desde el JWT (TSK-DOM-005):** `executed_by` / `author_id` distintos de `claims.sub` se rechazan por registro (el resto del lote entra); un `field_worker` no puede declarar `reviewed`.
+> - **FR-024:** un lote rechazado antes de procesarse (400/409) queda en `sync_log` con `status = 'failed'`.
+> - **Cola por usuario (TSK-AUTH-010):** en el dispositivo, cada fila del outbox lleva su `userId`; el worker envía sólo las del usuario de la sesión. Si la sesión expira, la cola queda en pausa (`sin_sesion`) sin sumar intentos.
 
 Verificado sobre `main` al 2026-10-14.
 

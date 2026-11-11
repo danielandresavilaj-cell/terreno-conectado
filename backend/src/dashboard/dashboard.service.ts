@@ -132,7 +132,8 @@ export class DashboardService {
         tenantId,
         `SELECT count(*)::int AS n
            FROM conflict_record
-          WHERE resolved_at >= COALESCE($1::timestamptz, '-infinity'::timestamptz)
+          WHERE reviewed_at IS NULL -- pendientes de revisión (FR-040, TSK-DOM-005)
+            AND resolved_at >= COALESCE($1::timestamptz, '-infinity'::timestamptz)
             AND resolved_at <= COALESCE($2::timestamptz, 'infinity'::timestamptz)`,
         [desde, hasta],
       ),

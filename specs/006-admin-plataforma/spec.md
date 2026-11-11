@@ -219,6 +219,20 @@ Formato estándar de NestJS: `{ "statusCode": number, "message": string | string
 | FR-051 | Cada mutación deja una fila con `actor_id`/`tenant_id` correctos; no hay ruta de update/delete | Integración | `backend/test/admin.spec.ts` |
 | FR-052 | `/health` 200 con DB verificada y 503 con DB caída | Integración | `backend/test/health.spec.ts` (existente) |
 
+## 5b. Enmienda 003 — cuentas reales v1 (2026-11-11, TSK-ADM-001)
+
+Cierra lo que este spec dejaba fuera (§6) para operar con clientes reales:
+
+| Requisito | Contrato | UI |
+| :--- | :--- | :--- |
+| Listar empresas (FR-050) | `GET /api/v1/admin/tenants` (con cuentas activas y admins) | Pantalla **Empresas** (`platform_admin`) |
+| Admin inicial con clave temporal (FR-050, FR-055) | `POST /api/v1/admin/tenants/:id/admins` crea con `must_change_password = true` | Empresas → "Crear administrador" |
+| Cuentas de la empresa (FR-053) | `GET/POST /api/v1/users`, `PATCH /api/v1/users/:id`, `POST /api/v1/users/:id/reset-password` (sólo `tenant_admin`, con RLS) | Pantalla **Equipo** |
+| Faenas (FR-054) | `POST /api/v1/sites`, `PATCH /api/v1/sites/:id` (sólo `tenant_admin`) | Equipo → pestaña Faenas |
+| Primer `platform_admin` | `infra/tools/bootstrap-admin.mjs` (interactivo, se niega si ya existe uno) | — |
+
+Reglas: nadie puede desactivarse a sí mismo ni dejar la empresa sin `tenant_admin` activo; desactivar, cambiar rol o restablecer la clave revoca las sesiones del usuario; cada cambio va a `audit_log` (`user_created`, `user_updated`, `password_reset`, `site_created`, `site_updated`). Pruebas: `backend/test/users.spec.ts`. Tareas: `tasks/006-admin-plataforma/tasks.md`.
+
 ## 6. Fuera de alcance de este ciclo
 
 - **UI del panel admin** — el tipo `Pantalla` y la navegación viven en `frontend/src/lib/store.tsx`, zona de Daniel; se coordina aparte.

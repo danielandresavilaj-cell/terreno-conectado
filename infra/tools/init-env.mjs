@@ -14,9 +14,9 @@ const env = {
   POSTGRES_USER: 'postgres', POSTGRES_DB: 'terreno', POSTGRES_PASSWORD: owner, APP_DB_PASSWORD: app,
   DATABASE_URL: `postgres://postgres:${owner}@db:5432/terreno`,
   APP_DATABASE_URL: `postgres://tc_app:${app}@db:5432/terreno`,
-  JWT_ACCESS_SECRET: secret(), DEMO_PASSWORD: randomBytes(12).toString('hex'), LOG_LEVEL: 'info',
+  JWT_ACCESS_SECRET: secret(), LOG_LEVEL: 'info',
   IMAGE_BACKEND: `${prefix}-backend:${sha}`, IMAGE_FRONTEND: `${prefix}-frontend:${sha}`,
   IMAGE_BACKEND_TOOLS: `${prefix}-backend-tools:${sha}`,
 }
 await writeFile(resolve(target), Object.entries(env).map(([k,v]) => `${k}=${v}\n`).join(''), { mode: 0o600, flag: 'wx' })
-console.log(`Entorno creado: ${resolve(target)}. Configura VITE_DEMO_PASSWORD en GitHub con DEMO_PASSWORD de este archivo.`)
+console.log(`Entorno creado: ${resolve(target)}. Después del primer despliegue, crea el primer administrador con: node tools/ops.mjs bootstrap-admin`)

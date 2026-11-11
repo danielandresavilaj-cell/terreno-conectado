@@ -1,6 +1,6 @@
 # TEST PLAN — Plan de pruebas de validación
 
-**Versión:** 1.0.11 · **Fecha:** 2026-09-14 · actualizado 2026-10-16 · **Autor:** Raúl González (validación) · **Relacionado:** spec maestro §5–6, constitución Artículos III/IV/VII
+**Versión:** 1.1.0 · **Fecha:** 2026-09-14 · actualizado 2026-11-11 · **Autor:** Raúl González (validación) · **Relacionado:** spec maestro §5–6, constitución Artículos III/IV/VII
 **Evidencia APT:** "Plan de pruebas de validación" (informe §6) y soporte de la competencia "Realizar pruebas de certificación de productos y procesos".
 
 ## 1. Principio rector
@@ -38,7 +38,7 @@ verde.
 | FR-021, NFR-04 | Reenviar el mismo batch 3 veces → contar filas: cero duplicados | Integración + **caos 2** | `e2e-caos-sync.spec.ts` → "reenviar el mismo lote 3 veces no duplica filas" (`records_unchanged`) | 🟢 verde |
 | FR-022 | Fallar red a mitad de subida → backoff observado (1s,2s,4s…), sin intervención | **caos 1** | `e2e-caos-sync.spec.ts` → "al cortar el envío y reconectar…" (`context.route` aborta 2 lotes) | 🟢 verde |
 | FR-023 | Editar misma inspección en 2 contextos offline → LWW aplica + CONFLICT_RECORD con ambas versiones; visible a supervisor/tenant_admin y aislado por tenant | Integración + **caos 3** | `backend/test/conflicts.spec.ts` (roles/RLS) + `e2e-caos-integridad.spec.ts` → "dos dispositivos offline editan el mismo registro" | 🟢 verde |
-| FR-024 | Tras sync: SYNC_LOG completo y `synced_at - captured_at` registrado | Integración | `backend/test/sync.spec.ts` + aserción de `sync_log` en el E2E de FR-016 | 🟢 verde |
+| FR-024 | Tras sync: SYNC_LOG completo y `synced_at - captured_at` registrado | Integración | `backend/test/sync.spec.ts` + `supervision.spec.ts` (lote rechazado → `sync_log` `failed`, TSK-DOM-005) + aserción de `sync_log` en el E2E de FR-016 | 🟢 verde |
 | FR-025, NFR-05 | JWT tenant A intenta batch con `tenant_id` B → 4xx + AUDIT_LOG de incidente | Integración + **caos 7** | `e2e-caos-integridad.spec.ts` → "JWT del tenant A con payload del tenant B" | 🟢 verde |
 | FR-002, NFR-05 | Usuario tenant A consulta todos los endpoints de lectura → jamás aparece dato B (fixture B sembrada) | Integración (RLS, Testcontainers) | `backend/test/rls.spec.ts` | 🟢 verde |
 | FR-005 | 5 logins fallidos → bloqueo temporal 15 min (por cuenta y por IP) | Integración | `backend/test/auth.spec.ts` → "5 fallos consecutivos bloquean la cuenta 15 min" | 🟢 verde |
@@ -46,12 +46,15 @@ verde.
 | FR-003 | Matriz rol × recurso × acción (§3 spec 001): `platform_admin` sólo `/admin`; `field_worker` sin dashboard ni admin; `tenant_admin` único que publica plantillas | Integración | `backend/test/admin.spec.ts` (403 a no-`platform_admin`) + guardas por controlador (`dashboard.auth.ts`, `templates.controller.ts`) | 🟢 verde |
 | FR-004 | Access token vencido con cola pendiente → la cola NO se pierde y drena al reingresar; el refresh rota `rt` y detecta reuso | Integración + **caos 6** | `backend/test/auth.spec.ts` (rotación/reuso y CSRF) + `e2e-caos-sync.spec.ts` → "caos 6 — token expirado en cola" | 🟢 verde |
 | FR-006 | Tenant demo sembrado (A: minera + faena + 3 roles; B: constructora) y login de cada rol | Integración | `backend/db/seed.ts` + `backend/test/auth.spec.ts` (`login (FR-001, FR-006)`) | 🟢 verde |
-| FR-031/032 | Ciclo draft→submitted; ítem `nok` exige hallazgo cuando la plantilla lo configura | Unit + E2E | `e2e-captura-offline.spec.ts` → "estado submitted con su site real" y "un hallazgo creado desde un NOK…" | 🟢 verde |
+| FR-031/032 | Ciclo draft→submitted→reviewed; ítem `nok` exige hallazgo; sólo supervisión revisa (un `field_worker` no puede declarar `reviewed` por sync); estado del hallazgo open/in_progress/resolved auditado | Unit + Integración + E2E | `e2e-captura-offline.spec.ts` (submitted, hallazgo desde NOK) + `backend/test/supervision.spec.ts` (revisión, RLS, auditoría) | 🟢 verde |
 | FR-034 | Georreferencia opcional de la inspección (lat/lon) capturada al enviar y persistida por sync | Integración | `backend/test/sync.spec.ts` (location_lat/lon + rechazo de rangos inválidos) + `frontend/src/lib/store.tsx` (`navigator.geolocation`) | 🟢 verde |
 | FR-040/043, NFR-03 | Sync de dato → visible en dashboard; medir delta ≤ 60 s (primer lote) | E2E + cronometrado manual en demo | `backend/test/dashboard.spec.ts` + medición manual en la demo (Fase 3) | 🟡 parcial: la corrección numérica ≤60 s se mide en vivo, no en automatizado |
 | FR-041 | Dashboard: filtros de faena, rango de fechas, severidad y autor | Integración | `backend/test/dashboard.spec.ts` (`dashboardFiltrosSchema`, `findingsFiltrosSchema.autor_id`) | 🟢 verde |
 | FR-042 | Export de la vista de hallazgos a CSV (columnas y escapado) | Unit | `frontend/src/lib/dashboard-csv.ts` (`construirCsvHallazgos`) + `frontend/test/dashboard-csv.test.ts` | 🟢 verde |
 | FR-052, NFR-09 | `/health` responde 200 con estado de DB (503 con DB caída); uptime monitor lo consume; logs JSON con `request_id` y `tenant_id` en cada línea | Integración + manual | `backend/test/health.spec.ts` + `backend/test/observability.spec.ts` | 🟢 verde |
+| FR-053/054 | `tenant_admin` crea cuentas con clave temporal, desactiva/reactiva, cambia rol, restablece; crea/renombra faenas; otra empresa recibe 404 aunque conozca el id; `field_worker` 403 | Integración | `backend/test/users.spec.ts` | 🟢 verde |
+| FR-055 | Clave temporal: sólo `/me`, `/auth/password`, `/auth/logout` (403 `password_change_required`); cambio de clave revoca otras sesiones; logout revoca el refresh; refresh con empresa suspendida → 401 | Integración + Unit | `backend/test/auth-password.spec.ts`, `frontend/test/sesion-refresh.test.ts` | 🟢 verde |
+| Autoría (Enmienda 003) | Inspección/bitácora a nombre de otro usuario se rechaza por registro; cola del dispositivo separada por usuario; sesión expirada pausa la cola sin marcar fallidos | Integración + Unit + **caos 6** | `backend/test/supervision.spec.ts`, `frontend/test/cola-dueno.test.ts`, `e2e-caos-sync.spec.ts` (caos 6) | 🟢 verde |
 | NFR-02 | Script: 200 registros + 100 fotos en offline simulado de 72 h (reloj adelantado) → sync completo sin pérdida | **caos 5** | `e2e-caos-sync.spec.ts` → "200 registros pendientes suben íntegros y sin duplicar" | 🟢 verde (200 registros; las 100 fotos se comprueban en el FR-012 unitario, no en el mismo escenario) |
 | NFR-07 | Lighthouse CI mobile Performance ≥ 80; interacción de formulario < 200 ms | Rendimiento | `frontend/scripts/check-lighthouse.mjs` (Chrome, perfil móvil, Slow 4G; **Performance 85–89**) + workflow `lighthouse.yml` (nightly/manual). La interacción se aproxima con el Total Blocking Time del mismo reporte (~40–50 ms) | 🟢 verde |
 | FR-007, NFR-05 | Plantillas/revisiones de tenant A jamás visibles para B (fixture B sembrada) | Integración (RLS, Testcontainers) | `backend/test/rls.spec.ts`, `backend/test/templates.delta.spec.ts` | 🟢 verde |
@@ -60,11 +63,11 @@ verde.
 | FR-027/028 | Delta `since=<template_version>` trae solo cambios; inspección en curso conserva su versión congelada | Integración | `backend/test/templates.delta.spec.ts` | 🟢 verde |
 | FR-009, FR-032, FR-036/039 | Sesión sin asignación no recibe formulario; inspección con obligatorios vacíos, valor inválido o NOK sin hallazgo no se encola | Unit + E2E | `frontend/test/validar-envio-inspeccion.test.ts`, `frontend/test/plantillas.resolucion.test.ts` y `shared/src/templates.test.ts`; protocolo E2E de captura | 🟢 verde (unit) · E2E a ejecutar en CI |
 | FR-037 + FR-012 | Foto de ítem comprimida y asociada a la respuesta (`ATTACHMENT`) | Unit + E2E | `backend/test/sync.spec.ts` + E2E de FR-012 | 🟢 verde |
-| FR-029 | Reintentar un import sincronizado 3 veces → cero duplicados (idempotencia del motor batch) | Integración | `backend/test/import-wizard.spec.ts` | 🟢 verde |
+| FR-029 | *(Enmienda 003: el import es una acción en línea del `tenant_admin`, no viaja por el batch)* Reintentar la subida del mismo archivo no publica nada: cada subida crea una propuesta nueva que exige revisión humana antes de confirmar | Integración | `backend/test/templates-caos-007.spec.ts` (reintento → propuesta nueva, sin publicar), `import-wizard.spec.ts` | 🟢 verde |
 | FR-019/044 | Export rellenado + hoja "Evidencias" idéntico en dispositivo y en servidor | E2E + Integración | `backend/test/inspection-export.spec.ts`, `shared/src/rellenar.test.ts`, `serializar.test.ts` | 🟢 verde |
 | FR-045/046 | Lote del período con formato de su plantilla + hoja "Evidencias" (adjuntos referenciados/embebidos) | Integración | `backend/test/inspection-export-lote.spec.ts` | 🟢 verde |
 | FR-047 + FR-051 | Import confirmado y export por lote registrados en el audit log (autor, timestamp, tenant) | Integración | `backend/test/import-wizard.spec.ts`, `inspection-export-lote.spec.ts` | 🟢 verde |
-| FR-048 | Flag `ai` OFF: el mapeo propuesto por IA no aplica cambios sin la confirmación del `tenant_admin` | Integración | `backend/test/import-wizard.spec.ts`, `templates.http.spec.ts` | 🟢 verde |
+| FR-048 | *(V2 por Enmienda 003 — no hay flag `ai` en V1)* Lo verificable en V1: el mapeo propuesto nunca se publica sin la confirmación explícita del `tenant_admin` | Integración | `backend/test/import-wizard.spec.ts`, `templates.http.spec.ts` | ⚪ V2 (la confirmación humana sí está 🟢) |
 | FR-049 | Revisión publicada inmutable: ítems ya inspeccionados no se modifican; el cambio exige revisión nueva | Integración | `backend/test/templates.http.spec.ts` (409 al editar publicado) | 🟢 verde |
 | FR-050 | `platform_admin` crea tenant, le asigna el `tenant_admin` inicial y lo suspende/reactiva; un rol distinto recibe 403 en toda la consola | Integración | `backend/test/admin.spec.ts` | 🟢 verde |
 | FR-051 (`admin`) | Cada mutación admin deja exactamente una fila en `audit_log` con `actor_id` y `tenant_id` correctos; `tc_app` no puede UPDATE/DELETE y la API no expone rutas de modificación | Integración | `backend/test/admin.spec.ts` | 🟢 verde |
@@ -78,12 +81,12 @@ verde.
 
 **Volumen de pruebas en la corrida de referencia:**
 ```
-E2E + caos (Playwright, manual)           17 tests
-Integración backend (Vitest + Testcontainers) 188 tests
-Unidad frontend (Vitest)                     109 tests
-Unidad shared (Vitest)                        77 tests
+E2E + caos (Playwright, manual)           23 tests
+Integración backend (Vitest + Testcontainers) 224 tests
+Unidad frontend (Vitest)                     138 tests
+Unidad shared (Vitest)                        78 tests
                                            ───────────────
-                                           391 tests
+                                           463 tests   (v1, 2026-11-11)
 ```
 
 > El criterio de salida de Fase 2 (§8) pide "matriz §3 ≥ 90% verde". Con FR-034,
@@ -198,6 +201,7 @@ cambio de flujo de formularios. Informe por módulo en
 
 | Versión | Fecha | Cambio | Autor |
 | :--- | :--- | :--- | :--- |
+| 1.1.0 | 2026-11-11 | **v1 (Enmienda 003)**: FR-029 reescrito como acción en línea (la fila anterior afirmaba algo que la prueba no comprobaba); FR-048 pasa a V2; filas nuevas FR-053/054, FR-055 y autoría; FR-024 y FR-031/032 con evidencia de `supervision.spec.ts`; volumen 463 tests (224 backend, 138 frontend, 78 shared, 23 E2E) | Daniel Ávila (con IA) |
 | 1.0.10 | 2026-10-14 | **TSK-AUTH-008 / issue #128 resuelto**: FR-023 acredita acceso a conflictos de `supervisor`/`tenant_admin`, denegación a `field_worker`/`platform_admin` y aislamiento RLS en `backend/test/conflicts.spec.ts`; backend actualizado a 188 tests, total 391 con 17 E2E | Daniel Ávila |
 | 1.0.9 | 2026-10-14 | **FR-034 implementado** (georreferencia opcional): migración `1730000011000_inspection_location.js` (`location_lat`/`location_lon` NUMERIC), contrato aditivo `SyncInspectionPayload.location`, validación server-side, captura opcional con `navigator.geolocation` al enviar inspección; nueva fila FR-034 en matriz §3 (🟢) sobre la base 1.0.8: recuento a 🟢37/🟡1/⚪1 (37/39 = 94,9%); volumen backend 187 · frontend 109 · total 390 (refs #7) | Daniel Ávila |
 | 1.0.8 | 2026-10-14 | **FR-041 + FR-042 implementados y verificados**: filtro por autor (`autor_id` en findings, `autores` en summary, UI) y test del CSV del cliente (`frontend/src/lib/dashboard-csv.ts` + `frontend/test/dashboard-csv.test.ts`); recuento a 🟢36/🟡1/⚪1 (36/38 = 94,7%); volumen backend 184 · frontend 109 · total 387 (refs #8) | Daniel Ávila |

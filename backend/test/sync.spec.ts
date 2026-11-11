@@ -322,7 +322,8 @@ describe('georreferencia opcional (FR-034)', () => {
     ;(batch.records[0].payload as { location?: unknown }).location = { lat: 91, lon: 0 }
     const res = await post(access, batch)
     expect(res.status).toBe(400)
-    expect(await count('SELECT 1 FROM sync_log WHERE batch_id = $1', [batch.batch_id])).toBe(0)
+    // FR-024 (TSK-DOM-005): el rechazo queda en sync_log como `failed`, sin datos.
+    expect(await count("SELECT 1 FROM sync_log WHERE batch_id = $1 AND status = 'failed'", [batch.batch_id])).toBe(1)
   })
 
   it('acepta inspección sin ubicación (null / omitida)', async () => {
@@ -375,7 +376,8 @@ describe('aislamiento cross-tenant (FR-025)', () => {
     expect(String(res.body.message)).toMatch(/tenant distinto/i)
 
     expect(await count('SELECT 1 FROM inspection')).toBe(countsBefore)
-    expect(await count('SELECT 1 FROM sync_log WHERE batch_id = $1', [batch.batch_id])).toBe(0)
+    // FR-024 (TSK-DOM-005): el rechazo queda en sync_log como `failed`.
+    expect(await count("SELECT 1 FROM sync_log WHERE batch_id = $1 AND status = 'failed'", [batch.batch_id])).toBe(1)
 
     const audit = await ownerPool.query(
       "SELECT payload FROM audit_log WHERE action = 'sync_tenant_mismatch' ORDER BY occurred_at DESC LIMIT 1",

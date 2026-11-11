@@ -125,7 +125,15 @@ export class SyncService {
     const tenantId = claims.tenant_id
     if (!tenantId) throw new ForbiddenException('La sincronización requiere un rol de tenant')
 
-    const records = await this.validate(body, tenantId, claims)
+    let records: SyncRecord[]
+    try {
+      records = await this.validate(body, tenantId, claims)
+    } catch (err) {
+      // FR-024 (TSK-DOM-005): un lote rechazado también deja rastro en
+      // sync_log, si no la métrica de sincronización sólo ve los éxitos.
+      await this.registrarLoteRechazado(tenantId, claims.sub, body, err)
+      throw err
+    }
     const startedAt = new Date()
 
     // Abre el log ANTES de procesar: los conflictos enlazan su `sync_log_id`.
@@ -138,7 +146,7 @@ export class SyncService {
       startedAt,
     })
 
-    const result = await this.process(tenantId, records, syncLogId)
+    const result = await this.process(tenantId, records, syncLogId, claims)
     const finishedAt = new Date()
     const status: SyncBatchStatus =
       result.records_failed === 0
@@ -187,7 +195,7 @@ export class SyncService {
       this.db.queryAsTenant<ConflictRecordDto>(
         claims.tenant_id,
         `SELECT id, entity_type, entity_id, winner_payload, loser_payload, resolution,
-                resolved_at
+                resolved_at, reviewed_at, reviewed_by
          FROM conflict_record
          ORDER BY resolved_at DESC
          LIMIT $1 OFFSET $2`,
@@ -400,6 +408,7 @@ export class SyncService {
     tenantId: string,
     records: SyncRecord[],
     syncLogId: string | undefined,
+    claims: JwtClaims,
   ): Promise<Omit<SyncBatchResponse, 'batch_id' | 'status'>> {
     const total = records.length
     let ok = 0
@@ -410,6 +419,7 @@ export class SyncService {
     for (const entityType of BATCH_ORDER) {
       for (const rec of records.filter((r) => r.entity_type === entityType)) {
         try {
+          this.assertAutoria(rec, claims)
           const outcome = await this.applyRecord(tenantId, syncLogId, rec)
           ok += 1
           if (outcome === 'unchanged') unchanged += 1
@@ -430,6 +440,29 @@ export class SyncService {
       records_failed: failed,
       records_unchanged: unchanged,
       errors,
+    }
+  }
+
+  /**
+   * TSK-DOM-005: la autoría la fija la sesión, no el cliente. Una inspección o
+   * bitácora a nombre de otro usuario se rechaza (sólo ese registro: el resto
+   * del lote sigue). Además, el estado `reviewed` (FR-031) es una decisión de
+   * supervisión: un trabajador de terreno no puede declararla desde su cola.
+   */
+  private assertAutoria(rec: SyncRecord, claims: JwtClaims): void {
+    if (rec.entity_type === 'inspection') {
+      const p = rec.payload as unknown as SyncInspectionPayload
+      if (p.executed_by !== claims.sub) {
+        throw new Error('executed_by no coincide con el usuario de la sesión')
+      }
+      if (p.status === 'reviewed' && claims.rol === 'field_worker') {
+        throw new Error('un trabajador de terreno no puede marcar una inspección como revisada')
+      }
+    } else if (rec.entity_type === 'log_entry') {
+      const p = rec.payload as unknown as SyncLogEntryPayload
+      if (p.author_id !== claims.sub) {
+        throw new Error('author_id no coincide con el usuario de la sesión')
+      }
     }
   }
 
@@ -959,6 +992,36 @@ export class SyncService {
   /* ------------------------------------------------------------ auditoría */
 
   /** Abre el log del lote (estado `pending`): da `sync_log_id` a los conflictos. */
+  /** Rastro best-effort de un lote rechazado antes de procesarse (FR-024). */
+  private async registrarLoteRechazado(
+    tenantId: string,
+    userId: string,
+    body: SyncBatchRequest,
+    err: unknown,
+  ): Promise<void> {
+    const esUuid = (v: unknown): v is string =>
+      typeof v === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v)
+    if (!esUuid(body?.batch_id) || !esUuid(body?.device_id)) {
+      this.logger.warn(`lote rechazado sin ids válidos (tenant=${tenantId}): ${msg(err)}`)
+      return
+    }
+    const total = Array.isArray(body.records) ? body.records.length : 0
+    try {
+      await this.db.queryAsTenant(
+        tenantId,
+        `INSERT INTO sync_log
+           (id, tenant_id, user_id, device_id, batch_id, records_total,
+            records_ok, records_failed, started_at, finished_at, status)
+         VALUES ($1, $2, $3, $4, $5, $6, 0, $6, now(), now(), 'failed')`,
+        [randomUUID(), tenantId, userId, body.device_id, body.batch_id, total],
+      )
+    } catch (logErr) {
+      this.logger.error(
+        `no se pudo registrar el lote rechazado ${body.batch_id}: ${msg(logErr)} (motivo: ${msg(err)})`,
+      )
+    }
+  }
+
   private async beginSyncLog(entry: {
     tenantId: string
     userId: string

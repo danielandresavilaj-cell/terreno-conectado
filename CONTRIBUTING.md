@@ -167,7 +167,7 @@ El repo asume fin de línea **LF** y variables de entorno vía `.env`. En macOS/
 transparente; en Windows necesita un par de pasos.
 
 ### Variables de entorno
-Los tests y el E2E leen `DEMO_PASSWORD`, `JWT_ACCESS_SECRET` y `VITE_DEMO_PASSWORD` / `VITE_API_URL`.
+Los tests y el E2E leen `DEMO_PASSWORD` (cuentas del seed de desarrollo), `JWT_ACCESS_SECRET` y `VITE_API_URL`.
 
 - **Recomendado — `.env`:** cópialo una vez (`Copy-Item .env.example .env`). El runner de tests del
   backend y el harness E2E lo cargan solos; no exportes nada.

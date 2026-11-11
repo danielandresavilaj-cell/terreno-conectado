@@ -177,7 +177,7 @@ test.describe('caos 3 — edición concurrente', () => {
                 inspectionId: args.inspId,
                 templateItemId: args.itemId,
                 tenantId: args.tenantId,
-                valueOk: args.status === 'reviewed' ? 'ok' : 'nok',
+                valueOk: args.status === 'submitted' ? 'ok' : 'nok',
                 valueText: null,
                 valueNumber: null,
                 valueJson: null,
@@ -217,8 +217,10 @@ test.describe('caos 3 — edición concurrente', () => {
       return { ctx, page }
     }
 
-    const a = await sembrarDispositivo(1, 'submitted')
-    const b = await sembrarDispositivo(2, 'reviewed')
+    // TSK-DOM-005: `reviewed` es decisión de supervisión; un trabajador sólo
+    // puede enviar draft/in_progress/submitted, así que el conflicto se arma con esos.
+    const a = await sembrarDispositivo(1, 'in_progress')
+    const b = await sembrarDispositivo(2, 'submitted')
 
     // Ambos dispositivos suben su versión, sinVerse entre ellos.
     await forzarFlush(a.page)
@@ -227,13 +229,13 @@ test.describe('caos 3 — edición concurrente', () => {
     await esperarColaVacia(b.page, { timeout: 90_000, permitirFallidas: true })
 
     /* LWW: gana la versión con mayor `captured_at`/`client_version` — la del
-     * dispositivo B (`reviewed`, client_version 2). */
+     * dispositivo B (`submitted`, client_version 2). */
     const filas = await db.filas<{ status: string; client_version: number }>(
       'SELECT status, client_version FROM inspection WHERE id = $1',
       [inspId],
     )
     expect(filas).toHaveLength(1)
-    expect(filas[0].status).toBe('reviewed')
+    expect(filas[0].status).toBe('submitted')
     expect(filas[0].client_version).toBe(2)
 
     /* Y el conflicto queda AUDITADO con las dos versiones: el trabajo del
@@ -247,8 +249,8 @@ test.describe('caos 3 — edición concurrente', () => {
     ])
     expect(conflictos).toHaveLength(1)
     expect(conflictos[0].resolution).toBe('lww')
-    expect(conflictos[0].winner_payload.status).toBe('reviewed')
-    expect(conflictos[0].loser_payload.status).toBe('submitted')
+    expect(conflictos[0].winner_payload.status).toBe('submitted')
+    expect(conflictos[0].loser_payload.status).toBe('in_progress')
 
     await a.ctx.close()
     await b.ctx.close()

@@ -3,7 +3,7 @@
 | | |
 | :--- | :--- |
 | **Estado** | COMPLETO (ciclo del módulo, F2 · 2026-10-13) |
-| **Versión** | 0.3.1 |
+| **Versión** | 0.4.0 |
 | **Autor** | Daniel Ávila |
 | **Padre** | specs/000-master/spec.md |
 | **Depende de** | 001 (roles/tenant), 003 (ingesta idempotente) |
@@ -28,6 +28,13 @@ Requisitos que este spec detalla: **FR-030 → FR-039** y las entidades de domin
 > El dominio **se escribe por el motor de sincronización** (spec 003) y **se lee por el dashboard** (spec 005): no hay un CRUD de inspecciones aparte. El único CRUD propio es el de plantillas (`tenant_admin`).
 
 ## 2. Estado de implementación
+
+> **Actualización v1 (2026-11-11, TSK-DOM-005).**
+> - **FR-031 ✅:** `PATCH /api/v1/inspections/:id/review` (supervisor / tenant_admin) pasa una inspección `submitted` a `reviewed` y lo audita (`inspection_reviewed`); el estado ya no puede declararse desde la cola de un trabajador. UI: "Marcar como revisada" en el detalle del dashboard.
+> - **FR-032 ✅:** `PATCH /api/v1/findings/:id` con `status ∈ {open, in_progress, resolved}`, auditado (`finding_status_changed`). UI: selector de estado en cada hallazgo del dashboard.
+> - **Conflictos:** `PATCH /api/v1/conflicts/:id/review` guarda `reviewed_at` / `reviewed_by` (migración 014); ambas versiones siguen inmutables.
+> - **FR-038 (corrección de texto):** la inspección congela `template_id + template_version` (data-model v1.1.3), no un `template_revision_id`; en el dispositivo se guarda además `templateRevisionId` para resolver la revisión exacta.
+> Pruebas: `backend/test/supervision.spec.ts`.
 
 Verificado sobre `main` al 2026-10-13.
 

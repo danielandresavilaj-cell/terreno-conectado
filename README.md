@@ -26,7 +26,7 @@ Proyecto Capstone (PTY4614) — Duoc UC, Ingeniería en Informática, Sede Alame
 | Sincronización | Cola propia + ingesta idempotente por lotes | el corazón del proyecto, no se delega a un BaaS |
 | Fotos | Compresión en cliente (canvas) + volumen Docker | $0; evolución a S3 documentada |
 | Infra demo | 1 VPS + Docker Compose + Caddy | TLS automático, ~US$5/mes |
-| CI/CD | GitHub Actions | 3 jobs en cada push y PR (`.github/workflows/ci.yml`): lint + typecheck + build + check de PWA, tests de integración con Testcontainers, y escaneo de secretos (gitleaks). Deploy pendiente |
+| CI/CD | GitHub Actions | 3 jobs en cada push y PR (`.github/workflows/ci.yml`): lint + typecheck + build + check de PWA, tests de integración con Testcontainers, y escaneo de secretos (gitleaks). Despliegue manual a Oracle Always Free (`deploy.yml` + `infra/tools/ops.mjs`) |
 | Tests | Vitest + Testcontainers | e2e con supertest contra NestJS + PostgreSQL 16 real: RLS, auth, sync, conflictos, dashboard y `/health` |
 
 Evaluación completa y alternativas descartadas con criterios: [research.md](research.md) · Decisiones firmadas: [adr/](adr/)
@@ -96,7 +96,7 @@ terreno-conectado/
 ├── frontend/             ← PWA React 18 + Vite instalable; captura offline persistida en Dexie + worker de cola
 ├── backend/              ← API NestJS: auth JWT, sync idempotente + LWW, conflictos, dashboard y /health
 ├── shared/               ← Tipos y contratos compartidos entre frontend y backend (ADR-001)
-├── infra/                ← Docker Compose (PostgreSQL 16 + RLS local); Caddy y deploy pendientes
+├── infra/                ← Docker Compose local y de producción, Caddy, respaldos y operación (`infra/OPERACION.md`)
 └── .github/workflows/    ← CI: 3 jobs - lint+typecheck+build, tests de integración (Testcontainers), gitleaks
 ```
 
@@ -108,6 +108,25 @@ terreno-conectado/
 - Spec congelado solo se modifica vía enmienda numerada (PR).
 - Infra real solo después del ADR correspondiente entendido y firmado por el equipo.
 - Trazabilidad: cada task referencia un ID de requisito (FR/NFR) y cada commit referencia su task.
+
+## Estado v1 (2026-11-11)
+
+La v1 es un **producto con cuentas reales**, sin modo demo (Enmienda 003 del spec maestro):
+
+- **Sesión**: login con correo y clave; la sesión sobrevive a que Android cierre la PWA (refresh con
+  cookie `httponly`) y, sin señal, se entra con la identidad cacheada para seguir capturando. Si la
+  sesión expira con registros pendientes, la cola queda en pausa — no se pierde nada — hasta volver
+  a ingresar. "Mi cuenta" permite cambiar la clave y cerrar sesión.
+- **Cuentas**: el administrador de plataforma crea cada empresa y su administrador (pantalla
+  **Empresas**); el administrador de la empresa crea las cuentas de su equipo y sus faenas (pantalla
+  **Equipo**). Toda cuenta nace con **clave temporal** que el usuario cambia en su primer ingreso.
+  El primer administrador de plataforma se crea en el servidor con `bootstrap-admin`
+  ([`infra/OPERACION.md`](infra/OPERACION.md)).
+- **Supervisión**: marcar inspecciones como revisadas, mover hallazgos (abierto → en curso →
+  resuelto) y revisar conflictos, todo persistente y auditado.
+- **Pruebas**: 463 automatizadas — 224 de integración backend, 138 unitarias frontend, 78 shared y
+  23 E2E/caos ([`test-plan.md`](test-plan.md)).
+- **Producción**: https://terreno-conectado-demo.duckdns.org (Oracle Always Free, US$0/mes).
 
 ## Cómo ejecutar localmente
 
@@ -122,7 +141,7 @@ terreno-conectado/
 > render data-driven, plantillas versionadas inmutables con catálogo Zod en `shared/`, respuesta
 > híbrida (`value_json` + `ATTACHMENT`), importador `.xlsx` con wizard de revisión humana,
 > asignación por faena/rol, delta sync con caché offline y **export rellenado + hoja Evidencias**
-> (dispositivo, dashboard y lote). Pendiente: **TSK-FORM-011** (pruebas, issue #44) y **V2** (#45).
+> (dispositivo, dashboard y lote). **TSK-FORM-011** cerrado (caos 8–11 en `backend/test/templates-caos-007.spec.ts`); OCR/IA queda en **V2** (#45, Enmienda 003).
 
 ### Frontend — funciona hoy
 
@@ -149,7 +168,7 @@ devuelve la identidad del tenant; si no hay red, la sesión se restaura desde la
 
 ### Gestión / Dashboard (TSK-WS-011)
 
-`supervisor@minera.cl` / `supervisor@andes.cl` (password `TcDemo2026!`) abren
+Con el seed de desarrollo, `supervisor@minera.cl` / `supervisor@andes.cl` (clave = `DEMO_PASSWORD` de tu `.env`) abren
 [http://localhost:5173](http://localhost:5173) en una vista de **Gerencia** con datos reales del
 tenant: métricas de inspecciones por estado, hallazgos por severidad, **latencia media/p95
 captura→disponibilidad** (FR-040, el dashboard consulta `synced_at − captured_at`), highlight de
@@ -197,9 +216,8 @@ npm run db:seed    --workspace @terreno/backend     # tenants A y B + faenas (FR
 npm test                                            # unit + integración (todos los workspaces)
 ```
 
-`npm test` necesita las dos variables de las cuentas demo (`DEMO_PASSWORD` para el seed del backend y
-`VITE_DEMO_PASSWORD` para el del frontend, que importan `seed.ts` al cargar); nunca están
-hardcodeadas en el fuente. Van en tu `.env` local (ver `.env.example`) y el runner de tests del
+`npm test` necesita `DEMO_PASSWORD`: la clave de las cuentas que siembra `backend/db/seed.ts` (sólo
+desarrollo y pruebas; producción no usa seed). Nunca está hardcodeada en el fuente. Van en tu `.env` local (ver `.env.example`) y el runner de tests del
 backend lo carga solo, así que basta con `npm test`. Para sobreescribirlas en un comando,
 `npx cross-env DEMO_PASSWORD=… npm test` funciona igual en macOS, Linux y Windows. Guía por
 plataforma: [`CONTRIBUTING.md`](CONTRIBUTING.md) §9.
@@ -212,7 +230,7 @@ los flujos en **perfil móvil**, incluidos los siete escenarios de caos de `test
 (corte de red, replay, LWW concurrente, reinicio hostil, cola masiva, token vencido, cross-tenant).
 
 ```bash
-# Opción A (recomendada): define DEMO_PASSWORD, JWT_ACCESS_SECRET y VITE_DEMO_PASSWORD
+# Opción A (recomendada): define DEMO_PASSWORD y JWT_ACCESS_SECRET
 # en tu `.env` local (cópialo de `.env.example`). El harness lo carga solo.
 # El E2E usa backend :3310; la URL de API se incrusta al compilar, no al arrancar
 # vite preview. Construye shared/backend y luego el frontend con la URL correcta:
@@ -224,7 +242,7 @@ npm run e2e -- --grep "caos 7"      # un solo escenario
 
 # Opción B: sin `.env`, pásalas en el comando (cross-platform con cross-env)
 npx cross-env DEMO_PASSWORD=… JWT_ACCESS_SECRET=… \
-  VITE_DEMO_PASSWORD=… VITE_API_URL=http://127.0.0.1:3310/api/v1 npm run build
+  VITE_API_URL=http://127.0.0.1:3310/api/v1 npm run build
 npm run e2e
 ```
 
@@ -237,7 +255,8 @@ CI de cada push. Resultados y hallazgos: [`docs/informe-pruebas-validacion.md`](
 
 ### Auth (TSK-WS-003)
 
-Endpoints (`POST /api/v1/auth/login`, `POST /api/v1/auth/refresh`, `GET /api/v1/me`): JWT HS256 de
+Endpoints (`POST /api/v1/auth/login`, `POST /api/v1/auth/refresh`, `POST /api/v1/auth/logout`,
+`POST /api/v1/auth/password`, `GET /api/v1/me`): JWT HS256 de
 15 min con claims `user_id/tenant_id/rol`, refresh token de 30 días en cookie `httponly` con
 rotación y detección de reuso (decisión D5), CSRF double-submit, y bloqueo tras 5 credenciales
 fallidas (423 por 15 min). El acceso a datos usa el rol `tc_app` + `SET LOCAL app.tenant_id`
@@ -257,7 +276,8 @@ gana (sin huérfanos). El supervisor/admin consulta los conflictos sin resolver 
 `GET /api/v1/conflicts` (paginated, `limit` 1–100, default 20). El **worker** del cliente (TSK-WS-008)
 dispara el flush solo al reconectar, con concurrencia 1 y backoff 1 s→5 min (FR-022).
 
-**Usuarios demo** (seed, password `TcDemo2026!`):
+**Cuentas de desarrollo** (sólo `backend/db/seed.ts` en local, tests y E2E; clave = `DEMO_PASSWORD`;
+nunca existen en producción):
 
 | Tenant | Rol | Email |
 | :--- | :--- | :--- |
@@ -356,55 +376,20 @@ delta sync y caché (#42), export en dispositivo, servidor y lote (#43).
 | PostgreSQL 16 | localhost:5432 | funciona (Docker Compose) |
 | Health check | http://localhost:3000/health | funciona (TSK-WS-012: 200 `db:up` / 503 `db:down`) |
 
-## Despliegue (demo Fase 3)
+## Despliegue (producción v1)
 
-**Actualización 2026-10-16:** la demo pública está operativa en
-https://terreno-conectado-demo.duckdns.org/. Corre en Oracle Always Free, conserva Docker
-Compose y same-origin, y tiene imágenes ARM por SHA, copia selectiva sin respuestas previas y
-backups cifrados de base de datos y adjuntos. Ver la [guía Oracle/DuckDNS](infra/ORACLE-FREE.md)
-y la adenda 1 del ADR-002.
+La v1 corre en **Oracle Always Free** (VM ARM) con Docker Compose y topología same-origin:
+Caddy (TLS automático) enruta `/` → frontend (nginx) y `/api/*` + `/health` → backend; PostgreSQL
+queda en la red interna. Imágenes por SHA publicadas en GHCR, respaldos cifrados (`age`) de base de
+datos y fotos fuera de la VM (Object Storage) y restauración probada.
 
-> **Estado:** el provisionamiento, TLS, importación selectiva, reinicio y restauración aislada
-> ya fueron verificados. La aprobación cruzada del PR #160 y pruebas manuales de dispositivo
-> (carga pública de Excel, foto offline y PWA instalada) siguen pendientes.
-
-La documentación de Hetzner que sigue es **histórica**: describe el diseño anterior y no es el
-procedimiento de operación de la demo publicada.
-
-Topología **same-origin** en **1 VPS (Hetzner CAX11)** con Docker Compose + Caddy (TLS automático
-Let's Encrypt): Caddy expone 80/443 y enruta `/` → frontend (nginx estático) y `/api/*` + `/health`
-→ backend NestJS; PostgreSQL 16 y demás servicios quedan en la red interna.
-
-| Archivo | Qué es |
+| Qué | Dónde |
 | :--- | :--- |
-| `backend/Dockerfile` | Imagen del backend. Stages `runtime` (API) y `build` (herramientas: migraciones/seed). Contexto = raíz del monorepo. |
-| `infra/frontend.Dockerfile` + `infra/nginx.conf` | PWA construida y servida por nginx. `VITE_API_URL`/`VITE_DEMO_PASSWORD` son `--build-arg` (Vite los incrusta en el build). |
-| `infra/docker-compose.prod.yml` | Servicios `caddy`, `frontend`, `backend`, `db` + perfil `tools` (`migrate`/`seed`). |
-| `infra/Caddyfile` | Borde: TLS + same-origin. |
-| `infra/.env.prod.example` | Plantilla del `.env` del VPS. |
-| `infra/backup/pg_dump.sh` | Backup nocturno (`pg_dump`) con retención local (cron del VPS). |
-| `.github/workflows/deploy.yml` | Construye y publica las 3 imágenes en GHCR y despliega por SSH. Solo `workflow_dispatch`. |
-
-### Puesta en marcha (cuando llegue el HITO 2)
-
-1. **VPS**: crear el CAX11, instalar Docker + Compose, usuario no-root con `sudo`.
-2. **Secrets de GitHub** (Settings → Secrets and variables → Actions): `VPS_HOST`, `VPS_USER`,
-   `VPS_SSH_KEY`, `GHCR_USERNAME`, `GHCR_READ_TOKEN` (PAT con `read:packages` para que el VPS
-   pueda descargar las imágenes privadas) y `VITE_DEMO_PASSWORD`.
-3. **`.env` del VPS**: crear `/opt/terreno/infra/.env` a partir de `infra/.env.prod.example`
-   (`DOMAIN`, passwords reales y `JWT_ACCESS_SECRET` generado con `openssl rand -base64 48`).
-   Las `IMAGE_*` ya vienen con el nombre que publica el workflow
-   (`ghcr.io/danielandresavilaj-cell/terreno-conectado-{backend,frontend,backend-tools}`); no cambiarlas.
-4. **Desplegar**: Actions → *Deploy (demo Fase 3)* → *Run workflow* (construye, publica y luego
-   `docker compose pull` + `migrate` + `up -d` en el VPS).
-5. **Semilla** (una sola vez): `docker compose -f docker-compose.prod.yml --profile tools run --rm seed`.
-6. **DNS**: apunte `A` del dominio → IP del VPS; Caddy emite el certificado automáticamente.
-7. **Backup**: `crontab -e` en el VPS →
-   `0 3 * * * /opt/terreno/infra/backup/pg_dump.sh >> /var/log/terreno-backup.log 2>&1`,
-   y configurar la **copia fuera del VPS** (obligatoria, ADR-002).
-
-> **Ventanilla serial:** este andarivel no toca `package.json`/lockfile; las imágenes se construyen en
-> CI desde el lockfile de `main`.
+| Operación diaria: desplegar, respaldar, restaurar, crear el primer admin | [`infra/OPERACION.md`](infra/OPERACION.md) |
+| Provisionar la VM de Oracle y DuckDNS desde cero | [`infra/ORACLE-FREE.md`](infra/ORACLE-FREE.md) |
+| Decisión y costos | [`adr/002-arquitectura-despliegue.md`](adr/002-arquitectura-despliegue.md) (adenda 1) |
+| Compose de producción | `infra/docker-compose.prod.yml` (perfil `tools`: `migrate`, `bootstrap-admin`, `sync-files`) |
+| Workflow | `.github/workflows/deploy.yml` (manual) y `demo-health.yml` (monitor) |
 
 ## Enlaces del proyecto
 

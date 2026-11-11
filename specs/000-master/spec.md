@@ -3,8 +3,8 @@
 | | |
 | :--- | :--- |
 | **ID** | 000-master |
-| **Versión** | 1.1.1 · Enmienda 002 (formularios dinámicos, 2026-10-07) + nota de implementación FR-027 |
-| **Estado** | APROBADO — Raúl González (2026-09-24) y Daniel Ávila (2026-10-13) · Enmienda 002 aprobada en `main` |
+| **Versión** | 1.2.0 · Enmienda 003 (v1 como producto: cuentas reales, sin modo demo, 2026-11-11) |
+| **Estado** | APROBADO — Raúl González (2026-09-24) y Daniel Ávila (2026-10-13) · Enmienda 002 aprobada en `main` · Enmienda 003 firmada por Daniel Ávila (2026-11-11), pendiente ratificación de Raúl González |
 | **Autores** | Daniel Ávila (datos/negocio) · Raúl González (infra/plataforma) |
 | **Fuente** | Informe de Definición APT, Fase 1 (2026-09-04) |
 | **Specs derivados** | 001-auth-tenancy · 002-captura-offline · 003-motor-sincronizacion · 004-dominio-inspecciones · 005-reportes-gerencia · 006-admin-plataforma · 007-formularios-dinamicos |
@@ -146,6 +146,9 @@ Convención EARS en español: ubicuo (`EL SISTEMA DEBERÁ…`), evento (`CUANDO�
 - **FR-050** EL SISTEMA DEBERÁ permitir al `platform_admin` crear tenants, asignarles `tenant_admin` inicial y habilitar/deshabilitar el tenant.
 - **FR-051** EL SISTEMA DEBERÁ registrar en un audit log inmutable (append-only) las operaciones críticas: creación de tenant, cambios de rol, conflictos de sync, intentos cross-tenant.
 - **FR-052** EL SISTEMA DEBERÁ exponer un endpoint `/health` (uptime, versión, estado de DB) consumible por el monitoreo (QA).
+- **FR-053** *(Enmienda 003)* EL SISTEMA DEBERÁ permitir al `tenant_admin` crear las cuentas de su empresa (`field_worker`, `supervisor`, `tenant_admin`) con una clave temporal, cambiar su rol, desactivarlas/reactivarlas y restablecer su clave; nunca puede desactivarse a sí mismo ni dejar la empresa sin administrador activo. Cada cambio queda en el audit log.
+- **FR-054** *(Enmienda 003)* EL SISTEMA DEBERÁ permitir al `tenant_admin` crear y renombrar las faenas de su empresa.
+- **FR-055** *(Enmienda 003)* CUANDO un usuario ingresa con clave temporal, EL SISTEMA DEBERÁ exigirle reemplazarla antes de cualquier otra acción; todo usuario DEBERÁ poder cambiar su clave y cerrar sesión, revocando la sesión en el servidor.
 
 ## 6. Requisitos no funcionales
 
@@ -211,9 +214,21 @@ Fuera de alcance explícito — cualquier inclusión requiere enmienda a este sp
 - OCR/docx/PDF de formularios de papel y analítica con IA — **V2 opcional** tras feature flag `ai` (off por defecto, ejecución solo en backend; ver FR-048 y ADR-003).
 - Integración con ERPs mineros reales.
 - Despliegue productivo multi-región, alta disponibilidad, backups gestionados (se documentan como diseño "real" en ADRs, no se pagan).
-- Más de 2 tenants demo.
+- Alta self-service de empresas, invitaciones y recuperación de clave por correo (V1 usa clave temporal entregada por un administrador; FR-053/055).
+- Modo demo o cuentas compartidas en el producto: las cuentas semilla existen sólo para desarrollo y pruebas (Enmienda 003).
 
 > **Enmienda 002 (2026-10-07, módulo 007):** incorpora a V1 la **importación asistida de plantillas** desde `.xlsx` estructurado con **revisión humana obligatoria** y la **exportación del documento rellenado** (FR-007–009, 018–019, 027–029, 036–039, 044–049; spec `007-formularios-dinamicos`). El OCR/IA queda en V2 opcional (bala anterior).
+
+> **Enmienda 003 (2026-11-11, v1 como producto entregable).** Cierra la v1 con lo construido más lo mínimo para operar con clientes reales:
+>
+> - **Entra a V1:** FR-053 (cuentas de la empresa por su `tenant_admin`), FR-054 (faenas) y FR-055 (clave temporal con cambio obligatorio, cambio de clave y cierre de sesión con revocación). El primer `platform_admin` se crea con un comando interactivo en el servidor (`infra/tools/bootstrap-admin.mjs`).
+> - **Sale el modo demo:** sin cuentas ni clave compartida en la app, sin interruptor de señal simulado ni limpieza de datos de prueba. El estado de señal es el de la red real.
+> - **Aclaraciones de alcance (lo construido, sin recortar calidad — Art. X):**
+>   - **FR-012:** se elimina el feature flag `photos`; la captura fotográfica está siempre disponible.
+>   - **FR-029:** el import de plantillas es una acción **en línea** del `tenant_admin` (no viaja por la cola offline ni usa UUIDv7 de cliente); su idempotencia práctica es la revisión humana antes de confirmar. Reintentar una subida crea una propuesta nueva que no publica nada por sí sola.
+>   - **FR-040:** "pendientes de sincronización conocidos" se reemplaza por **conflictos sin revisar** (el servidor no conoce la cola de cada dispositivo; la cola se ve en cada equipo).
+>   - **FR-042:** la exportación es **XLSX** (documento rellenado, individual y por lote) más **CSV de hallazgos**; el CSV de inspecciones no se implementa.
+>   - **FR-048:** queda en **V2** junto al OCR/IA (bala anterior); no hay flag `ai` en V1.
 
 ## 11. Supuestos y restricciones
 
@@ -226,11 +241,11 @@ Fuera de alcance explícito — cualquier inclusión requiere enmienda a este sp
 
 | Evidencia APT (informe §6) | Tipo | Artefacto en este repo |
 | :--- | :--- | :--- |
-| Informe de Definición del Proyecto APT | Avance | `~/Downloads/informe-capstone.md` (input, Fase 1 cerrada) |
+| Informe de Definición del Proyecto APT | Avance | `Fase 1/Evidencias Grupales/Informe_Definicion_Proyecto_APT_Fase1.docx` (Fase 1 cerrada) |
 | Modelo conceptual de datos preliminar | Avance | `data-model.md` |
 | Boceto del flujo de captura y sincronización | Avance | §3.1 de este spec (mermaid) + `specs/003-motor-sincronizacion/` |
 | Plan de pruebas de validación | Avance | `test-plan.md` |
-| Prototipo o maqueta demostrativa | Final | `frontend/` + `backend/` + demo desplegada (ADR-002) + guion de demo (§9) |
+| Prototipo o maqueta demostrativa | Final | `frontend/` + `backend/` + v1 desplegada en https://terreno-conectado-demo.duckdns.org (ADR-002, `infra/OPERACION.md`) + guion de demo (§9) |
 | Informe final y presentación de resultados | Final | `docs-evidencia/informe-final/informe.md` + `docs-evidencia/informe-final/presentacion.md` (Fase 3; consolida specs, resultados de test-plan y ADRs) |
 | Plan de trabajo / Carta Gantt | Transversal | Intactos en el informe APT §7–8; el avance SDD se evidencia en `tasks/` e historial git |
 
@@ -270,6 +285,7 @@ La demo se considera exitosa si, en vivo ante el docente:
 | 1.0.1 | 2026-09-23 | Título: "Decisiones en Tiempo Real" → "Datos al día donde no hay señal" (Opción A — alinear la promesa con la realidad offline-first) | Raúl González (con IA) |
 | 1.0.1 | 2026-09-24 | Firmado por Raúl González; pendiente firma de Daniel Ávila | Raúl González (con IA) |
 | 1.0.1 | 2026-10-06 | Firmado por Daniel Ávila — firma delegada con autorización explícita del titular, registrada por el agente del equipo | Daniel Ávila |
+| 1.2.0 | 2026-11-11 | **Enmienda 003** — v1 como producto: FR-053/054/055 (cuentas y faenas por empresa, clave temporal), fuera el modo demo; aclaraciones de alcance de FR-012, 029, 040, 042 y 048 (§10); §12 apunta al informe Fase 1 versionado y a la URL de la v1. Pendiente ratificación de Raúl González | Daniel Ávila (con IA) |
 | 1.1.1 | 2026-10-10 | **Nota de implementación bajo FR-027** (no es Enmienda): documenta que el cursor del delta es `published_seq` (secuencia global de publicación) y no `version`, que es por plantilla. El texto y la numeración de los FR quedan intactos; la nota queda en el punto donde el requisito se lee, para que nadie reintroduzca el defecto. Detalle en `data-model.md` v1.1.2 y `adr/003` Enmienda 2 | Daniel Ávila |
 | 1.1.0 | 2026-10-07 | **Enmienda 002** — módulo 007 formularios dinámicos: §4 nueva fila 007; §5 18 FR nuevos en bloques reservados (007–009, 018–019, 027–029, 036–039, 044–049) sin renumerar; §10 importación asistida de `.xlsx` pasa a V1 y OCR/IA quedan en V2 opcional | Raúl González / Daniel Ávila (PR AMD-002) |
 | 1.0.1 | 2026-10-13 | Daniel Ávila **ratifica personalmente** su firma (reemplaza la firma delegada del 2026-10-06) y se actualiza el Estado (Enmienda 002 aprobada en `main`); sin cambio de contenido | Daniel Ávila |

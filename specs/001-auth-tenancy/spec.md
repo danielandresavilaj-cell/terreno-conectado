@@ -3,7 +3,7 @@
 | | |
 | :--- | :--- |
 | **Estado** | COMPLETO (ciclo del módulo, F2 · 2026-10-14) |
-| **Versión** | 1.0.1 |
+| **Versión** | 1.1.0 |
 | **Autor** | Raúl González |
 | **Padre** | specs/000-master/spec.md |
 | **Depende de** | — (primer módulo: todo lo demás lo consume) |
@@ -26,7 +26,16 @@ Requisitos que este spec detalla: **FR-001 → FR-006** y soporte a **NFR-05, NF
 
 ## 2. Estado de implementación
 
-Verificado sobre `main` al 2026-10-14. Todo el módulo está **implementado y probado**; este spec lo documenta de forma retroactiva (el código precede al spec, ver `plans/f2-paralelo/plan.md` §1).
+> **Actualización v1 (2026-11-11, Enmienda 003 — TSK-AUTH-010).** La sesión queda completa:
+> - **FR-004 refresh real en el cliente:** el access token vive sólo en memoria (D5) y la PWA lo renueva con la cookie `rt` + header `x-csrf-token` (la cookie `csrf` pasa a `path=/` para que la PWA la lea). Un 401 renueva y reintenta una vez; sin red no se cierra la sesión y se entra con la identidad cacheada. Cierra TSK-AUTH-006.
+> - **`POST /auth/logout`** revoca la familia del refresh token (exige CSRF cuando hay cookie).
+> - **`POST /auth/password`** (FR-055): cambio de clave propia (mínimo 10 caracteres, distinta de la actual); revoca todas las sesiones y abre una nueva en el dispositivo.
+> - **Clave temporal** (`app_user.must_change_password`, claim `mcp`): mientras esté activa el `AuthGuard` sólo permite `/me`, `/auth/password` y `/auth/logout` (403 `password_change_required`).
+> - El refresh deja de renovar si la empresa está suspendida.
+> - "Resolver conflicto" de la matriz §3 se implementa como **revisión** del conflicto (`PATCH /conflicts/:id/review`, spec 004/TSK-DOM-005): LWW ya resolvió; la supervisión registra que lo revisó.
+> Pruebas: `backend/test/auth-password.spec.ts`, `frontend/test/sesion-refresh.test.ts`, `frontend/test/cola-dueno.test.ts`.
+
+Verificado sobre `main` al 2026-10-14. Todo el módulo está **implementado y probado**; este spec lo documenta de forma retroactiva (el código precede al spec, ver `plans/archivo/f2-paralelo/plan.md` §1).
 
 | Requisito | Estado | Evidencia |
 | :--- | :--- | :--- |
