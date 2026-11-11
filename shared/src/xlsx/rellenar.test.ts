@@ -93,14 +93,6 @@ function libroDeDosItems(): ExcelJS.Workbook {
   return wb
 }
 
-/** Libro de una sola hoja con un único ítem, para forzar un desajuste de ítems. */
-function libroDeUnItem(): ExcelJS.Workbook {
-  const wb = new ExcelJS.Workbook()
-  const ws = wb.addWorksheet('Inspección Diaria')
-  ws.getCell('A2').value = 'Responsable (texto)'
-  ws.getCell('A3').value = 'Muestra'
-  return wb
-}
 
 /** Libro de dos hojas: el emparejamiento posicional debe rechazarlo. */
 function libroDeDosHojas(): ExcelJS.Workbook {
@@ -163,37 +155,49 @@ describe('emparejarItemsConOrigen — mapeo ítem → celda', () => {
     })
   })
 
-  it('falla con el conteo de hojas si el libro tiene más secciones que la plantilla', async () => {
-    const una = await escenario(await aBuffer(libroDeDosItems()))
-    const dos = await escenario(await aBuffer(libroDeDosHojas()))
-    const res = emparejarItemsConOrigen(una.definition, dos.propuesta)
-    expect(res.ok).toBe(false)
-    if (res.ok) return
-    expect(res.error).toMatch(/1 sección\(es\)/)
-    expect(res.error).toMatch(/2 hoja\(s\)/)
-    expect(res.error).toMatch(/no corresponde a esta plantilla/i)
+  it('con origen guardado, borrar y reordenar ítems no rompe el mapeo (TSK-FORM-019)', async () => {
+    const { propuesta, definition } = await escenario(await aBuffer(libroDeDosItems()))
+    const [responsable, cantidad] = definition.sections[0].items
+    // Se borra "Responsable" y se deja sólo "Cantidad": el conteo ya no cuadra.
+    const editada = { sections: [{ ...definition.sections[0], items: [cantidad] }] }
+    const res = emparejarItemsConOrigen(editada, propuesta)
+    expect(res.ok).toBe(true)
+    if (!res.ok) return
+    expect(res.destinos.get(cantidad.id)).toMatchObject({ column: 'B', firstDataRow: 3 })
+    expect(res.destinos.has(responsable.id)).toBe(false)
   })
 
-  it('falla nombrando la sección si el conteo de ítems no cuadra', async () => {
-    const dos = await escenario(await aBuffer(libroDeDosItems()))
-    const uno = await escenario(await aBuffer(libroDeUnItem()))
-    const res = emparejarItemsConOrigen(dos.definition, uno.propuesta)
-    expect(res.ok).toBe(false)
-    if (res.ok) return
-    expect(res.error).toContain('Inspección Diaria')
-    expect(res.error).toMatch(/2 ítem\(s\) en la plantilla y 1 en el libro original/)
+  it('plantilla previa sin origen y con ítems borrados: empareja por encabezado único', async () => {
+    const { propuesta, definition } = await escenario(await aBuffer(libroDeDosItems()))
+    const sinOrigen = definition.sections[0].items.map(({ origen: _o, ...resto }) => resto)
+    const editada = { sections: [{ ...definition.sections[0], items: [sinOrigen[1]] }] }
+    const res = emparejarItemsConOrigen(editada, propuesta)
+    expect(res.ok).toBe(true)
+    if (!res.ok) return
+    expect(res.destinos.get(sinOrigen[1].id)).toMatchObject({ column: 'B' })
   })
 
-  it('rellenarOriginal propaga el mismo error sin tocar el libro original', async () => {
+  it('nunca adivina: un encabezado repetido queda sin celda', async () => {
+    const wb = new ExcelJS.Workbook()
+    const ws = wb.addWorksheet('Inspección Diaria')
+    ws.getCell('A2').value = 'Observación'
+    ws.getCell('B2').value = 'Observación'
+    ws.getCell('C2').value = 'Total'
+    const { propuesta, definition } = await escenario(await aBuffer(wb))
+    const sinOrigen = definition.sections[0].items.map(({ origen: _o, ...resto }) => resto)
+    const editada = { sections: [{ ...definition.sections[0], items: [sinOrigen[0], sinOrigen[2]] }] }
+    const res = emparejarItemsConOrigen(editada, propuesta)
+    expect(res.ok).toBe(true)
+    if (!res.ok) return
+    expect(res.destinos.has(sinOrigen[0].id)).toBe(false)
+    expect(res.destinos.get(sinOrigen[2].id)).toMatchObject({ column: 'C' })
+  })
+
+  it('rechaza un libro que no tiene ningún ítem en común con la plantilla', async () => {
     const { original, definition } = await escenario(await aBuffer(libroDeDosItems()))
     const otra = await escenario(await aBuffer(libroDeDosHojas()))
-    const res = await rellenarOriginal({
-      original,
-      definition,
-      propuesta: otra.propuesta,
-      respuestas: [],
-      evidencias: [],
-    })
+    const sinOrigen = { sections: definition.sections.map((s) => ({ ...s, items: s.items.map(({ origen: _o, ...r }) => r) })) }
+    const res = await rellenarOriginal({ original, definition: sinOrigen, propuesta: otra.propuesta, respuestas: [], evidencias: [] })
     expect(res.ok).toBe(false)
     if (res.ok) return
     expect(res.error).toMatch(/no corresponde a esta plantilla/i)

@@ -48,6 +48,17 @@ export interface TemplateItem {
   require_finding_on_nok?: boolean
   props?: FieldProps
   help?: string
+  /** TSK-FORM-019: celda del libro original de donde salió el ítem (import
+   *  `.xlsx`). Permite exportar aunque se borren, reordenen o renombren ítems. */
+  origen?: ItemOrigen
+}
+
+export interface ItemOrigen {
+  sheet: string
+  column: string
+  headerCell: string
+  headerRow: number
+  firstDataRow: number
 }
 
 export interface TemplateSection {
@@ -131,6 +142,15 @@ export const templateItemSchema: z.ZodType<TemplateItem> = z
     require_finding_on_nok: z.boolean().optional(),
     props: z.record(z.string(), z.unknown()).optional(),
     help: z.string().optional(),
+    origen: z
+      .object({
+        sheet: z.string().min(1),
+        column: z.string().regex(/^[A-Z]{1,3}$/),
+        headerCell: z.string().min(2),
+        headerRow: z.number().int().positive(),
+        firstDataRow: z.number().int().positive(),
+      })
+      .optional(),
   })
   .superRefine((item, ctx) => {
     const parsedProps = FIELD_PROPS_SCHEMA[item.response_type].safeParse(item.props ?? {})

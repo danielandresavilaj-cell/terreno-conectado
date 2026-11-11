@@ -55,6 +55,19 @@ export function propuestaADefinicion(propuesta: TemplateImportProposal): Resulta
         prompt: item.prompt,
         response_type: item.response_type,
         props: item.props,
+        // TSK-FORM-019: la celda de origen viaja con el ítem; así la exportación
+        // no depende del orden ni de cuántos ítems quedan tras editar.
+        ...(item.source
+          ? {
+              origen: {
+                sheet: item.source.sheet,
+                column: item.source.column,
+                headerCell: item.source.headerCell,
+                headerRow: item.source.headerRow,
+                firstDataRow: item.source.firstDataRow,
+              },
+            }
+          : {}),
       }),
     ),
   }))
