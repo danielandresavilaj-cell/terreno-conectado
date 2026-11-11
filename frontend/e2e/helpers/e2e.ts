@@ -159,17 +159,14 @@ export async function limpiarItem(page: Page, templateItemId: string): Promise<n
  * demo) y llama a la misma función de cola, así que no falsea el escenario.
  */
 export async function forzarFlush(page: Page): Promise<void> {
-  const interruptor = page.getByTestId('signal-toggle')
-  await interruptor.scrollIntoViewIfNeeded()
-  if ((await interruptor.getAttribute('aria-checked')) !== 'true') {
-    await interruptor.click()
-    await expect(interruptor).toHaveAttribute('aria-checked', 'true')
-  }
-  await interruptor.click()
-  await expect(interruptor).toHaveAttribute('aria-checked', 'false')
+  /* v1 (TSK-DEMO-001): sin interruptor demo. Un corte y regreso REAL de la red
+   * dispara los eventos `offline`/`online` del navegador, que es exactamente
+   * lo que arranca el worker en terreno (FR-016). */
+  const ctx = page.context()
+  await ctx.setOffline(true)
+  await page.waitForTimeout(300)
+  await ctx.setOffline(false)
   await page.waitForTimeout(400)
-  await interruptor.click()
-  await expect(interruptor).toHaveAttribute('aria-checked', 'true')
 }
 
 /** El campo numérico del ítem, ya a la vista en el viewport móvil. */

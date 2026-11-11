@@ -98,7 +98,7 @@ test.describe('Checklist §1 — ⭐ Humo H-01…H-10 (issue #130)', () => {
       await page.getByRole('button', { name: 'Bitácora', exact: true }).click()
       await expect(page.getByRole('button', { name: 'Nueva entrada' })).toBeVisible()
       await page.getByRole('button', { name: 'Cola', exact: true }).click()
-      await expect(page.getByText('FR-013 · Outbox local')).toBeVisible()
+      await expect(page.getByText('Cola local', { exact: true })).toBeVisible()
       await page.getByRole('button', { name: 'Inspección', exact: true }).click()
       await expect(
         page.getByTestId(`template-item-${ITEMS_FIXTURE_A.barriers}`).getByRole('radiogroup'),
@@ -109,12 +109,9 @@ test.describe('Checklist §1 — ⭐ Humo H-01…H-10 (issue #130)', () => {
     })
 
     await test.step('H-02 · Cortar la señal', async () => {
-      const sw = page.getByTestId('signal-toggle')
-      await sw.scrollIntoViewIfNeeded()
-      if ((await sw.getAttribute('aria-checked')) === 'true') await sw.click()
-      await expect(sw).toHaveAttribute('aria-checked', 'false')
-      await expect(page.getByText('Sin señal', { exact: true }).first()).toBeVisible()
+      // v1: el estado de señal es el de la red real (no hay interruptor demo).
       await context.setOffline(true) // modo avión real del dispositivo
+      await expect(page.getByText('Sin señal', { exact: true }).first()).toBeVisible()
     })
 
     await test.step('H-03 · Capturar con hallazgo', async () => {

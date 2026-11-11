@@ -631,6 +631,15 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
     [arrancarSesión],
   )
 
+  /* Las funciones de sesión cambian de identidad cuando cambian la red o el
+   * usuario; el arranque las lee por ref para correr UNA vez al montar. Si el
+   * efecto dependiera de ellas, cada cambio volvería a hidratar la sesión y
+   * devolvería al trabajador a "Formularios" en medio de una captura. */
+  const arrancarRef = useRef(arrancarSesión)
+  arrancarRef.current = arrancarSesión
+  const completarRef = useRef(completarIngreso)
+  completarRef.current = completarIngreso
+
   /* FR-006 + TSK-AUTH-010: al arrancar se restaura la sesión. El token vive en
    * memoria, así que se pide uno nuevo con la cookie de sesión (refresh). Sin
    * red se entra con la identidad cacheada: la captura offline sigue y la cola
@@ -649,11 +658,11 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
           setHidratando(false)
           return
         }
-        await completarIngreso(p)
+        await completarRef.current(p)
       } catch (err) {
         if (err instanceof ApiError && err.status === 0 && caché) {
           // Sin red: sesión desde la caché (las escrituras offline siguen).
-          if (vivo) await arrancarSesión(caché.perfil, caché.identidad)
+          if (vivo) await arrancarRef.current(caché.perfil, caché.identidad)
           return
         }
         if (err instanceof ApiError && err.status === 403) {
@@ -671,7 +680,7 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
     return () => {
       vivo = false
     }
-  }, [arrancarSesión, completarIngreso])
+  }, [])
 
   useEffect(() => {
     document.title = `Terreno Conectado · ${pendientes} pendientes`

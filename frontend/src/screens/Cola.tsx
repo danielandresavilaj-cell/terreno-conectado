@@ -63,7 +63,7 @@ export function Cola() {
     <div className="space-y-6">
       <header className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <p className="label-inst">Outbox local</p>
+          <p className="label-inst">Cola local</p>
           <h1 className="mt-1.5 text-[26px] sm:text-[30px] font-semibold tracking-[-0.03em] leading-[1.1]">
             Cola de sincronización
           </h1>
