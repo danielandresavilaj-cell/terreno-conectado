@@ -35,6 +35,7 @@ import {
   ApiError,
   actualizarBorrador,
   confirmarImport,
+  getPlantillas,
   publicarRevision,
   subirImportOriginal,
 } from '../lib/api'
@@ -42,7 +43,7 @@ import { useEstado } from '../lib/store'
 import { EASE } from '../lib/motion'
 import { proponerImport, propuestaADefinicion } from '@terreno/shared/xlsx'
 import { FIELD_PROPS_SCHEMA, RESPONSE_TYPES } from '@terreno/shared'
-import type { FieldProps, ResponseType, TemplateRevisionDetailDto } from '@terreno/shared'
+import type { FieldProps, ResponseType, TemplateImport, TemplateRevisionDetailDto } from '@terreno/shared'
 import type { ProposedItem, TemplateImportProposal } from '@terreno/shared/xlsx'
 
 const PASOS = ['Subir', 'Preview', 'Editar', 'Borrador', 'Publicar'] as const
@@ -99,6 +100,17 @@ function resumenProps(item: ProposedItem): string {
   }
 }
 
+/** La propuesta persistida (Zod) no trae los metadatos del preview: se completan vacíos. */
+function desdeServidor(p: NonNullable<TemplateImport['proposed_schema']>): TemplateImportProposal {
+  return {
+    ...p,
+    secciones: p.secciones.map((s) => ({
+      ...s,
+      items: s.items.map((it) => ({ ...it, props: it.props as FieldProps, opcionesConteo: {}, muestra: [], filasConDato: 0 })),
+    })),
+  }
+}
+
 export function Importar() {
   const { ir } = useEstado()
   const reducir = useReducedMotion()
@@ -119,6 +131,10 @@ export function Importar() {
   const [publicando, setPublicando] = useState(false)
   const [errorPublicar, setErrorPublicar] = useState<string | null>(null)
   const [publicado, setPublicado] = useState<TemplateRevisionDetailDto | null>(null)
+  /* TSK-FORM-020: si ya hay un formulario publicado con este nombre, se ofrece
+   * crear el borrador como NUEVA VERSIÓN suya en vez de duplicarlo. */
+  const [publicadas, setPublicadas] = useState<{ template_id: string; name: string; version: number }[]>([])
+  const [comoVersion, setComoVersion] = useState(true)
 
   const secciones = propuesta?.secciones ?? []
   const totalItems = secciones.reduce((acc, s) => acc + s.items.length, 0)
@@ -133,6 +149,8 @@ export function Importar() {
   const errorDe = (pi: number, ii: number) =>
     errores.find((e) => e.pi === pi && e.ii === ii)?.mensaje ?? null
 
+  const normalizar = (t: string) => t.trim().toLowerCase().replace(/\s+/g, ' ')
+  const existente = publicadas.find((t) => normalizar(t.name) === normalizar(nombre)) ?? null
   const nombreValido = nombre.trim().length > 0
   const puedeContinuar = nombreValido && errores.length === 0 && totalItems > 0
 
@@ -141,33 +159,39 @@ export function Importar() {
     setErrorCarga(null)
     setAnalizando(true)
     try {
-      const buf = await file.arrayBuffer()
-      const r = await proponerImport(new Uint8Array(buf), file.name)
-      if (!r.ok) {
-        setPropuesta(null)
-        setImportId(null)
-        setErrorCarga(r.error)
-        return
+      const esXlsx = /\.xlsx$/i.test(file.name)
+      let local: TemplateImportProposal | null = null
+      if (esXlsx) {
+        // El .xlsx se lee también en el dispositivo (mismo código que el servidor).
+        const r = await proponerImport(new Uint8Array(await file.arrayBuffer()), file.name)
+        if (!r.ok) {
+          setPropuesta(null)
+          setImportId(null)
+          setErrorCarga(r.error)
+          return
+        }
+        local = r.propuesta
       }
-      // El parseo es local (determinístico, sin mandar el buffer de ida y
-      // vuelta), pero el ORIGINAL se sube: la revisión que salga de este wizard
-      // tiene que nacer atada a un `template_import`, o el export del documento
-      // fuente (FR-019/044) no tendría nada que descargar. Sin import no hay
-      // cómo crearla importada — si la subida falla, el wizard no avanza.
+      // El ORIGINAL siempre se sube: la revisión nace atada a un `template_import`
+      // (FR-019/044). Word y PDF se leen sólo en el servidor (TSK-FORM-020), para
+      // no cargar pdf.js en el teléfono: su propuesta es la que devuelve la subida.
       const imp = await subirImportOriginal(file)
-      // El parser del servidor es el mismo código que el local, así que no
-      // debería fallar donde el local no falló; si aun así falla, hay que decirlo
-      // AQUÍ y no dejar avanzar: sin import en estado `proposed` el `confirm` del
-      // paso 4 respondería 409 y el mensaje no explicaría nada.
-      if (imp.status === 'failed') {
+      const delServidor = imp.proposed_schema
+      if (imp.status === 'failed' || (!local && !delServidor)) {
         setPropuesta(null)
         setImportId(null)
         setErrorCarga(imp.error ?? 'El servidor no pudo interpretar el archivo.')
         return
       }
+      const prop = local ?? (delServidor ? desdeServidor(delServidor) : null)
+      if (!prop) return
+      void getPlantillas()
+        .then((d) => setPublicadas(d.items))
+        .catch(() => setPublicadas([]))
+      setComoVersion(true)
       setImportId(imp.id)
-      setPropuesta(r.propuesta)
-      setNombre(r.propuesta.nombre_archivo.replace(/\.[^.]+$/, '') || 'Plantilla importada')
+      setPropuesta(prop)
+      setNombre(prop.nombre_archivo.replace(/\.[^.]+$/, '') || 'Plantilla importada')
       setRevision(null)
       setPublicado(null)
       setErrorGuardar(null)
@@ -263,6 +287,7 @@ export function Importar() {
         : await confirmarImport(importId, {
             name: nombre.trim(),
             definition: def.definition,
+            ...(existente && comoVersion ? { template_id: existente.template_id } : {}),
           })
       setRevision(r)
     } catch (err) {
@@ -331,10 +356,11 @@ export function Importar() {
       <header>
         <p className="label-inst">Importación asistida</p>
         <h1 className="mt-1.5 text-[26px] sm:text-[30px] font-semibold tracking-[-0.03em] leading-[1.1]">
-          Importar plantilla desde Excel
+          Importar plantilla
         </h1>
         <p className="mt-1.5 text-[13px] text-ink-2 max-w-[68ch] leading-relaxed">
-          Sube un <span className="text-ink">.xlsx</span> estructurado, revisa la propuesta,
+          Sube un <span className="text-ink">Excel (.xlsx)</span>, <span className="text-ink">Word (.docx)</span> o{' '}
+          <span className="text-ink">PDF</span>, revisa la propuesta,
           corrige lo que haga falta, guarda el borrador y publícalo. La publicación nunca es
           automática: la confirmas tú.
         </p>
@@ -363,7 +389,7 @@ export function Importar() {
                 <input
                   ref={inputRef}
                   type="file"
-                  accept=".xlsx"
+                  accept=".xlsx,.docx,.pdf,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                   className="sr-only"
                   onChange={(e) => {
                     const f = e.target.files?.[0]
@@ -388,12 +414,14 @@ export function Importar() {
                   </svg>
                 </span>
                 <span className="text-[15px] font-medium">
-                  {analizando ? 'Analizando el archivo…' : 'Elige un archivo .xlsx'}
+                  {analizando ? 'Analizando el archivo…' : 'Elige un Excel, Word o PDF'}
                 </span>
                 <span className="text-[12px] text-ink-3 max-w-[48ch] leading-relaxed">
-                  Cada hoja se propone como sección y cada columna con encabezado, como ítem. La
-                  lectura es local y determinística: sin IA. El archivo original se guarda para
-                  poder exportar el documento rellenado después.
+                  Excel: cada hoja es una sección y cada columna con encabezado, un ítem. Word y
+                  PDF: los títulos son secciones; las tablas con columnas Sí/No/N.A., las casillas
+                  ☐ y las líneas «Etiqueta: ____» se vuelven preguntas, y los PDF rellenables
+                  aportan sus campos. Lectura determinística, sin IA. Los PDF escaneados (imagen)
+                  aún no se pueden leer.
                 </span>
               </label>
 
@@ -417,12 +445,22 @@ export function Importar() {
               <div className="flex flex-wrap items-center gap-2">
                 <Chip>{propuesta.resumen.secciones} secciones</Chip>
                 <Chip>{propuesta.resumen.items} ítems</Chip>
-                <Chip>{propuesta.resumen.filasDatos} filas de datos</Chip>
+                <Chip>{(propuesta.formato ?? 'xlsx').toUpperCase()}</Chip>
+                {(propuesta.formato ?? 'xlsx') === 'xlsx' && <Chip>{propuesta.resumen.filasDatos} filas de datos</Chip>}
                 <span className="flex-1" />
                 <Boton tamano="sm" variante="secundaria" onClick={resetear}>
                   Elegir otro archivo
                 </Boton>
               </div>
+
+              {(propuesta.advertencias?.length ?? 0) > 0 && (
+                <div className="panel p-4 space-y-1.5 border-sev-media/35">
+                  <p className="text-[13px] font-medium">Revisa esto antes de seguir</p>
+                  <ul className="list-disc pl-5 space-y-1 text-[12px] text-ink-2 leading-relaxed">
+                    {propuesta.advertencias?.map((a) => <li key={a}>{a}</li>)}
+                  </ul>
+                </div>
+              )}
 
               {secciones.map((s, pi) => (
                 <section key={`sec-${pi}`} className="panel overflow-hidden">
@@ -468,7 +506,7 @@ export function Importar() {
                               {it.muestra.slice(0, 3).join(', ') || '—'}
                             </td>
                             <td className="px-4 py-2.5 num-inst text-ink-3 whitespace-nowrap">
-                              {it.source.headerCell}
+                              {it.source?.headerCell ?? '—'}
                             </td>
                           </tr>
                         ))}
@@ -504,6 +542,21 @@ export function Importar() {
                 {!nombreValido && (
                   <p className="text-[12px] text-sev-alta">El nombre es obligatorio.</p>
                 )}
+                {existente && !revision && (
+                  <label className="flex items-start gap-2 pt-1 text-[12px] text-ink-2 leading-relaxed">
+                    <input
+                      type="checkbox"
+                      checked={comoVersion}
+                      onChange={(e) => setComoVersion(e.target.checked)}
+                      className="mt-0.5"
+                    />
+                    <span>
+                      Ya existe «{existente.name}» (versión {existente.version}). Guardar esto como su{' '}
+                      <span className="text-ink">versión {existente.version + 1}</span> en vez de crear un
+                      formulario duplicado.
+                    </span>
+                  </label>
+                )}
               </div>
 
               {errores.length > 0 && (
@@ -526,7 +579,7 @@ export function Importar() {
                   ) : (
                     s.items.map((it, ii) => (
                       <EditorItem
-                        key={`${it.source.sheet}:${it.source.column}`}
+                        key={it.source ? `${it.source.sheet}:${it.source.column}` : `${pi}:${ii}`}
                         indice={`${pi + 1}.${ii + 1}`}
                         item={it}
                         error={errorDe(pi, ii)}

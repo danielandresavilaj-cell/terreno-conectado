@@ -3,7 +3,7 @@
 | | |
 | :--- | :--- |
 | **ID** | 000-master |
-| **Versión** | 1.3.0 · Enmienda 004 (sin geolocalización; métricas de supervisión, 2026-11-11) |
+| **Versión** | 1.4.0 · Enmienda 005 (importar Word/PDF; exportar consolidado, PDF y Word, 2026-11-11) |
 | **Estado** | APROBADO — Raúl González (2026-09-24) y Daniel Ávila (2026-10-13) · Enmienda 002 aprobada en `main` · Enmienda 003 firmada por Daniel Ávila (2026-11-11), pendiente ratificación de Raúl González |
 | **Autores** | Daniel Ávila (datos/negocio) · Raúl González (infra/plataforma) |
 | **Fuente** | Informe de Definición APT, Fase 1 (2026-09-04) |
@@ -211,7 +211,7 @@ Fuera de alcance explícito — cualquier inclusión requiere enmienda a este sp
 - SSO corporativo (SAML/OIDC con el IdP del cliente).
 - Notificaciones push.
 - Colaboración en tiempo real (edición simultánea con merge fino/CRDT — V1 usa LWW + auditoría).
-- OCR/docx/PDF de formularios de papel y analítica con IA — **V2 opcional** tras feature flag `ai` (off por defecto, ejecución solo en backend; ver FR-048 y ADR-003).
+- OCR de formularios de papel escaneados y analítica con IA — **V2 opcional** *(Enmienda 005: importar Word `.docx` y PDF con texto o rellenable entra en V1.2; sólo el OCR de imágenes queda en V2)* tras feature flag `ai` (off por defecto, ejecución solo en backend; ver FR-048 y ADR-003).
 - Integración con ERPs mineros reales.
 - Despliegue productivo multi-región, alta disponibilidad, backups gestionados (se documentan como diseño "real" en ADRs, no se pagan).
 - Alta self-service de empresas, invitaciones y recuperación de clave por correo (V1 usa clave temporal entregada por un administrador; FR-053/055).
@@ -234,6 +234,12 @@ Fuera de alcance explícito — cualquier inclusión requiere enmienda a este sp
 >
 > - **FR-034:** la **geolocalización** de la captura sale de V1. Se pedía en cada envío sin explicar su uso y ningún reporte la consumía: era fricción y dato personal sin propósito. Se mantiene la asociación de cada captura a una faena u obra. Las columnas `inspection.location_*` quedan en desuso (datos históricos intactos).
 > - **NFR-03:** la meta de ≤ 60 s aplica al **procesamiento** de un lote en el servidor. El tiempo que un dato espera en el dispositivo sin señal se informa aparte ("espera sin señal") y no se mezcla con la latencia (spec 005, TSK-REP-006).
+
+> **Enmienda 005 (2026-11-11, formularios: importar y exportar).**
+>
+> - **FR-029:** el import de plantillas acepta **Excel (`.xlsx`), Word (`.docx`) y PDF** (con texto o rellenable). Word y PDF se leen en el servidor; títulos → secciones, tablas de pauta (Sí/No/N.A., Cumple/No cumple, B/R/M) y casillas → ítems, campos de un PDF rellenable → ítems con su tipo. La revisión humana sigue siendo obligatoria y la propuesta lista sus **advertencias** (lo omitido o supuesto). Un PDF escaneado (imagen) se rechaza con un mensaje claro: el **OCR** sigue en V2. El formato se valida por la firma de los bytes. Un import puede confirmarse como **nueva versión** de una plantilla existente, para no duplicar formularios.
+> - **FR-019/044:** el "original rellenado" existe sólo para plantillas importadas desde `.xlsx` (Word/PDF no tienen celdas que rellenar). Las demás se exportan con los formatos de FR-045.
+> - **FR-045:** la exportación por lote se cumple en su texto literal: **un solo `.xlsx` consolidado** con las inspecciones del filtro o de la selección; además se exportan en **PDF** y **Word**, en un archivo o uno por inspección (TSK-REP-007).
 
 ## 11. Supuestos y restricciones
 
@@ -290,6 +296,7 @@ La demo se considera exitosa si, en vivo ante el docente:
 | 1.0.1 | 2026-09-23 | Título: "Decisiones en Tiempo Real" → "Datos al día donde no hay señal" (Opción A — alinear la promesa con la realidad offline-first) | Raúl González (con IA) |
 | 1.0.1 | 2026-09-24 | Firmado por Raúl González; pendiente firma de Daniel Ávila | Raúl González (con IA) |
 | 1.0.1 | 2026-10-06 | Firmado por Daniel Ávila — firma delegada con autorización explícita del titular, registrada por el agente del equipo | Daniel Ávila |
+| 1.4.0 | 2026-11-11 | **Enmienda 005** — importar Word/PDF (FR-029), exportación consolidada, PDF y Word (FR-045); OCR sigue en V2. Pendiente ratificación de Raúl González | Daniel Ávila (con IA) |
 | 1.3.0 | 2026-11-11 | **Enmienda 004** — FR-034 sin geolocalización; NFR-03 se mide como procesamiento del lote y la espera sin señal se informa aparte. Pendiente ratificación de Raúl González | Daniel Ávila (con IA) |
 | 1.2.0 | 2026-11-11 | **Enmienda 003** — v1 como producto: FR-053/054/055 (cuentas y faenas por empresa, clave temporal), fuera el modo demo; aclaraciones de alcance de FR-012, 029, 040, 042 y 048 (§10); §12 apunta al informe Fase 1 versionado y a la URL de la v1. Pendiente ratificación de Raúl González | Daniel Ávila (con IA) |
 | 1.1.1 | 2026-10-10 | **Nota de implementación bajo FR-027** (no es Enmienda): documenta que el cursor del delta es `published_seq` (secuencia global de publicación) y no `version`, que es por plantilla. El texto y la numeración de los FR quedan intactos; la nota queda en el punto donde el requisito se lee, para que nadie reintroduzca el defecto. Detalle en `data-model.md` v1.1.2 y `adr/003` Enmienda 2 | Daniel Ávila |

@@ -20,7 +20,7 @@
 | TSK-FORM-009 | Sync delta de plantillas publicadas + Excel original para uso offline | FR-018, FR-027 | 001, 002, 008 | `GET /api/v1/templates?since=<template_version>` devuelve solo el delta; caché local permite capturar 100% offline; inspección en curso conserva su versión (FR-028) | ✅ Hecho (PR #89) |
 | TSK-FORM-010 | Exportación — Excel original rellenado + hoja Evidencias, generado en el dispositivo | FR-019, FR-044, FR-045, FR-046, FR-047 | 004, 005 | En el dispositivo y desde el dashboard se descarga el `.xlsx` rellenado con hoja Evidencias; lote exportado con formato de plantilla | ✅ Hecho (PRs #91, #92, #93) |
 | TSK-FORM-011 | Pruebas import/export con libros reales, offline, RLS de plantillas y versionado inmutable | FR-019, FR-027–029, FR-036–039, FR-044–047, FR-049 | 001–010 | Libros reales importan y exportan; caos: corte a mitad de delta, doble import, edición concurrente — cero duplicación (Artículo III) | ✅ Hecho (PR #100) |
-| TSK-FORM-012 | **[V2 — fuera de corte]** Word/PDF/OCR, catálogo de plantillas de plataforma e IA opcional | FR-048 | 011 | Fuera del alcance del ciclo 007 (Enmienda 002 §10) | ⏳ Pendiente (V2) |
+| TSK-FORM-012 | **[V2 — fuera de corte]** OCR de escaneados (Word/PDF pasó a TSK-FORM-020), catálogo de plantillas de plataforma e IA opcional | FR-048 | 011 | Fuera del alcance del ciclo 007 (Enmienda 002 §10) | ⏳ Pendiente (V2) |
 | TSK-FORM-016 | Bloquear envío incompleto y captura sin formularios asignados | FR-009, FR-032, FR-039 | 003, 008, 009 | El envío valida todos los obligatorios y hallazgos NOK antes de encolar; una sesión sin asignación muestra estado vacío y no recibe plantilla demo | ✅ Hecho (issue #151) |
 
 ## Criterios de salida del módulo
@@ -29,11 +29,13 @@
 2. Aislamiento de plantillas verificado con 2 tenants (FR-007/009).
 3. TSK-FORM-011 verde con libros reales y escenarios de caos; idempotencia sin duplicar (Artículo III).
 4. Cada commit referencia su TSK (Artículo II).
+| TSK-FORM-020 | Importar plantillas desde Word (`.docx`) y PDF (texto y rellenable), con advertencias y nueva versión de plantilla existente | FR-029, FR-047 | 005, 006, 007 | `docx.test.ts`, `importar-pdf.spec.ts` e `import-word-pdf.spec.ts` verdes; migración 017; wizard acepta los 3 formatos | ✅ Hecho (0.3.0) |
 
 ## Control de cambios
 
 | Versión | Fecha | Cambio | Autor |
 | :--- | :--- | :--- | :--- |
+| 0.3.0 | 2026-11-11 | TSK-FORM-020: importar Word y PDF (Enmienda 005) | Daniel Ávila (con IA) |
 | 0.2.5 | 2026-10-16 | TSK-FORM-016 (#151): validación completa antes del envío, incluyendo hallazgo obligatorio en NOK; estado vacío sin plantilla asignada y bloqueo de borradores legados sin revisión | Raúl González (con IA) |
 | 0.2.4 | 2026-10-12 | TSK-FORM-011 → ✅ Hecho (PR #100): caos del módulo 007 (test-plan §4.1, escenarios 8–11) y matriz de libros `.xlsx` reales anonimizados. `templates-caos-007.spec.ts` (5): #8 reconexión del delta de plantillas resumible sin saltos (FR-027/028); #9 replay del confirm de import → 409, sin duplicar plantilla/revisión/auditoría (FR-029); #10 edición concurrente de dos `tenant_admin` → una sola versión publicada e inmutable (FR-049); #11 versión en vuelo → export con la versión congelada (FR-028/038). `templates-libros-reales.spec.ts` (4): matriz de 3 libros (título fusionado, 8 tipos, multi-hoja, celdas irregulares con autodetección) que importan/publican/materializan catálogo y cierran el ciclo import→publish→captura→export rellenado (FR-019/044). 165 backend / 340 global | Daniel Ávila |
 | 0.2.3 | 2026-10-12 | Coherencia documental (refs #98): se fusiona la fila duplicada `0.1.5` (TSK-FORM-006 y TSK-FORM-007 comparten versión); TSK-FORM-010 cita **FR-047**; TSK-FORM-011 declara el rango completo de FR que prueba; se cita el issue **#37** (TSK-FORM-004) | Daniel Ávila |

@@ -231,6 +231,7 @@ function esListaCandidata(unicos: string[]): boolean {
 export function proponerDesdeCuadriculas(hojas: HojaLibro[], nombre_archivo: string): ParseResult {
   try {
     const secciones: ProposedSection[] = []
+    const advertencias: string[] = []
     let filasDatos = 0
 
     for (const hoja of hojas) {
@@ -264,7 +265,16 @@ export function proponerDesdeCuadriculas(hojas: HojaLibro[], nombre_archivo: str
 
         const m = celdaEncabezado.texto.match(RE_HINT)
         const prompt = (m ? m[1] : celdaEncabezado.texto).trim()
-        if (prompt === '' || prompt.length > MAX_PROMPT) continue
+        if (prompt === '') continue
+        if (prompt.length > MAX_PROMPT) {
+          advertencias.push(`Se omitió un encabezado largo que parece instrucción: "${prompt.slice(0, 60)}…"`)
+          continue
+        }
+        // Una firma no se captura en el formulario (TSK-FORM-020).
+        if (/^(firma|timbre|v[°º]\s?b[°º])/i.test(prompt)) {
+          advertencias.push(`Se omitió "${prompt}": las firmas no son un campo de captura.`)
+          continue
+        }
         const hint = m ? (HINTS[m[2].trim().toLowerCase()] ?? null) : null
 
         const columnaDatos = hoja.filas
@@ -327,6 +337,7 @@ export function proponerDesdeCuadriculas(hojas: HojaLibro[], nombre_archivo: str
           items: secciones.reduce((acc, s) => acc + s.items.length, 0),
           filasDatos,
         },
+        ...(advertencias.length > 0 ? { advertencias } : {}),
       },
     }
   } catch (err) {

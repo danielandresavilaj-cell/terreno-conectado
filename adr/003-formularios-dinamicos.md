@@ -83,4 +83,18 @@ Enmienda 1 dejó esta decisión explícitamente para TSK-FORM-010. FR-046 pide q
 
 ---
 
+## Enmienda 4 (2026-11-11) — Word y PDF entran en V1.2 (Enmienda 005 del maestro)
+
+La decisión "xlsx-first" se mantiene para el **original rellenado** (sólo un `.xlsx` tiene celdas), pero el import y la exportación se abren a Word y PDF. Dependencias nuevas, todas **sólo backend** (no tocan el bundle de la PWA ni el presupuesto de ~500 KB):
+
+| Librería | Uso | Licencia | Por qué |
+| :--- | :--- | :--- | :--- |
+| `pdfjs-dist` (build legacy) | Leer texto y campos de un PDF al importar | Apache-2.0 | Es el lector de PDF de Mozilla: extrae texto con posiciones y los campos AcroForm; sin binarios nativos. |
+| `pdfkit` | Generar el informe PDF de inspecciones | MIT | Puro JS, streaming, incrusta JPEG/PNG; sin navegador headless (Puppeteer pesaría cientos de MB en la VM Always Free). |
+| `docx` | Generar el informe Word | MIT | Escribe `.docx` nativo (tablas, estilos, imágenes) sin plantillas binarias. |
+
+Para leer Word **no** se agrega nada: `jszip` y `saxes` ya venían con exceljs y se declaran explícitos en `shared`. El OCR de imágenes sigue en V2.
+
+---
+
 **Firmas:** Raúl González (2026-10-07) · Daniel Ávila (2026-10-12).

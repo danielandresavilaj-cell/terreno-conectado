@@ -21,12 +21,12 @@
  */
 
 import { createReadStream } from 'node:fs'
+import { TOPE_BYTES_POR_FORMATO, detectarFormato } from '@terreno/shared/importar'
 import {
   BadRequestException,
   Body,
   Controller,
   Delete,
-  FileTypeValidator,
   ForbiddenException,
   Get,
   HttpCode,
@@ -34,10 +34,12 @@ import {
   MaxFileSizeValidator,
   Param,
   ParseFilePipe,
+  PayloadTooLargeException,
   Patch,
   Post,
   Query,
   Req,
+  UnsupportedMediaTypeException,
   Res,
   StreamableFile,
   UploadedFile,
@@ -365,7 +367,7 @@ export class TemplatesController {
     await this.templates.deleteAssignment(tenantDe(req), assignmentId)
   }
 
-  /* ── Importación de plantillas desde .xlsx (TSK-FORM-006/007) ──────────── */
+  /* ── Importación de plantillas: .xlsx, .docx y .pdf (TSK-FORM-006/007/020) ── */
 
   @UseGuards(AuthGuard)
   @Post('imports')
@@ -374,10 +376,8 @@ export class TemplatesController {
     @Req() req: AuthedRequest,
     @UploadedFile(
       new ParseFilePipe({
-        validators: [
-          new MaxFileSizeValidator({ maxSize: 5 * 1024 * 1024 }),
-          new FileTypeValidator({ fileType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }),
-        ],
+        // Tope mayor (PDF); el de cada formato se aplica abajo, por firma.
+        validators: [new MaxFileSizeValidator({ maxSize: TOPE_BYTES_POR_FORMATO.pdf })],
       }),
     )
     file: Express.Multer.File,
@@ -386,11 +386,23 @@ export class TemplatesController {
     if (claims.rol !== 'tenant_admin') {
       throw new ForbiddenException('Sólo tenant_admin puede importar plantillas')
     }
+    // TSK-FORM-020: el formato se decide por la firma de los bytes, no por el
+    // MIME del navegador (que varía por sistema) ni por la extensión.
+    const formato = detectarFormato(new Uint8Array(file.buffer))
+    if (!formato) {
+      throw new UnsupportedMediaTypeException('Formato no soportado: sube un Excel (.xlsx), Word (.docx) o PDF.')
+    }
+    if (file.size > TOPE_BYTES_POR_FORMATO[formato]) {
+      throw new PayloadTooLargeException(
+        `El archivo supera ${TOPE_BYTES_POR_FORMATO[formato] / 1024 / 1024} MB, el máximo para ${formato.toUpperCase()}.`,
+      )
+    }
     return this.templates.uploadAndParseTemplateImport(
       tenantDe(req),
       claims.sub,
       nombreOriginal(file.originalname),
       file.buffer,
+      formato,
     )
   }
 
@@ -438,6 +450,7 @@ export class TemplatesController {
       definition: parsed.data.definition,
       name: parsed.data.name,
       description: parsed.data.description,
+      templateId: parsed.data.template_id,
       actorId: claims.sub,
     })
     return {
