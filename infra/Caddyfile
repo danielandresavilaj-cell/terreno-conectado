@@ -12,6 +12,16 @@
 		Strict-Transport-Security "max-age=31536000; includeSubDomains"
 		X-Content-Type-Options "nosniff"
 		Referrer-Policy "strict-origin-when-cross-origin"
+		# CSP (Constitución Art. IX). Same-origin: la API vive en /api/*, así que
+		# connect-src 'self' basta. Excepciones, todas acotadas:
+		# - script-src: el hash con 'unsafe-hashes' autoriza SÓLO el handler
+		#   `onload="this.media='all'"` que carga Google Fonts sin bloquear el
+		#   primer pintado (frontend/index.html, NFR-07). Si cambia ese handler,
+		#   hay que recalcular el hash.
+		# - style-src 'unsafe-inline': estilos en línea de React/animaciones.
+		# - img-src data:/blob:: miniaturas de fotos comprimidas en el cliente.
+		# - connect-src fonts.*: el service worker cachea las fuentes.
+		Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-hashes' 'sha256-MhtPZXr7+LpJUY5qtMutB+qWfQtMaPccfe7QXtCcEYc='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self' https://fonts.googleapis.com https://fonts.gstatic.com; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
 		-Server
 	}
 
