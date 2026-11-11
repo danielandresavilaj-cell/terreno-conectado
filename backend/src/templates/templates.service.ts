@@ -16,6 +16,9 @@ import {
   type TemplateImportProposal,
 } from '@terreno/shared'
 import { proponerImport } from '@terreno/shared/xlsx'
+import type { FormatoImport, ParseResult } from '@terreno/shared/xlsx'
+import { MIME_POR_FORMATO, proponerImportDocx } from '@terreno/shared/importar'
+import { proponerImportPdf } from './importar-pdf'
 import { DbService } from '../db/db.service'
 import { SyncVolumeService } from '../storage/sync-volume.service'
 import type {
@@ -406,9 +409,10 @@ export class TemplatesService {
       source_import_id: string | null
       file_key: string | null
       file_name: string | null
+      formato: FormatoImport | null
     }>(
       tenantId,
-      `SELECT r.source_import_id, i.file_key, i.file_name
+      `SELECT r.source_import_id, i.file_key, i.file_name, i.formato
          FROM template_revision r
          LEFT JOIN template_imports i ON i.id = r.source_import_id
         WHERE r.id = $1`,
@@ -433,6 +437,13 @@ export class TemplatesService {
     if (!row.source_import_id || !row.file_key || !row.file_name) {
       throw new NotFoundException(
         'la revisión no proviene de una importación .xlsx: no hay documento original que descargar (FR-019)',
+      )
+    }
+    // TSK-FORM-020: sólo un .xlsx tiene celdas que rellenar. Una plantilla que
+    // vino de Word o PDF se exporta en Excel consolidado, PDF o Word.
+    if (row.formato && row.formato !== 'xlsx') {
+      throw new NotFoundException(
+        `la plantilla se importó desde ${row.formato === 'docx' ? 'Word' : 'PDF'}: no hay un Excel original que rellenar; expórtala en Excel consolidado, PDF o Word`,
       )
     }
 
@@ -523,7 +534,7 @@ export class TemplatesService {
   /* ── Importación de plantillas desde .xlsx (TSK-FORM-007) ──────────────── */
 
   /**
-   * Recibe el buffer de un .xlsx, crea el import, guarda el archivo fuente como
+   * Recibe el buffer de un .xlsx, .docx o .pdf (TSK-FORM-020), crea el import, guarda el archivo fuente como
    * ATTACHMENT (`owner_type='template_import'`), lo parsea y deja el import en
    * estado `proposed` (éxito) o `failed` (error). Todo en una transacción por
    * tenant (FR-029/047/051).
@@ -533,23 +544,24 @@ export class TemplatesService {
     uploadedBy: string,
     fileName: string,
     buffer: Buffer,
+    formato: FormatoImport = 'xlsx',
   ): Promise<TemplateImportRow> {
     return this.db.withTenantTransaction<TemplateImportRow>(tenantId, async (run) => {
       const [imp] = await run<TemplateImportRow>(
         `INSERT INTO template_imports
-           (id, tenant_id, uploaded_by, file_key, file_name, status)
-         VALUES (gen_random_uuid(), $1, $2, '', $3, 'uploaded')
+           (id, tenant_id, uploaded_by, file_key, file_name, status, formato)
+         VALUES (gen_random_uuid(), $1, $2, '', $3, 'uploaded', $4)
          RETURNING *`,
-        [tenantId, uploadedBy, fileName],
+        [tenantId, uploadedBy, fileName, formato],
       )
 
-      const fileKey = await this.writeImportFile(tenantId, imp.id, buffer)
+      const fileKey = await this.writeImportFile(tenantId, imp.id, buffer, formato)
       await run(
         `INSERT INTO attachment
            (id, tenant_id, owner_type, owner_id, file_key, mime, bytes,
             width, height, captured_at, client_version)
          VALUES ($1, $2, $3, $4, $5, $6, $7, NULL, NULL, now(), 0)`,
-        [randomUUID(), tenantId, 'template_import', imp.id, fileKey, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', buffer.length],
+        [randomUUID(), tenantId, 'template_import', imp.id, fileKey, MIME_POR_FORMATO[formato], buffer.length],
       )
 
       await run(
@@ -557,7 +569,13 @@ export class TemplatesService {
         [imp.id, fileKey],
       )
 
-      const parsed = await proponerImport(new Uint8Array(buffer), fileName)
+      const bytes = new Uint8Array(buffer)
+      const parsed: ParseResult =
+        formato === 'docx'
+          ? await proponerImportDocx(bytes, fileName)
+          : formato === 'pdf'
+            ? await proponerImportPdf(bytes, fileName)
+            : await proponerImport(bytes, fileName)
       if (!parsed.ok) {
         await run(
           `UPDATE template_imports
@@ -601,8 +619,13 @@ export class TemplatesService {
     })
   }
 
-  private async writeImportFile(tenantId: string, importId: string, buffer: Buffer): Promise<string> {
-    const key = `template_imports/${tenantId}/${importId}.xlsx`
+  private async writeImportFile(
+    tenantId: string,
+    importId: string,
+    buffer: Buffer,
+    formato: FormatoImport,
+  ): Promise<string> {
+    const key = `template_imports/${tenantId}/${importId}.${formato}`
     const path = join(this.volume.raiz(), key)
     await mkdir(dirname(path), { recursive: true })
     await writeFile(path, buffer)
@@ -665,16 +688,33 @@ export class TemplatesService {
           : (input.definition as TemplateDefinition)
       const validated = this.validateOrThrow(definition)
 
-      const [template] = await run<TemplateRow>(
-        `INSERT INTO template (id, tenant_id, name, description, status)
-         VALUES (gen_random_uuid(), $1, $2, $3, 'active')
-         RETURNING *`,
-        [
-          input.tenantId,
-          input.name?.trim() || imp.file_name,
-          input.description?.trim() ?? `Importado desde ${proposal.nombre_archivo}`,
-        ],
-      )
+      let template: TemplateRow
+      if (input.templateId) {
+        // TSK-FORM-020: nueva versión de una plantilla existente. RLS deja fuera
+        // las de otra empresa (404); un borrador abierto se descarta primero en
+        // su editor, para no tener dos borradores compitiendo.
+        const [existente] = await run<TemplateRow>(`SELECT * FROM template WHERE id = $1`, [input.templateId])
+        if (!existente) throw new NotFoundException('plantilla no encontrada para este tenant')
+        const [borrador] = await run<{ id: string }>(
+          `SELECT id FROM template_revision WHERE template_id = $1 AND status = 'draft' LIMIT 1`,
+          [existente.id],
+        )
+        if (borrador) {
+          throw new ConflictException('la plantilla ya tiene un borrador abierto: publícalo o descártalo antes de importar una nueva versión')
+        }
+        template = existente
+      } else {
+        ;[template] = await run<TemplateRow>(
+          `INSERT INTO template (id, tenant_id, name, description, status)
+           VALUES (gen_random_uuid(), $1, $2, $3, 'active')
+           RETURNING *`,
+          [
+            input.tenantId,
+            input.name?.trim() || imp.file_name,
+            input.description?.trim() ?? `Importado desde ${proposal.nombre_archivo}`,
+          ],
+        )
+      }
 
       const [revision] = await run<TemplateRevisionRow>(
         `INSERT INTO template_revision
@@ -711,6 +751,7 @@ export class TemplatesService {
               revision_id: revision.id,
               archivo: imp.file_name,
               definicion_revisada: input.definition !== undefined,
+              nueva_version: Boolean(input.templateId),
               publicado: Boolean(input.publish),
             }),
           ],

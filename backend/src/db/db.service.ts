@@ -1,5 +1,5 @@
 import type { OnModuleDestroy } from '@nestjs/common'
-import { Inject, Injectable } from '@nestjs/common'
+import { Inject, Injectable, Logger } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import { Pool } from 'pg'
 
@@ -15,6 +15,7 @@ import { Pool } from 'pg'
 export class DbService implements OnModuleDestroy {
   private readonly owner: Pool
   private readonly app: Pool
+  private readonly logger = new Logger(DbService.name)
 
   constructor(@Inject(ConfigService) config: ConfigService) {
     this.owner = new Pool({
@@ -25,6 +26,15 @@ export class DbService implements OnModuleDestroy {
       connectionString: config.getOrThrow<string>('APP_DATABASE_URL'),
       max: 10,
     })
+    // Un cliente inactivo que PostgreSQL corta (reinicio de la base, o el
+    // contenedor de pruebas al apagarse: 57P01) emite 'error' en el pool. Sin
+    // listener, Node lo trata como excepción no manejada y tumba el proceso.
+    // El pool ya descarta ese cliente; sólo queda dejar constancia.
+    for (const [nombre, pool] of [['owner', this.owner], ['app', this.app]] as const) {
+      pool.on('error', (err) => {
+        this.logger.warn(`pool ${nombre}: conexión inactiva cerrada por el servidor (${err.message})`)
+      })
+    }
   }
 
   async queryOwner<T = Record<string, unknown>>(

@@ -208,7 +208,7 @@ describe('rellenarOriginal — round-trip de escritura', () => {
   it('escribe cada respuesta en su columna y firstDataRow respetando el tipo', async () => {
     const { original, propuesta, definition } = await escenario(await aBuffer(libroDeDosItems()))
     const [responsable, cantidad] = definition.sections[0].items
-    const [srcResponsable, srcCantidad] = propuesta.secciones[0].items.map((i) => i.source)
+    const [srcResponsable, srcCantidad] = propuesta.secciones[0].items.map((i) => i.source!)
 
     const res = await rellenarOriginal({
       original,
@@ -249,7 +249,7 @@ describe('rellenarOriginal — round-trip de escritura', () => {
   it('respeta la fila explícita de la respuesta en vez de firstDataRow', async () => {
     const { original, propuesta, definition } = await escenario(await aBuffer(libroDeDosItems()))
     const [responsable] = definition.sections[0].items
-    const origen = propuesta.secciones[0].items[0].source
+    const origen = propuesta.secciones[0].items[0].source!
 
     const res = await rellenarOriginal({
       original,
@@ -570,7 +570,7 @@ describe('rellenarOriginal — los 8 response_type', () => {
     const { original, propuesta, definition } = escenario8
     const indice = CASOS.indexOf(caso)
     const item = definition.sections[0].items[indice]
-    const origen = propuesta.secciones[0].items[indice].source
+    const origen = propuesta.secciones[0].items[indice].source!
     expect(origen.column).toBe(caso.columna)
 
     const res = await rellenarOriginal({
@@ -596,7 +596,7 @@ describe('rellenarOriginal — integración con el fixture del spike', () => {
     const { propuesta, definition } = await escenario(original, 'spike-referencia.xlsx')
     const porPrompt = Object.fromEntries(definition.sections[0].items.map((i) => [i.prompt, i]))
     const origenDe = (prompt: string) =>
-      propuesta.secciones[0].items.find((i) => i.prompt === prompt)!.source
+      propuesta.secciones[0].items.find((i) => i.prompt === prompt)!.source!
 
     const res = await rellenarOriginal({
       original,

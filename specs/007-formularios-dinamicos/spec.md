@@ -26,7 +26,7 @@ Requisitos que este spec detallará: **FR-007–009, 018–019, 027–029, 036�
 
 ## Decisiones rectoras (cerradas en ADR-003 + plan 007; no reabrir sin ADR nuevo)
 
-1. **xlsx-first:** V1 = import/export de `.xlsx` estructurado; OCR/docx/PDF e IA quedan en V2 opcional (Enmienda 002 §10).
+1. **xlsx-first:** V1 = import/export de `.xlsx` estructurado; OCR/docx/PDF e IA quedan en V2 opcional (Enmienda 002 §10). *(Enmienda 005 del maestro: Word `.docx` y PDF con texto o rellenable se importan desde V1.2 — ver Enmienda 005 abajo; OCR e IA siguen en V2.)*
 2. **Revisión humana obligatoria:** el import nunca publica automático; el `tenant_admin` confirma la propuesta.
 3. **Renderer data-driven:** la captura dibuja desde `definition` JSONB; contrato de tipos y `props` validado con **Zod en `shared/`** (única fuente: frontend y backend).
 4. **Versionado inmutable:** toda inspección congela `template_revision_id`; cambios requieren nueva revisión.
@@ -65,6 +65,7 @@ Requisitos que este spec detallará: **FR-007–009, 018–019, 027–029, 036�
 
 | Versión | Fecha | Cambio | Autor |
 | :--- | :--- | :--- | :--- |
+| 0.3.0 | 2026-11-11 | Enmienda 005: importar Word y PDF (TSK-FORM-020) | Daniel Ávila (con IA) |
 | 0.2.4 | 2026-10-12 | Checklist: TSK-FORM-011 completado (PR #100) — pruebas de caos 8–11 (delta resumible FR-027/028; doble import sin duplicar FR-029; edición concurrente = una sola versión FR-049; versión en vuelo congelada FR-028/038) y matriz de libros `.xlsx` reales, incluido el ciclo import→publish→captura→export rellenado (FR-019/044). V1 completa (TSK-FORM-001→011); solo queda V2 (#45) | Daniel Ávila |
 | 0.2.3 | 2026-10-12 | Coherencia documental (refs #98): el Estado deja de ser «ESQUELETO» (V1 en `main`, TSK-FORM-001→010); versiones del padre y del data-model alineadas (spec maestro v1.1.1, data-model v1.1.3); checklist del plan técnico marcado | Daniel Ávila |
 | 0.2.2 | 2026-10-12 | Tramitación de 010: el wizard de importación (TSK-FORM-006) guardaba la plantilla por `POST /templates`, dejando la revisión **sin `source_import_id`** — una plantilla creada por la UI no podía exportar su documento original (FR-019/044 → 404). Ahora sube el `.xlsx` en el paso 1 y confirma por `POST /templates/imports/:id/confirm` con la definición revisada (`definition`, `name`, `description`), auditando la confirmación (FR-047). Cierra el hueco del ciclo import→export del wizard | Daniel Ávila |
@@ -83,6 +84,12 @@ Requisitos que este spec detallará: **FR-007–009, 018–019, 027–029, 036�
 ### Enmienda 003 — Catálogo asignado offline (TSK-FORM-014, #149)
 
 FR-009/018/027: el catálogo visible se persiste por tenant, usuario, rol y faena. La caché legada por tenant no acredita asignaciones y no se muestra hasta obtener un catálogo del servidor para ese ámbito. Al iniciar o recuperar señal se consulta el catálogo completo sin cursor: los cambios de asignación no incrementan published_seq. El snapshot reemplaza la lista visible de forma atómica, incluyendo una lista vacía; sin red se usa exclusivamente el último snapshot del ámbito. Se conservan las definiciones históricas y las capturas; un borrador desasignado queda no disponible conforme a FR-028.
+
+### Enmienda 005 — Importar Word y PDF (TSK-FORM-020)
+
+- **Lectores:** `shared/src/importar/docx.ts` (Word, sin dependencias nuevas: `jszip` + `saxes`, que ya venían con exceljs) y `backend/src/templates/importar-pdf.ts` (PDF, `pdfjs-dist`, sólo servidor). Ambos reducen el archivo a bloques (título, párrafo, tabla, campo) y `shared/src/importar/documento.ts` los convierte en la misma `TemplateImportProposal` del `.xlsx`; las tablas "en columnas" usan literalmente la inferencia del `.xlsx`.
+- **Formas reconocidas:** pauta en tabla (una fila por pregunta; columnas Sí/No/N.A. o Cumple/No cumple → OK/No OK/N.A.; B/R/M u otras → lista), ficha `Etiqueta | ___`, casillas ☐ y controles de casilla, `Etiqueta: ____`, listas numeradas, campos de PDF rellenable. Firmas se omiten con advertencia; la columna de observaciones queda como un campo por sección.
+- **Contrato:** la propuesta gana `formato` y `advertencias`; `source` (celda) es opcional y sólo existe en `.xlsx`. `template_imports.formato` (migración 017). `POST /templates/imports` valida por firma de bytes (415 si no es xlsx/docx/pdf; 5 MB xlsx/docx, 10 MB pdf). `confirm` acepta `template_id` para crear una nueva versión. `GET revisions/:id/original` sigue siendo el `.xlsx` rellenable: para Word/PDF responde 404 con el motivo (el dispositivo ya lo descarta sin reintentar).
 
 ### Enmienda 004 — Compuerta de envío y estado sin asignación (TSK-FORM-016, #151)
 

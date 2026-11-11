@@ -18,6 +18,12 @@
       "require": "./dist/xlsx/index.js",
       "default": "./src/xlsx/index.ts"
     },
+    "./importar": {
+      "types": "./src/importar/index.ts",
+      "import": "./src/importar/index.ts",
+      "require": "./dist/importar/index.js",
+      "default": "./src/importar/index.ts"
+    },
     "./xlsx/serializar": {
       "types": "./src/xlsx/serializar.ts",
       "import": "./src/xlsx/serializar.ts",
@@ -32,6 +38,8 @@
   },
   "dependencies": {
     "exceljs": "^4.4.0",
+    "jszip": "^3.10.2",
+    "saxes": "^6.0.0",
     "zod": "^3.23.8"
   },
   "devDependencies": {

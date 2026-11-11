@@ -28,7 +28,8 @@ export interface ProposedItem {
   response_type: ResponseType
   required: boolean
   props: FieldProps
-  source: ImportSourceOrigin
+  /** Celda de origen; sólo en `.xlsx` (Word/PDF no tienen celdas que rellenar). */
+  source?: ImportSourceOrigin
   /** Conteo por valor (select_*, ok_nok_na) — para el preview (TSK-FORM-006). */
   opcionesConteo: Record<string, number>
   /** Primeras celdas no vacías, para el preview. */
@@ -43,10 +44,16 @@ export interface ProposedSection {
 }
 
 /** Propuesta determinística de plantilla desde un `.xlsx` estructurado. */
+/** Formato del archivo importado (TSK-FORM-020). Sin valor = `.xlsx`. */
+export type FormatoImport = 'xlsx' | 'docx' | 'pdf'
+
 export interface TemplateImportProposal {
   nombre_archivo: string
+  formato?: FormatoImport
   secciones: ProposedSection[]
   resumen: { secciones: number; items: number; filasDatos: number }
+  /** Lo que el lector omitió o supuso, para que quien revisa lo vea. */
+  advertencias?: string[]
 }
 
 export type ParseResult =

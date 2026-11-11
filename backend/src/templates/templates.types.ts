@@ -92,6 +92,8 @@ export interface TemplateImportRow {
   file_key: string
   file_name: string
   status: TemplateImportStatus
+  /** TSK-FORM-020: `xlsx` | `docx` | `pdf`. */
+  formato?: 'xlsx' | 'docx' | 'pdf'
   proposed_schema: Record<string, unknown> | null
   error: string | null
   confirmed_at: string | null
@@ -112,6 +114,8 @@ export interface ConfirmTemplateImportInput {
   /** Nombre de la plantilla decidido por el admin; si falta, `file_name` del import. */
   name?: string
   description?: string
+  /** TSK-FORM-020: borrador como nueva versión de esta plantilla existente. */
+  templateId?: string
   /** Actor de la confirmación, para la auditoría FR-047. */
   actorId?: string
 }

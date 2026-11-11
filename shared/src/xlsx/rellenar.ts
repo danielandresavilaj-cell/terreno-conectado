@@ -155,14 +155,17 @@ export function emparejarItemsConOrigen(
     if (!hoja) continue
 
     if (pendientes.length === seccionDef.items.length && hoja.items.length === seccionDef.items.length) {
-      for (const [ii, item] of seccionDef.items.entries()) destinos.set(item.id, hoja.items[ii].source)
+      for (const [ii, item] of seccionDef.items.entries()) {
+        const src = hoja.items[ii].source
+        if (src) destinos.set(item.id, src)
+      }
       continue
     }
 
     const porTexto = new Map<string, ImportSourceOrigin[]>()
     for (const it of hoja.items) {
       const clave = normalizar(it.prompt)
-      porTexto.set(clave, [...(porTexto.get(clave) ?? []), it.source])
+      if (it.source) porTexto.set(clave, [...(porTexto.get(clave) ?? []), it.source])
     }
     for (const item of pendientes) {
       const candidatos = porTexto.get(normalizar(item.prompt)) ?? []

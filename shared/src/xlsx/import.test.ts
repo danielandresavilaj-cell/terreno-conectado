@@ -208,8 +208,8 @@ describe('proponerImport — integración con el fixture del spike', () => {
     })
     const estado = sec.items.find((i) => i.prompt === 'Estado')!
     expect(estado.required).toBe(true)
-    expect(estado.source.headerCell).toBe('D2')
-    expect(estado.source.column).toBe('D')
+    expect(estado.source?.headerCell).toBe('D2')
+    expect(estado.source?.column).toBe('D')
     const subsector = sec.items.find((i) => i.prompt === 'Subsector')!
     expect(subsector.required).toBe(false)
     const turno = sec.items.find((i) => i.prompt === 'Turno')!

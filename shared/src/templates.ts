@@ -391,7 +391,8 @@ export const proposedItemSchema = z
     response_type: z.enum(RESPONSE_TYPES),
     required: z.boolean(),
     props: z.record(z.string(), z.unknown()),
-    source: importSourceOriginSchema,
+    /** Sólo `.xlsx`: Word/PDF no tienen celda de origen (TSK-FORM-020). */
+    source: importSourceOriginSchema.optional(),
   })
   .superRefine((item, ctx) => {
     const parsedProps = FIELD_PROPS_SCHEMA[item.response_type].safeParse(item.props ?? {})
@@ -415,14 +416,18 @@ export const proposedSectionSchema = z.object({
 
 export type ProposedSection = z.infer<typeof proposedSectionSchema>
 
+export const IMPORT_FORMATOS = ['xlsx', 'docx', 'pdf'] as const
+
 export const templateImportProposalSchema = z.object({
   nombre_archivo: z.string().min(1),
+  formato: z.enum(IMPORT_FORMATOS).optional(),
   secciones: z.array(proposedSectionSchema),
   resumen: z.object({
     secciones: z.number().int().nonnegative(),
     items: z.number().int().nonnegative(),
     filasDatos: z.number().int().nonnegative(),
   }),
+  advertencias: z.array(z.string()).optional(),
 })
 
 export type TemplateImportProposal = z.infer<typeof templateImportProposalSchema>
@@ -446,6 +451,9 @@ export const confirmImportBodySchema = z.object({
    *  archivo (`file_name` del import). */
   name: z.string().trim().min(1, 'name debe tener al menos 1 carácter').optional(),
   description: z.string().trim().optional(),
+  /** TSK-FORM-020: crear el borrador como NUEVA VERSIÓN de esta plantilla en
+   *  vez de una plantilla nueva (evita formularios duplicados). */
+  template_id: z.string().uuid().optional(),
 })
 
 export type ConfirmImportBody = z.infer<typeof confirmImportBodySchema>
@@ -457,6 +465,7 @@ export const templateImportSchema = z.object({
   file_key: z.string().min(1),
   file_name: z.string().min(1),
   status: z.enum(TEMPLATE_IMPORT_STATUSES),
+  formato: z.enum(IMPORT_FORMATOS).optional(),
   proposed_schema: templateImportProposalSchema.nullable(),
   error: z.string().nullable().optional(),
   confirmed_at: z.string().datetime().nullable().optional(),
