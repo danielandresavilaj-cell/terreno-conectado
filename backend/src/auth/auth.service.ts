@@ -12,6 +12,7 @@ import { SignJWT } from 'jose'
 import { verify } from '@node-rs/argon2'
 import type { CookieOptions, Request, Response } from 'express'
 import { DbService } from '../db/db.service'
+import { IpRateLimiter } from './ip-rate-limiter'
 import type {
   AuthUserRow,
   JwtClaims,
@@ -29,16 +30,14 @@ const LOCKED_STATUS = 423
 const COOKIE_PATH = '/api/v1/auth'
 const CSRF_HEADER = 'x-csrf-token'
 
-/** Rate-limit por IP (FR-005: "por cuenta e IP"). En memoria: un solo instancia
- * del backend en el skeleton; multi-instancia → store compartido (ADR-002). */
-interface IpCounter {
-  fails: number
-  blockedUntil: number
-}
-
 @Injectable()
 export class AuthService {
-  private readonly ipFails = new Map<string, IpCounter>()
+  /** Rate-limit por IP (FR-005: "por cuenta e IP"); ver `IpRateLimiter`. */
+  private readonly ipLimiter = new IpRateLimiter({
+    maxFails: MAX_FAILED_LOGINS,
+    windowMs: LOCK_MINUTES * 60_000,
+    blockMs: LOCK_MINUTES * 60_000,
+  })
 
   constructor(
     @Inject(DbService) private readonly db: DbService,
@@ -94,7 +93,7 @@ export class AuthService {
       'UPDATE app_user SET failed_login_count = 0, locked_until = NULL WHERE id = $1',
       [user.id],
     )
-    this.ipFails.delete(ip)
+    this.ipLimiter.reset(ip)
 
     // Una sesión activa por usuario (rotaciones conviven en su familia).
     await this.db.queryOwner(
@@ -199,17 +198,11 @@ export class AuthService {
   }
 
   private registerIpFail(ip: string): void {
-    const entry = this.ipFails.get(ip) ?? { fails: 0, blockedUntil: 0 }
-    entry.fails += 1
-    if (entry.fails >= MAX_FAILED_LOGINS) {
-      entry.blockedUntil = Date.now() + LOCK_MINUTES * 60_000
-    }
-    this.ipFails.set(ip, entry)
+    this.ipLimiter.registerFail(ip)
   }
 
   private isIpBlocked(ip: string): boolean {
-    const entry = this.ipFails.get(ip)
-    return entry ? entry.blockedUntil > Date.now() : false
+    return this.ipLimiter.isBlocked(ip)
   }
 
   private async createSession(
