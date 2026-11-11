@@ -62,9 +62,11 @@ async function main() {
       [id, email, await hash(clave), nombre],
     )
     await client.query(
+      // actor_id es uuid y entity_id es texto: van en parámetros separados
+      // (reusar $2 para ambos hace que PostgreSQL no pueda deducir su tipo).
       `INSERT INTO audit_log (id, actor_id, tenant_id, action, entity_type, entity_id, payload)
-       VALUES ($1, $2, NULL, 'platform_admin_bootstrap', 'app_user', $2, $3)`,
-      [randomUUID(), id, JSON.stringify({ email })],
+       VALUES ($1, $2, NULL, 'platform_admin_bootstrap', 'app_user', $3, $4)`,
+      [randomUUID(), id, id, JSON.stringify({ email })],
     )
     await client.query('COMMIT')
     console.log(`Listo: ${email} puede ingresar como administrador de plataforma.`)
