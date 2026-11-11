@@ -42,6 +42,7 @@ let trabajadorToken: string
 let supervisorToken: string
 let adminToken: string
 let supervisorBTok: string
+let trabajadorBTok: string
 let platformToken: string
 
 let siteA: string
@@ -60,7 +61,8 @@ const batcher = (token: () => string) => (records: Array<Record<string, unknown>
     .send({ batch_id: uuid(), device_id: uuid(), records })
 
 const syncBatchA = batcher(() => trabajadorToken as string)
-const syncBatchB = batcher(() => supervisorBTok as string)
+// TSK-DOM-005: la autoría la fija el JWT; el lote de B lo envía su trabajador.
+const syncBatchB = batcher(() => trabajadorBTok as string)
 
 const get = (token: string, path: string) =>
   server().get(path).set('Authorization', `Bearer ${token}`)
@@ -183,6 +185,7 @@ beforeAll(async () => {
   supervisorToken = await login('supervisor@minera.cl')
   adminToken = await login('admin@minera.cl')
   supervisorBTok = await login('supervisor@andes.cl')
+  trabajadorBTok = await login('trabajador@andes.cl')
   platformToken = await login('admin@terreno.local')
 
   const siteRows = await ownerPool.query('SELECT id, name FROM site ORDER BY name')

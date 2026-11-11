@@ -436,10 +436,16 @@ beforeAll(async () => {
         template_id: TEMPLATE_A_ID,
         template_version: 1,
         executed_by: TRABAJADOR_A_ID,
-        status: 'reviewed',
+        // TSK-DOM-005: un trabajador no puede declarar `reviewed` por sync.
+        status: 'submitted',
       },
     },
   ])
+  // La revisión es una decisión de supervisión (FR-031): se hace por su endpoint.
+  const revisada = await server()
+    .patch(`/api/v1/inspections/${inspectionSinOriginal}/review`)
+    .set(auth(supervisorToken))
+  expect(revisada.status).toBe(200)
 }, 180_000)
 
 afterAll(async () => {

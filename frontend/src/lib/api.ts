@@ -662,3 +662,23 @@ export function listarAuditoria(params: {
   q.set('offset', String(params.offset ?? 0))
   return apiFetch(`/admin/audit-log?${q.toString()}`)
 }
+
+/* ------------------------------------------- supervisión (TSK-DOM-005) */
+
+/** FR-031: una inspección enviada pasa a `reviewed`. */
+export function revisarInspeccion(id: string): Promise<{ id: string; status: string }> {
+  return apiFetch(`/inspections/${encodeURIComponent(id)}/review`, { method: 'PATCH' })
+}
+
+/** FR-032: estado de un hallazgo. */
+export function cambiarEstadoHallazgo(
+  id: string,
+  status: 'open' | 'in_progress' | 'resolved',
+): Promise<{ id: string; status: string }> {
+  return apiFetch(`/findings/${encodeURIComponent(id)}`, { method: 'PATCH', body: { status } })
+}
+
+/** Revisión persistente de un conflicto (quién y cuándo). */
+export function revisarConflicto(id: string): Promise<{ id: string; reviewed_at: string }> {
+  return apiFetch(`/conflicts/${encodeURIComponent(id)}/review`, { method: 'PATCH' })
+}

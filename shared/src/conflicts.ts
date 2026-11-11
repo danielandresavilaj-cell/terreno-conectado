@@ -22,6 +22,9 @@ export interface ConflictRecordDto {
   loser_payload: Record<string, unknown>
   resolution: ConflictResolution
   resolved_at: string
+  /** TSK-DOM-005: revisión persistente por supervisión; null = pendiente. */
+  reviewed_at?: string | null
+  reviewed_by?: string | null
 }
 
 export interface ListConflictsResponse {

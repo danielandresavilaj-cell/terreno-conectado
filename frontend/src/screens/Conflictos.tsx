@@ -1,9 +1,8 @@
 /* Conflictos de sincronización — FR-023, FR-051, Artículo III.
  *
  * TSK-WS-011: consume `GET /api/v1/conflicts` (registro real de la ingesta
- * LWW del sync). El "marcar como revisado" es local a la sesión: el registro
- * del servidor es append-only y no tiene campo de revisión en el walking
- * skeleton — la auditoría de quién revisó queda para TSK-WS-014.
+ * LWW del sync). "Marcar como revisado" se guarda en el servidor
+ * (`PATCH /conflicts/:id/review`, TSK-DOM-005): quién y cuándo, auditado.
  *
  * Esta pantalla existe para responder una pregunta incómoda: ¿qué pasa cuando
  * dos dispositivos editan lo mismo sin señal? La respuesta del proyecto es LWW
@@ -26,7 +25,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { BadgeSev } from '../components/Badges'
 import { Boton } from '../components/ui'
-import { getConflicts } from '../lib/api'
+import { ApiError, getConflicts, revisarConflicto } from '../lib/api'
 import { useEstado } from '../lib/store'
 import { EASE } from '../lib/motion'
 import type { Conflicto } from '../lib/types'
@@ -40,13 +39,43 @@ const ENTIDAD_LABEL: Record<ConflictRecordDto['entity_type'], string> = {
   attachment: 'evidencia',
 }
 
+/** Nombres legibles de los campos del contrato de sync. */
+const CAMPO_LABEL: Record<string, string> = {
+  status: 'Estado',
+  description: 'Descripción',
+  severity: 'Severidad',
+  entry_text: 'Texto',
+  tags: 'Etiquetas',
+  shift_date: 'Turno',
+  value_ok: 'Resultado',
+  value_text: 'Texto',
+  value_number: 'Número',
+  value_date: 'Fecha',
+  value_json: 'Valor',
+  comment: 'Comentario',
+  site_id: 'Faena',
+  template_version: 'Versión de plantilla',
+  executed_by: 'Ejecutada por',
+  author_id: 'Autor',
+}
+const VALOR_LABEL: Record<string, string> = {
+  ok: 'OK', nok: 'No OK', na: 'N/A', submitted: 'Enviada', reviewed: 'Revisada',
+  in_progress: 'En curso', draft: 'Borrador', open: 'Abierto', resolved: 'Resuelto',
+  low: 'Baja', medium: 'Media', high: 'Alta', critical: 'Crítica',
+}
+/** Campos técnicos que no ayudan a comparar las versiones. */
+const OCULTOS = new Set(['tenant_id', 'inspection_id', 'response_id', 'template_id', 'template_item_id', 'owner_id', 'data', 'location'])
+
 /** Payload wire → texto legible de la versión (la comparación es el contenido). */
 function formatoPayload(p: Record<string, unknown>): string {
   return Object.entries(p)
+    .filter(([k]) => !OCULTOS.has(k))
     .map(([k, v]) => {
-      if (v === null) return `${k}: null`
-      if (typeof v === 'object') return `${k}: ${JSON.stringify(v)}`
-      return `${k}: ${String(v)}`
+      const etiqueta = CAMPO_LABEL[k] ?? k
+      if (v === null || v === undefined || v === '') return `${etiqueta}: —`
+      if (Array.isArray(v)) return `${etiqueta}: ${v.join(', ')}`
+      if (typeof v === 'object') return `${etiqueta}: ${JSON.stringify(v)}`
+      return `${etiqueta}: ${VALOR_LABEL[String(v)] ?? String(v)}`
     })
     .join('\n')
 }
@@ -71,7 +100,7 @@ function mapaConflicto(c: ConflictRecordDto): Conflicto {
       },
     ],
     ganador: 'A',
-    resuelto: false,
+    resuelto: !!c.reviewed_at,
   }
 }
 
@@ -81,13 +110,16 @@ export function Conflictos() {
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [resueltos, setResueltos] = useState<Record<string, boolean>>({})
+  const [errorRevision, setErrorRevision] = useState<string | null>(null)
 
   const cargar = useCallback(async () => {
     setCargando(true)
     setError(null)
     try {
       const r = await getConflicts()
-      setItems(r.items.map(mapaConflicto))
+      const lista = r.items.map(mapaConflicto)
+      setItems(lista)
+      setResueltos(Object.fromEntries(lista.filter((c) => c.resuelto).map((c) => [c.id, true])))
     } catch {
       setError('No se pudo leer el registro de conflictos.')
     } finally {
@@ -99,7 +131,16 @@ export function Conflictos() {
     void cargar()
   }, [cargar])
 
-  const resolver = (id: string) => setResueltos((r) => ({ ...r, [id]: true }))
+  /* TSK-DOM-005: la revisión se guarda en el servidor (quién y cuándo) y
+   * sobrevive a recargar; antes era sólo un estado de la pantalla. */
+  const resolver = (id: string) => {
+    setErrorRevision(null)
+    void revisarConflicto(id)
+      .then(() => setResueltos((r) => ({ ...r, [id]: true })))
+      .catch((err: unknown) =>
+        setErrorRevision(err instanceof ApiError && err.status === 0 ? 'Necesitas señal para marcarlo como revisado.' : 'No se pudo guardar la revisión.'),
+      )
+  }
   const abiertos = items.filter((c) => !resueltos[c.id]).length
 
   return (
@@ -130,6 +171,11 @@ export function Conflictos() {
         </div>
       </header>
 
+      {errorRevision && (
+        <p role="alert" className="text-[13px] text-sev-alta">
+          {errorRevision}
+        </p>
+      )}
       {error && (
         <div className="flex items-start gap-2 rounded-lg bg-sev-alta/10 border border-sev-alta/25 px-3 py-2">
           <span className="mt-[3px] h-1.5 w-1.5 rounded-full bg-sev-alta shrink-0" />

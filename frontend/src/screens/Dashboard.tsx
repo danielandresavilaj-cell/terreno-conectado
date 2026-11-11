@@ -33,6 +33,8 @@ import { Boton, Tarjeta } from '../components/ui'
 import {
   getFindings,
   getDetalleInspeccion,
+  revisarInspeccion,
+  cambiarEstadoHallazgo,
   getInspecciones,
   getSummary,
   descargarInspeccion,
@@ -641,7 +643,7 @@ export function Dashboard() {
                         </p>
                       </div>
                     ) : (
-                      filtrados.map((h) => <FilaHallazgo key={h.id} h={h} />)
+                      filtrados.map((h) => <FilaHallazgo key={h.id} h={h} onCambio={() => void cargar()} />)
                     )}
                   </motion.div>
                 </AnimatePresence>
@@ -742,6 +744,15 @@ export function Dashboard() {
                   <PanelDetalleInspeccion
                     estado={detalleInspeccion}
                     onCerrar={() => setDetalleInspeccion({ fase: 'inactivo' })}
+                    onRevisada={() => {
+                      if (detalleInspeccion.fase === 'ok') {
+                        setDetalleInspeccion({
+                          fase: 'ok',
+                          detalle: { ...detalleInspeccion.detalle, status: 'reviewed' },
+                        })
+                      }
+                      void cargar()
+                    }}
                   />
                 )}
               </section>
@@ -929,11 +940,29 @@ function textoRespuesta(valor: InspectionDetalle['secciones'][number]['respuesta
 function PanelDetalleInspeccion({
   estado,
   onCerrar,
+  onRevisada,
 }: {
   estado: Exclude<DetalleInspeccion, { fase: 'inactivo' }>
   onCerrar: () => void
+  onRevisada: () => void
 }) {
   const detalle = estado.fase === 'ok' ? estado.detalle : null
+  const [revisando, setRevisando] = useState(false)
+  const [errorRevision, setErrorRevision] = useState<string | null>(null)
+  /* FR-031 (TSK-DOM-005): la supervisión cierra el ciclo de la inspección. */
+  const revisar = async () => {
+    if (!detalle) return
+    setRevisando(true)
+    setErrorRevision(null)
+    try {
+      await revisarInspeccion(detalle.id)
+      onRevisada()
+    } catch (err) {
+      setErrorRevision(motivoDe(err))
+    } finally {
+      setRevisando(false)
+    }
+  }
   return (
     <section className="mt-4 panel p-5" aria-live="polite">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -948,8 +977,17 @@ function PanelDetalleInspeccion({
             </p>
           )}
         </div>
-        <Boton tamano="sm" variante="fantasma" onClick={onCerrar}>Cerrar</Boton>
+        <div className="flex gap-2">
+          {detalle?.status === 'submitted' && (
+            <Boton tamano="sm" variante="primaria" disabled={revisando} onClick={() => void revisar()}>
+              {revisando ? 'Guardando…' : 'Marcar como revisada'}
+            </Boton>
+          )}
+          {detalle?.status === 'reviewed' && <span className="self-center text-[13px] text-synced">Revisada</span>}
+          <Boton tamano="sm" variante="fantasma" onClick={onCerrar}>Cerrar</Boton>
+        </div>
       </div>
+      {errorRevision && <p role="alert" className="mt-3 text-[13px] text-failed">{errorRevision}</p>}
 
       {estado.fase === 'cargando' && <p className="mt-4 text-[13px] text-ink-2">Cargando respuestas…</p>}
       {estado.fase === 'error' && <p role="alert" className="mt-4 text-[13px] text-failed">No se pudo abrir: {estado.mensaje}</p>}
@@ -1079,7 +1117,23 @@ function AvisoLote({ lote }: { lote: Lote }) {
   )
 }
 
-function FilaHallazgo({ h }: { h: FindingDto }) {
+function FilaHallazgo({ h, onCambio }: { h: FindingDto; onCambio: () => void }) {
+  const [estado, setEstado] = useState(h.status)
+  const [error, setError] = useState<string | null>(null)
+  useEffect(() => setEstado(h.status), [h.status])
+  /* FR-032 (TSK-DOM-005): la supervisión mueve el hallazgo por su ciclo. */
+  const cambiar = async (nuevo: FindingDto['status']) => {
+    const previo = estado
+    setEstado(nuevo)
+    setError(null)
+    try {
+      await cambiarEstadoHallazgo(h.id, nuevo)
+      onCambio()
+    } catch (err) {
+      setEstado(previo)
+      setError(motivoDe(err))
+    }
+  }
   const sev = SEV_WIRE_A_UI[h.severity]
   const meta = SEV_META[sev]
   // FR-035: alta y crítica quedan demarcados en el listado.
@@ -1113,10 +1167,20 @@ function FilaHallazgo({ h }: { h: FindingDto }) {
       </div>
 
       <div className="shrink-0 text-right">
-        <p className="label-inst">Estado</p>
-        <p className="mt-1 text-[12px] font-medium capitalize">
-          {h.status === 'open' ? 'Abierto' : h.status === 'in_progress' ? 'En curso' : 'Resuelto'}
-        </p>
+        <label className="label-inst block" htmlFor={`estado-${h.id}`}>
+          Estado
+        </label>
+        <select
+          id={`estado-${h.id}`}
+          value={estado}
+          onChange={(e) => void cambiar(e.target.value as FindingDto['status'])}
+          className="mt-1 h-11 px-2 rounded-[10px] bg-s1 border border-line-soft text-[13px]"
+        >
+          <option value="open">Abierto</option>
+          <option value="in_progress">En curso</option>
+          <option value="resolved">Resuelto</option>
+        </select>
+        {error && <p role="alert" className="mt-1 text-[12px] text-failed max-w-[20ch]">{error}</p>}
       </div>
     </motion.div>
   )

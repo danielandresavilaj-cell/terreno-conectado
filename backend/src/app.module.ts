@@ -9,6 +9,7 @@ import { HealthModule } from './health/health.module'
 import { StorageModule } from './storage/storage.module'
 import { SyncModule } from './sync/sync.module'
 import { UsersModule } from './users/users.module'
+import { SupervisionModule } from './supervision/supervision.module'
 import { TemplatesModule } from './templates/templates.module'
 
 @Module({
@@ -23,6 +24,7 @@ import { TemplatesModule } from './templates/templates.module'
     HealthModule,
     TemplatesModule,
     UsersModule,
+    SupervisionModule,
   ],
   controllers: [AppController],
 })

@@ -397,6 +397,8 @@ export class TemplatesController {
   @UseGuards(AuthGuard)
   @Get('imports')
   listImports(@Req() req: AuthedRequest): Promise<TemplateImportRow[]> {
+    // TSK-DOM-005: las propuestas de import son trabajo del admin de empresa.
+    requireTenantAdmin(req)
     return this.templates.listTemplateImports(tenantDe(req))
   }
 
@@ -406,6 +408,7 @@ export class TemplatesController {
     @Req() req: AuthedRequest,
     @Param('importId') importId: string,
   ): Promise<TemplateImportRow> {
+    requireTenantAdmin(req)
     return this.templates.getTemplateImport(tenantDe(req), importId)
   }
 
