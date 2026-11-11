@@ -21,6 +21,7 @@ import type {
   DashboardFindingsResponse,
   DashboardSummary,
   DashboardSupervision,
+  ExportarInspeccionesBody,
   InspectionDetalle,
   InspectionsResponse,
   ListConflictsResponse,
@@ -325,8 +326,40 @@ export function getFindings(f: FindingsFiltros = {}): Promise<DashboardFindingsR
  * mismo conjunto de registros. Un filtro propio acá sería una lista que no
  * corresponde con el panel.
  */
-export function getInspecciones(f: DashboardFiltros = {}): Promise<InspectionsResponse> {
-  return apiFetch<InspectionsResponse>(`/dashboard/inspections${qsFiltros(f)}`)
+/** TSK-REP-007: filtros propios de la lista de inspecciones (además del período). */
+export interface InspeccionesExtra {
+  template_id?: string
+  status?: string
+  autor_id?: string
+}
+
+export function getInspecciones(f: DashboardFiltros = {}, extra: InspeccionesExtra = {}): Promise<InspectionsResponse> {
+  return apiFetch<InspectionsResponse>(`/dashboard/inspections${qsFiltros(f, { ...extra })}`)
+}
+
+export interface ArchivoExportado {
+  bytes: Uint8Array
+  fileName: string
+  mime: string
+  exportadas: number | null
+  fallidas: number | null
+}
+
+/**
+ * TSK-REP-007: exportar inspecciones filtradas o elegidas en Excel consolidado,
+ * PDF, Word (un archivo o ZIP) o el original rellenado. Bytes, no JSON.
+ */
+export async function exportarInspecciones(body: ExportarInspeccionesBody): Promise<ArchivoExportado> {
+  const resp = await apiFetchResp('/dashboard/inspections/exportar', { method: 'POST', body })
+  const mime = (resp.headers.get('Content-Type') ?? 'application/octet-stream').split(';')[0]
+  const ext = mime.includes('zip') ? 'zip' : mime.includes('pdf') ? 'pdf' : mime.includes('word') ? 'docx' : 'xlsx'
+  return {
+    bytes: new Uint8Array(await resp.arrayBuffer()),
+    fileName: nombreArchivoDeContentDisposition(resp.headers.get('Content-Disposition')) ?? `inspecciones.${ext}`,
+    mime,
+    exportadas: conteoDeCabecera(resp, 'X-Export-Exportadas') ?? conteoDeCabecera(resp, 'X-Lote-Exportadas'),
+    fallidas: conteoDeCabecera(resp, 'X-Export-Fallidas') ?? conteoDeCabecera(resp, 'X-Lote-Fallidas'),
+  }
 }
 
 /** Respuestas inmutables y autor de una inspección para revisión de supervisión. */

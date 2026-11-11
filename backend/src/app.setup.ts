@@ -30,7 +30,7 @@ export function configureApp(app: INestApplication): INestApplication {
   app.enableCors({
     origin: allowedOrigin,
     credentials: true,
-    exposedHeaders: ['Content-Disposition'],
+    exposedHeaders: ['Content-Disposition', 'X-Lote-Id', 'X-Lote-Exportadas', 'X-Lote-Fallidas', 'X-Export-Exportadas', 'X-Export-Fallidas'],
   })
 
   // Cookies rt/csrf (Decisión D5) y proxy confiable para rate-limit por IP.

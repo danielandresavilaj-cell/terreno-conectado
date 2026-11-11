@@ -50,6 +50,7 @@ import {
   ZIP_MIME,
 } from './inspection-export-lote.service'
 import { InspectionExportService } from './inspection-export.service'
+import { InspectionReportService } from './inspection-report.service'
 import { exigirUuid, type InspectionDetalle, type InspectionsResponse } from './dashboard.contract'
 
 type AuthedRequest = Request & { user?: JwtClaims }
@@ -72,6 +73,7 @@ export class DashboardController {
     @Inject(InspectionExportService) private readonly exportacion: InspectionExportService,
     @Inject(InspectionExportLoteService) private readonly lote: InspectionExportLoteService,
     @Inject(SupervisionDashboardService) private readonly supervision: SupervisionDashboardService,
+    @Inject(InspectionReportService) private readonly informes: InspectionReportService,
   ) {}
 
   /** TSK-REP-006: los cuatro bloques accionables del dashboard de supervisión. */
@@ -128,6 +130,10 @@ export class DashboardController {
       site_id: s(q.site_id),
       desde: s(q.desde),
       hasta: s(q.hasta),
+      // TSK-REP-007: formulario, estado y autor.
+      template_id: s(q.template_id),
+      status: s(q.status),
+      autor_id: s(q.autor_id),
     })
   }
 
@@ -189,5 +195,25 @@ export class DashboardController {
     res.setHeader('X-Lote-Exportadas', String(lote.exportadas))
     res.setHeader('X-Lote-Fallidas', String(lote.fallidas))
     return new StreamableFile(lote.zip)
+  }
+
+  /**
+   * TSK-REP-007: exportar inspecciones filtradas o elegidas en Excel
+   * consolidado, PDF, Word (un archivo o ZIP) o el original rellenado.
+   */
+  @UseGuards(AuthGuard)
+  @Post('dashboard/inspections/exportar')
+  @HttpCode(200)
+  async exportarInspecciones(
+    @Req() req: AuthedRequest,
+    @Res({ passthrough: true }) res: Response,
+    @Body() body: Record<string, unknown>,
+  ): Promise<StreamableFile> {
+    const archivo = await this.informes.exportar(req.user as JwtClaims, body)
+    res.setHeader('Content-Type', archivo.mime)
+    res.setHeader('Content-Disposition', contentDisposition(archivo.fileName))
+    res.setHeader('X-Export-Exportadas', String(archivo.exportadas))
+    res.setHeader('X-Export-Fallidas', String(archivo.fallidas))
+    return new StreamableFile(archivo.bytes)
   }
 }

@@ -30,9 +30,9 @@ import { DbService } from '../db/db.service'
 import { SyncVolumeService } from '../storage/sync-volume.service'
 import { TemplatesService } from '../templates/templates.service'
 import { exigirDashboard } from './dashboard.auth'
-import {
-  parsearFiltrosPeriodo,
-} from './dashboard.contract'
+import { parsearFiltrosInspecciones, type FiltrosInspecciones } from './dashboard.contract'
+import type { InspeccionExportable, RespuestaExportable } from '@terreno/shared/exportar'
+import { serializarValorCampo } from '@terreno/shared/xlsx'
 
 /**
  * Exportación del documento original rellenado — TSK-FORM-010 (FR-019/044/049).
@@ -130,9 +130,31 @@ export class InspectionExportService {
    */
   async listar(u: JwtClaims, filtros: unknown): Promise<InspectionsResponse> {
     exigirDashboard(u)
-    const { siteId, desde, hasta } = parsearFiltrosPeriodo(filtros)
+    const rows = await this.seleccionar(u, parsearFiltrosInspecciones(filtros), TOPE_INSPECCIONES)
+    return {
+      items: rows.map((r) => ({
+        id: r.id,
+        faena_id: r.faena_id,
+        faena_nombre: r.faena_nombre,
+        template_id: r.template_id,
+        template_nombre: r.template_nombre,
+        template_version: r.template_version,
+        ejecutado_por: r.ejecutado_por,
+        status: r.status,
+        captured_at: new Date(r.captured_ms).toISOString(),
+        respuestas: r.respuestas,
+      })),
+    }
+  }
 
-    const rows = await this.db.queryAsTenant<{
+  /**
+   * TSK-REP-007: las inspecciones del filtro (faena, período, formulario,
+   * estado, autor) y, si vienen `ids`, sólo esas. Es la MISMA consulta para la
+   * tabla y para toda exportación: lo que se ve es lo que se exporta, con RLS.
+   * `limite` permite a quien exporta pedir tope+1 y responder 413 con certeza.
+   */
+  async seleccionar(u: JwtClaims, f: FiltrosInspecciones, limite: number) {
+    return this.db.queryAsTenant<{
       id: string
       faena_id: string
       faena_nombre: string
@@ -158,24 +180,106 @@ export class InspectionExportService {
         WHERE ($1::uuid IS NULL OR i.site_id = $1)
           AND i.captured_at >= COALESCE($2::timestamptz, '-infinity'::timestamptz)
           AND i.captured_at <= COALESCE($3::timestamptz, 'infinity'::timestamptz)
+          AND ($4::uuid IS NULL OR i.template_id = $4)
+          AND ($5::text IS NULL OR i.status = $5)
+          AND ($6::uuid IS NULL OR i.executed_by = $6)
+          AND ($7::uuid[] IS NULL OR i.id = ANY($7))
         GROUP BY i.id, s.name, t.name, a.full_name
         ORDER BY i.captured_at DESC, i.id
-        LIMIT ${TOPE_INSPECCIONES}`,
-      [siteId, desde, hasta],
+        LIMIT ${Math.max(1, Math.floor(limite))}`,
+      [f.siteId, f.desde, f.hasta, f.templateId, f.status, f.autorId, f.ids],
     )
+  }
 
+  /**
+   * TSK-REP-007: una inspección en la forma común de los informes (Excel
+   * consolidado, PDF, Word). Usa la definición CONGELADA (FR-028) y las mismas
+   * lecturas que el original rellenado (`camposDe`, `evidenciasDe`), así que
+   * los valores coinciden en todos los formatos.
+   */
+  async exportable(u: JwtClaims, inspectionId: string): Promise<InspeccionExportable> {
+    exigirDashboard(u)
+    const tenantId = u.tenant_id as string
+    const [cab] = await this.db.queryAsTenant<{
+      id: string
+      faena: string
+      template_id: string
+      template_nombre: string | null
+      template_version: number
+      autor: string
+      status: InspeccionExportable['estado']
+      captured_ms: number
+      reviewed_ms: number | null
+    }>(
+      tenantId,
+      `SELECT i.id, s.name AS faena, i.template_id, t.name AS template_nombre, i.template_version,
+              COALESCE(a.full_name, 'Usuario no disponible') AS autor, i.status,
+              (extract(epoch FROM i.captured_at) * 1000)::float8 AS captured_ms,
+              (extract(epoch FROM i.reviewed_at) * 1000)::float8 AS reviewed_ms
+         FROM inspection i
+         JOIN site s ON s.id = i.site_id
+         LEFT JOIN template t ON t.id = i.template_id
+         LEFT JOIN app_user a ON a.id = i.executed_by
+        WHERE i.id = $1`,
+      [inspectionId],
+    )
+    if (!cab) throw new NotFoundException('inspección no encontrada para este tenant')
+    const definition = this.definitionDe(await this.revisionDe(tenantId, { id: cab.id, template_id: cab.template_id, template_version: cab.template_version }))
+    const items = definition.sections.flatMap((s) => s.items)
+    const campos = await this.camposDe(tenantId, cab.id, items)
+    const evidencias = await this.evidenciasDe(tenantId, cab.id, items, campos)
+    const porId = new Map(items.map((i) => [i.id, i]))
+    const hallazgos = await this.db.queryAsTenant<{
+      severity: InspeccionExportable['hallazgos'][number]['severidad']
+      status: InspeccionExportable['hallazgos'][number]['estado']
+      description: string
+      captured_ms: number
+      resolved_ms: number | null
+    }>(
+      tenantId,
+      `SELECT severity, status, description,
+              (extract(epoch FROM captured_at) * 1000)::float8 AS captured_ms,
+              (extract(epoch FROM resolved_at) * 1000)::float8 AS resolved_ms
+         FROM finding WHERE inspection_id = $1
+        ORDER BY captured_at, id`,
+      [cab.id],
+    )
+    const iso = (ms: number | null) => (ms === null ? null : new Date(ms).toISOString())
     return {
-      items: rows.map((r) => ({
-        id: r.id,
-        faena_id: r.faena_id,
-        faena_nombre: r.faena_nombre,
-        template_id: r.template_id,
-        template_nombre: r.template_nombre,
-        template_version: r.template_version,
-        ejecutado_por: r.ejecutado_por,
-        status: r.status,
-        captured_at: new Date(r.captured_ms).toISOString(),
-        respuestas: r.respuestas,
+      id: cab.id,
+      faena: cab.faena,
+      formulario: { template_id: cab.template_id, nombre: cab.template_nombre ?? 'Formulario eliminado', version: cab.template_version },
+      autor: cab.autor,
+      estado: cab.status,
+      capturada_at: new Date(cab.captured_ms).toISOString(),
+      revisada_at: iso(cab.reviewed_ms),
+      secciones: definition.sections.map((s) => ({
+        titulo: s.title,
+        respuestas: s.items.map((item): RespuestaExportable => {
+          const campo = campos[item.id] ?? null
+          const valor =
+            item.response_type === 'ok_nok_na'
+              ? campo === 'ok' ? 'OK' : campo === 'nok' ? 'No OK' : campo === 'na' ? 'N/A' : null
+              : item.response_type === 'photo'
+                ? campo ? 'Foto adjunta' : null
+                : serializarValorCampo(item, campo)
+          return { item_id: item.id, prompt: item.prompt, tipo: item.response_type, valor, nok: campo === 'nok' }
+        }),
+      })),
+      hallazgos: hallazgos.map((h) => ({
+        severidad: h.severity,
+        estado: h.status,
+        descripcion: h.description,
+        capturado_at: new Date(h.captured_ms).toISOString(),
+        resuelto_at: iso(h.resolved_ms),
+      })),
+      evidencias: evidencias.map((e) => ({
+        item_prompt: porId.get(e.itemId)?.prompt ?? e.nombre,
+        nombre: e.nombre,
+        mime: e.mime,
+        bytesLength: e.bytesLength,
+        bytes: e.bytes.length > 0 ? e.bytes : null,
+        fileKey: e.fileKey ?? null,
       })),
     }
   }

@@ -1,3 +1,4 @@
+import { inspeccionesFiltrosSchema } from '@terreno/shared'
 import { BadRequestException } from '@nestjs/common'
 import { z } from 'zod'
 
@@ -193,3 +194,32 @@ export const loteExportManifiestoSchema = z.object({
 
 export type LoteExportEntrada = z.infer<typeof loteExportEntradaSchema>
 export type LoteExportManifiesto = z.infer<typeof loteExportManifiestoSchema>
+
+/* ── Filtros de inspecciones y de exportación — TSK-REP-007 ───────────────── */
+
+/** Período + formulario, estado, autor y selección explícita (`ids`). */
+export interface FiltrosInspecciones extends FiltrosPeriodo {
+  templateId: string | null
+  status: string | null
+  autorId: string | null
+  ids: string[] | null
+}
+
+export function parsearFiltrosInspecciones(filtros: unknown): FiltrosInspecciones {
+  const parsed = inspeccionesFiltrosSchema.safeParse(filtros ?? {})
+  if (!parsed.success) {
+    const detalle = parsed.error.issues
+      .slice(0, 3)
+      .map((i) => `${i.path.join('.') || 'filtros'}: ${i.message}`)
+      .join('; ')
+    throw new BadRequestException(`filtros inválidos: ${detalle}`)
+  }
+  const f = parsed.data
+  return {
+    ...filtrosPeriodo({ site_id: f.site_id, desde: f.desde, hasta: f.hasta }),
+    templateId: f.template_id ?? null,
+    status: f.status ?? null,
+    autorId: f.autor_id ?? null,
+    ids: f.ids && f.ids.length > 0 ? f.ids : null,
+  }
+}

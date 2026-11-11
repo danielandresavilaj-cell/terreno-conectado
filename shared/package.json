@@ -18,6 +18,12 @@
       "require": "./dist/xlsx/index.js",
       "default": "./src/xlsx/index.ts"
     },
+    "./exportar": {
+      "types": "./src/exportar/index.ts",
+      "import": "./src/exportar/index.ts",
+      "require": "./dist/exportar/index.js",
+      "default": "./src/exportar/index.ts"
+    },
     "./importar": {
       "types": "./src/importar/index.ts",
       "import": "./src/importar/index.ts",

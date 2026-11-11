@@ -212,3 +212,41 @@ export interface DashboardSupervision {
     equipos_activos_30d: number
   }
 }
+
+/* ── Exportar inspecciones — TSK-REP-007 (Enmienda 005) ──────────────────────
+ * Un contrato para filtrar y elegir qué exportar y en qué formato. Sin `ids`
+ * se exporta todo lo filtrado; con `ids`, sólo esas (siempre dentro de RLS).
+ */
+export const EXPORT_FORMATOS = ['xlsx_consolidado', 'pdf', 'docx', 'xlsx_original'] as const
+export type ExportFormato = (typeof EXPORT_FORMATOS)[number]
+
+/** Tope de inspecciones por formato: un PDF/Word con fotos pesa mucho más que filas de Excel. */
+export const TOPE_EXPORTACION: Record<ExportFormato, number> = {
+  xlsx_consolidado: 500,
+  pdf: 100,
+  docx: 100,
+  xlsx_original: 50,
+}
+
+export const INSPECCION_ESTADOS = ['draft', 'in_progress', 'submitted', 'reviewed'] as const
+
+const vacioANulo = (v: unknown) => (v === '' || v === null ? undefined : v)
+
+/** Filtros de la lista de inspecciones y de toda exportación. */
+export const inspeccionesFiltrosSchema = z.object({
+  site_id: z.preprocess(vacioANulo, z.string().uuid('faena inválida').optional()),
+  desde: z.preprocess(vacioANulo, z.string().refine((v) => !Number.isNaN(Date.parse(v)), 'desde inválido').optional()),
+  hasta: z.preprocess(vacioANulo, z.string().refine((v) => !Number.isNaN(Date.parse(v)), 'hasta inválido').optional()),
+  template_id: z.preprocess(vacioANulo, z.string().uuid('formulario inválido').optional()),
+  status: z.preprocess(vacioANulo, z.enum(INSPECCION_ESTADOS).optional()),
+  autor_id: z.preprocess(vacioANulo, z.string().uuid('autor inválido').optional()),
+  ids: z.preprocess(vacioANulo, z.array(z.string().uuid('inspección inválida')).max(500).optional()),
+})
+export type InspeccionesFiltros = z.infer<typeof inspeccionesFiltrosSchema>
+
+export const exportarInspeccionesBodySchema = inspeccionesFiltrosSchema.extend({
+  formato: z.enum(EXPORT_FORMATOS),
+  /** PDF/Word: un archivo con todas, o un ZIP con uno por inspección. */
+  agrupar: z.enum(['un_archivo', 'zip']).default('un_archivo'),
+})
+export type ExportarInspeccionesBody = z.input<typeof exportarInspeccionesBodySchema>
