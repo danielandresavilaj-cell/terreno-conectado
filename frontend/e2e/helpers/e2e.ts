@@ -303,9 +303,14 @@ export async function loginEnApp(page: Page, email: string): Promise<void> {
 /** Recorre la selección explícita de un formulario antes de capturarlo. */
 async function abrirFormularioAsignado(page: Page): Promise<void> {
   const enviar = page.getByRole('button', { name: 'Enviar inspección' })
-  if (await enviar.isVisible({ timeout: 500 }).catch(() => false)) return
-
-  await page.getByRole('heading', { name: 'Elige qué vas a inspeccionar' }).waitFor({ state: 'visible' })
+  const elegir = page.getByRole('heading', { name: 'Elige qué vas a inspeccionar' })
+  /* Tras el login la app va a Captura si hay un borrador, o a Formularios si
+   * no: se espera la que llegue primero en vez de adivinar con un sondeo corto. */
+  await Promise.race([
+    enviar.waitFor({ state: 'visible' }),
+    elegir.waitFor({ state: 'visible' }),
+  ])
+  if (await enviar.isVisible()) return
   /* Un borrador congelado tiene prioridad sobre la tarjeta: es la única ruta
    * que conserva sus respuestas y no intenta cambiar de revisión. */
   const continuar = page.getByTestId('continue-draft')
