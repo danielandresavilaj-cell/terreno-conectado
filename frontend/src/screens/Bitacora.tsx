@@ -42,12 +42,12 @@ export function Bitacora() {
     <div className="space-y-6">
       <header className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <p className="label-inst">FR-033 · Bitácora de turno</p>
+          <p className="label-inst">Bitácora de turno</p>
           <h1 className="mt-1.5 text-[26px] sm:text-[30px] font-semibold tracking-[-0.03em] leading-[1.1]">
             Turno B · hoy
           </h1>
           <p className="mt-1.5 text-[13px] text-ink-2">
-            {faenas.find((f) => f.id === faena)?.nombre ?? '—'} · geolocalización opcional (FR-034)
+            {faenas.find((f) => f.id === faena)?.nombre ?? '—'} · geolocalización opcional
           </p>
         </div>
         <Boton variante="primaria" onClick={() => setAbierto((v) => !v)}>

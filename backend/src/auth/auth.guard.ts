@@ -2,6 +2,7 @@ import type {
   CanActivate,
   ExecutionContext} from '@nestjs/common';
 import {
+  ForbiddenException,
   Inject,
   Injectable,
   UnauthorizedException,
@@ -24,6 +25,7 @@ export class AuthGuard implements CanActivate {
     if (typeof header !== 'string' || !header.startsWith('Bearer ')) {
       throw new UnauthorizedException()
     }
+    let claims: JwtClaims
     try {
       const secret = new TextEncoder().encode(
         this.config.getOrThrow<string>('JWT_ACCESS_SECRET'),
@@ -31,14 +33,34 @@ export class AuthGuard implements CanActivate {
       const { payload } = await jwtVerify(header.slice(7), secret, {
         algorithms: ['HS256'],
       })
-      ;(request as unknown as { user: JwtClaims }).user = {
+      claims = {
         sub: String(payload.sub),
         tenant_id: (payload.tenant_id as string | null) ?? null,
         rol: String(payload.rol),
+        mcp: payload.mcp === true,
       }
-      return true
     } catch {
       throw new UnauthorizedException('Sesión inválida o expirada')
     }
+    // TSK-AUTH-010: con clave temporal sólo se puede consultar el perfil y
+    // cambiarla. Cualquier otra ruta responde 403 con un código que el cliente
+    // usa para mostrar la pantalla de cambio obligatorio.
+    const ruta = rutaDe(request as { url?: unknown; originalUrl?: unknown })
+    if (claims.mcp && !RUTAS_CON_CLAVE_TEMPORAL.some((r) => ruta.endsWith(r))) {
+      throw new ForbiddenException({
+        statusCode: 403,
+        code: 'password_change_required',
+        message: 'Debes cambiar tu contraseña antes de continuar',
+      })
+    }
+    ;(request as unknown as { user: JwtClaims }).user = claims
+    return true
   }
+}
+
+const RUTAS_CON_CLAVE_TEMPORAL = ['/auth/me', '/me', '/auth/password', '/auth/logout']
+
+function rutaDe(request: { url?: unknown; originalUrl?: unknown }): string {
+  const url = typeof request.originalUrl === 'string' ? request.originalUrl : String(request.url ?? '')
+  return url.split('?')[0].replace(/\/+$/, '')
 }

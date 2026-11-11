@@ -4,6 +4,8 @@ export interface JwtClaims {
   tenant_id: string | null
   rol: string
   full_name?: string
+  /** Clave temporal pendiente de cambio (TSK-AUTH-010). */
+  mcp?: boolean
 }
 
 /** Fila de app_user que usa el flujo de autenticación (owner pool). */
@@ -17,6 +19,7 @@ export interface AuthUserRow {
   is_active: boolean
   failed_login_count: number
   locked_until: string | null
+  must_change_password: boolean
   tenant_slug: string | null
   tenant_status: string | null
 }
@@ -39,6 +42,7 @@ export interface PublicProfile {
   email: string
   role: string
   full_name: string
+  must_change_password: boolean
 }
 
 export interface LoginBody {
@@ -47,6 +51,14 @@ export interface LoginBody {
   /** Slug del tenant; obligatorio si el email existe en más de un tenant. */
   tenant?: string
 }
+
+export interface ChangePasswordBody {
+  current_password: string
+  new_password: string
+}
+
+/** Largo mínimo de una clave definida por el usuario (TSK-AUTH-010). */
+export const MIN_PASSWORD_LENGTH = 10
 
 export interface LoginResult {
   access_token: string

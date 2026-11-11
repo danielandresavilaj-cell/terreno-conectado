@@ -1,18 +1,16 @@
-/* Login — FR-001, FR-003, FR-005, FR-006.
+/* Login — FR-001, FR-003, FR-005, FR-006; v1 sin modo demo (TSK-AUTH-010).
  *
- * Desde TSK-WS-011 la sesión es REAL: `loginInApp` autentica contra el backend
- * (Bearer, sessionStorage), obtiene la identidad del tenant vía `GET /sites` y
- * la cachea en Dexie. Los errores del servidor se muestran en el propio panel:
- * 401 credenciales, 423 cuenta bloqueada (FR-005) y 429 rate-limit — mismo
- * vocabulario que devuelve `backend/src/auth/auth.service.ts`.
+ * `loginInApp` autentica contra el backend, obtiene la identidad del tenant vía
+ * `GET /sites` y la cachea en Dexie. Las cuentas las crea el administrador de
+ * cada empresa con una clave temporal; si el correo existe en más de una
+ * empresa, el usuario indica el código de la empresa. Errores: 401
+ * credenciales, 423 cuenta bloqueada y 429 demasiados intentos — mismo
+ * vocabulario que `backend/src/auth/auth.service.ts`.
  *
  * MOVIMIENTO (decisiones):
  * · Entrada escalonada de bloques, 40 ms entre ellos, translateY 8px + fade.
  *   Frecuencia: 1 vez por sesión → "raro / primera vez" → se permite delicia.
  *   CASCADA, con stagger — nunca aparecer todo de golpe.
- * · La tarjeta de cuenta demo hace pop al seleccionarse: spring corto. Se usa
- *   pocas veces por sesión, así que el rebote se siente confirmation y no
- *   latoso.
  * · El campo de contraseña NO tiene animación de foco. Es navegación por
  *   teclado puro; el foco debe ser instantáneo.
  * · El error de autenticación hace entrada, no latido: es un estado, no un
@@ -24,49 +22,46 @@ import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { Boton } from '../components/ui'
 import { useEstado } from '../lib/store'
 import { ApiError } from '../lib/api'
-import { DEMO_CUENTAS, DEMO_PASSWORD, ROL_HINT, ROL_LABEL } from '../lib/seed'
 import { EASE, STAGGER } from '../lib/motion'
 
 export function Login() {
   const { loginInApp } = useEstado()
   const [email, setEmail] = useState('')
   const [pass, setPass] = useState('')
+  const [empresa, setEmpresa] = useState('')
+  const [conEmpresa, setConEmpresa] = useState(false)
   const [oculto, setOculto] = useState(true)
   const [enviando, setEnviando] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const reducir = useReducedMotion()
 
-  const elegirCuenta = (cuenta: (typeof DEMO_CUENTAS)[number]) => {
-    setEmail(cuenta.email)
-    setPass(DEMO_PASSWORD)
-    setError(null)
-  }
-
   const enviar = async (e: FormEvent) => {
     e.preventDefault()
-    if (enviando || !email || pass.length < 4) return
+    if (enviando || !email || !pass) return
     setEnviando(true)
     setError(null)
     try {
-      await loginInApp(email.trim().toLowerCase(), pass)
+      await loginInApp(email.trim().toLowerCase(), pass, conEmpresa ? empresa.trim().toLowerCase() || undefined : undefined)
     } catch (err) {
       if (err instanceof ApiError) {
-        // FR-005: 423 cuenta bloqueada / 429 rate-limit comparten panel de aviso.
+        // 423 cuenta bloqueada / 429 demasiados intentos comparten panel de aviso.
         if (err.status === 401) {
-          setError('Correo o contraseña incorrectos. Revisá y volvé a intentar.')
-        } else if (err.status === 423) {
           setError(
-            'Cuenta bloqueada temporalmente por demasiados intentos (FR-005). Volvé en 15 minutos.',
+            conEmpresa
+              ? 'Correo, contraseña o código de empresa incorrectos. Revisa y vuelve a intentar.'
+              : 'Correo o contraseña incorrectos. Si tu correo está en más de una empresa, indica el código de empresa.',
           )
+        } else if (err.status === 423) {
+          setError('Tu cuenta quedó bloqueada por demasiados intentos. Vuelve a intentar en 15 minutos.')
         } else if (err.status === 429) {
-          setError('Demasiados intentos seguidos. Esperá unos minutos y volvé a intentar.')
+          setError('Demasiados intentos seguidos. Espera unos minutos y vuelve a intentar.')
         } else if (err.status === 0) {
-          setError('Sin conexión con el servidor. Necesitás red para iniciar sesión.')
+          setError('Sin conexión con el servidor. Necesitas señal para iniciar sesión por primera vez.')
         } else {
           setError(err.detalle)
         }
       } else {
-        setError('No se pudo iniciar sesión. Intentá nuevamente.')
+        setError('No se pudo iniciar sesión. Intenta nuevamente.')
       }
     } finally {
       setEnviando(false)
@@ -124,7 +119,7 @@ export function Login() {
           {[
             ['100%', 'del flujo en terreno opera sin red'],
             ['≤ 60 s', 'de latencia de sincronización'],
-            ['2', 'tenants aislados por RLS'],
+            ['1', 'espacio aislado por empresa'],
           ].map(([k, v]) => (
             <div key={k}>
               <p className="num-inst text-[22px] font-semibold text-beam">{k}</p>
@@ -155,61 +150,8 @@ export function Login() {
             Iniciar sesión
           </motion.h1>
           <motion.p {...bloque(0.06 + STAGGER)} className="mt-1.5 text-[13px] text-ink-2">
-            Elegí una cuenta de demostración o entrá con tus credenciales del tenant.
+            Ingresa con el correo y la contraseña que te entregó el administrador de tu empresa.
           </motion.p>
-
-          {import.meta.env.VITE_PUBLIC_DEMO === 'true' && (
-            <p className="mb-4 rounded-xl border border-line-soft p-4 text-sm text-muted">
-              Demostración pública: las cuentas son compartidas. Usa únicamente datos y fotos de prueba.
-            </p>
-          )}
-          {/* Cuentas demo (FR-006): emails sembrados en el backend con same password */}
-          <motion.div {...bloque(0.06 + STAGGER * 2)} className="mt-7 space-y-2">
-            <p className="label-inst mb-2.5">Cuentas demo — password {DEMO_PASSWORD}</p>
-            {DEMO_CUENTAS.map((u) => {
-              const activa = email === u.email
-              return (
-                <motion.button
-                  key={u.email}
-                  type="button"
-                  onClick={() => elegirCuenta(u)}
-                  whileTap={reducir ? undefined : { scale: 0.985 }}
-                  animate={{
-                    borderColor: activa ? 'var(--color-beam)' : 'var(--color-line-soft)',
-                    backgroundColor: activa ? 'var(--color-beam-glow)' : 'var(--color-s1)',
-                  }}
-                  transition={{ duration: 0.2, ease: EASE.out }}
-                  className="w-full text-left rounded-[10px] border px-3.5 py-2.5 cursor-pointer"
-                >
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="text-[14px] font-medium truncate">{u.nombre}</p>
-                      <p className="text-[12px] text-ink-3 truncate">{ROL_LABEL[u.rol]}</p>
-                    </div>
-                    {activa && (
-                      <motion.span
-                        initial={{ opacity: 0, scale: 0.7 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        transition={{ type: 'spring', duration: 0.3, bounce: 0.3 }}
-                        className="h-4 w-4 rounded-full bg-beam grid place-items-center shrink-0"
-                      >
-                        <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden>
-                          <path
-                            d="M2 5.2 4 7.2 8 3"
-                            stroke="var(--color-s0)"
-                            strokeWidth="1.8"
-                            fill="none"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          />
-                        </svg>
-                      </motion.span>
-                    )}
-                  </div>
-                </motion.button>
-              )
-            })}
-          </motion.div>
 
           {/* Credenciales */}
           <form onSubmit={enviar}>
@@ -257,7 +199,30 @@ export function Login() {
                 </div>
               </label>
 
-              {/* FR-005/errores: entrada con fade, sin latido — es un estado. */}
+              {conEmpresa ? (
+                <label className="block">
+                  <span className="label-inst">Código de empresa</span>
+                  <input
+                    type="text"
+                    value={empresa}
+                    onChange={(e) => setEmpresa(e.target.value)}
+                    autoComplete="organization"
+                    autoCapitalize="none"
+                    placeholder="ej. minera-el-cobre"
+                    className="mt-1.5 w-full h-11 px-3 rounded-[10px] bg-s1 border border-line-soft text-[14px] placeholder:text-ink-3 focus:border-beam transition-colors duration-150"
+                  />
+                </label>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setConEmpresa(true)}
+                  className="min-h-11 text-[13px] text-beam underline-offset-2 hover:underline cursor-pointer"
+                >
+                  ¿Tu correo está en más de una empresa?
+                </button>
+              )}
+
+              {/* Errores: entrada con fade, sin latido — es un estado. */}
               <AnimatePresence>
                 {error && (
                   <motion.div
@@ -280,34 +245,17 @@ export function Login() {
                 variante="primaria"
                 tamano="lg"
                 bloqueCompleto
-                disabled={enviando || !email || pass.length < 4}
+                disabled={enviando || !email || !pass}
               >
                 {enviando ? 'Ingresando…' : 'Entrar'}
               </Boton>
             </motion.div>
           </form>
 
-          <motion.p {...bloque(0.06 + STAGGER * 5)} className="mt-5 text-[11px] text-ink-3 leading-relaxed">
-            Cada tenant se ve solo a sí mismo (NFR-05): las cuentas de{' '}
-            <span className="text-ink-2">Minera El Cobre SpA</span> y{' '}
-            <span className="text-ink-2">Constructora Andes SpA</span> viven en bases aisladas por
-            PostgreSQL RLS.
+          <motion.p {...bloque(0.06 + STAGGER * 5)} className="mt-5 text-[13px] text-ink-2 leading-relaxed">
+            ¿Olvidaste tu contraseña o no tienes cuenta? Pídele al administrador de tu empresa que
+            la cree o la restablezca.
           </motion.p>
-
-          {email && (
-            <motion.p
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.4, duration: 0.3 }}
-              className="mt-4 text-[12px] text-ink-2 border-l-2 border-beam pl-3"
-            >
-              {DEMO_CUENTAS.find((c) => c.email === email)?.rol
-                ? ROL_HINT[
-                    DEMO_CUENTAS.find((c) => c.email === email)!.rol
-                  ]
-                : 'Credenciales del tenant que el backend sembró (backend/db/seed.ts).'}
-            </motion.p>
-          )}
         </div>
       </main>
     </div>

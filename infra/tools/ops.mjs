@@ -44,7 +44,7 @@ function backup() {
       const fd = openSync(join(staging, 'database.dump'), 'wx', 0o600)
       try { run('docker', [...dcArgs, 'exec', '-T', 'db', 'pg_dump', '-U', env.POSTGRES_USER, '-d', env.POSTGRES_DB, '-Fc'], { stdio: ['ignore', fd, 'inherit'] }) }
       finally { closeSync(fd) }
-      dc('run', '--rm', '--no-deps', '-T', '-v', `${staging}:/backup`, '--entrypoint', 'tar', 'config', '-czf', '/backup/files.tar.gz', '-C', '/data/sync', '.')
+      dc('run', '--rm', '--no-deps', '-T', '-v', `${staging}:/backup`, '--entrypoint', 'tar', 'sync-files', '-czf', '/backup/files.tar.gz', '-C', '/data/sync', '.')
       const revision = existsSync(join(root, '.release')) ? readFileSync(join(root, '.release'), 'utf8').trim() : null
       writeFileSync(join(staging, 'manifest.json'), JSON.stringify({ format: 1, created_at: new Date().toISOString(), revision, images: Object.fromEntries(Object.entries(env).filter(([k]) => k.startsWith('IMAGE_'))) }), { mode: 0o600 })
     } finally { if (resume) dc('start', 'backend') }
@@ -88,11 +88,10 @@ async function deploy() {
     dc('up', '-d', '--wait', 'db')
     if (released) dc('stop', 'backend')
     dc('--profile', 'tools', 'run', '--rm', 'migrate')
-    if (!released && !existsSync(join(root, '.config-imported'))) {
-      // Antes de exponer la API: exige paquete completo y destino sin datos.
-      dc('--profile', 'tools', 'run', '--rm', 'config')
-      dc('run', '--rm', '--no-deps', '-T', '--entrypoint', 'chown', 'config', '-R', '1000:1000', '/data/sync')
-      writeFileSync(join(root, '.config-imported'), new Date().toISOString(), { mode: 0o600 })
+    if (!released) {
+      // Primer despliegue: el volumen de fotos queda del usuario `node`. Las
+      // cuentas NO se siembran: el primer admin se crea con `bootstrap-admin`.
+      dc('run', '--rm', '--no-deps', '-T', '--entrypoint', 'chown', 'sync-files', '-R', '1000:1000', '/data/sync')
     }
     dc('up', '-d', '--wait', 'backend', 'frontend', 'caddy')
     await healthy()
@@ -141,12 +140,12 @@ async function restore() {
     dc('up', '-d', '--wait', 'db')
     const tables = dcCapture('exec', '-T', 'db', 'psql', '-U', env.POSTGRES_USER, '-d', env.POSTGRES_DB, '-Atc', "SELECT count(*) FROM information_schema.tables WHERE table_schema='public'")
     if (tables !== '0' || running('backend')) throw new Error('Restore requiere base nueva y API apagada; no borra datos existentes')
-    dc('run', '--rm', '--no-deps', '-T', '--entrypoint', 'node', 'config', '-e', "if(require('fs').readdirSync('/data/sync').length) process.exit(1)")
+    dc('run', '--rm', '--no-deps', '-T', '--entrypoint', 'node', 'sync-files', '-e', "if(require('fs').readdirSync('/data/sync').length) process.exit(1)")
     const fd = openSync(join(staging, 'database.dump'), 'r')
     try { run('docker', [...dcArgs, 'exec', '-T', 'db', 'pg_restore', '--exit-on-error', '--single-transaction', '--no-owner', '-U', env.POSTGRES_USER, '-d', env.POSTGRES_DB], { stdio: [fd, 'inherit', 'inherit'] }) }
     finally { closeSync(fd) }
-    dc('run', '--rm', '--no-deps', '-T', '-v', `${staging}:/backup:ro`, '--entrypoint', 'tar', 'config', '-xzf', '/backup/files.tar.gz', '-C', '/data/sync')
-    dc('run', '--rm', '--no-deps', '-T', '--entrypoint', 'chown', 'config', '-R', '1000:1000', '/data/sync')
+    dc('run', '--rm', '--no-deps', '-T', '-v', `${staging}:/backup:ro`, '--entrypoint', 'tar', 'sync-files', '-xzf', '/backup/files.tar.gz', '-C', '/data/sync')
+    dc('run', '--rm', '--no-deps', '-T', '--entrypoint', 'chown', 'sync-files', '-R', '1000:1000', '/data/sync')
     const text = readFileSync(envFile, 'utf8').replace(/^(IMAGE_[A-Z_]+)=.*$/gm, (_, key) => `${key}=${manifest.images[key]}`)
     writeFileSync(envFile, text, { mode: 0o600 })
     if (manifest.revision) writeFileSync(join(root, '.release'), `${manifest.revision}\n`, { mode: 0o600 })
@@ -163,7 +162,8 @@ try {
   if (process.argv[2] === 'backup') backup()
   else if (process.argv[2] === 'deploy') await deploy()
   else if (process.argv[2] === 'restore') await restore()
-  else throw new Error('Uso: ops.mjs backup|deploy SHA|restore ARCHIVO --confirm-empty-target')
+  else if (process.argv[2] === 'bootstrap-admin') dc('--profile', 'tools', 'run', '--rm', 'bootstrap-admin')
+  else throw new Error('Uso: ops.mjs backup|deploy SHA|restore ARCHIVO --confirm-empty-target|bootstrap-admin')
 } catch (e) {
   console.error(`ERROR operaciones: ${e.message}`)
   // Alertas optativas: endpoint privado del equipo. Nunca incluir credenciales.

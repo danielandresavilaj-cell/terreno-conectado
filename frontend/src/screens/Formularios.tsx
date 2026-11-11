@@ -25,7 +25,7 @@ export function Formularios() {
       <header>
         <p className="label-inst">Formularios asignados</p>
         <h1 className="mt-1.5 text-[26px] sm:text-[30px] font-semibold tracking-[-0.03em] leading-[1.1] text-pretty">
-          Elegí qué vas a inspeccionar
+          Elige qué vas a inspeccionar
         </h1>
         <p className="mt-2 text-[13px] text-ink-2 max-w-[62ch] leading-relaxed">
           Sólo aparecen los formularios habilitados para tu faena y tu rol. Tu selección se conserva
@@ -38,7 +38,7 @@ export function Formularios() {
           <div className="min-w-0">
             <p className="label-inst">Borrador en curso</p>
             <p className="mt-1 text-[14px] font-semibold truncate">{plantilla.nombre}</p>
-            <p className="mt-1 text-[12px] text-ink-2">Terminá o descartá este borrador antes de cambiar de formulario.</p>
+            <p className="mt-1 text-[12px] text-ink-2">Termina o descarta este borrador antes de cambiar de formulario.</p>
           </div>
           <Boton tamano="sm" variante="primaria" onClick={() => ir('captura')} data-testid="continue-draft">
             Continuar
@@ -50,9 +50,9 @@ export function Formularios() {
 
       {formularios.length === 0 ? (
         <section className="panel p-8 text-center">
-          <h2 className="text-[15px] font-semibold">Todavía no tenés formularios asignados</h2>
+          <h2 className="text-[15px] font-semibold">Todavía no tienes formularios asignados</h2>
           <p className="mt-2 text-[13px] text-ink-2 max-w-[48ch] mx-auto leading-relaxed">
-            Pedile al administrador que publique el formulario y lo asigne a tu faena y rol desde Plantillas.
+            Pídele al administrador que publique el formulario y lo asigne a tu faena y rol desde Plantillas.
           </p>
         </section>
       ) : (

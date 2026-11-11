@@ -68,7 +68,12 @@ async function adjuntarFoto(page: Page): Promise<void> {
 }
 
 async function salir(page: Page): Promise<void> {
-  await page.getByRole('button', { name: 'Salir' }).click()
+  // TSK-AUTH-010: el cierre de sesión vive en "Mi cuenta" y, si hay registros
+  // sin enviar, pide confirmación (la cola queda en el dispositivo).
+  await page.getByRole('button', { name: 'Mi cuenta' }).click()
+  await page.getByRole('button', { name: 'Cerrar sesión', exact: true }).click()
+  const igual = page.getByRole('button', { name: 'Cerrar sesión igual' })
+  if (await igual.isVisible().catch(() => false)) await igual.click()
   await page.getByRole('heading', { name: 'Iniciar sesión' }).waitFor({ state: 'visible' })
 }
 
@@ -93,7 +98,7 @@ test.describe('Checklist §1 — ⭐ Humo H-01…H-10 (issue #130)', () => {
       await page.getByRole('button', { name: 'Bitácora', exact: true }).click()
       await expect(page.getByRole('button', { name: 'Nueva entrada' })).toBeVisible()
       await page.getByRole('button', { name: 'Cola', exact: true }).click()
-      await expect(page.getByText('FR-013 · Outbox local')).toBeVisible()
+      await expect(page.getByText('Cola local', { exact: true })).toBeVisible()
       await page.getByRole('button', { name: 'Inspección', exact: true }).click()
       await expect(
         page.getByTestId(`template-item-${ITEMS_FIXTURE_A.barriers}`).getByRole('radiogroup'),
@@ -104,12 +109,9 @@ test.describe('Checklist §1 — ⭐ Humo H-01…H-10 (issue #130)', () => {
     })
 
     await test.step('H-02 · Cortar la señal', async () => {
-      const sw = page.getByTestId('signal-toggle')
-      await sw.scrollIntoViewIfNeeded()
-      if ((await sw.getAttribute('aria-checked')) === 'true') await sw.click()
-      await expect(sw).toHaveAttribute('aria-checked', 'false')
-      await expect(page.getByText('Sin señal', { exact: true }).first()).toBeVisible()
+      // v1: el estado de señal es el de la red real (no hay interruptor demo).
       await context.setOffline(true) // modo avión real del dispositivo
+      await expect(page.getByText('Sin señal', { exact: true }).filter({ visible: true }).first()).toBeVisible()
     })
 
     await test.step('H-03 · Capturar con hallazgo', async () => {
@@ -160,7 +162,7 @@ test.describe('Checklist §1 — ⭐ Humo H-01…H-10 (issue #130)', () => {
       await context.setOffline(false)
       const estado = await esperarColaVacia(page, { timeout: 90_000 })
       expect(estado.pendientes).toBe(0)
-      await expect(page.getByText('En línea', { exact: true }).first()).toBeVisible()
+      await expect(page.getByText('En línea', { exact: true }).filter({ visible: true }).first()).toBeVisible()
     })
 
     await test.step('H-09 · El supervisor ve el dato', async () => {
@@ -202,15 +204,15 @@ test.describe('Tabs por perfil (FW-05 / SU / AD-02 / PA-01)', () => {
     for (const t of ['Plantillas', 'Importar']) expect(tabs).not.toContain(t)
   })
 
-  test('admin A · + Plantillas e Importar (sin captura)', async ({ page }) => {
+  test('admin A · + Equipo, Plantillas e Importar (sin captura)', async ({ page }) => {
     const tabs = await verTabs(page, CUENTAS.adminA)
-    for (const t of ['Gerencia', 'Cola', 'Conflictos', 'Plantillas', 'Importar']) expect(tabs).toContain(t)
+    for (const t of ['Gerencia', 'Equipo', 'Cola', 'Conflictos', 'Plantillas', 'Importar']) expect(tabs).toContain(t)
     for (const t of ['Inspección', 'Bitácora']) expect(tabs).not.toContain(t)
   })
 
-  test('plataforma · solo Gerencia (sin UI de captura ni admin de tenant)', async ({ page }) => {
+  test('plataforma · solo Empresas (sin UI de captura ni datos de empresas)', async ({ page }) => {
     const tabs = await verTabs(page, CUENTAS.plataforma)
-    expect(tabs).toEqual(['Gerencia'])
-    await expect(page.getByRole('heading', { name: 'Operación Plataforma' })).toBeVisible()
+    expect(tabs).toEqual(['Empresas'])
+    await expect(page.getByRole('heading', { name: 'Plataforma' })).toBeVisible()
   })
 })

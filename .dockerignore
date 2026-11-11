@@ -17,7 +17,6 @@ Fase 1
 .env.*
 **/.env
 **/.env.*
-infra/config-bundle
 infra/backups
 infra/secrets
 infra/backup/*.conf

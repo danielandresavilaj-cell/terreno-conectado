@@ -2,7 +2,7 @@
   "name": "@terreno/infra",
   "version": "0.1.0",
   "private": true,
-  "description": "Infraestructura de demo (Docker Compose, Caddy, deploy) — TSK-WS-002+ definen su contenido",
+  "description": "Infraestructura de producción v1 (Docker Compose, Caddy, despliegue, respaldos)",
   "scripts": {
     "test": "node --test tests/*.test.mjs",
     "test:ops": "node smoke/backup-restore.mjs",
@@ -11,6 +11,6 @@
     "up:prod": "docker compose -f docker-compose.prod.yml up -d",
     "down:prod": "docker compose -f docker-compose.prod.yml down",
     "migrate:prod": "docker compose -f docker-compose.prod.yml --profile tools run --rm migrate",
-    "seed:prod": "docker compose -f docker-compose.prod.yml --profile tools run --rm seed"
+    "bootstrap-admin:prod": "docker compose -f docker-compose.prod.yml --profile tools run --rm bootstrap-admin"
   }
 }

@@ -8,7 +8,7 @@
 # Uso (desde `infra/`):
 #   cp .env.prod.example .env && editar
 #   docker compose -f docker-compose.prod.yml --profile tools run --rm migrate
-#   docker compose -f docker-compose.prod.yml --profile tools run --rm config
+#   docker compose -f docker-compose.prod.yml --profile tools run --rm bootstrap-admin
 #   docker compose -f docker-compose.prod.yml up -d
 #
 # Las imágenes se construyen y publican en GHCR con `.github/workflows/deploy.yml`.
@@ -47,7 +47,6 @@ services:
       DATABASE_URL: ${DATABASE_URL:?}
       APP_DATABASE_URL: ${APP_DATABASE_URL:?}
       JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?}
-      DEMO_PASSWORD: ${DEMO_PASSWORD:?}
       ALLOWED_ORIGIN: ${ALLOWED_ORIGIN:?}
       LOG_LEVEL: ${LOG_LEVEL:-info}
       SYNC_VOLUME: /data/sync
@@ -83,7 +82,7 @@ services:
       retries: 10
 
   # One-shots de esquema. Usan la imagen de "herramientas" (devDeps + fuentes)
-  # porque `node-pg-migrate` y `ts-node` (seed) son devDependencies.
+  # porque `node-pg-migrate` es devDependency.
   migrate:
     image: ${IMAGE_BACKEND_TOOLS:?fijar IMAGE_BACKEND_TOOLS en infra/.env}
     profiles: ['tools']
@@ -94,28 +93,22 @@ services:
       db:
         condition: service_healthy
 
-  seed:
+  # Acceso al volumen de fotos para respaldo/restauración (`tools/ops.mjs`).
+  sync-files:
     image: ${IMAGE_BACKEND_TOOLS:?fijar IMAGE_BACKEND_TOOLS en infra/.env}
     profiles: ['tools']
-    environment:
-      DATABASE_URL: ${DATABASE_URL:?}
-      DEMO_PASSWORD: ${DEMO_PASSWORD:?}
-    command: npm run db:seed --workspace @terreno/backend
-    depends_on:
-      db:
-        condition: service_healthy
-
-  config:
-    image: ${IMAGE_BACKEND_TOOLS:?}
-    profiles: ['tools']
-    environment:
-      DATABASE_URL: ${DATABASE_URL:?}
-      DEMO_PASSWORD: ${DEMO_PASSWORD:?}
-      SYNC_VOLUME: /data/sync
     volumes:
       - sync_data:/data/sync
-      - ${CONFIG_BUNDLE:-./config-bundle}:/bundle:ro
-    command: node infra/tools/config.mjs import /bundle
+
+  # Primer administrador de plataforma (interactivo; ver infra/OPERACION.md).
+  bootstrap-admin:
+    image: ${IMAGE_BACKEND_TOOLS:?fijar IMAGE_BACKEND_TOOLS en infra/.env}
+    profiles: ['tools']
+    stdin_open: true
+    tty: true
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?}
+    command: node infra/tools/bootstrap-admin.mjs
     depends_on:
       db:
         condition: service_healthy

@@ -17,6 +17,7 @@
 import { expect, test, type Page } from '@playwright/test'
 
 import {
+  autenticar,
   CUENTAS,
   ITEMS_FIXTURE_A,
   TENANTS,
@@ -170,7 +171,8 @@ test.describe('caos 2 — doble envío (replay)', () => {
 
     const filasAntes = await db.contar(CONTAR_INSPECCIONES, [TENANTS.A])
 
-    const token = await page.evaluate(() => sessionStorage.getItem('tc_access_token'))
+    // TSK-AUTH-010: el token de la app vive en memoria; se pide uno por API.
+    const { token } = await autenticar(request, CUENTAS.trabajadorA)
     expect(token).toBeTruthy()
 
     const status: number[] = []
@@ -327,24 +329,28 @@ test.describe('caos 6 — token expirado en cola', () => {
 
     const encoladas = (await filasOutbox(page)).length
 
-    // Se sustituye el access token por uno vencido (el caso real: el JWT de
-    // 15 min expiró con el turno todavía en la cola).
-    await page.evaluate(() => {
-      const vencido = btoa(JSON.stringify({ sub: 'x', exp: 1 }))
-      sessionStorage.setItem('tc_access_token', `${vencido}.firma-invalida`)
-    })
+    /* El caso real: el JWT de 15 min venció y la sesión larga tampoco sirve
+     * (expiró o fue revocada). Sin cookies el refresh es imposible, y el
+     * servidor responde 401 al lote. TSK-AUTH-010: la cola queda en PAUSA, sin
+     * marcar filas como fallidas, y la app pide volver a ingresar. */
+    await context.clearCookies()
+    await page.route('**/sync/batch', (route) => route.fulfill({ status: 401, body: '{}' }))
 
     await context.setOffline(false)
     await page.evaluate(() => window.dispatchEvent(new Event('online')))
-    await page.waitForTimeout(4000)
+    await forzarFlush(page)
+    await expect(page.getByText('Tu sesión expiró')).toBeVisible({ timeout: 20_000 })
 
-    /* Invariante (lo que importa de este caos): la cola NO se perdió. Un 401
-     * deja las filas en `failed` para reintentar; nunca las borra. */
+    /* Invariante (lo que importa de este caos): la cola NO se perdió ni se
+     * marcó como fallida. */
     const tras401 = await leerCola(page)
     expect(tras401.total).toBe(encoladas)
+    expect(tras401.fallidas).toBe(0)
 
     // Al volver a iniciar sesión, el lote drena sin duplicar.
+    await page.unroute('**/sync/batch')
     const antes = await db.contar(CONTAR_INSPECCIONES, [TENANTS.A])
+    await page.getByRole('button', { name: 'Ingresar de nuevo' }).click()
     await loginEnApp(page, CUENTAS.trabajadorA)
     await forzarFlush(page)
     await esperarColaVacia(page, { timeout: 90_000, permitirFallidas: true })

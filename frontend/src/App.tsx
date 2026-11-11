@@ -2,6 +2,8 @@ import { Suspense, lazy, useEffect } from 'react'
 import { motion } from 'motion/react'
 import { Shell } from './components/Shell'
 import { Login } from './screens/Login'
+import { CambioClaveObligatorio } from './screens/CambioClaveObligatorio'
+import { MiCuenta } from './screens/MiCuenta'
 import { ProveedorEstado, useEstado, type Pantalla } from './lib/store'
 
 /* NFR-07 (rendimiento móvil): el chunk inicial lleva SÓLO el Login. Las
@@ -18,6 +20,8 @@ const Cola = lazy(() => import('./screens/Cola').then((m) => ({ default: m.Cola 
 const Dashboard = lazy(() => import('./screens/Dashboard').then((m) => ({ default: m.Dashboard })))
 const Conflictos = lazy(() => import('./screens/Conflictos').then((m) => ({ default: m.Conflictos })))
 const Importar = lazy(() => import('./screens/Importar').then((m) => ({ default: m.Importar })))
+const Administracion = lazy(() => import('./screens/Administracion').then((m) => ({ default: m.Administracion })))
+const Plataforma = lazy(() => import('./screens/Plataforma').then((m) => ({ default: m.Plataforma })))
 const Plantillas = lazy(() => import('./screens/Plantillas').then((m) => ({ default: m.Plantillas })))
 
 /* Permisos por rol (FR-003: permisos crecientes).
@@ -27,10 +31,10 @@ const Plantillas = lazy(() => import('./screens/Plantillas').then((m) => ({ defa
  * línea de lógica de autorización real — que es justamente lo que este mockup
  * NO implementa. */
 const POR_ROL: Record<string, Pantalla[]> = {
-  field_worker: ['formularios', 'captura', 'bitacora', 'cola'],
-  supervisor: ['formularios', 'captura', 'bitacora', 'cola', 'dashboard', 'conflictos'],
-  tenant_admin: ['cola', 'dashboard', 'conflictos', 'plantillas', 'importar'],
-  platform_admin: ['dashboard'],
+  field_worker: ['formularios', 'captura', 'bitacora', 'cola', 'cuenta'],
+  supervisor: ['formularios', 'captura', 'bitacora', 'cola', 'dashboard', 'conflictos', 'cuenta'],
+  tenant_admin: ['dashboard', 'administracion', 'conflictos', 'plantillas', 'importar', 'cola', 'cuenta'],
+  platform_admin: ['plataforma', 'cuenta'],
 }
 
 export default function App() {
@@ -42,7 +46,7 @@ export default function App() {
 }
 
 function Raiz() {
-  const { usuario, pantalla, ir, hidratando } = useEstado()
+  const { usuario, pantalla, ir, hidratando, debeCambiarClave } = useEstado()
 
   /* Guarda de navegación: si el rol activo no puede ver la pantalla actual,
    * se redirige a la primera que sí puede. Se hace en un efecto (no durante
@@ -73,6 +77,8 @@ function Raiz() {
     )
   }
 
+  if (debeCambiarClave) return <CambioClaveObligatorio />
+
   if (!usuario) {
     return (
       <motion.div
@@ -88,6 +94,7 @@ function Raiz() {
   return (
     <Shell>
       <Suspense fallback={<PantallaCargando />}>
+        {pantalla === 'cuenta' && <MiCuenta />}
         {pantalla === 'formularios' && <Formularios />}
         {pantalla === 'captura' && <Captura />}
         {pantalla === 'bitacora' && <Bitacora />}
@@ -96,6 +103,8 @@ function Raiz() {
         {pantalla === 'conflictos' && <Conflictos />}
         {pantalla === 'importar' && <Importar />}
         {pantalla === 'plantillas' && <Plantillas />}
+        {pantalla === 'administracion' && <Administracion />}
+        {pantalla === 'plataforma' && <Plataforma />}
       </Suspense>
     </Shell>
   )

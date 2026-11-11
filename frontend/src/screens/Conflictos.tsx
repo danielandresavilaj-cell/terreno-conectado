@@ -59,13 +59,13 @@ function mapaConflicto(c: ConflictRecordDto): Conflicto {
     devices: [
       {
         device: 'Versión ganadora',
-        autor: 'servidor · LWW',
+        autor: 'servidor',
         valor: formatoPayload(c.winner_payload),
         ts: new Date(c.resolved_at).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
       },
       {
         device: 'Versión descartada',
-        autor: 'servidor · LWW',
+        autor: 'servidor',
         valor: formatoPayload(c.loser_payload),
         ts: new Date(c.resolved_at).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
       },
@@ -106,15 +106,15 @@ export function Conflictos() {
     <div className="space-y-6">
       <header className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <p className="label-inst">FR-023 · Last-Write-Wins</p>
+          <p className="label-inst">Gana la versión más reciente</p>
           <h1 className="mt-1.5 text-[26px] sm:text-[30px] font-semibold tracking-[-0.03em] leading-[1.1]">
             Registro de conflictos
           </h1>
           <p className="mt-1.5 text-[13px] text-ink-2 max-w-[62ch] leading-relaxed">
-            Cuando dos dispositivos editan el mismo registro sin conexión, el motor aplica LWW por
-            <span className="text-ink"> captured_at</span> más reciente y{' '}
-            <span className="text-ink">conserva ambas versiones</span>. Nada se sobrescribe en
-            silencio (Artículo III).
+            Cuando dos dispositivos editan el mismo registro sin conexión, se aplica la versión
+            <span className="text-ink"> capturada más recientemente</span> y{' '}
+            se <span className="text-ink">conservan ambas versiones</span>. Nada se sobrescribe en
+            silencio.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -164,7 +164,7 @@ export function Conflictos() {
 
       <p className="text-[11px] text-ink-3 leading-relaxed border-t border-line-soft pt-4">
         Cada resolución queda en el audit log append-only junto con el usuario que la decidió
-        (FR-051). La cola de sincronización nunca descarta una versión: se archiva como
+       . La cola de sincronización nunca descarta una versión: se archiva como
         conflicto para que el supervisor pueda auditar. Sesión: {usuario?.email ?? '—'}.
       </p>
     </div>
@@ -279,7 +279,7 @@ function CardConflicto({
       {!resuelto && (
         <footer className="px-4 py-3 border-t border-line-soft flex flex-wrap items-center justify-between gap-3">
           <p className="text-[11px] text-ink-3 leading-relaxed max-w-[52ch]">
-            Se aplicó la versión más reciente. Revisá la descartada antes de cerrarla: queda en el
+            Se aplicó la versión más reciente. Revisa la descartada antes de cerrarla: queda en el
             audit log de forma permanente.
           </p>
           <Boton tamano="sm" variante="secundaria" onClick={onResolver}>

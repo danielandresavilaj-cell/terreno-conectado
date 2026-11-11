@@ -2,7 +2,10 @@ import { Pool } from 'pg'
 import { hash } from '@node-rs/argon2'
 
 /**
- * Datos semilla de la demo académica (data-model.md §5, FR-006).
+ * Datos semilla SÓLO para desarrollo local, tests de integración y E2E
+ * (data-model.md §5). Producción v1 no la usa: el primer administrador se crea
+ * con `infra/tools/bootstrap-admin.mjs` y las cuentas desde la app
+ * (TSK-ADM-001, Enmienda 003). Nunca correr este script contra la VM.
  *
  * Crea dos tenants para probar el aislamiento multi-tenant:
  *  - Tenant A "Minera El Cobre SpA" (faena minera)

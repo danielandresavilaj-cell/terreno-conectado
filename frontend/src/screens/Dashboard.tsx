@@ -240,8 +240,14 @@ export function Dashboard() {
       const [summary, hallazgos] = await Promise.all([getSummary(f), getFindings(fs), lista])
       setDatos({ summary, hallazgos: hallazgos.items })
     } catch (err) {
-      if (err instanceof ApiError && err.status !== 0) {
-        setErrorCarga(err.detalle)
+      if (err instanceof ApiError) {
+        // Sin red se dice explícitamente: las métricas en pantalla pueden ser
+        // de la última lectura y el supervisor tiene que saberlo.
+        setErrorCarga(
+          err.status === 0
+            ? 'sin conexión con el servidor. Lo que ves es la última lectura; se actualiza al volver la señal.'
+            : err.detalle,
+        )
       }
     } finally {
       setCargando(false)
@@ -381,7 +387,7 @@ export function Dashboard() {
     <div className="space-y-6">
       <header className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <p className="label-inst">FR-040 · Dashboard por tenant</p>
+          <p className="label-inst">Dashboard por tenant</p>
           <h1 className="mt-1.5 text-[26px] sm:text-[30px] font-semibold tracking-[-0.03em] leading-[1.1]">
             {esPlataforma ? 'Operación Plataforma' : identidad?.tenantNombre ?? '—'}
           </h1>
@@ -477,7 +483,7 @@ export function Dashboard() {
               etiqueta="Latencia p95"
               valor={summary?.latencia_p95_seg ?? null}
               sufijo=" s"
-              pie="objetivo NFR-03: 60 s"
+              pie="objetivo: 60 s"
             />
             <Metrica
               etiqueta="Hallazgos urgentes"
@@ -555,7 +561,7 @@ export function Dashboard() {
                   </div>
                   <p className="mt-4 text-[11px] text-ink-3 leading-relaxed border-t border-line-soft pt-3">
                     Los hallazgos de severidad alta y crítica se destacan de inmediato en este panel al
-                    sincronizarse (FR-035).
+                    sincronizarse.
                   </p>
                 </section>
               </div>
@@ -563,7 +569,7 @@ export function Dashboard() {
               {/* ── Filtros (FR-041) ─────────────────────────────────────── */}
               <section className="space-y-3">
                 <div className="flex items-center gap-3">
-                  <h2 className="label-inst">FR-041 · Filtros</h2>
+                  <h2 className="label-inst">Filtros</h2>
                   <div className="flex-1 rule" />
                 </div>
 
@@ -651,7 +657,7 @@ export function Dashboard() {
               <section className="space-y-2.5">
                 <div className="flex items-center gap-3 flex-wrap">
                   <h2 className="label-inst">
-                    FR-044 · Inspecciones del período · {inspecciones.length}
+                    Inspecciones del período · {inspecciones.length}
                   </h2>
                   <div className="flex-1 rule" />
                   <Chip>{nombreFaena}</Chip>
@@ -744,8 +750,8 @@ export function Dashboard() {
 
           <p className="text-[11px] text-ink-3 leading-relaxed border-t border-line-soft pt-4">
             Datos visibles para {identidad?.tenantNombre ?? 'tu tenant'} únicamente. El otro tenant
-            no puede leer estas filas: el aislamiento es una política de PostgreSQL RLS, no un
-            filtro de la interfaz (NFR-05, Artículo IV). Auto-refresh cada 30 s (FR-043).
+            no puede leer estas filas: el aislamiento es una regla de la base de datos, no un
+            filtro de la interfaz. Auto-refresh cada 30 s.
             {!online && ' · Sin señal: se muestra la última lectura; los pendientes están en la cola.'}
           </p>
         </>

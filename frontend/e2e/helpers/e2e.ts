@@ -159,17 +159,14 @@ export async function limpiarItem(page: Page, templateItemId: string): Promise<n
  * demo) y llama a la misma función de cola, así que no falsea el escenario.
  */
 export async function forzarFlush(page: Page): Promise<void> {
-  const interruptor = page.getByTestId('signal-toggle')
-  await interruptor.scrollIntoViewIfNeeded()
-  if ((await interruptor.getAttribute('aria-checked')) !== 'true') {
-    await interruptor.click()
-    await expect(interruptor).toHaveAttribute('aria-checked', 'true')
-  }
-  await interruptor.click()
-  await expect(interruptor).toHaveAttribute('aria-checked', 'false')
+  /* v1 (TSK-DEMO-001): sin interruptor demo. Un corte y regreso REAL de la red
+   * dispara los eventos `offline`/`online` del navegador, que es exactamente
+   * lo que arranca el worker en terreno (FR-016). */
+  const ctx = page.context()
+  await ctx.setOffline(true)
+  await page.waitForTimeout(300)
+  await ctx.setOffline(false)
   await page.waitForTimeout(400)
-  await interruptor.click()
-  await expect(interruptor).toHaveAttribute('aria-checked', 'true')
 }
 
 /** El campo numérico del ítem, ya a la vista en el viewport móvil. */
@@ -275,7 +272,6 @@ export async function loginEnApp(page: Page, email: string): Promise<void> {
     .catch(() => false)
   if (hayLogin) {
     const pass = passwordDemo()
-    await page.getByRole('button', { name: new RegExp(correoANombre(email).split(' ')[0]) }).click()
     await page.getByRole('textbox', { name: 'Correo' }).fill(email)
   /* El campo de contraseña se busca por SU TIPO, no por etiqueta: en
    * `screens/Login.tsx` el `<label>` envuelve un `<span>` "Contraseña" y el
@@ -299,7 +295,6 @@ export async function loginEnApp(page: Page, email: string): Promise<void> {
    * `arrancarSesión` siembra Dexie y pide las plantillas, así que además se
    * espera a que aparezca la barra de navegación del Shell. */
   await page.locator('nav button').first().waitFor({ state: 'visible' })
-  await expect.poll(() => page.evaluate(() => sessionStorage.getItem('tc_access_token'))).toBeTruthy()
   if (email === CUENTAS.trabajadorA || email === CUENTAS.trabajadorB) {
     await abrirFormularioAsignado(page)
   }
@@ -308,9 +303,14 @@ export async function loginEnApp(page: Page, email: string): Promise<void> {
 /** Recorre la selección explícita de un formulario antes de capturarlo. */
 async function abrirFormularioAsignado(page: Page): Promise<void> {
   const enviar = page.getByRole('button', { name: 'Enviar inspección' })
-  if (await enviar.isVisible({ timeout: 500 }).catch(() => false)) return
-
-  await page.getByRole('heading', { name: 'Elegí qué vas a inspeccionar' }).waitFor({ state: 'visible' })
+  const elegir = page.getByRole('heading', { name: 'Elige qué vas a inspeccionar' })
+  /* Tras el login la app va a Captura si hay un borrador, o a Formularios si
+   * no: se espera la que llegue primero en vez de adivinar con un sondeo corto. */
+  await Promise.race([
+    enviar.waitFor({ state: 'visible' }),
+    elegir.waitFor({ state: 'visible' }),
+  ])
+  if (await enviar.isVisible()) return
   /* Un borrador congelado tiene prioridad sobre la tarjeta: es la única ruta
    * que conserva sus respuestas y no intenta cambiar de revisión. */
   const continuar = page.getByTestId('continue-draft')
@@ -323,18 +323,6 @@ async function abrirFormularioAsignado(page: Page): Promise<void> {
   await abrir.click()
   await expect(page.getByTestId('capture-screen')).toBeVisible()
   await expect(enviar).toBeVisible()
-}
-
-function correoANombre(correo: string): string {
-  const tabla: Record<string, string> = {
-    [CUENTAS.trabajadorA]: 'Pedro Trabajador',
-    [CUENTAS.supervisorA]: 'Sofía Supervisora',
-    [CUENTAS.adminA]: 'Andrés Admin',
-    [CUENTAS.trabajadorB]: 'Bárbara Trabajadora',
-    [CUENTAS.supervisorB]: 'Bruno Supervisor',
-    [CUENTAS.plataforma]: 'Operación Plataforma',
-  }
-  return tabla[correo] ?? correo
 }
 
 /* ------------------------------------------------------------------- DB */

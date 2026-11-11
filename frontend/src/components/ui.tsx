@@ -28,7 +28,7 @@ const VARIANTES: Record<Variante, string> = {
 
 const TAMANOS: Record<Tamano, string> = {
   // Targets táctiles ≥44px: el trabajador usa guantes (spec 002 §UX de captura).
-  sm: 'h-9 px-3 text-[13px] rounded-lg gap-1.5',
+  sm: 'h-11 px-3 text-[13px] rounded-lg gap-1.5',
   md: 'h-11 px-4 text-sm rounded-[10px] gap-2',
   lg: 'h-14 px-5 text-[15px] rounded-xl gap-2.5',
 }
@@ -105,5 +105,14 @@ export function Tarjeta({
     >
       {children}
     </motion.button>
+  )
+}
+
+/** Contenedor de sección (no interactivo): borde suave sobre la superficie s1. */
+export function Panel({ children, className = '' }: { children: ReactNode; className?: string }) {
+  return (
+    <section className={['rounded-xl border border-line-soft bg-s1', className].join(' ')}>
+      {children}
+    </section>
   )
 }
