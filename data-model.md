@@ -199,6 +199,7 @@ CREATE POLICY tenant_isolation ON inspection
 | Versión | Fecha | Cambio |
 | :--- | :--- | :--- |
 | 1.0.0 | 2026-09-14 | Modelo base (specs 001–006) |
+| 1.3.0 | 2026-11-11 | **Enmienda 004:** `auth_session.revoked_reason` (migración 015, sesión reemplazada); `inspection.queued_at` / `client_sent_at` / `reviewed_at` y `finding.resolved_at` (migración 016, métricas del dashboard de supervisión, TSK-REP-006). `inspection.location` queda en desuso | Daniel Ávila (con IA) |
 | 1.2.0 | 2026-11-11 | **v1 (Enmienda 003):** `app_user.must_change_password` (clave temporal, migración 012); `conflict_record.reviewed_at` / `reviewed_by` (revisión persistente, migración 014); RLS de `audit_log` y `auth_session` sin filas `tenant_id IS NULL` para el rol de la app (migración 013); §5 describe el seed real y lo limita a desarrollo/pruebas |
 | 1.1.4 | 2026-10-14 | **FR-034 implementado:** `inspection.location_lat` / `inspection.location_lon` (NUMERIC, sin PostGIS) para georreferencia opcional capturada en terreno; el campo viaja de forma aditiva en `POST /api/v1/sync/batch` y se valida en el servidor |
 | 1.1.3 | 2026-10-12 | **Coherencia con el esquema real (módulo 007):** se retira `inspection.template_revision_id` (la base congela `template_id` + `template_version`) y `inspection.geo` (no existe en la migración); `TEMPLATE_SECTION`/`TEMPLATE_ITEM` recuperan su `tenant_id` denormalizado; se documenta `AUTH_SESSION`; `app_user` suma `failed_login_count`/`locked_until`; la regla 6 pasa a hablar de `published_seq` como cursor del delta |
