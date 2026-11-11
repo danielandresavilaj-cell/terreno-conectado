@@ -12,7 +12,6 @@ jobs:
   verify:
     name: Lint + typecheck + build (monorepo)
     runs-on: ubuntu-latest
-    env:
     steps:
       - uses: actions/checkout@v4
       - name: Fin de línea LF en todo el repo (portabilidad Windows)
