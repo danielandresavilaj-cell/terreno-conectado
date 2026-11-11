@@ -112,6 +112,24 @@ interface Version {
 
 type LwwDecision = 'incoming_wins' | 'existing_wins' | 'equal'
 
+/** TSK-REP-006: marcas del reloj del dispositivo (entrada a la cola y envío). */
+interface TiemposCola {
+  queuedAt: string | null
+  sentAt: string | null
+}
+
+/** ISO 8601 válido o null: una marca malformada no rechaza el registro. */
+function isoValida(v: unknown): string | null {
+  return typeof v === 'string' && !Number.isNaN(Date.parse(v)) ? new Date(v).toISOString() : null
+}
+
+/** Sólo se guardan si son coherentes (encolado ≤ envío); si no, ninguna. */
+function tiemposDe(rec: SyncRecord, sentAt: string | null): TiemposCola {
+  const queuedAt = isoValida(rec.queued_at)
+  if (!queuedAt || !sentAt || Date.parse(queuedAt) > Date.parse(sentAt)) return { queuedAt: null, sentAt: null }
+  return { queuedAt, sentAt }
+}
+
 @Injectable()
 export class SyncService {
   private readonly logger = new Logger(SyncService.name)
@@ -146,7 +164,7 @@ export class SyncService {
       startedAt,
     })
 
-    const result = await this.process(tenantId, records, syncLogId, claims)
+    const result = await this.process(tenantId, records, syncLogId, claims, isoValida(body.sent_at))
     const finishedAt = new Date()
     const status: SyncBatchStatus =
       result.records_failed === 0
@@ -409,6 +427,7 @@ export class SyncService {
     records: SyncRecord[],
     syncLogId: string | undefined,
     claims: JwtClaims,
+    sentAt: string | null,
   ): Promise<Omit<SyncBatchResponse, 'batch_id' | 'status'>> {
     const total = records.length
     let ok = 0
@@ -420,7 +439,7 @@ export class SyncService {
       for (const rec of records.filter((r) => r.entity_type === entityType)) {
         try {
           this.assertAutoria(rec, claims)
-          const outcome = await this.applyRecord(tenantId, syncLogId, rec)
+          const outcome = await this.applyRecord(tenantId, syncLogId, rec, tiemposDe(rec, sentAt))
           ok += 1
           if (outcome === 'unchanged') unchanged += 1
         } catch (err) {
@@ -470,6 +489,7 @@ export class SyncService {
     tenantId: string,
     syncLogId: string | undefined,
     rec: SyncRecord,
+    tiempos: TiemposCola = { queuedAt: null, sentAt: null },
   ): Promise<'applied' | 'unchanged'> {
     switch (rec.entity_type) {
       case 'inspection': {
@@ -494,17 +514,21 @@ export class SyncService {
               rec.client_version,
               loc?.lat ?? null,
               loc?.lon ?? null,
+              tiempos.queuedAt,
+              tiempos.sentAt,
             ],
             insertSql: `INSERT INTO inspection
               (id, tenant_id, site_id, template_id, template_version, executed_by,
-               status, captured_at, client_version, location_lat, location_lon, synced_at)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, now())
+               status, captured_at, client_version, location_lat, location_lon, synced_at,
+               queued_at, client_sent_at)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, now(), $12, $13)
              RETURNING id`,
             updateSql: `UPDATE inspection SET
               site_id = $3, template_id = $4, template_version = $5, executed_by = $6,
               status = $7, captured_at = $8, client_version = $9,
               location_lat = $10, location_lon = $11,
-              synced_at = now(), updated_at = now()
+              synced_at = now(), updated_at = now(),
+              queued_at = COALESCE($12, queued_at), client_sent_at = COALESCE($13, client_sent_at)
              WHERE id = $1 AND tenant_id = $2`,
             updateValues: () => [
               rec.id,
@@ -518,6 +542,8 @@ export class SyncService {
               rec.client_version,
               loc?.lat ?? null,
               loc?.lon ?? null,
+              tiempos.queuedAt,
+              tiempos.sentAt,
             ],
             payloadFrom: (r) => ({
               site_id: r.site_id,

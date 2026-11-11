@@ -19,6 +19,7 @@ La auditoría del 2026-10-13 sobre `main` muestra **FR-040/042 implementados** y
 | TSK-REP-003 | Verificación de FR-040/043: confirmar métrica latencia (media+p95) y registrar el ≤60 s como medición en vivo | FR-040, FR-043, NFR-03 | 001 | `backend/test/dashboard.spec.ts` verde (`latencia_media_seg`, `latencia_p95_seg`); fila FR-040/043 en `test-plan.md` 🟡 con nota de medición en vivo (demo Fase 3) | ✅ Hecho (0.2.0) |
 | TSK-REP-004 | Implementar el filtro por autor (FR-041): `autor_id` en `findings`, `autores` en `summary`, filtro en la UI y test | FR-041 | 001 | `dashboard/findings?autor_id=` filtra por `inspection.executed_by`; `summary.autores` lista autores del período; test verde en `backend/test/dashboard.spec.ts`; FR-041 ✅ | ✅ Hecho (0.2.0) |
 | TSK-REP-005 | Verificación de FR-042: test del CSV de hallazgos del cliente | FR-042 | — | `frontend/src/lib/dashboard-csv.ts` + `frontend/test/dashboard-csv.test.ts` verdes; cubre cabecera, filas, escapado de comillas/comas y valores nulos | ✅ Hecho (0.2.0) |
+| TSK-REP-006 | Dashboard de supervisión v1.1: hallazgos, revisión, actividad y sincronización con métricas de un solo reloj | FR-040, FR-043, NFR-03 | TSK-AUTH-011 | `backend/test/dashboard-supervision.spec.ts` (incluye reloj de dispositivo desfasado y RLS) y `frontend/test/supervision-titulares.test.ts` verdes; migración 016 | ✅ Hecho (0.3.0) |
 
 ## Criterios de salida del módulo
 
@@ -31,5 +32,6 @@ La auditoría del 2026-10-13 sobre `main` muestra **FR-040/042 implementados** y
 
 | Versión | Fecha | Cambio | Autor |
 | :--- | :--- | :--- | :--- |
+| 0.3.0 | 2026-11-11 | Se agrega TSK-REP-006 (dashboard de supervisión v1.1) | Daniel Ávila |
 | 0.2.0 | 2026-10-14 | TSK-REP-004 reabierto e implementado (FR-041 filtro por autor); se agrega TSK-REP-005 (test del CSV, FR-042) | Daniel Ávila |
 | 0.1.0 | 2026-10-13 | Creación: cierre documental del módulo 005 (TSK-REP-001…004) | Daniel Ávila |

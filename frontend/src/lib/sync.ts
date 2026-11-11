@@ -210,6 +210,8 @@ export async function sincronizarCola(): Promise<ResultadoSync> {
       batch_id: uuidv7(),
       device_id: await getDeviceId(),
       records: registros,
+      // TSK-REP-006: con `queued_at` de cada registro mide la espera sin señal.
+      sent_at: new Date().toISOString(),
     }
 
     let resp = await fetchLote(`${API_BASE}/sync/batch`, lote)

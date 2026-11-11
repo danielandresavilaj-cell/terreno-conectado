@@ -970,6 +970,8 @@ export async function aSyncRecord(o: OutboxRow): Promise<SyncRecord> {
     tenant_id: o.tenantId,
     client_version: payload.client_version,
     captured_at: payload.captured_at,
+    // TSK-REP-006: hora de entrada al outbox, mismo reloj que `sent_at`.
+    queued_at: o.capturedAt,
     payload: payload.body,
   }
 }

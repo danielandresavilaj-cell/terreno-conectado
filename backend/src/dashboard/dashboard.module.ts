@@ -15,6 +15,7 @@
 import { Module } from '@nestjs/common'
 import { TemplatesModule } from '../templates/templates.module'
 import { DashboardController } from './dashboard.controller'
+import { SupervisionDashboardService } from './supervision-dashboard.service'
 import { DashboardService } from './dashboard.service'
 import { InspectionExportLoteService } from './inspection-export-lote.service'
 import { InspectionExportService } from './inspection-export.service'
@@ -22,7 +23,7 @@ import { InspectionExportService } from './inspection-export.service'
 @Module({
   imports: [TemplatesModule],
   controllers: [DashboardController],
-  providers: [DashboardService, InspectionExportService, InspectionExportLoteService],
+  providers: [DashboardService, InspectionExportService, InspectionExportLoteService, SupervisionDashboardService],
   exports: [DashboardService],
 })
 export class DashboardModule {}

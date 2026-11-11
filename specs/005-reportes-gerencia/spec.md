@@ -64,11 +64,26 @@ Todos bajo `/api/v1`, con Bearer JWT y roles `supervisor`/`tenant_admin` (`field
 
 `inspecciones_por_estado` (`draft`/`in_progress`/`submitted`/`reviewed`), `hallazgos_por_severidad` (`low`/`medium`/`high`/`critical`), `hallazgos_urgentes` (`high`+`critical` no resueltos, FR-035), `hallazgos_total`, `latencia_media_seg`, `latencia_p95_seg`, `conflictos_pendientes`, `sincronizaciones`, `faenas`.
 
-## 4. Métrica de latencia (FR-040 / NFR-03)
+## 4. Dashboard de supervisión v1.1 (TSK-REP-006, Enmienda 004)
 
-`latencia = inspection.synced_at − inspection.captured_at`, donde el servidor fija `synced_at = now()` al **aplicar** la ingesta (`sync.service`). Se reporta **media** y **percentil 95** sobre las inspecciones con `synced_at IS NOT NULL`, respetando los filtros. Es la métrica que demuestra la propuesta de valor del informe APT (captura→disponibilidad).
+La métrica anterior `synced_at − captured_at` se **retira**: mezclaba el tiempo sin señal con el de sincronización y restaba dos relojes distintos (dispositivo y servidor). Toda duración se calcula ahora con **un solo reloj**.
 
-> El p95 es la definición contractual para el informe final; la medición manual contra el umbral ≤ 60 s (FR-043) se registra en la demo (Fase 3) y queda como fila 🟡 en `test-plan.md` §3.
+`GET /api/v1/dashboard/supervision?site_id=&desde=&hasta=` (supervisor y `tenant_admin`, con RLS) devuelve `DashboardSupervision` (`shared/src/dashboard.ts`) en 4 bloques:
+
+| Bloque | Métrica | Fórmula |
+| :--- | :--- | :--- |
+| Hallazgos | Abiertos por antigüedad (≤1 d, 1–7 d, >7 d) | `now() − finding.captured_at` de los no resueltos (backlog actual, sin filtro de período) |
+| | Críticos/altos abiertos | top 10 por antigüedad |
+| | Tiempo de cierre (media, p50) | `finding.resolved_at − captured_at`, resueltos en el período |
+| | Top 5 ítems "No OK" | `inspection_response.value_ok = 'nok'` por `template_item_id` |
+| Revisión | Pendientes, más antigua, mediana | inspecciones `submitted`; días desde `COALESCE(synced_at, captured_at)` |
+| Actividad | Por día, por faena, por trabajador | serie diaria en `America/Santiago` con días en cero; faenas con 0 = sin actividad |
+| Sincronización | Espera sin señal (p50, p95) | `inspection.client_sent_at − queued_at` (reloj del dispositivo) |
+| | Procesamiento p95 (NFR-03 ≤ 60 s) | `sync_log.finished_at − started_at` (reloj del servidor) |
+| | % lotes con error | `failed`/`partial` sobre lotes del período |
+| | Equipos inactivos | último `sync_log` por `device_id` (30 días) con ≥ 24 h sin sincronizar |
+
+Sin muestras se informa "sin datos suficientes". La espera sin señal solo existe para inspecciones enviadas por clientes v1.1 (`SyncRecord.queued_at`, `SyncBatchRequest.sent_at`, migración 016).
 
 ## 5. Export (FR-042)
 
@@ -106,6 +121,7 @@ El alcance V1 del **resumen ejecutivo** es **read-only** y se apoya en las métr
 
 | Versión | Fecha | Cambio | Autor |
 | :--- | :--- | :--- | :--- |
+| 0.4.0 | 2026-11-11 | **TSK-REP-006:** dashboard de supervisión en 4 bloques (§4); se retira la latencia captura→disponible y NFR-03 pasa a medir el procesamiento del lote (Enmienda 004) | Daniel Ávila (con IA) |
 | 0.3.2 | 2026-10-14 | Precisa el contrato de `GET /conflicts`: supervisor y `tenant_admin` del tenant, con aislamiento RLS (TSK-AUTH-008, issue #128) | Daniel Ávila |
 | 0.3.1 | 2026-10-14 | **G3 (resumen ejecutivo) y cierre TSK-REP-003:** §7 define el resumen ejecutivo V1 como read-only sobre KPIs del dashboard; TSK-REP-003 verificado (métrica de latencia media+p95 en `backend/test/dashboard.spec.ts`, umbral ≤60 s medido en vivo). Actualiza referencia del CSV a `frontend/src/lib/dashboard-csv.ts` (refs #8) | Daniel Ávila |
 | 0.3.0 | 2026-10-14 | **FR-041 filtro por autor implementado y FR-042 CSV testeado.** `dashboard/findings?autor_id=` filtra por `inspection.executed_by`; `summary.autores` publica los autores con actividad del período para poblar el filtro; `FindingDto.autor_id`; UI con filtro por autor; CSV de hallazgos extraído a `frontend/src/lib/dashboard-csv.ts` con tests unitarios. Pasa de 🟡 a ✅ (FR-041) y de ⚪ a ✅ (FR-042). Ver `tasks/005-reportes-gerencia/tasks.md` TSK-REP-004 / TSK-REP-005 | Daniel Ávila |

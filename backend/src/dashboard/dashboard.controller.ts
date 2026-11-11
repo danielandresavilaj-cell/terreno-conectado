@@ -1,3 +1,5 @@
+import { SupervisionDashboardService } from './supervision-dashboard.service'
+import type { DashboardSupervision } from '@terreno/shared'
 /**
  * Endpoints de lectura del dashboard del supervisor (spec 005, TSK-WS-011) y de
  * la exportación de inspecciones (TSK-FORM-010, FR-044/045/046/047).
@@ -69,7 +71,19 @@ export class DashboardController {
     @Inject(DashboardService) private readonly dashboard: DashboardService,
     @Inject(InspectionExportService) private readonly exportacion: InspectionExportService,
     @Inject(InspectionExportLoteService) private readonly lote: InspectionExportLoteService,
+    @Inject(SupervisionDashboardService) private readonly supervision: SupervisionDashboardService,
   ) {}
+
+  /** TSK-REP-006: los cuatro bloques accionables del dashboard de supervisión. */
+  @UseGuards(AuthGuard)
+  @Get('dashboard/supervision')
+  supervisionResumen(@Req() req: AuthedRequest, @Query() q: Record<string, unknown>): Promise<DashboardSupervision> {
+    return this.supervision.obtener(req.user as JwtClaims, {
+      site_id: s(q.site_id),
+      desde: s(q.desde),
+      hasta: s(q.hasta),
+    })
+  }
 
   @UseGuards(AuthGuard)
   @Get('dashboard/summary')

@@ -64,10 +64,6 @@ export interface DashboardSummary {
   /** FR-035: abiertos (no resueltos) de severidad alta o crítica. */
   hallazgos_urgentes: number
   hallazgos_total: number
-  /** Latencia media captura → disponibilidad en segundos (FR-040/NFR-03). */
-  latencia_media_seg: number | null
-  /** Percentil 95 de la misma métrica. */
-  latencia_p95_seg: number | null
   conflictos_pendientes: number
   sincronizaciones: number
 }
@@ -141,3 +137,78 @@ export const inspectionDetalleSchema = z.object({
 })
 
 export type InspectionDetalle = z.infer<typeof inspectionDetalleSchema>
+
+/* ── Dashboard de supervisión v1.1 (TSK-REP-006) ─────────────────────────────
+ * Cuatro bloques accionables. Toda duración se calcula con UN solo reloj:
+ * la espera sin señal con el del dispositivo (encolado → envío) y el
+ * procesamiento con el del servidor (inicio → fin del lote).
+ */
+export interface HallazgoCritico {
+  id: string
+  descripcion: string
+  severidad: SyncSeverity
+  faena_nombre: string | null
+  dias_abierto: number
+}
+
+export interface ItemNok {
+  template_item_id: string
+  prompt: string
+  plantilla: string | null
+  nok: number
+  respondidas: number
+}
+
+export interface PendienteRevision {
+  id: string
+  faena_nombre: string
+  plantilla: string | null
+  ejecutado_por: string
+  captured_at: string
+  dias_esperando: number
+}
+
+export interface EquipoInactivo {
+  device_id: string
+  usuario: string | null
+  ultima_sync: string
+  horas_sin_sync: number
+}
+
+export interface DashboardSupervision {
+  hallazgos: {
+    /** Abiertos (no resueltos) por antigüedad, sin filtro de período: es el backlog actual. */
+    abiertos_por_antiguedad: { hasta_1d: number; de_1_a_7d: number; mas_de_7d: number }
+    criticos_abiertos: HallazgoCritico[]
+    /** Resueltos en el período: horas desde la captura hasta resolverse. */
+    cierre_horas_media: number | null
+    cierre_horas_p50: number | null
+    resueltos_periodo: number
+    top_nok: ItemNok[]
+  }
+  revision: {
+    pendientes: number
+    dias_mas_antigua: number | null
+    dias_mediana: number | null
+    mas_antiguas: PendienteRevision[]
+  }
+  actividad: {
+    por_dia: Array<{ dia: string; inspecciones: number }>
+    por_faena: Array<{ faena_id: string; faena_nombre: string; inspecciones: number }>
+    por_trabajador: Array<{ usuario: string; inspecciones: number }>
+    faenas_sin_actividad: number
+  }
+  sincronizacion: {
+    /** Segundos que los datos esperaron en el dispositivo antes de enviarse. */
+    espera_sin_senal_p50_seg: number | null
+    espera_sin_senal_p95_seg: number | null
+    /** Inspecciones con marcas de cola (clientes ≥ v1.1); sin ellas no se inventa. */
+    muestras_espera: number
+    /** Segundos que tardó el servidor en procesar un lote (NFR-03: ≤ 60 s). */
+    procesamiento_p95_seg: number | null
+    lotes: number
+    lotes_con_error: number
+    equipos_inactivos: EquipoInactivo[]
+    equipos_activos_30d: number
+  }
+}
