@@ -603,9 +603,19 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
         setRespuestas(draftRespuestas)
         setHayBorrador(!!ins)
       }
+      // La pantalla destino se decide ANTES de publicar el usuario: si no, la
+      // pantalla por defecto ('captura') se pinta un instante tras el login.
+      const destino: Pantalla =
+        u.rol === 'field_worker'
+          ? (await getDraftInspectionId())
+            ? 'captura'
+            : 'formularios'
+          : u.rol === 'platform_admin'
+            ? 'plataforma'
+            : 'dashboard'
+      setPantalla(destino)
       setUsuario(u)
       setIdentidad(i)
-      setPantalla(u.rol === 'field_worker' ? (await getDraftInspectionId() ? 'captura' : 'formularios') : 'dashboard')
       const entradas = await listLogEntries(null)
       setEntradasBitacora(mapEntradas(entradas, u.nombre))
       setHidratando(false)

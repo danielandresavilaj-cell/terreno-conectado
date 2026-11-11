@@ -221,7 +221,9 @@ export async function setDueñoCola(d: { userId: string; tenantId: string } | nu
 }
 
 function esDelDueño(f: OutboxRow): boolean {
-  return !dueño || (f.tenantId === dueño.tenantId && f.userId === dueño.userId)
+  // Una fila sin dueño de la misma empresa es legada (previa a v1) y se trata
+  // como propia, igual que la asignación que hace `setDueñoCola` al entrar.
+  return !dueño || (f.tenantId === dueño.tenantId && (!f.userId || f.userId === dueño.userId))
 }
 
 /** Filas propias de la sesión con alguno de los estados dados. */
