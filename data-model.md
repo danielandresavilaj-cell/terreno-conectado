@@ -1,6 +1,6 @@
 # DATA MODEL — Modelo conceptual de datos
 
-**Versión:** 1.1.3 (módulo 007) · **Fecha:** 2026-09-14 · actualizado 2026-10-12 · **Autor:** Daniel Ávila · **Relacionado:** spec maestro §5/§7 (Enmienda 002), specs 001–007, ADR-003
+**Versión:** 1.2.0 (v1, Enmienda 003) · **Fecha:** 2026-09-14 · actualizado 2026-11-11 · **Autor:** Daniel Ávila · **Relacionado:** spec maestro §5/§7 (Enmienda 002), specs 001–007, ADR-003
 **Evidencia APT:** "Modelo conceptual de datos preliminar" (informe §6).
 **Reglas transversales:** toda tabla de dominio lleva `tenant_id UUID NOT NULL` + política RLS (Artículo IV); IDs `UUIDv7` generados en el cliente cuando el registro nace offline (FR-015); timestamps `created_at`, `updated_at` (servidor) y `captured_at` (cliente, autoridad para LWW — FR-023).
 
@@ -59,6 +59,7 @@ erDiagram
 | is_active | BOOLEAN | |
 | failed_login_count | INT | bloqueo tras 5 credenciales fallidas (FR-005) |
 | locked_until | TIMESTAMPTZ NULL | bloqueo temporal de 15 min (FR-005) |
+| must_change_password | BOOLEAN NOT NULL DEFAULT false | clave temporal: obliga a cambiarla al primer ingreso (FR-055) |
 
 **AUTH_SESSION** — refresh tokens con rotación por familia (D5).
 | Campo | Tipo | Notas |
@@ -149,7 +150,7 @@ erDiagram
 
 **SYNC_LOG** — `id, tenant_id, user_id, device_id UUID, batch_id UUID, records_total INT, records_ok INT, records_failed INT, started_at, finished_at, status ENUM(pending, ok, partial, failed)`. Se abre en dos fases (`pending` → `UPDATE` con totales y `finished_at`, TSK-WS-009) para que `conflict_record.sync_log_id` referencie el batch. Satisface FR-024 y alimenta el dashboard (latencia media).
 
-**CONFLICT_RECORD** — `id, tenant_id, entity_type, entity_id, winner_payload JSONB, loser_payload JSONB, resolution ENUM(lww), resolved_at, sync_log_id`. Ambas versiones conservadas (FR-023, Artículo III); append-only (REVOKE DELETE desde `tc_app`, TSK-WS-009).
+**CONFLICT_RECORD** — `id, tenant_id, entity_type, entity_id, winner_payload JSONB, loser_payload JSONB, resolution ENUM(lww), resolved_at, sync_log_id, reviewed_at NULL, reviewed_by NULL`. Ambas versiones conservadas (FR-023, Artículo III); append-only en su contenido (REVOKE DELETE desde `tc_app`, TSK-WS-009); sólo se registra quién lo revisó y cuándo (TSK-DOM-005).
 
 **AUDIT_LOG** (append-only, FR-051) — `id, tenant_id NULL, actor_id, action TEXT, entity_type, entity_id, payload JSONB, occurred_at`. Sin UPDATE/DELETE (permisos DB).
 
@@ -184,17 +185,21 @@ CREATE POLICY tenant_isolation ON inspection
 5. **Congelamiento de revisiones:** `TEMPLATE_REVISION.published` es inmutable (sin UPDATE/DELETE desde `tc_app`); todo cambio exige una nueva revisión `draft → published` (FR-049). Las respuestas se validan contra `TEMPLATE_ITEM.props` en el dispositivo antes de encolar (FR-039).
 6. **Delta de plantillas:** el cliente guarda el cursor `published_seq` máximo conocido por tenant (secuencia global de publicación, FR-027 / ADR-003 Enmienda 2) y tira solo el delta; una inspección en curso conserva su revisión congelada (`template_id` + `template_version`, FR-028/038) incluso si llega una versión nueva.
 
-## 5. Datos semilla (demo académica)
+## 5. Datos semilla (sólo desarrollo y pruebas)
 
-- Tenant A "Minera El Cobre SpA": 1 faena, 2 plantillas (inspección de seguridad diaria / checklist de equipo), 4 usuarios (1 field_worker, 1 supervisor, 1 tenant_admin, 1 platform_admin global), ~30 inspecciones históricas simuladas (faker es-CL).
-- Tenant B "Constructora Andes SpA": 1 obra, 1 plantilla (bitácora de obra), 2 usuarios — existe para probar aislamiento en vivo (spec maestro §7).
-- Módulo 007: 1 `TEMPLATE_IMPORT` de ejemplo confirmado (`.xlsx` → revisión publicada con `source_import_id`) + asignaciones por faena/rol para las plantillas publicadas (FR-008).
+`backend/db/seed.ts` existe **sólo** para desarrollo local, tests de integración y E2E (Enmienda 003). Producción no se siembra: el primer `platform_admin` se crea con `infra/tools/bootstrap-admin.mjs` y las cuentas desde la app (FR-053/055). Contenido real del seed:
+
+- Tenant A "Minera El Cobre SpA": 1 faena, 1 plantilla (chequeo de seguridad minera: revisión borrador + publicada con los 8 tipos de respuesta), 3 usuarios (field_worker, supervisor, tenant_admin) y asignaciones por faena/rol.
+- Tenant B "Constructora Andes SpA": 1 obra, 1 plantilla (inspección de obra), 3 usuarios (field_worker, supervisor, tenant_admin) — existe para probar aislamiento en vivo (spec maestro §7).
+- 1 `platform_admin` global.
+- Sin inspecciones históricas ni `TEMPLATE_IMPORT` precargados: las pruebas crean los suyos.
 
 ## 6. Control de cambios
 
 | Versión | Fecha | Cambio |
 | :--- | :--- | :--- |
 | 1.0.0 | 2026-09-14 | Modelo base (specs 001–006) |
+| 1.2.0 | 2026-11-11 | **v1 (Enmienda 003):** `app_user.must_change_password` (clave temporal, migración 012); `conflict_record.reviewed_at` / `reviewed_by` (revisión persistente, migración 014); RLS de `audit_log` y `auth_session` sin filas `tenant_id IS NULL` para el rol de la app (migración 013); §5 describe el seed real y lo limita a desarrollo/pruebas |
 | 1.1.4 | 2026-10-14 | **FR-034 implementado:** `inspection.location_lat` / `inspection.location_lon` (NUMERIC, sin PostGIS) para georreferencia opcional capturada en terreno; el campo viaja de forma aditiva en `POST /api/v1/sync/batch` y se valida en el servidor |
 | 1.1.3 | 2026-10-12 | **Coherencia con el esquema real (módulo 007):** se retira `inspection.template_revision_id` (la base congela `template_id` + `template_version`) y `inspection.geo` (no existe en la migración); `TEMPLATE_SECTION`/`TEMPLATE_ITEM` recuperan su `tenant_id` denormalizado; se documenta `AUTH_SESSION`; `app_user` suma `failed_login_count`/`locked_until`; la regla 6 pasa a hablar de `published_seq` como cursor del delta |
 | 1.1.2 | 2026-10-10 | **Módulo 007 (TSK-FORM-009, PR #89):** `TEMPLATE_REVISION.published_seq` (secuencia global de publicación) como cursor del delta FR-027, con backfill determinista, índice parcial y `CHECK (status <> 'published' OR published_seq IS NOT NULL)`; `version` queda documentada como por plantilla. Se registra la desviación respecto de la redacción literal de FR-027 (`since=<template_version>`) — ver ADR-003 Enmienda 2 |

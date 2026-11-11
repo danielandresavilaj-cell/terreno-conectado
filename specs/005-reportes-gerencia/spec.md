@@ -3,7 +3,7 @@
 | | |
 | :--- | :--- |
 | **Estado** | COMPLETO (ciclo del módulo, F2 · 2026-10-13) |
-| **Versión** | 0.3.2 |
+| **Versión** | 0.4.0 |
 | **Autor** | Daniel Ávila |
 | **Padre** | specs/000-master/spec.md |
 | **Depende de** | 003 (datos sincronizados + `SYNC_LOG`), 004 (dominio) |
@@ -22,6 +22,12 @@ Requisitos que este spec detalla: **FR-040 → FR-043** y soporte a **NFR-03**.
 - **FR-043** Visibilidad ≤ 60 s tras sincronización.
 
 ## 2. Estado de implementación
+
+> **Actualización v1 (2026-11-11, Enmienda 003).**
+> - **FR-040:** "pendientes de sincronización conocidos" se reemplaza por **conflictos sin revisar** (`conflictos_pendientes` cuenta `reviewed_at IS NULL`).
+> - **FR-042:** la exportación es XLSX (documento rellenado, individual y por lote ZIP) + CSV de hallazgos; no hay CSV de inspecciones (Enmienda 003).
+> - **Contrato faltante en §3:** `GET /api/v1/dashboard/inspections/:id` devuelve el detalle auditable de una inspección (respuestas por sección, autor, estado).
+> - Sin red, el dashboard lo dice explícitamente y muestra la última lectura.
 
 Verificado sobre `main` al 2026-10-13.
 

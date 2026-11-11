@@ -31,7 +31,7 @@ Monorepo npm workspaces:
 | `shared/` | Tipos y contratos compartidos, validación Zod (ADR-001). |
 | `infra/` | Docker Compose (Postgres local) + script de provisión de roles. |
 
-Módulos de dominio ya implementados: `auth`, `sync`, `templates`, `dashboard`,
+Módulos de dominio ya implementados: `auth`, `users`, `supervision`, `admin`, `sync`, `templates`, `dashboard`,
 `storage`, `health`, `observability`, `db`. Specs en `specs/001..007`, ADRs en
 `adr/001..003`.
 
@@ -56,7 +56,7 @@ npm run db:migrate --workspace @terreno/backend
 npm run db:seed    --workspace @terreno/backend
 
 # E2E + caos (requiere Docker; Spins su propio Postgres en Testcontainers)
-npm run e2e                         # stack completo + 17 specs + teardown
+npm run e2e                         # stack completo + 23 tests + teardown
 npm run e2e -- --grep "caos 7"      # un escenario
 ```
 
@@ -87,8 +87,7 @@ Claves que importan:
 | `DATABASE_URL` | conexión owner (migraciones, seed) | bypass de RLS |
 | `APP_DATABASE_URL` | conexión de la app (rol `tc_app`) | sujeta a RLS |
 | `JWT_ACCESS_SECRET` | firma HS256 de tokens | **>= 32 bytes** |
-| `DEMO_PASSWORD` | cuentas demo (seed backend) | también `VITE_DEMO_PASSWORD` |
-| `VITE_DEMO_PASSWORD` | build del frontend | **build-time**, ver gotcha §8 |
+| `DEMO_PASSWORD` | cuentas del seed (sólo desarrollo, tests y E2E) | producción no usa seed |
 | `VITE_API_URL` | URL de la API en el bundle | **build-time** |
 | `SYNC_VOLUME` | volumen de adjuntos | local `.vol/sync` |
 
@@ -185,8 +184,7 @@ Si algo que escribes rompería en Windows, **arreglalo en el mismo PR**.
 
 ## 8. Gotchas conocidos (aprendidos a golpes)
 
-1. **`VITE_*` son build-time.** `seed.ts` lanza si falta `VITE_DEMO_PASSWORD`, y
-   `api.ts` hornea `VITE_API_URL` en el bundle. `vite preview` sirve un `dist/`
+1. **`VITE_*` son build-time.** `api.ts` hornea `VITE_API_URL` en el bundle. `vite preview` sirve un `dist/`
    ya construido: **cambiar estas variables obliga a rebuildear el frontend**
    (`npm run build`) antes de `npm run e2e`, o el build arranca en blanco (#103).
 2. **`envDir: '..'`** en `vite.config.ts` y `vitest.config.ts`: el frontend lee
@@ -200,7 +198,7 @@ Si algo que escribes rompería en Windows, **arreglalo en el mismo PR**.
    no levanta, el fallo no es del código.
 6. **`.gitignore` ya NO excluye `.github/`** (se cerró #14). Un push que toque
    un workflow necesita un PAT con scope `workflow`.
-7. **`Fase 1/` y `docs/mockups-prueba/` están fuera** del alcance de lint/build.
+7. **`Fase 1/` está fuera** del alcance de lint/build.
 8. **Playwright usa perfil móvil (Pixel 5), un worker.** Los specs E2E asumen
    pantalla angosta; no los rompas con selectores de desktop.
 

@@ -1,8 +1,8 @@
-# Demo pública en Oracle Always Free
+# Producción v1 en Oracle Always Free
 
 TSK-DEPLOY-001 · issue #159 · ADR-002 adenda 1. No cambia la arquitectura ni la lógica.
-Esta guía contiene pasos de Linux **sólo para el VPS**; exportar configuración y generar
-el entorno usa Node y funciona también desde macOS/Windows.
+Esta guía contiene pasos de Linux **sólo para el VPS**; generar el entorno usa Node y
+funciona también desde macOS/Windows. Operación diaria: [`OPERACION.md`](OPERACION.md).
 
 ## 1. Cuentas y límite de gasto
 
@@ -18,7 +18,7 @@ el entorno usa Node y funciona también desde macOS/Windows.
 
 Ejecución autorizada directamente por el titular el 2026-10-16: región principal
 existente Valparaíso (`sa-valparaiso-1`), instancia `terreno-conectado-demo` y
-`terreno-conectado-demo.duckdns.org`. La revisión cruzada del PR #160 queda pendiente.
+`terreno-conectado-demo.duckdns.org` (el nombre se conserva para la v1; PR #160 mergeado el 2026-11-11).
 
 Objetivo: una VM Ubuntu 24.04 ARM A1, 2 OCPU/12 GB, disco de arranque 50 GB y
 volumen de datos 50 GB (100 GB combinados, por debajo de 200 GB gratuitos).
@@ -27,7 +27,7 @@ El límite de la herramienta es 10 GiB de backups cifrados, dentro de los 20 GB 
 Verificar además IP pública y transferencia en el resumen de costos de la cuenta.
 Si no hay capacidad A1 gratuita, esperar o informar el impedimento; no contratar alternativa.
 
-La VM puede ser recuperada por inactividad. No hay SLA: esta instalación es una demo.
+La VM puede ser recuperada por inactividad. No hay SLA: es un despliegue de costo cero, no de alta disponibilidad.
 No generar carga artificial para evitar la política del proveedor.
 Fuentes: https://docs.oracle.com/en-us/iaas/Content/FreeTier/freetier_topic-Always_Free_Resources.htm
 y https://www.oracle.com/cloud/free/faq/ (revalidar antes de crear recursos).
@@ -66,49 +66,38 @@ node /opt/terreno/infra/tools/init-env.mjs SUBDOMINIO.duckdns.org SHA_COMPLETO /
 ```
 
 El generador rechaza sobrescribir archivos. Configurar estos GitHub Actions secrets:
-`VITE_DEMO_PASSWORD` (el nuevo `DEMO_PASSWORD`), `VPS_HOST`, `VPS_USER`,
-`VPS_SSH_KEY`, `VPS_HOST_FINGERPRINT`. Para GHCR, Actions usa su token temporal
+`VPS_HOST`, `VPS_USER`, `VPS_SSH_KEY`, `VPS_HOST_FINGERPRINT` y `VITE_DEMO_PASSWORD`
+(este último **sólo** lo usan los tests de CI para sembrar sus cuentas de prueba; el
+producto no lleva ninguna clave en el bundle). Para GHCR, Actions usa su token temporal
 con `packages:write`; `GHCR_USERNAME`/`GHCR_READ_TOKEN` (read:packages) sólo son
 opcionales para operación manual con token permanente. El token temporal expira:
 las actualizaciones deben ejecutarse desde Actions para renovarlo automáticamente.
 Verificar el fingerprint desde la consola OCI, no confiar sólo en `ssh-keyscan` por red.
-No copiar passwords en issues, PRs ni logs. La contraseña demo sí será pública en el bundle;
-no protege infraestructura ni debe reutilizarse fuera de esta demo.
+No copiar passwords en issues, PRs ni logs.
 
-## 3. Copia selectiva y primer arranque
+## 3. Primer arranque (v1, sin datos semilla)
 
-En `backend/` del repo local, con Node 22+ y dependencias instaladas (ruta de salida nueva):
+En GitHub Actions ejecutar Deploy con el ref elegido y **publish_only=true**: prueba el
+commit y publica imágenes amd64/ARM etiquetadas por SHA real (nunca `latest`). Ese SHA
+debe coincidir con las tres `IMAGE_*` del entorno.
+
+En DuckDNS apuntar IPv4 a la IP de la VM; no dejar un AAAA que apunte a otro host. Si
+cambia la IP, actualizarla con la API HTTPS de DuckDNS; su token nunca va al repo.
+Ejecutar el workflow con **publish_only=false**. El primer despliegue crea la base, migra
+y ajusta permisos del volumen de fotos **antes de exponer la API**. No se siembran
+cuentas ni formularios: la base queda vacía.
+
+Crear el primer administrador de plataforma (interactivo; la clave no queda en el
+historial) desde `/opt/terreno/infra`:
 
 ```bash
-node --env-file=../.env ../infra/tools/config.mjs export ../infra/config-bundle
+node tools/ops.mjs bootstrap-admin
 ```
 
-`SYNC_VOLUME` debe apuntar al volumen real del backend, relativo a `backend/` para ese comando.
-Se copian empresas, usuarios sin hashes, faenas, plantillas, revisiones, catálogo,
-asignaciones, imports y originales Excel. No hay sesiones, respuestas, hallazgos,
-bitácoras, fotos operacionales, conflictos ni logs. La base fuente se lee en snapshot
-sin modificaciones; no borrar IndexedDB ni colas locales. La nueva dirección web comienza
-con almacenamiento del navegador independiente. No se transfieren pendientes locales.
-
-Comprobar que la configuración sólo contiene datos ficticios antes de publicarla.
-Copiar el paquete por SCP a `/opt/terreno/infra/config-bundle` y restringir sus permisos.
-En GitHub Actions ejecutar Deploy, con el ref elegido y **publish_only=true**.
-El workflow prueba el mismo commit y publica imágenes amd64/ARM etiquetadas por SHA real.
-No usa `latest`. Ese SHA debe coincidir con las tres `IMAGE_*` del entorno.
-
-En DuckDNS apuntar IPv4 a la IP de la VM; no dejar un AAAA que apunte a otro host.
-Si cambia la IP, actualizarla con la API HTTPS de DuckDNS; su token nunca va al repo.
-Ejecutar el workflow con **publish_only=false** después de copiar el paquete y el
-entorno al servidor. El primer despliegue crea la base, migra, importa configuración
-y ajusta permisos de archivos **antes de exponer la API**. La marca `.config-imported`
-permite reintentar TLS sin repetir importación. No borrar esa marca en un stack con datos.
-La importación exige destino vacío y genera hashes nuevos con `DEMO_PASSWORD`.
-No ejecutar `seed`: agregaría formularios y asignaciones ajenos a la copia.
-Los checksums de los originales se verifican antes de insertar datos.
-Caddy emite TLS automáticamente. Para operación manual con sesión GHCR vigente,
-el comando es `node tools/ops.mjs deploy SHA_COMPLETO`.
+Desde la app, ese administrador crea las empresas y su administrador; cada empresa crea
+sus cuentas y faenas. Procedimiento completo: [`OPERACION.md`](OPERACION.md).
 Revisar `https://SUBDOMINIO.duckdns.org/health`, cookies Secure/HttpOnly y service worker.
-Primer arranque requiere red; luego la captura usa la caché y cola offline existentes.
+Primer arranque requiere red; luego la captura usa la caché y cola offline.
 
 ## 4. Backups, alertas y actualizaciones
 
@@ -159,7 +148,7 @@ no purgarlas en GHCR. Monitorizar `/health` desde un servicio gratuito externo.
 Descargar un backup cifrado y preparar otro stack **vacío**, con otro nombre Compose
 (`COMPOSE_PROJECT_NAME=terreno-restore`), archivos `.env` y volúmenes independientes.
 Usar el mismo `APP_DB_PASSWORD` del destino en la provisión de `tc_app`; credenciales
-owner/rol vienen del entorno y no del dump. Mantener JWT/config de demo coherentes.
+owner/rol vienen del entorno y no del dump. Mantener el `JWT_ACCESS_SECRET` coherente.
 No publicar Caddy en el stack de ensayo para no competir por 80/443.
 
 ```bash

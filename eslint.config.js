@@ -9,7 +9,6 @@ export default tseslint.config(
       '**/build/**',
       '**/node_modules/**',
       '**/coverage/**',
-      'docs/mockups-prueba/**',
       'Fase 1/**',
     ],
   },
