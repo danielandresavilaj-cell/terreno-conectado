@@ -39,21 +39,20 @@ import {
   getSummary,
   getSupervision,
   descargarInspeccion,
-  descargarLoteInspecciones,
   ApiError,
   type DashboardFiltros,
 } from '../lib/api'
-import { ZIP_MIME, descargarLibro } from '../lib/exportar'
+import { descargarLibro } from '../lib/exportar'
 import { construirCsvHallazgos } from '../lib/dashboard-csv'
 import { useEstado } from '../lib/store'
 import { duracion } from '../lib/supervision'
 import { BloquesSupervision } from '../components/dashboard/BloquesSupervision'
+import { PanelExportar } from '../components/dashboard/PanelExportar'
+import { PERIODOS, rangoPeriodo, type Periodo, type RangoFechas } from '../lib/periodos'
 import { EASE } from '../lib/motion'
 import type { DashboardSummary, DashboardSupervision, FindingDto, InspectionDetalle, InspectionListaItem } from '@terreno/shared'
 import type { InspeccionEstado, Severidad } from '../lib/types'
 
-const PERIODOS = ['24 h', '7 días', '30 días'] as const
-type Periodo = (typeof PERIODOS)[number]
 
 /* Severidad es (UI) → valore del wire (low…critical). */
 const SEV_UI_A_WIRE: Record<Severidad, 'low' | 'medium' | 'high' | 'critical'> = {
@@ -76,14 +75,6 @@ const ESTADO_META: Record<InspeccionEstado, { label: string; color: string }> = 
   reviewed: { label: 'Revisadas', color: 'var(--color-synced)' },
 }
 
-function rangoPeriodo(p: Periodo): { desde: string; hasta: string } {
-  const hs = p === '24 h' ? 24 : p === '7 días' ? 168 : 720
-  return {
-    desde: new Date(Date.now() - hs * 3_600_000).toISOString(),
-    hasta: new Date().toISOString(),
-  }
-}
-
 /**
  * Los filtros de período+faena, en la forma que los espera el backend.
  *
@@ -97,34 +88,10 @@ function rangoPeriodo(p: Periodo): { desde: string; hasta: string } {
  * (FR-045): el ZIP tiene que ser exactamente el período que hay en pantalla, y
  * dos construcciones del filtro son dos maneras de que dejen de coincidir.
  */
-function filtrosDe(periodo: Periodo, faena: string): DashboardFiltros {
-  const { desde, hasta } = rangoPeriodo(periodo)
+function filtrosDe(periodo: Periodo, faena: string, rango?: RangoFechas): DashboardFiltros {
+  const { desde, hasta } = rangoPeriodo(periodo, rango)
   return { site_id: faena === 'todas' ? undefined : faena, desde, hasta }
 }
-
-/**
- * Estado del lote del período (FR-045): inactivo → trabajando → ok | error.
- *
- * `alcance` —"7 días · Faena El Roble"— viaja en los tres estados finales a
- * propósito: el lote se arma en el servidor y puede tardar, así que el supervisor
- * puede cambiar de filtro mientras corre. Sin decir qué se pidió se leería un
- * resultado que no corresponde con lo que hay en pantalla ahora.
- *
- * `exportadas`/`fallidas` son `null` cuando el navegador no deja leer las
- * cabeceras de recuento (CORS sólo expone `Content-Disposition`): el manifiesto
- * `manifesto.json` dentro del ZIP lleva el mismo desglose con los motivos.
- */
-type Lote =
-  | { fase: 'inactivo' }
-  | { fase: 'trabajando'; alcance: string }
-  | { fase: 'error'; status: number; mensaje: string; alcance: string }
-  | {
-      fase: 'ok'
-      alcance: string
-      exportadas: number | null
-      fallidas: number | null
-      loteId: string | null
-    }
 
 type DetalleInspeccion =
   | { fase: 'inactivo' }
@@ -132,41 +99,6 @@ type DetalleInspeccion =
   | { fase: 'error'; id: string; mensaje: string }
   | { fase: 'ok'; detalle: InspectionDetalle }
 
-/**
- * Título por código del error del lote.
- *
- * Los tres se LEEN distinto porque dicen cosas distintas y la acción es otra en
- * cada caso: un 413 es una petición demasiado grande (acotar el período), un 404
- * es que el filtro no trajo nada (no hay nada que exportar, y no es un fallo), y
- * un 422 es que las inspecciones que había no se pudieron exportar (el motivo de
- * cada una lo dice el servidor, uno a uno). Con un único "algo salió mal" el
- * supervisor no sabe si insistir, acotar el rango o revisar las plantillas.
- */
-const TITULO_LOTE: Record<number, string> = {
-  413: 'Período demasiado grande para un lote',
-  404: 'Este filtro no trae inspecciones',
-  422: 'Ninguna de las inspecciones se pudo exportar',
-}
-
-/**
- * Color del panel de error del lote, y POR QUÉ se distinguen a simple vista:
- *
- *  · 413 en ámbar (el acento de la pantalla): la petición era válida y hay que
- *    repetirla más chica. Es el único de los tres que se arregla cambiando un
- *    control de la pantalla.
- *  · 404 en neutro: no falló nada, no hay nada que exportar. Pintarlo en rojo
- *    haría que el supervisor persiga un error donde sólo hay un filtro vacío.
- *  · 422 en `failed`: sí hubo fallo, y es de contenido (plantillas sin documento
- *    original), no de conexión ni de permiso.
- */
-const TONO_LOTE: Record<number, string> = {
-  413: 'border-beam/30 bg-beam/[0.06] text-beam',
-  404: 'border-line-soft bg-s2 text-ink-2',
-  422: 'border-failed/30 bg-failed/10 text-failed',
-}
-/* Cualquier otro error (sin señal, 500) reutiliza el tono de "no se pudo leer"
- * del aviso de carga, que es lo que son. */
-const TONO_LOTE_OTRO = 'border-sev-alta/25 bg-sev-alta/10 text-sev-alta'
 
 /**
  * Motivo real de un fallo, para poder mostrarlo en pantalla. Un `ApiError` trae
@@ -196,6 +128,13 @@ export function Dashboard() {
   const [faena, setFaena] = useState<string>('todas')
   const [sevFiltro, setSevFiltro] = useState<Severidad | 'todas'>('todas')
   const [autor, setAutor] = useState<string>('todos')
+  /* TSK-REP-007: rango libre, filtros propios de la lista y selección para exportar. */
+  const [rango, setRango] = useState<RangoFechas>({ desde: '', hasta: '' })
+  const [formularioFiltro, setFormularioFiltro] = useState('')
+  const [estadoFiltro, setEstadoFiltro] = useState('')
+  const [autorInsp, setAutorInsp] = useState('')
+  const [seleccion, setSeleccion] = useState<Set<string>>(new Set())
+  const [formularios, setFormularios] = useState<Map<string, string>>(new Map())
   const [datos, setDatos] = useState<{ summary: DashboardSummary; hallazgos: FindingDto[] } | null>(null)
   const [cargando, setCargando] = useState(false)
   const [errorCarga, setErrorCarga] = useState<string | null>(null)
@@ -209,18 +148,13 @@ export function Dashboard() {
   const [descargandoId, setDescargandoId] = useState<string | null>(null)
   const [errorDescarga, setErrorDescarga] = useState<{ id: string; mensaje: string } | null>(null)
   const [detalleInspeccion, setDetalleInspeccion] = useState<DetalleInspeccion>({ fase: 'inactivo' })
-  /* FR-045: el lote del período lleva estado propio y NO es el de la carga del
-   * panel. Armar un ZIP son varios `.xlsx` en el servidor: si compartiera estado
-   * con el auto-refresh, un fallo del lote taparía las métricas y un refresco
-   * borraría el resultado de un lote que el supervisor ya descargó. */
-  const [lote, setLote] = useState<Lote>({ fase: 'inactivo' })
   const reducir = useReducedMotion()
 
   const esPlataforma = usuario?.rol === 'platform_admin'
 
   const cargar = useCallback(async () => {
     if (!usuario || esPlataforma) return
-    const f = filtrosDe(periodo, faena)
+    const f = filtrosDe(periodo, faena, rango)
     const fs = {
       ...f,
       severidad: sevFiltro === 'todas' ? undefined : SEV_UI_A_WIRE[sevFiltro],
@@ -233,9 +167,19 @@ export function Dashboard() {
      * dice en su propio bloque. Es un `then` con manejador de rechazo en vez de
      * un `.catch`: así la promesa nunca rechaza y el `Promise.all` siempre
      * resuelve con las métricas. */
-    const lista = getInspecciones(f).then(
+    const lista = getInspecciones(f, {
+      template_id: formularioFiltro || undefined,
+      status: estadoFiltro || undefined,
+      autor_id: autorInsp || undefined,
+    }).then(
       (r) => {
         setInspecciones(r.items)
+        // Los formularios vistos alimentan el filtro (se acumulan: filtrar por uno no borra los demás).
+        setFormularios((prev) => {
+          const m = new Map(prev)
+          for (const i of r.items) if (i.template_nombre) m.set(i.template_id, i.template_nombre)
+          return m.size === prev.size ? prev : m
+        })
         setErrorInspecciones(null)
       },
       (err: unknown) => {
@@ -260,7 +204,7 @@ export function Dashboard() {
     } finally {
       setCargando(false)
     }
-  }, [usuario, esPlataforma, periodo, faena, sevFiltro, autor])
+  }, [usuario, esPlataforma, periodo, faena, sevFiltro, autor, rango, formularioFiltro, estadoFiltro, autorInsp])
 
   /* FR-043: auto-refresh cada 30 s + al recobrar foco/señal. */
   useEffect(() => {
@@ -356,39 +300,25 @@ export function Dashboard() {
     }
   }
 
-  /**
-   * FR-045: el lote del período — un `.xlsx` por inspección en un ZIP.
-   *
-   * Los filtros se leen AL PULSAR, no del estado en vivo: son los mismos que hay
-   * delante de los ojos, y quedan congelados en `alcance` para que el resultado
-   * siga siendo interpretable si el supervisor cambia de faena o de período
-   * mientras el servidor arma los libros.
-   *
-   * Lo único que se deshabilita es ESTE botón. El lote puede tardar (cada `.xlsx`
-   * se genera en el servidor y se empaqueta en memoria), así que ni la tabla ni
-   * las descargas por fila se bloquean: bloquear el panel por una acción de una
-   * sola persona sería peor que esperar. Tampoco hay `alert()`/`confirm()`: el
-   * resultado se dice en su propio panel, junto al botón.
-   */
-  const exportarLote = async () => {
-    const alcance = `${periodo} · ${nombreFaena}`
-    setLote({ fase: 'trabajando', alcance })
-    try {
-      const { bytes, fileName, loteId, exportadas, fallidas } = await descargarLoteInspecciones(
-        filtrosDe(periodo, faena),
-      )
-      descargarLibro(bytes, fileName, ZIP_MIME)
-      setLote({ fase: 'ok', alcance, exportadas, fallidas, loteId })
-    } catch (err) {
-      setLote({
-        fase: 'error',
-        // `0` = sin respuesta del servidor (no es el caso de un `ApiError`); se
-        // distingue del resto por el mismo motivo que en `errorCarga`.
-        status: err instanceof ApiError ? err.status : 0,
-        mensaje: motivoDe(err),
-        alcance,
-      })
-    }
+  /* La selección se limpia al cambiar el filtro: elegir y luego filtrar otra
+   * cosa exportaría inspecciones que ya no están en pantalla. */
+  useEffect(() => {
+    setSeleccion(new Set())
+  }, [periodo, faena, rango, formularioFiltro, estadoFiltro, autorInsp])
+
+  const alternar = (id: string) =>
+    setSeleccion((prev) => {
+      const n = new Set(prev)
+      if (n.has(id)) n.delete(id)
+      else n.add(id)
+      return n
+    })
+  const todasMarcadas = inspecciones.length > 0 && inspecciones.every((i) => seleccion.has(i.id))
+  const filtrosExport = {
+    ...filtrosDe(periodo, faena, rango),
+    template_id: formularioFiltro || undefined,
+    status: (estadoFiltro || undefined) as 'submitted' | 'reviewed' | 'in_progress' | 'draft' | undefined,
+    autor_id: autorInsp || undefined,
   }
 
   return (
@@ -406,9 +336,9 @@ export function Dashboard() {
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {/* Filtro de periodo: knob con layout. Acción manual y rara. */}
-          <div className="flex p-1 rounded-xl bg-s1 border border-line-soft">
+          <div className="flex flex-wrap p-1 rounded-xl bg-s1 border border-line-soft">
             {PERIODOS.map((p) => (
               <button
                 key={p}
@@ -432,6 +362,27 @@ export function Dashboard() {
               </button>
             ))}
           </div>
+          {periodo === 'Rango' && (
+            <div className="flex items-center gap-1.5 text-[12px] text-ink-3">
+              <input
+                type="date"
+                aria-label="Desde"
+                value={rango.desde}
+                max={rango.hasta || undefined}
+                onChange={(e) => setRango((r) => ({ ...r, desde: e.target.value }))}
+                className="h-9 px-2 rounded-lg bg-s1 border border-line-soft text-[12px] text-ink"
+              />
+              a
+              <input
+                type="date"
+                aria-label="Hasta"
+                value={rango.hasta}
+                min={rango.desde || undefined}
+                onChange={(e) => setRango((r) => ({ ...r, hasta: e.target.value }))}
+                className="h-9 px-2 rounded-lg bg-s1 border border-line-soft text-[12px] text-ink"
+              />
+            </div>
+          )}
           {/* FR-042: export CSV. */}
           <Boton
             tamano="sm"
@@ -681,36 +632,37 @@ export function Dashboard() {
                   <div className="flex-1 rule" />
                   <Chip>{nombreFaena}</Chip>
                   <Chip>{periodo}</Chip>
-                  {/* FR-045: el lote se arma con los filtros que están justo a su
-                      lado, que son los mismos del listado de abajo. */}
-                  <Boton
-                    tamano="sm"
-                    variante="secundaria"
-                    onClick={exportarLote}
-                    disabled={lote.fase === 'trabajando'}
-                    aria-busy={lote.fase === 'trabajando'}
-                    icono={
-                      <svg width="13" height="13" viewBox="0 0 14 14" fill="none" aria-hidden>
-                        <path
-                          d="M2.2 4.6h2.3M2.2 7h1.6M2.2 9.4h2.3"
-                          stroke="currentColor"
-                          strokeWidth="1.4"
-                          strokeLinecap="round"
-                        />
-                        <path
-                          d="M6.6 4.6h5.2v5.2H6.6z"
-                          stroke="currentColor"
-                          strokeWidth="1.4"
-                          strokeLinejoin="round"
-                        />
-                      </svg>
-                    }
-                  >
-                    {lote.fase === 'trabajando' ? 'Generando ZIP…' : 'Exportar ZIP del período'}
-                  </Boton>
                 </div>
 
-                <AvisoLote lote={lote} />
+                {/* TSK-REP-007: filtros propios de la lista (además de período y faena). */}
+                <div className="flex flex-wrap items-center gap-2 text-[12px]">
+                  <select aria-label="Formulario" value={formularioFiltro} onChange={(e) => setFormularioFiltro(e.target.value)} className={SELECT_FILTRO}>
+                    <option value="">Todos los formularios</option>
+                    {[...formularios].sort((a, b) => a[1].localeCompare(b[1], 'es')).map(([id, nombre]) => (
+                      <option key={id} value={id}>{nombre}</option>
+                    ))}
+                  </select>
+                  <select aria-label="Estado" value={estadoFiltro} onChange={(e) => setEstadoFiltro(e.target.value)} className={SELECT_FILTRO}>
+                    <option value="">Todos los estados</option>
+                    <option value="submitted">Enviadas</option>
+                    <option value="reviewed">Revisadas</option>
+                    <option value="in_progress">En curso</option>
+                  </select>
+                  <select aria-label="Autor" value={autorInsp} onChange={(e) => setAutorInsp(e.target.value)} className={SELECT_FILTRO}>
+                    <option value="">Todos los autores</option>
+                    {autores.map((a) => (
+                      <option key={a.id} value={a.id}>{a.nombre}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <PanelExportar
+                  filtros={filtrosExport}
+                  seleccion={[...seleccion]}
+                  totalFiltrado={inspecciones.length}
+                  alcance={`${periodo} · ${nombreFaena}`}
+                  onLimpiarSeleccion={() => setSeleccion(new Set())}
+                />
 
                 {errorInspecciones ? (
                   <div
@@ -735,6 +687,12 @@ export function Dashboard() {
                         los rótulos dejarían de calzar con las columnas. */}
                     <div className="overflow-x-auto">
                       <div className={GRID_INSPECCION}>
+                        <input
+                          type="checkbox"
+                          aria-label="Elegir todas las de la lista"
+                          checked={todasMarcadas}
+                          onChange={() => setSeleccion(todasMarcadas ? new Set() : new Set(inspecciones.map((i) => i.id)))}
+                        />
                         {['Faena', 'Plantilla', 'Ejecutado por', 'Estado', 'Resp.', 'Fecha', ''].map(
                           (h) => (
                             <span key={h} className="label-inst">
@@ -753,6 +711,8 @@ export function Dashboard() {
                         onDescargar={descargar}
                         revisando={detalleInspeccion.fase === 'cargando' && detalleInspeccion.id === i.id}
                         onRevisar={revisar}
+                        seleccionada={seleccion.has(i.id)}
+                        onSeleccionar={() => alternar(i.id)}
                       />
                     ))}
                   </div>
@@ -847,9 +807,11 @@ function tiempoRelativo(iso: string): string {
  * (pantalla ancha, uso de escritorio) y apilar la fila en móvil convertiría
  * seis datos en una pared de etiquetas repetidas.
  */
+const SELECT_FILTRO = 'h-9 px-2 rounded-lg bg-s1 border border-line-soft text-[12px] max-w-[220px]'
+
 const GRID_INSPECCION = [
-  'grid items-center gap-3 min-w-[840px]',
-  'grid-cols-[minmax(0,1fr)_minmax(0,1.5fr)_minmax(0,1fr)_7rem_4.5rem_6rem_auto]',
+  'grid items-center gap-3 min-w-[870px]',
+  'grid-cols-[1.25rem_minmax(0,1fr)_minmax(0,1.5fr)_minmax(0,1fr)_7rem_4.5rem_6rem_auto]',
 ].join(' ')
 
 /**
@@ -868,6 +830,8 @@ function FilaInspeccion({
   onDescargar,
   revisando,
   onRevisar,
+  seleccionada,
+  onSeleccionar,
 }: {
   i: InspectionListaItem
   descargando: boolean
@@ -875,6 +839,8 @@ function FilaInspeccion({
   onDescargar: (i: InspectionListaItem) => void
   revisando: boolean
   onRevisar: (i: InspectionListaItem) => void
+  seleccionada: boolean
+  onSeleccionar: () => void
 }) {
   const meta = ESTADO_META[i.status]
   /* `template_nombre` a `null` = la plantilla se borró. El registro se conserva
@@ -886,6 +852,7 @@ function FilaInspeccion({
   return (
     <div className="panel px-4 py-3">
       <div className={GRID_INSPECCION}>
+        <input type="checkbox" aria-label={`Elegir inspección de ${i.faena_nombre}`} checked={seleccionada} onChange={onSeleccionar} />
         <span className="text-[13px] truncate">{i.faena_nombre}</span>
         <div className="min-w-0">
           <p className="text-[13px] font-medium truncate">
@@ -1028,109 +995,6 @@ function PanelDetalleInspeccion({
         </div>
       )}
     </section>
-  )
-}
-
-/**
- * Panel del resultado del lote, pegado al botón que lo dispara.
- *
- * Vive junto a los filtros y no en el aviso general de la cabecera porque su
- * contenido depende de los filtros: el mismo 413 con "30 días" y con "24 h" no
- * es la misma petición, y mezclarlo con el error de carga del panel haría que
- * un problema de lectura del dashboard se confundiera con un problema del lote.
- *
- * `inactivo` no pinta nada: antes de la primera pulsación no hay noticia que
- * dar, y un recuadro vacío en el panel sería ruido.
- */
-function AvisoLote({ lote }: { lote: Lote }) {
-  if (lote.fase === 'inactivo') return null
-
-  if (lote.fase === 'trabajando') {
-    return (
-      <div
-        role="status"
-        aria-live="polite"
-        className="panel px-4 py-3.5 border-syncing/25 bg-syncing/[0.07]"
-      >
-        <div className="flex items-start gap-2.5">
-          <span className="mt-[5px] h-1.5 w-1.5 rounded-full bg-syncing shrink-0" />
-          <div className="min-w-0">
-            <p className="text-[12px] font-medium text-syncing">
-              Generando el ZIP de {lote.alcance}…
-            </p>
-            <p className="mt-1 text-[11px] leading-relaxed text-ink-3">
-              El servidor escribe un `.xlsx` por inspección y los empaqueta con su manifiesto. El
-              panel se sigue usando y el archivo baja solo al terminar.
-            </p>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  if (lote.fase === 'error') {
-    const tono = TONO_LOTE[lote.status] ?? TONO_LOTE_OTRO
-    return (
-      <div role="alert" className={['panel px-4 py-3.5', tono].join(' ')}>
-        <div className="flex items-start gap-2.5">
-          <span className="mt-[5px] h-1.5 w-1.5 rounded-full bg-current shrink-0" />
-          <div className="min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <p className="text-[12px] font-medium">{TITULO_LOTE[lote.status] ?? 'No se pudo generar el lote'}</p>
-              <Chip>{lote.alcance}</Chip>
-            </div>
-            {/* El texto del servidor se muestra entero, sin resumir: en el 413 trae
-                el límite y cuántas inspecciones pidió, y en el 422 el motivo de
-                CADA fallo. Es la parte accionable; un "algo salió mal" la borra. */}
-            <p className="mt-1.5 text-[12px] leading-relaxed text-ink-2">{lote.mensaje}</p>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  return (
-    <div
-      role="status"
-      aria-live="polite"
-      className="panel px-4 py-3.5 border-synced/25 bg-synced/[0.07]"
-    >
-      <div className="flex items-start gap-2.5">
-        <span className="mt-[5px] h-1.5 w-1.5 rounded-full bg-synced shrink-0" />
-        <div className="min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <p className="text-[12px] font-medium text-synced">ZIP del lote descargado</p>
-            <Chip>{lote.alcance}</Chip>
-            {/* El id del lote es lo que correlaciona la descarga con la fila de
-                `audit_log` (FR-047): sin él, "qué se descargó" no se puede
-                responder. Opcional porque CORS puede no exponerlo. */}
-            {lote.loteId && <Chip>lote {lote.loteId.slice(0, 8)}</Chip>}
-          </div>
-          <p className="mt-1.5 text-[12px] leading-relaxed text-ink-2">
-            {lote.exportadas === null || lote.fallidas === null ? (
-              <>
-                Este navegador no deja leer las cabeceras de recuento: el desglose de exportadas y
-                fallidas va en <span className="num-inst">manifesto.json</span>, dentro del ZIP.
-              </>
-            ) : (
-              <>
-                <span className="num-inst">{lote.exportadas}</span>{' '}
-                {lote.exportadas === 1 ? 'exportada' : 'exportadas'} ·{' '}
-                <span className="num-inst">{lote.fallidas}</span>{' '}
-                {lote.fallidas === 1 ? 'fallida' : 'fallidas'}
-                {lote.fallidas > 0 && (
-                  <>
-                    . El motivo de cada una va en{' '}
-                    <span className="num-inst">manifesto.json</span>, dentro del ZIP
-                  </>
-                )}
-                .
-              </>
-            )}
-          </p>
-        </div>
-      </div>
-    </div>
   )
 }
 

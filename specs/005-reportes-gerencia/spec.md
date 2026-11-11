@@ -90,6 +90,16 @@ Sin muestras se informa "sin datos suficientes". La espera sin señal solo exist
 - **CSV de la vista:** en el cliente, `frontend/src/lib/dashboard-csv.ts` serializa **exactamente lo filtrado en pantalla** (columnas `id, severidad, estado, faena, autor, capturado_at`, `text/csv;charset=utf-8`, escapado de comillas).
 - **Documentos `.xlsx`:** en el servidor, la exportación de una inspección usa la **versión congelada** de su plantilla (FR-028) para mapear ítem→respuesta, no la última publicada; el lote del período viaja como ZIP con `manifesto.json` (filtros, pedidas/exportadas/fallidas y motivo por fallo).
 
+- **Exportar inspecciones (TSK-REP-007, Enmienda 005):** `POST /api/v1/dashboard/inspections/exportar` con el filtro de la lista (`site_id`, `desde`, `hasta`, `template_id`, `status`, `autor_id`) o la selección (`ids`, siempre dentro de RLS) y un `formato`:
+
+  | Formato | Resultado | Tope |
+  | :--- | :--- | :--- |
+  | `xlsx_consolidado` | Un `.xlsx`: hoja **Resumen** (una fila por inspección, enlazada a su detalle), **una hoja por formulario** (filas = inspecciones, columnas = preguntas por sección, unidas por id de ítem entre versiones; No OK destacado), **Hallazgos** y **Evidencias** (≤ 512 kB incrustada). Funciona con cualquier plantilla. | 500 |
+  | `pdf` / `docx` | Informe con portada (filtro y resumen) y una inspección por página (respuestas, hallazgos, fotos). `agrupar`: `un_archivo` o `zip` (uno por inspección). | 100 |
+  | `xlsx_original` | El ZIP de originales rellenados (sólo plantillas importadas desde `.xlsx`). | 50 |
+
+  Sobre el tope → 413 con el motivo; filtro vacío → 404; una inspección ilegible se omite y se cuenta (`X-Export-Fallidas`); si fallan todas → 422. Cada exportación queda en `audit_log` (`inspection_export`, FR-047). La lista acepta los mismos filtros y el dashboard suma los períodos "Este mes", "Mes anterior" y un rango libre, casillas para elegir y un panel de formato.
+
 ## 6. Criterios de aceptación
 
 - Matriz §3 de `test-plan.md`: filas **FR-040/043** con `backend/test/dashboard.spec.ts`; la latencia ≤ 60 s se mide en vivo (🟡).
@@ -121,6 +131,7 @@ El alcance V1 del **resumen ejecutivo** es **read-only** y se apoya en las métr
 
 | Versión | Fecha | Cambio | Autor |
 | :--- | :--- | :--- | :--- |
+| 0.5.0 | 2026-11-11 | **TSK-REP-007:** exportación en Excel consolidado, PDF y Word con filtros ampliados y selección (§5, Enmienda 005) | Daniel Ávila (con IA) |
 | 0.4.0 | 2026-11-11 | **TSK-REP-006:** dashboard de supervisión en 4 bloques (§4); se retira la latencia captura→disponible y NFR-03 pasa a medir el procesamiento del lote (Enmienda 004) | Daniel Ávila (con IA) |
 | 0.3.2 | 2026-10-14 | Precisa el contrato de `GET /conflicts`: supervisor y `tenant_admin` del tenant, con aislamiento RLS (TSK-AUTH-008, issue #128) | Daniel Ávila |
 | 0.3.1 | 2026-10-14 | **G3 (resumen ejecutivo) y cierre TSK-REP-003:** §7 define el resumen ejecutivo V1 como read-only sobre KPIs del dashboard; TSK-REP-003 verificado (métrica de latencia media+p95 en `backend/test/dashboard.spec.ts`, umbral ≤60 s medido en vivo). Actualiza referencia del CSV a `frontend/src/lib/dashboard-csv.ts` (refs #8) | Daniel Ávila |

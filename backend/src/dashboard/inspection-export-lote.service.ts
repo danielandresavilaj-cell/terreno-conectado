@@ -12,7 +12,7 @@ import type { JwtClaims } from '../auth/auth.types'
 import { DbService } from '../db/db.service'
 import { exigirDashboard } from './dashboard.auth'
 import {
-  parsearFiltrosPeriodo,
+  parsearFiltrosInspecciones,
   type FiltrosPeriodo,
   type LoteExportManifiesto,
 } from './dashboard.contract'
@@ -115,17 +115,11 @@ export class InspectionExportLoteService {
    */
   async exportarLote(u: JwtClaims, filtros: unknown): Promise<InspectionExportLote> {
     exigirDashboard(u)
-    const periodo = parsearFiltrosPeriodo(filtros)
-
-    // `listar` es la MISMA consulta que alimenta la tabla del período, con los
-    // mismos filtros y la misma RLS: el subconjunto que el supervisor está
-    // viendo es exactamente el que se exporta, y el aislamiento por tenant no
-    // se reimplementa (lo que la lista no ve, el lote tampoco lo ve).
-    const { items } = await this.individual.listar(u, {
-      site_id: periodo.siteId ?? undefined,
-      desde: periodo.desde ?? undefined,
-      hasta: periodo.hasta ?? undefined,
-    })
+    // TSK-REP-007: los mismos filtros que la tabla (formulario, estado, autor)
+    // y la selección explícita (`ids`). `listar` es la MISMA consulta que
+    // alimenta la tabla, con la misma RLS: lo que se ve es lo que se exporta.
+    const periodo = parsearFiltrosInspecciones(filtros)
+    const { items } = await this.individual.listar(u, filtros)
 
     if (items.length === 0) {
       // Un ZIP vacío se descarga, se abre y parece un archivo roto. El filtro no
