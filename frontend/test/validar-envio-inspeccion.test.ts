@@ -17,6 +17,14 @@ const definition: TemplateDefinition = {
 }
 
 describe('validación antes de enviar una inspección', () => {
+  it('no envía el número viejo si la edición actual tiene un error de rango', () => {
+    const numeric: TemplateDefinition = { sections: [{ id: uuid(90), title: 'Temperatura', items: [
+      { id: uuid(91), prompt: 'Temperatura', response_type: 'numeric', props: { required: true, min: -10, max: 45 } },
+    ] }] }
+    const saved = { [uuid(91)]: { campo: 45 } }
+    expect(erroresDeEnvio(numeric, saved, { [uuid(91)]: 'Fuera de rango' })).toEqual({ [uuid(91)]: 'Fuera de rango' })
+    expect(erroresDeEnvio(numeric, saved, {})).toEqual({})
+  })
   it('marca todos los obligatorios vacíos en un único intento', () => {
     const errores = erroresDeEnvio(definition, {})
     expect(errores).toEqual({
