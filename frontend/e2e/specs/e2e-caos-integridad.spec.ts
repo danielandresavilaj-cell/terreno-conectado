@@ -18,6 +18,7 @@ import { uuidv7 } from '@terreno/shared'
 import { expect, test, type Browser, type Page } from '@playwright/test'
 
 import {
+  autenticar,
   CUENTAS,
   ITEMS_FIXTURE_A,
   SITES,
@@ -330,7 +331,8 @@ test.describe('caos 7 — cross-tenant hostil', () => {
     await loginEnApp(page, CUENTAS.trabajadorA)
     await vaciarCola(page)
 
-    const token = await page.evaluate(() => sessionStorage.getItem('tc_access_token'))
+    // TSK-AUTH-010: el token de la app vive en memoria; se pide uno por API.
+    const { token } = await autenticar(request, CUENTAS.trabajadorA)
     expect(token).toBeTruthy()
 
     const loteHostil = {

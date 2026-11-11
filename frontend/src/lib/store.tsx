@@ -24,7 +24,6 @@ import {
   useState,
   type ReactNode,
 } from 'react'
-import { COLA_INICIAL } from './seed'
 import type { Identidad, RegistroCola, Rol, Severidad, Usuario } from './types'
 import {
   addFinding,
@@ -45,14 +44,12 @@ import {
   guardarPlantillaSeleccionada,
   guardarSesionCaché,
   leerPlantillaSeleccionada,
-  limpiarDatosLocalesPrueba,
   listarOriginalesPlantilla,
   listLogEntries,
   listOutbox,
   migrarFotosLegacy,
   quitarFotoRespuesta,
   respuestaDelItem,
-  seedDemoDataIfNeeded,
   setDueñoCola,
   sesionCaché,
   submitInspection,
@@ -78,7 +75,6 @@ import { actualizarCatalogo, leerCatalogo } from './catalogo-formularios'
 import { comprimirImagen } from './compresor'
 import { sincronizarCola, setPriorizarFotos, setSincronizacionPermitida } from './sync'
 import { cuotaEsAlta, estimarCuota } from './cuota'
-import { guardarSinSenalManual, leerSinSenalManual } from './preferencia-senal'
 import {
   elegirPlantillaActiva,
   planificarPurga,
@@ -99,6 +95,8 @@ import { erroresDeEnvio } from './validar-envio-inspeccion'
 
 export type Pantalla =
   | 'cuenta'
+  | 'administracion'
+  | 'plataforma'
   | 'formularios'
   | 'captura'
   | 'bitacora'
@@ -123,7 +121,7 @@ export interface PlantillaActual {
   revisionId: string | null
   nombre: string
   version: number | null
-  origen: 'servidor' | 'caché' | 'demo'
+  origen: 'servidor' | 'caché'
   definition: TemplateDefinition
   /**
    * FR-028: `'no-disponible'` = hay borrador congelado pero su revisión no está
@@ -170,8 +168,6 @@ interface Ctx {
   /** Cierra la sesión en el servidor y en el dispositivo (la cola local queda). */
   salir: () => void
   ir: (p: Pantalla) => void
-  setOnline: (v: boolean) => void
-  toggleOnline: () => void
   sincronizarAhora: () => void
   sincronizando: boolean
   enviandoInspeccion: boolean
@@ -180,7 +176,6 @@ interface Ctx {
    *  espalda invalidaría lo ya respondido. */
   descartarBorradorYRecargar: () => Promise<void>
   seleccionarFormulario: (revisionId: string) => Promise<{ ok: boolean; error?: string }>
-  limpiarDatosPrueba: () => Promise<void>
   descartarRegistroCola: (outboxId: number) => Promise<void>
 
   pendientes: number
@@ -287,14 +282,9 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
   const [debeCambiarClave, setDebeCambiarClave] = useState(false)
   const [sesionExpirada, setSesionExpirada] = useState(false)
   const [conConexion, setConConexion] = useState(() => navigator.onLine)
-  const [sinSenalManual, setSinSenalManual] = useState(leerSinSenalManual)
-  const online = conConexion && !sinSenalManual
-  const setOnline = useCallback((v: boolean) => {
-    guardarSinSenalManual(!v)
-    setSinSenalManual(!v)
-    // Cerrar la barrera inmediatamente, antes del siguiente efecto de React.
-    setSincronizacionPermitida(v && navigator.onLine)
-  }, [])
+  // El estado de señal es el de la red real (navigator.onLine); v1 no tiene
+  // interruptor manual.
+  const online = conConexion
   const [pantalla, setPantalla] = useState<Pantalla>('captura')
   const [cola, setCola] = useState<RegistroCola[]>([])
   const [respuestas, setRespuestas] = useState<Record<string, RespuestaItem>>({})
@@ -550,7 +540,7 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
       const draftId = await getDraftInspectionId()
       const borrador = draftId ? await getInspection(draftId) : undefined
       if (borrador && borrador.templateRevisionId !== revisionId) {
-        return { ok: false, error: 'Tenés un borrador en curso. Continuálo o descartalo antes de cambiar.' }
+        return { ok: false, error: 'Tienes un borrador en curso. Continúalo o descártalo antes de cambiar.' }
       }
 
       await guardarPlantillaSeleccionada(usuario.tenantId, usuario.faenaId, revisionId)
@@ -563,16 +553,6 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
     [usuario, formularios],
   )
 
-  const limpiarDatosPrueba = useCallback(async () => {
-    if (!usuario) return
-    await limpiarDatosLocalesPrueba(usuario.tenantId)
-    setRespuestas({})
-    setErroresCampo({})
-    setHayBorrador(false)
-    setEntradasBitacora([])
-    await refrescar()
-    await cargarPlantilla(usuario)
-  }, [usuario, refrescar, cargarPlantilla])
 
   const descartarRegistroCola = useCallback(async (outboxId: number) => {
     if (!usuario) return
@@ -588,7 +568,6 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
       // TSK-AUTH-010: antes de leer cola o borrador, la sesión fija su dueño.
       await setDueñoCola({ userId: perfil.id, tenantId: perfil.tenant_id ?? '' })
       setSesionExpirada(false)
-      await seedDemoDataIfNeeded(COLA_INICIAL, i, u)
       // TSK-FORM-004: borrares previos con la foto en `valuePhoto` → ATTACHMENT.
       await migrarFotosLegacy()
       // FR-038: la plantilla activa se hidrata ANTES de tocar el borrador, así
@@ -759,9 +738,6 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
     }
   }, [cerrarLocal])
 
-  const toggleOnline = useCallback(() => {
-    setOnline(!online)
-  }, [online, setOnline])
 
   /* El estado de señal gobierna toda la capa de transporte. Cuando vuelve,
    * recién entonces se drena la cola y se actualiza el catálogo offline. */
@@ -1038,14 +1014,11 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
     sesionExpirada,
     salir,
     ir: setPantalla,
-    setOnline,
-    toggleOnline,
     sincronizarAhora,
     sincronizando,
     enviandoInspeccion,
     descartarBorradorYRecargar,
     seleccionarFormulario,
-    limpiarDatosPrueba,
     descartarRegistroCola,
     pendientes,
     fallidos,

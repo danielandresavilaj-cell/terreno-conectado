@@ -8,6 +8,7 @@ import { DbModule } from './db/db.module'
 import { HealthModule } from './health/health.module'
 import { StorageModule } from './storage/storage.module'
 import { SyncModule } from './sync/sync.module'
+import { UsersModule } from './users/users.module'
 import { TemplatesModule } from './templates/templates.module'
 
 @Module({
@@ -21,6 +22,7 @@ import { TemplatesModule } from './templates/templates.module'
     DashboardModule,
     HealthModule,
     TemplatesModule,
+    UsersModule,
   ],
   controllers: [AppController],
 })

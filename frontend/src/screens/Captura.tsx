@@ -168,7 +168,7 @@ export function Captura() {
       <header>
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <p className="label-inst">FR-036 · Captura con plantilla dinámica</p>
+            <p className="label-inst">Captura con plantilla dinámica</p>
             <h1 className="mt-1.5 text-[26px] sm:text-[30px] font-semibold tracking-[-0.03em] leading-[1.1]">
               {plantilla.nombre}
             </h1>
@@ -227,7 +227,7 @@ export function Captura() {
               />
             </div>
             <p className="mt-3 text-[11px] text-ink-3 leading-relaxed">
-              El borrador se autoguarda en cada cambio (FR-014). Podés cerrar la app y seguir
+              El borrador se guarda solo en cada cambio. Puedes cerrar la app y seguir
               después: el dato no se pierde.
             </p>
           </div>
@@ -238,7 +238,7 @@ export function Captura() {
       {congeladaAusente ? (
         /* Sin la revisión congelada no hay formulario que mostrar (FR-028). */
         <div className="panel p-5">
-          <p className="label-inst">FR-028 · Revisión congelada no disponible</p>
+          <p className="label-inst">Revisión congelada no disponible</p>
           <p className="mt-2 text-[14px] text-ink leading-relaxed">
             Este turno quedó congelado en una revisión de la plantilla que no está en este
             dispositivo
@@ -280,9 +280,9 @@ export function Captura() {
       ) : sinFormularios ? (
         <div className="panel p-5">
           <p className="label-inst">Formularios asignados</p>
-          <h2 className="mt-2 text-[17px] font-semibold">No tenés formularios asignados</h2>
+          <h2 className="mt-2 text-[17px] font-semibold">No tienes formularios asignados</h2>
           <p className="mt-2 text-[13px] text-ink-2 leading-relaxed">
-            Tu rol y faena no tienen una plantilla disponible. Pedile a un administrador que te asigne un formulario antes de iniciar una inspección.
+            Tu rol y faena no tienen una plantilla disponible. Pídele a un administrador que te asigne un formulario antes de iniciar una inspección.
           </p>
           <Boton tamano="sm" variante="secundaria" className="mt-4" onClick={() => ir('formularios')}>
             Ver formularios asignados
@@ -337,7 +337,7 @@ export function Captura() {
 
       {!congeladaAusente && !sinFormularios && Object.keys(erroresCampo).length > 0 && (
         <p role="alert" className="-mt-3 text-[12px] font-medium text-failed">
-          Completá los campos obligatorios marcados antes de enviar la inspección.
+          Completa los campos obligatorios marcados antes de enviar la inspección.
         </p>
       )}
 
@@ -349,13 +349,13 @@ export function Captura() {
       {!sinFormularios && <div className="panel p-4">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="min-w-0">
-            <p className="label-inst">FR-019 · Documento original rellenado</p>
+            <p className="label-inst">Documento original rellenado</p>
             <p className="mt-1.5 text-[13px] text-ink-2 leading-relaxed">
               {hayOriginal
                 ? 'Se arma en el dispositivo con el .xlsx que se descargó de esta plantilla: tus respuestas en sus columnas y una hoja de evidencias con las fotos. Funciona sin señal.'
                 : `${revisionId
                     ? 'El documento original de esta plantilla todavía no está en el dispositivo.'
-                    : 'Esta plantilla no viene de una revisión publicada, así que no hay documento original que rellenar.'} Vuelve la señal y se descarga con la plantilla (FR-018); la exportación no baja nada por su cuenta. Lo que ya respondiste queda guardado.`}
+                    : 'Esta plantilla no viene de una revisión publicada, así que no hay documento original que rellenar.'} Vuelve la señal y se descarga con la plantilla; la exportación no baja nada por su cuenta. Lo que ya respondiste queda guardado.`}
             </p>
           </div>
           <Boton
@@ -386,8 +386,8 @@ export function Captura() {
        *  original que no está sólo se ve al exportar, y no al capturar. */}
       <p className="text-[11px] text-ink-3 leading-relaxed">
         {originales.cacheados === 0
-          ? `Documento original sin cachear: la exportación offline se habilita cuando se descargue (FR-018 · tope ${formatMb(originales.presupuestoBytes)}).`
-          : `${originales.cacheados} documentos originales en el dispositivo para exportar sin conexión (FR-018 · tope ${formatMb(originales.presupuestoBytes)}).`}
+          ? `Documento original sin cachear: la exportación offline se habilita cuando se descargue (tope ${formatMb(originales.presupuestoBytes)}).`
+          : `${originales.cacheados} documentos originales en el dispositivo para exportar sin conexión (tope ${formatMb(originales.presupuestoBytes)}).`}
         {originales.purgados > 0 &&
           ` ${originales.purgados} se liberaron en esta pasada por ese tope.`}
       </p>
@@ -406,11 +406,7 @@ export function Captura() {
 
 /** Etiqueta del chip de origen de la plantilla (FR-036). */
 function origenDe(origen: PlantillaActual['origen']): string {
-  return origen === 'servidor'
-    ? 'Plantilla del servidor'
-    : origen === 'caché'
-      ? 'Plantilla en caché'
-      : 'Plantilla demo local'
+  return origen === 'servidor' ? 'Plantilla del servidor' : 'Plantilla en caché'
 }
 
 /** Presupuesto de originales en MB (FR-018): el tope se muestra, no se esconde. */

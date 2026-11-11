@@ -78,6 +78,12 @@ function parsear<S extends z.ZodType>(schema: S, value: unknown, etiqueta = 'bod
 export class AdminController {
   constructor(@Inject(AdminService) private readonly admin: AdminService) {}
 
+  @Get('tenants')
+  listarTenants(@Req() req: AuthedRequest) {
+    exigirPlatformAdmin(req)
+    return this.admin.listarTenants()
+  }
+
   @Post('tenants')
   @HttpCode(201)
   async crearTenant(

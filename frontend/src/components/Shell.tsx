@@ -74,12 +74,35 @@ const NAV: Array<{ id: Pantalla; label: string; roles: Rol[]; icono: ReactNode }
     ),
   },
   {
+    id: 'plataforma',
+    label: 'Empresas',
+    roles: ['platform_admin'],
+    icono: (
+      <svg width="17" height="17" viewBox="0 0 17 17" fill="none" aria-hidden>
+        <path d="M2.5 14.5h12M4 14.5V5l4.5-2.5L13 5v9.5" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" />
+        <path d="M6.6 8h3.8M6.6 10.8h3.8" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+      </svg>
+    ),
+  },
+  {
     id: 'dashboard',
     label: 'Gerencia',
-    roles: ['supervisor', 'tenant_admin', 'platform_admin'],
+    roles: ['supervisor', 'tenant_admin'],
     icono: (
       <svg width="17" height="17" viewBox="0 0 17 17" fill="none" aria-hidden>
         <path d="M3 14V8.4M7 14V4M11 14v-3.6M15 14V6.2" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+      </svg>
+    ),
+  },
+  {
+    id: 'administracion',
+    label: 'Equipo',
+    roles: ['tenant_admin'],
+    icono: (
+      <svg width="17" height="17" viewBox="0 0 17 17" fill="none" aria-hidden>
+        <circle cx="6.5" cy="6" r="2.4" stroke="currentColor" strokeWidth="1.3" />
+        <path d="M2.2 14c.5-2.4 2.2-3.6 4.3-3.6s3.8 1.2 4.3 3.6" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+        <path d="M11.4 4.2a2.2 2.2 0 0 1 0 4.1M12.6 10.6c1.2.4 2 1.5 2.3 3.2" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
       </svg>
     ),
   },
@@ -126,7 +149,7 @@ const NAV: Array<{ id: Pantalla; label: string; roles: Rol[]; icono: ReactNode }
 ]
 
 export function Shell({ children }: { children: ReactNode }) {
-  const { usuario, salir, pantalla, ir, online, toggleOnline, pendientes, cuotaAviso, cuota, setOnline, sincronizarAhora, sesionExpirada } =
+  const { usuario, salir, pantalla, ir, online, pendientes, cuotaAviso, cuota, sincronizarAhora, sesionExpirada } =
     useEstado()
   const reducir = useReducedMotion()
   const [verAviso, setVerAviso] = useState(false)
@@ -162,7 +185,7 @@ export function Shell({ children }: { children: ReactNode }) {
 
             <div className="flex-1" />
 
-            <ToggleSenal on={online} onToggle={toggleOnline} reducir={!!reducir} />
+            <IndicadorSenal on={online} />
             <Boton
               tamano="sm"
               variante={pantalla === 'cuenta' ? 'secundaria' : 'fantasma'}
@@ -244,7 +267,7 @@ export function Shell({ children }: { children: ReactNode }) {
       {/* ── Barra de estado inferior (solo móvil) ─────────────────────────── */}
       <div className="fixed bottom-0 inset-x-0 z-30 border-t border-line-soft bg-s1/95 backdrop-blur-md sm:hidden">
         <div className="flex items-center justify-between px-4 h-barra-inferior pb-safe">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2" role="status" aria-live="polite">
             <span
               className={[
                 'h-2 w-2 rounded-full shrink-0',
@@ -280,7 +303,7 @@ export function Shell({ children }: { children: ReactNode }) {
                 </p>
                 <p className="mt-1 text-[12px] text-ink-2 leading-relaxed">
                   {cuota.fotosPendientes} fotos en cola. Se priorizarán las que ya pueden
-                  subirse (FR-017).
+                  subirse.
                 </p>
                 <div className="meter mt-3 h-1.5 rounded-full bg-s3 overflow-hidden">
                   <span
@@ -294,7 +317,6 @@ export function Shell({ children }: { children: ReactNode }) {
                     variante="secundaria"
                     onClick={() => {
                       setVerAviso(false)
-                      setOnline(true)
                       void sincronizarAhora()
                     }}
                   >
@@ -321,55 +343,17 @@ export function Shell({ children }: { children: ReactNode }) {
  * Pop al alternar: es acción manual del usuario y su efecto es el mensaje
  * central del producto. Sin él el clic parece no haber hecho nada.
  */
-function ToggleSenal({
-  on,
-  onToggle,
-  reducir,
-}: {
-  on: boolean
-  onToggle: () => void
-  reducir: boolean
-}) {
+/** Estado real de la red (navigator.onLine): ya no es un interruptor manual. */
+function IndicadorSenal({ on }: { on: boolean }) {
   return (
-    <button
-      onClick={onToggle}
-      data-testid="signal-toggle"
-      role="switch"
-      aria-checked={on}
-      aria-label={on ? 'Desactivar señal (demo)' : 'Activar señal (demo)'}
-      className={[
-        'group flex items-center gap-2.5 h-9 pl-2.5 pr-2 rounded-full border cursor-pointer',
-        'transition-colors duration-200 ease-out',
-        on ? 'border-synced/40 bg-synced/10' : 'border-line bg-s1',
-      ].join(' ')}
+    <span
+      className="hidden sm:inline-flex items-center gap-2 px-2.5 h-9 rounded-lg text-[13px] text-ink-2"
+      role="status"
+      aria-live="polite"
     >
-      <span
-        className={[
-          'relative h-1.5 w-1.5 rounded-full shrink-0',
-          on ? 'bg-synced throb' : 'bg-pending',
-        ].join(' ')}
-      />
-      <span className="label-inst">{on ? 'En línea' : 'Sin señal'}</span>
-
-      {/* El interruptor físico: knob que se desplaza. `layout` mantiene el
-          movimiento interruptible si el usuario lo pulsa rápido. */}
-      <span
-        className={[
-          'relative h-6 w-10 rounded-full shrink-0 transition-colors duration-200 ease-out',
-          on ? 'bg-synced/35' : 'bg-s3',
-        ].join(' ')}
-      >
-        <motion.span
-          layout
-          transition={reducir ? { duration: 0 } : { type: 'spring', duration: 0.4, bounce: 0.28 }}
-          className={[
-            'absolute top-0.5 h-5 w-5 rounded-full shadow-md',
-            on ? 'bg-synced' : 'bg-ink-3',
-          ].join(' ')}
-          style={{ left: on ? 20 : 2 }}
-        />
-      </span>
-    </button>
+      <span className={['h-2 w-2 rounded-full', on ? 'bg-synced throb' : 'bg-pending'].join(' ')} />
+      {on ? 'En línea' : 'Sin señal'}
+    </span>
   )
 }
 

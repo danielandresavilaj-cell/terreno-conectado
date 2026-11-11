@@ -35,6 +35,19 @@ export class AdminService {
 
   /* -------------------------------------------------------- FR-050: tenant */
 
+  /** Empresas con su cantidad de cuentas activas (pantalla de plataforma). */
+  listarTenants(): Promise<Array<TenantDto & { usuarios_activos: number; admins: number }>> {
+    return this.db.queryOwner(
+      `SELECT t.id, t.name, t.slug, t.status, t.created_at,
+              count(u.id) FILTER (WHERE u.is_active)::int AS usuarios_activos,
+              count(u.id) FILTER (WHERE u.is_active AND u.role = 'tenant_admin')::int AS admins
+         FROM tenant t
+         LEFT JOIN app_user u ON u.tenant_id = t.id
+        GROUP BY t.id
+        ORDER BY t.created_at DESC`,
+    )
+  }
+
   /** Crea un tenant activo y registra `tenant_created` (atómico). */
   async crearTenant(name: string, slug: string, actorId: string): Promise<TenantDto> {
     try {
@@ -157,8 +170,8 @@ export class AdminService {
     try {
       const rows = await this.db.queryOwner<AdminUserDto>(
         `WITH creado AS (
-           INSERT INTO app_user (id, tenant_id, email, password_hash, role, full_name)
-           VALUES ($1, $2, $3, $4, 'tenant_admin', $5)
+           INSERT INTO app_user (id, tenant_id, email, password_hash, role, full_name, must_change_password)
+           VALUES ($1, $2, $3, $4, 'tenant_admin', $5, true)
            RETURNING id, tenant_id, email, full_name, role, is_active
          ), auditado AS (
            INSERT INTO audit_log (id, actor_id, tenant_id, action, entity_type, entity_id, payload)

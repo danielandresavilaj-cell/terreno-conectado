@@ -18,7 +18,7 @@ import {
   type TemplatePublicadaDto,
 } from '@terreno/shared'
 import { type PlanPurga } from './plantillas'
-import type { Identidad, Usuario } from './types'
+import type { Identidad } from './types'
 
 export type SyncEstado = 'pending' | 'syncing' | 'synced' | 'failed'
 export type OutboxTipo = 'inspeccion' | 'respuesta' | 'hallazgo' | 'foto' | 'bitacora'
@@ -572,45 +572,6 @@ export async function descartarBorrador(): Promise<void> {
 }
 
 /**
- * Restablece por completo los datos locales de prueba de una empresa. Incluye
- * la caché offline de formularios, sus originales y la última selección, para
- * que el dispositivo vuelva a mostrar exactamente lo que el servidor asigne
- * después del reinicio. No borra registros del servidor.
- */
-export async function limpiarDatosLocalesPrueba(tenantId: string): Promise<void> {
-  const borradorId = await getDraftInspectionId()
-  const borrador = borradorId ? await db.inspections.get(borradorId) : undefined
-
-  await db.transaction(
-    'rw',
-    [
-      db.outbox,
-      db.inspections,
-      db.responses,
-      db.findings,
-      db.logEntries,
-      db.attachments,
-      db.plantillas,
-      db.plantillaOriginales,
-      db.meta,
-    ],
-    async () => {
-      await db.outbox.filter((fila) => fila.tenantId === tenantId).delete()
-      await db.inspections.filter((fila) => fila.tenantId === tenantId).delete()
-      await db.responses.filter((fila) => fila.tenantId === tenantId).delete()
-      await db.findings.filter((fila) => fila.tenantId === tenantId).delete()
-      await db.logEntries.filter((fila) => fila.tenantId === tenantId).delete()
-      await db.attachments.filter((fila) => fila.tenantId === tenantId).delete()
-      await db.plantillas.filter((fila) => fila.tenant_id === tenantId).delete()
-      await db.plantillaOriginales.where('tenant_id').equals(tenantId).delete()
-      await db.meta.delete(`${CURSOR_PREFIX}${tenantId}`)
-      await db.meta.where('key').startsWith(`${SELECCION_PLANTILLA_PREFIX}${tenantId}:`).delete()
-      if (borrador?.tenantId === tenantId) await setDraftInspectionId(null)
-    },
-  )
-}
-
-/**
  * Descarta una unidad completa aún local de la cola.
  *
  * Una inspección no se puede borrar por partes: sus respuestas, hallazgos y
@@ -638,7 +599,7 @@ export async function descartarRegistroCola(outboxId: number, tenantId: string):
       }
 
       if (fila.entityType !== 'inspection') {
-        throw new Error('Descartá la inspección completa para conservar la integridad de sus datos.')
+        throw new Error('Descarta la inspección completa para conservar la integridad de sus datos.')
       }
 
       const inspeccion = await db.inspections.get(fila.entityId)
@@ -1161,44 +1122,3 @@ export async function marcarEnviando(filas: OutboxRow[]): Promise<void> {
   }
 }
 
-/* ------------------------------------------------------------ seed demo */
-
-/** Marca de versión del primer arranque. Ya NO se siembra contenido demo con
- * IDs fijos (F-01); solo se registra que el dispositivo ya inicializó, para
- * no repetir el trabajo en cada arranque. */
-const SEED_VERSION = '3'
-
-/** Ya no se siembra contenido demo con IDs fijos (F-01). Se deja como NO-OP
- * para preservar compatibilidad con las llamadas existentes; el outbox empieza
- * vacío. */
-export async function seedDemoDataIfNeeded(
-  _cola: Array<{
-    uuid: string
-    titulo: string
-    detalle: string
-    tipo: string
-    estado: string
-    orden: number
-    tenantId: string
-    intentos?: number
-  }>,
-  identidad: Identidad,
-  _usuario: Usuario,
-): Promise<void> {
-  const previoRaw = await db.meta.get('seedVersion')
-  let previo: { version: string; tenantId: string } | null = null
-  try {
-    if (previoRaw?.value) {
-      previo = JSON.parse(String(previoRaw.value)) as { version: string; tenantId: string }
-    }
-  } catch {
-    previo = null
-  }
-  if (previo && previo.version === SEED_VERSION && previo.tenantId === identidad.tenantId) {
-    return
-  }
-  await db.meta.put({
-    key: 'seedVersion',
-    value: JSON.stringify({ version: SEED_VERSION, tenantId: identidad.tenantId }),
-  })
-}

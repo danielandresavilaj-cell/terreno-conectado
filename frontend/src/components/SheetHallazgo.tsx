@@ -114,7 +114,7 @@ export function SheetHallazgo({
             >
             <div className="flex items-start justify-between gap-4">
               <div>
-                <p className="label-inst">FR-032 · Hallazgo obligatorio</p>
+                <p className="label-inst">Hallazgo obligatorio</p>
                 <h2 className="mt-1.5 text-[19px] font-semibold tracking-[-0.025em] leading-snug">
                   {item.texto}
                 </h2>
@@ -167,7 +167,7 @@ export function SheetHallazgo({
               </div>
               <p className="mt-2 text-[11px] text-ink-3 leading-relaxed">
                 {sev === 'alta' || sev === 'critica'
-                  ? 'Se destaca de inmediato en el dashboard del supervisor al sincronizar (FR-035).'
+                  ? 'Se destaca de inmediato en el dashboard del supervisor al sincronizar.'
                   : 'Queda visible en el listado de hallazgos del turno.'}
               </p>
             </div>

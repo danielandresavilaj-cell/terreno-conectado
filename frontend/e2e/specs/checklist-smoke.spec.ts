@@ -207,15 +207,15 @@ test.describe('Tabs por perfil (FW-05 / SU / AD-02 / PA-01)', () => {
     for (const t of ['Plantillas', 'Importar']) expect(tabs).not.toContain(t)
   })
 
-  test('admin A · + Plantillas e Importar (sin captura)', async ({ page }) => {
+  test('admin A · + Equipo, Plantillas e Importar (sin captura)', async ({ page }) => {
     const tabs = await verTabs(page, CUENTAS.adminA)
-    for (const t of ['Gerencia', 'Cola', 'Conflictos', 'Plantillas', 'Importar']) expect(tabs).toContain(t)
+    for (const t of ['Gerencia', 'Equipo', 'Cola', 'Conflictos', 'Plantillas', 'Importar']) expect(tabs).toContain(t)
     for (const t of ['Inspección', 'Bitácora']) expect(tabs).not.toContain(t)
   })
 
-  test('plataforma · solo Gerencia (sin UI de captura ni admin de tenant)', async ({ page }) => {
+  test('plataforma · solo Empresas (sin UI de captura ni datos de empresas)', async ({ page }) => {
     const tabs = await verTabs(page, CUENTAS.plataforma)
-    expect(tabs).toEqual(['Gerencia'])
-    await expect(page.getByRole('heading', { name: 'Operación Plataforma' })).toBeVisible()
+    expect(tabs).toEqual(['Empresas'])
+    await expect(page.getByRole('heading', { name: 'Plataforma' })).toBeVisible()
   })
 })

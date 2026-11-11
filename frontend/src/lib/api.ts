@@ -547,3 +547,118 @@ export function publicarRevision(revisionId: string): Promise<TemplateRevisionDe
 }
 
 export type { ConflictRecordDto }
+
+/* ------------------------------------- administración de empresa (ADM-001) */
+
+export type RolEmpresa = 'field_worker' | 'supervisor' | 'tenant_admin'
+
+export interface UsuarioEmpresa {
+  id: string
+  email: string
+  full_name: string
+  role: RolEmpresa
+  is_active: boolean
+  must_change_password: boolean
+  created_at: string
+}
+
+export interface FaenaEmpresa {
+  id: string
+  name: string
+  kind: 'mining' | 'construction'
+}
+
+export function listarUsuarios(): Promise<UsuarioEmpresa[]> {
+  return apiFetch('/users')
+}
+
+export function crearUsuario(body: {
+  email: string
+  full_name: string
+  role: RolEmpresa
+  password: string
+}): Promise<UsuarioEmpresa> {
+  return apiFetch('/users', { method: 'POST', body })
+}
+
+export function actualizarUsuario(
+  id: string,
+  body: { full_name?: string; role?: RolEmpresa; is_active?: boolean },
+): Promise<UsuarioEmpresa> {
+  return apiFetch(`/users/${encodeURIComponent(id)}`, { method: 'PATCH', body })
+}
+
+export function resetearClaveUsuario(id: string, password: string): Promise<UsuarioEmpresa> {
+  return apiFetch(`/users/${encodeURIComponent(id)}/reset-password`, {
+    method: 'POST',
+    body: { password },
+  })
+}
+
+export function crearFaena(body: { name: string; kind: FaenaEmpresa['kind'] }): Promise<FaenaEmpresa> {
+  return apiFetch('/sites', { method: 'POST', body })
+}
+
+export function actualizarFaena(
+  id: string,
+  body: { name?: string; kind?: FaenaEmpresa['kind'] },
+): Promise<FaenaEmpresa> {
+  return apiFetch(`/sites/${encodeURIComponent(id)}`, { method: 'PATCH', body })
+}
+
+/* --------------------------------------------- plataforma (spec 006) */
+
+export interface EmpresaPlataforma {
+  id: string
+  name: string
+  slug: string
+  status: 'active' | 'suspended'
+  created_at: string
+  usuarios_activos: number
+  admins: number
+}
+
+export interface EntradaAuditoria {
+  id: string
+  occurred_at: string
+  actor_id: string | null
+  tenant_id: string | null
+  action: string
+  entity_type: string | null
+  entity_id: string | null
+  payload: unknown
+}
+
+export function listarEmpresas(): Promise<EmpresaPlataforma[]> {
+  return apiFetch('/admin/tenants')
+}
+
+export function crearEmpresa(body: { name: string; slug: string }): Promise<EmpresaPlataforma> {
+  return apiFetch('/admin/tenants', { method: 'POST', body })
+}
+
+export function cambiarEstadoEmpresa(
+  id: string,
+  status: EmpresaPlataforma['status'],
+): Promise<EmpresaPlataforma> {
+  return apiFetch(`/admin/tenants/${encodeURIComponent(id)}`, { method: 'PATCH', body: { status } })
+}
+
+export function crearAdminEmpresa(
+  id: string,
+  body: { email: string; full_name: string; password: string },
+): Promise<{ id: string; email: string }> {
+  return apiFetch(`/admin/tenants/${encodeURIComponent(id)}/admins`, { method: 'POST', body })
+}
+
+export function listarAuditoria(params: {
+  tenant?: string
+  limit?: number
+  offset?: number
+}): Promise<{ items: EntradaAuditoria[]; limit: number; offset: number }> {
+  const q = new URLSearchParams()
+  if (params.tenant) q.set('tenant', params.tenant)
+  q.set('limit', String(params.limit ?? 50))
+  q.set('offset', String(params.offset ?? 0))
+  return apiFetch(`/admin/audit-log?${q.toString()}`)
+}

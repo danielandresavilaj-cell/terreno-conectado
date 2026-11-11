@@ -129,7 +129,7 @@ export function Plantillas() {
       <header>
         <h1 className="text-[20px] font-semibold tracking-[-0.02em]">Plantillas</h1>
         <p className="label-inst mt-1">
-          Asigna cada plantilla publicada a las faenas y roles que deben verla en su captura (FR-008).
+          Asigna cada plantilla publicada a las faenas y roles que deben verla en su captura.
         </p>
       </header>
 

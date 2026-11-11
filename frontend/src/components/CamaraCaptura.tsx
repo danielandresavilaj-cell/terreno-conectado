@@ -5,13 +5,13 @@ type EstadoCamara = 'iniciando' | 'lista' | 'error'
 export function mensajeErrorCamara(error: unknown): string {
   if (error instanceof DOMException) {
     if (error.name === 'NotAllowedError' || error.name === 'SecurityError') {
-      return 'No se autorizó el uso de la cámara. Podés permitirlo en el navegador o seleccionar un archivo.'
+      return 'No se autorizó el uso de la cámara. Puedes permitirlo en el navegador o seleccionar un archivo.'
     }
     if (error.name === 'NotFoundError' || error.name === 'OverconstrainedError') {
       return 'No encontramos una cámara disponible en este dispositivo.'
     }
   }
-  return 'No se pudo iniciar la cámara. Probá nuevamente o seleccioná un archivo.'
+  return 'No se pudo iniciar la cámara. Prueba nuevamente o selecciona un archivo.'
 }
 
 /** Cámara efímera: el stream sólo existe mientras el cuadro está abierto. */
@@ -86,7 +86,7 @@ export function CamaraCaptura({
     const origen = video.current
     if (!origen || !origen.videoWidth || !origen.videoHeight) {
       setEstado('error')
-      setMensaje('La cámara todavía no está lista. Esperá un momento e intentá de nuevo.')
+      setMensaje('La cámara todavía no está lista. Espera un momento e intenta de nuevo.')
       return
     }
     const canvas = document.createElement('canvas')
@@ -96,7 +96,7 @@ export function CamaraCaptura({
     canvas.toBlob((blob) => {
       if (!blob) {
         setEstado('error')
-        setMensaje('No pudimos preparar la fotografía. Intentá otra vez.')
+        setMensaje('No pudimos preparar la fotografía. Intenta otra vez.')
         return
       }
       detener()

@@ -298,7 +298,6 @@ export async function loginEnApp(page: Page, email: string): Promise<void> {
    * `arrancarSesión` siembra Dexie y pide las plantillas, así que además se
    * espera a que aparezca la barra de navegación del Shell. */
   await page.locator('nav button').first().waitFor({ state: 'visible' })
-  await expect.poll(() => page.evaluate(() => sessionStorage.getItem('tc_access_token'))).toBeTruthy()
   if (email === CUENTAS.trabajadorA || email === CUENTAS.trabajadorB) {
     await abrirFormularioAsignado(page)
   }
@@ -309,7 +308,7 @@ async function abrirFormularioAsignado(page: Page): Promise<void> {
   const enviar = page.getByRole('button', { name: 'Enviar inspección' })
   if (await enviar.isVisible({ timeout: 500 }).catch(() => false)) return
 
-  await page.getByRole('heading', { name: 'Elegí qué vas a inspeccionar' }).waitFor({ state: 'visible' })
+  await page.getByRole('heading', { name: 'Elige qué vas a inspeccionar' }).waitFor({ state: 'visible' })
   /* Un borrador congelado tiene prioridad sobre la tarjeta: es la única ruta
    * que conserva sus respuestas y no intenta cambiar de revisión. */
   const continuar = page.getByTestId('continue-draft')

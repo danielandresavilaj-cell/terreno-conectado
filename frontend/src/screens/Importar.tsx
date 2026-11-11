@@ -180,7 +180,7 @@ export function Importar() {
       setErrorCarga(
         err instanceof ApiError
           ? err.detalle
-          : 'No se pudo subir el archivo al servidor. Intentá de nuevo.',
+          : 'No se pudo subir el archivo al servidor. Intenta de nuevo.',
       )
     } finally {
       setAnalizando(false)
@@ -284,7 +284,7 @@ export function Importar() {
       setPublicado(r)
     } catch (err) {
       setErrorPublicar(
-        err instanceof ApiError ? err.detalle : 'No se pudo publicar la revisión. Intentá nuevamente.',
+        err instanceof ApiError ? err.detalle : 'No se pudo publicar la revisión. Intenta nuevamente.',
       )
     } finally {
       setPublicando(false)
@@ -329,14 +329,14 @@ export function Importar() {
   return (
     <div className="space-y-6">
       <header>
-        <p className="label-inst">FR-029 · Importación asistida</p>
+        <p className="label-inst">Importación asistida</p>
         <h1 className="mt-1.5 text-[26px] sm:text-[30px] font-semibold tracking-[-0.03em] leading-[1.1]">
           Importar plantilla desde Excel
         </h1>
         <p className="mt-1.5 text-[13px] text-ink-2 max-w-[68ch] leading-relaxed">
-          Subí un <span className="text-ink">.xlsx</span> estructurado, revisá la propuesta,
-          corregí lo que haga falta, guardá el borrador y publicalo. La publicación nunca es
-          automática: la confirmás vos (FR-048).
+          Sube un <span className="text-ink">.xlsx</span> estructurado, revisa la propuesta,
+          corrige lo que haga falta, guarda el borrador y publícalo. La publicación nunca es
+          automática: la confirmas tú.
         </p>
       </header>
 
@@ -388,12 +388,12 @@ export function Importar() {
                   </svg>
                 </span>
                 <span className="text-[15px] font-medium">
-                  {analizando ? 'Analizando el archivo…' : 'Elegí un archivo .xlsx'}
+                  {analizando ? 'Analizando el archivo…' : 'Elige un archivo .xlsx'}
                 </span>
                 <span className="text-[12px] text-ink-3 max-w-[48ch] leading-relaxed">
                   Cada hoja se propone como sección y cada columna con encabezado, como ítem. La
                   lectura es local y determinística: sin IA. El archivo original se guarda para
-                  poder exportar el documento rellenado después (FR-019).
+                  poder exportar el documento rellenado después.
                 </span>
               </label>
 
@@ -579,7 +579,7 @@ export function Importar() {
                     </h2>
                     <p className="mt-1 text-[12px] text-ink-2 leading-relaxed">
                       Se persiste la definición con ids y posiciones generadas, y queda guardado el
-                      archivo original: la plantilla podrá exportar el documento rellenado (FR-019).
+                      archivo original: la plantilla podrá exportar el documento rellenado.
                       Todavía no se publica: la revisión queda en estado{' '}
                       <span className="text-ink">draft</span> hasta que la confirmes.
                     </p>
@@ -645,7 +645,7 @@ export function Importar() {
                 </h2>
                 <p className="text-[12px] text-ink-2 leading-relaxed max-w-[64ch]">
                   Publicar asigna el número de versión e incorpora la plantilla a la captura de
-                  todos los dispositivos del tenant (FR-027). Es una acción explícita: nada se
+                  todos los dispositivos del tenant. Es una acción explícita: nada se
                   publica sin este paso.
                 </p>
 

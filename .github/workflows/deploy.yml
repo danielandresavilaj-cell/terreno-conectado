@@ -22,8 +22,8 @@ jobs:
     outputs:
       sha: ${{ steps.commit.outputs.sha }}
     env:
+      # Sólo para las cuentas de prueba que siembran los tests (seed.dev.ts).
       DEMO_PASSWORD: ${{ secrets.VITE_DEMO_PASSWORD }}
-      VITE_DEMO_PASSWORD: ${{ secrets.VITE_DEMO_PASSWORD }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -34,7 +34,7 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - run: test -n "$VITE_DEMO_PASSWORD"
+      - run: test -n "$DEMO_PASSWORD"
       - run: npm ci
       - run: npm run lint
       - run: npm run typecheck
@@ -90,8 +90,6 @@ jobs:
           tags: ${{ steps.meta.outputs.prefix }}-frontend:${{ needs.verify.outputs.sha }}
           build-args: |
             VITE_API_URL=/api/v1
-            VITE_DEMO_PASSWORD=${{ secrets.VITE_DEMO_PASSWORD }}
-            VITE_PUBLIC_DEMO=true
           cache-from: type=gha,scope=frontend
           cache-to: type=gha,mode=max,scope=frontend
   deploy:

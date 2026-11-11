@@ -20,6 +20,8 @@ const Cola = lazy(() => import('./screens/Cola').then((m) => ({ default: m.Cola 
 const Dashboard = lazy(() => import('./screens/Dashboard').then((m) => ({ default: m.Dashboard })))
 const Conflictos = lazy(() => import('./screens/Conflictos').then((m) => ({ default: m.Conflictos })))
 const Importar = lazy(() => import('./screens/Importar').then((m) => ({ default: m.Importar })))
+const Administracion = lazy(() => import('./screens/Administracion').then((m) => ({ default: m.Administracion })))
+const Plataforma = lazy(() => import('./screens/Plataforma').then((m) => ({ default: m.Plataforma })))
 const Plantillas = lazy(() => import('./screens/Plantillas').then((m) => ({ default: m.Plantillas })))
 
 /* Permisos por rol (FR-003: permisos crecientes).
@@ -31,8 +33,8 @@ const Plantillas = lazy(() => import('./screens/Plantillas').then((m) => ({ defa
 const POR_ROL: Record<string, Pantalla[]> = {
   field_worker: ['formularios', 'captura', 'bitacora', 'cola', 'cuenta'],
   supervisor: ['formularios', 'captura', 'bitacora', 'cola', 'dashboard', 'conflictos', 'cuenta'],
-  tenant_admin: ['cola', 'dashboard', 'conflictos', 'plantillas', 'importar', 'cuenta'],
-  platform_admin: ['dashboard', 'cuenta'],
+  tenant_admin: ['dashboard', 'administracion', 'conflictos', 'plantillas', 'importar', 'cola', 'cuenta'],
+  platform_admin: ['plataforma', 'cuenta'],
 }
 
 export default function App() {
@@ -101,6 +103,8 @@ function Raiz() {
         {pantalla === 'conflictos' && <Conflictos />}
         {pantalla === 'importar' && <Importar />}
         {pantalla === 'plantillas' && <Plantillas />}
+        {pantalla === 'administracion' && <Administracion />}
+        {pantalla === 'plataforma' && <Plataforma />}
       </Suspense>
     </Shell>
   )

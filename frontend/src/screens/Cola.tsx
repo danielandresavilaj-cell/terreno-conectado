@@ -37,13 +37,10 @@ const ORDEN_TIPO: Record<string, string> = {
 
 export function Cola() {
   const {
-    cola, pendientes, online, recienSincronizado, setOnline, sincronizarAhora, cuota,
-    limpiarDatosPrueba, descartarRegistroCola,
+    cola, pendientes, online, recienSincronizado, sincronizarAhora, cuota,
+    descartarRegistroCola,
   } = useEstado()
   const [filtro, setFiltro] = useState<'todos' | 'pendientes' | 'fallidos'>('todos')
-  const [confirmarLimpieza, setConfirmarLimpieza] = useState(false)
-  const [limpiando, setLimpiando] = useState(false)
-  const [limpiezaLista, setLimpiezaLista] = useState(false)
   const [registroADescartar, setRegistroADescartar] = useState<RegistroCola | null>(null)
   const [descartando, setDescartando] = useState(false)
   const [errorDescarte, setErrorDescarte] = useState<string | null>(null)
@@ -66,13 +63,13 @@ export function Cola() {
     <div className="space-y-6">
       <header className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <p className="label-inst">FR-013 · Outbox local</p>
+          <p className="label-inst">Outbox local</p>
           <h1 className="mt-1.5 text-[26px] sm:text-[30px] font-semibold tracking-[-0.03em] leading-[1.1]">
             Cola de sincronización
           </h1>
           <p className="mt-1.5 text-[13px] text-ink-2 max-w-[58ch]">
-            Orden de dependencia: faena → inspección → respuestas → hallazgos → fotos (FR-020).
-            Reintentos con backoff exponencial de 1 s a 5 min (FR-022).
+            Orden de dependencia: faena → inspección → respuestas → hallazgos → fotos.
+            Reintentos con backoff exponencial de 1 s a 5 min.
           </p>
         </div>
 
@@ -153,52 +150,6 @@ export function Cola() {
         </section>
       )}
 
-      <section className="panel p-4 border-line-soft">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="min-w-0">
-            <p className="label-inst">Reinicio de pruebas locales</p>
-            <p className="mt-1 text-[12px] text-ink-2 leading-relaxed max-w-[66ch]">
-              Borra de este dispositivo los borradores, respuestas, fotos, bitácoras, cola y caché de formularios de esta empresa.
-              No borra información que ya esté en el servidor.
-            </p>
-          </div>
-          {confirmarLimpieza ? (
-            <div className="flex flex-wrap items-center gap-2">
-              <Boton
-                tamano="sm"
-                variante="peligro"
-                disabled={limpiando}
-                onClick={() => {
-                  setLimpiando(true)
-                  void (async () => {
-                    try {
-                      await limpiarDatosPrueba()
-                      setConfirmarLimpieza(false)
-                      setLimpiezaLista(true)
-                    } finally {
-                      setLimpiando(false)
-                    }
-                  })()
-                }}
-              >
-                {limpiando ? 'Limpiando…' : 'Confirmar limpieza'}
-              </Boton>
-              <Boton tamano="sm" variante="fantasma" disabled={limpiando} onClick={() => setConfirmarLimpieza(false)}>
-                Cancelar
-              </Boton>
-            </div>
-          ) : (
-            <Boton tamano="sm" variante="secundaria" onClick={() => setConfirmarLimpieza(true)}>
-              Limpiar datos de prueba
-            </Boton>
-          )}
-        </div>
-        {limpiezaLista && (
-          <p className="mt-3 text-[12px] text-synced" role="status" aria-live="polite">
-            Datos locales de prueba eliminados. Ya podés comenzar una captura limpia.
-          </p>
-        )}
-      </section>
 
       {/* ── Lista agrupada por tipo ───────────────────────────────────────── */}
       {Object.entries(ORDEN_TIPO).map(([tipo, etiqueta]) => {
@@ -249,8 +200,8 @@ export function Cola() {
                 </p>
                 <p className="mt-1 text-[12px] text-ink-2 leading-relaxed">
                   Sin acción del usuario: el disparo fue el evento <span className="text-ink">online</span>{' '}
-                  del navegador (FR-016). Los reintentos por red son idempotentes por UUID cliente, así que
-                  reenviar un lote no crea duplicados (FR-021).
+                  del navegador. Los reintentos por red son idempotentes por UUID cliente, así que
+                  reenviar un lote no crea duplicados.
                 </p>
               </div>
             </div>
@@ -292,20 +243,6 @@ export function Cola() {
             Sin señal: las fotos se comprimen en el dispositivo y quedan en cola. Se priorizan las
             ya sincronizables al recuperar conexión.
           </p>
-        )}
-        {!online && (
-          <div className="mt-3">
-            <Boton
-              tamano="sm"
-              variante="secundaria"
-              onClick={() => {
-                setOnline(true)
-                void sincronizarAhora()
-              }}
-            >
-              Simular llegada de señal
-            </Boton>
-          </div>
         )}
       </div>
     </div>
