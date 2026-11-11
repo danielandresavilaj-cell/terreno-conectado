@@ -252,16 +252,13 @@ describe('GET /api/v1/dashboard/summary (FR-035/040/043)', () => {
       hallazgos_por_severidad: Record<string, number>
       hallazgos_total: number
       hallazgos_urgentes: number
-      latencia_media_seg: number | null
-      latencia_p95_seg: number | null
     }
     expect(body.inspecciones_por_estado.submitted).toBe(1)
     expect(body.hallazgos_por_severidad.high).toBe(1)
     expect(body.hallazgos_total).toBe(1)
     expect(body.hallazgos_urgentes).toBe(1)
-    // FR-040: latencia captura → disponibilidad en segundos, p95 incluido.
-    expect(body.latencia_media_seg).toBeGreaterThan(0)
-    expect(body.latencia_p95_seg).toBeGreaterThan(0)
+    // TSK-REP-006: la latencia captura→disponible se retiró (dependía del reloj del equipo).
+    expect(body).not.toHaveProperty('latencia_p95_seg')
     // RLS: no filtra hallazgos del tenant B.
     expect(body.hallazgos_total).not.toBe(2)
     expect(body.faenas.length).toBe(1)

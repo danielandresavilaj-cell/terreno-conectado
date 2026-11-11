@@ -2,9 +2,8 @@
  * Lecturas del dashboard mínimo del supervisor (spec 005, TSK-WS-011).
  *
  * Nada de esto escribe: es el consumo read-only de lo syncronizado, con RLS
- * por tenant (Artículo IV) y roles supervisor/tenant_admin. La latencia se
- * mide con `inspection.synced_at - captured_at` (FR-040/NFR-03): el server
- * fija `synced_at = now()` al aplicar la ingesta (sync.service).
+ * por tenant (Artículo IV) y roles supervisor/tenant_admin. Las métricas de
+ * sincronización viven en supervision-dashboard.service (TSK-REP-006).
  *
  * Alcance reducido contractual: sin queries materializadas ni percentiles por
  * lote (eso es del módulo 005, semanas 9-12).
@@ -86,7 +85,7 @@ export class DashboardService {
     const tenantId = u.tenant_id as string
     const { siteId, desde, hasta } = normalizeFiltro(filtros)
 
-    const [estados, porSev, latencia, sincronizaciones, conflictos, urgentes, autores] = await Promise.all([
+    const [estados, porSev, sincronizaciones, conflictos, urgentes, autores] = await Promise.all([
       this.db.queryAsTenant<{ status: string; n: number }>(
         tenantId,
         `SELECT status, count(*)::int AS n
@@ -106,18 +105,6 @@ export class DashboardService {
             AND f.captured_at >= COALESCE($2::timestamptz, '-infinity'::timestamptz)
             AND f.captured_at <= COALESCE($3::timestamptz, 'infinity'::timestamptz)
           GROUP BY f.severity`,
-        [siteId, desde, hasta],
-      ),
-      this.db.queryAsTenant<{ media: number | null; p95: number | null }>(
-        tenantId,
-        `SELECT avg(extract(epoch FROM (synced_at - captured_at)))::float8 AS media,
-                percentile_cont(0.95) WITHIN GROUP (
-                  ORDER BY extract(epoch FROM (synced_at - captured_at)))::float8 AS p95
-           FROM inspection
-          WHERE synced_at IS NOT NULL
-            AND ($1::uuid IS NULL OR site_id = $1)
-            AND captured_at >= COALESCE($2::timestamptz, '-infinity'::timestamptz)
-            AND captured_at <= COALESCE($3::timestamptz, 'infinity'::timestamptz)`,
         [siteId, desde, hasta],
       ),
       this.db.queryAsTenant<{ n: number }>(
@@ -179,8 +166,6 @@ export class DashboardService {
       hallazgos_por_severidad: porSeveridad,
       hallazgos_urgentes: urgentes[0]?.n ?? 0,
       hallazgos_total: totalHallazgos,
-      latencia_media_seg: latencia[0]?.media ?? null,
-      latencia_p95_seg: latencia[0]?.p95 ?? null,
       conflictos_pendientes: conflictos[0]?.n ?? 0,
       sincronizaciones: sincronizaciones[0]?.n ?? 0,
     }

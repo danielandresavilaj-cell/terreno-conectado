@@ -20,6 +20,7 @@ import type {
   ConflictRecordDto,
   DashboardFindingsResponse,
   DashboardSummary,
+  DashboardSupervision,
   InspectionDetalle,
   InspectionsResponse,
   ListConflictsResponse,
@@ -287,6 +288,11 @@ function qsFiltros(
 
 export function getSummary(f: DashboardFiltros = {}): Promise<DashboardSummary> {
   return apiFetch<DashboardSummary>(`/dashboard/summary${qsFiltros(f)}`)
+}
+
+/** TSK-REP-006: los 4 bloques accionables del dashboard de supervisión. */
+export function getSupervision(f: DashboardFiltros = {}): Promise<DashboardSupervision> {
+  return apiFetch<DashboardSupervision>(`/dashboard/supervision${qsFiltros(f)}`)
 }
 
 export interface FindingsFiltros extends DashboardFiltros {

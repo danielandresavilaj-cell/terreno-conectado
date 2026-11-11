@@ -94,6 +94,10 @@ export interface SyncRecord {
   client_version: number
   /** Autoridad de tiempo (captura en cliente). ISO 8601. */
   captured_at: string
+  /** TSK-REP-006: cuándo entró al outbox (reloj del dispositivo). Opcional
+   *  para clientes previos. Con `sent_at` del lote da la espera sin señal sin
+   *  depender de que el reloj del dispositivo coincida con el del servidor. */
+  queued_at?: string
   payload: SyncPayload
 }
 
@@ -104,6 +108,8 @@ export interface SyncBatchRequest {
   device_id: string
   /** Límite por lote: fuera de ese rango se rechaza el request completo. */
   records: SyncRecord[]
+  /** TSK-REP-006: cuándo se envió el lote (mismo reloj que `queued_at`). */
+  sent_at?: string
 }
 
 /**

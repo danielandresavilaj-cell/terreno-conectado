@@ -24,7 +24,10 @@ export class SupervisionService {
       if (actual[0].status !== 'submitted') {
         throw new ConflictException('Sólo se puede revisar una inspección enviada')
       }
-      await run("UPDATE inspection SET status = 'reviewed', updated_at = now() WHERE id = $1", [id])
+      await run(
+        "UPDATE inspection SET status = 'reviewed', reviewed_at = now(), updated_at = now() WHERE id = $1",
+        [id],
+      )
       await auditar(run, actorId, tenantId, 'inspection_reviewed', 'inspection', id, { from: 'submitted' })
       return { id, status: 'reviewed' }
     })
@@ -41,7 +44,13 @@ export class SupervisionService {
       const actual = await run<{ status: string }>('SELECT status FROM finding WHERE id = $1 FOR UPDATE', [id])
       if (!actual[0]) throw new NotFoundException('Hallazgo no encontrado')
       if (actual[0].status !== status) {
-        await run('UPDATE finding SET status = $2, updated_at = now() WHERE id = $1', [id, status])
+        // resolved_at mide el tiempo de cierre; reabrir lo limpia (TSK-REP-006).
+        await run(
+          `UPDATE finding SET status = $2, updated_at = now(),
+                  resolved_at = CASE WHEN $2 = 'resolved' THEN now() ELSE NULL END
+            WHERE id = $1`,
+          [id, status],
+        )
         await auditar(run, actorId, tenantId, 'finding_status_changed', 'finding', id, {
           from: actual[0].status,
           to: status,

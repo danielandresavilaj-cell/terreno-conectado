@@ -37,6 +37,7 @@ import {
   cambiarEstadoHallazgo,
   getInspecciones,
   getSummary,
+  getSupervision,
   descargarInspeccion,
   descargarLoteInspecciones,
   ApiError,
@@ -45,8 +46,10 @@ import {
 import { ZIP_MIME, descargarLibro } from '../lib/exportar'
 import { construirCsvHallazgos } from '../lib/dashboard-csv'
 import { useEstado } from '../lib/store'
+import { duracion } from '../lib/supervision'
+import { BloquesSupervision } from '../components/dashboard/BloquesSupervision'
 import { EASE } from '../lib/motion'
-import type { DashboardSummary, FindingDto, InspectionDetalle, InspectionListaItem } from '@terreno/shared'
+import type { DashboardSummary, DashboardSupervision, FindingDto, InspectionDetalle, InspectionListaItem } from '@terreno/shared'
 import type { InspeccionEstado, Severidad } from '../lib/types'
 
 const PERIODOS = ['24 h', '7 días', '30 días'] as const
@@ -200,6 +203,8 @@ export function Dashboard() {
    * llevan estado propio. El listado se lee y se descarga fila a fila, así que
    * su error no puede ser el mismo aviso que tapa el panel entero. */
   const [inspecciones, setInspecciones] = useState<InspectionListaItem[]>([])
+  /* TSK-REP-006: los bloques de supervisión van en su propia rama: si fallan, no tapan el resto. */
+  const [supervision, setSupervision] = useState<DashboardSupervision | null>(null)
   const [errorInspecciones, setErrorInspecciones] = useState<string | null>(null)
   const [descargandoId, setDescargandoId] = useState<string | null>(null)
   const [errorDescarga, setErrorDescarga] = useState<{ id: string; mensaje: string } | null>(null)
@@ -238,8 +243,9 @@ export function Dashboard() {
         setErrorInspecciones(motivoDe(err))
       },
     )
+    const bloques = getSupervision(f).then(setSupervision, () => setSupervision(null))
     try {
-      const [summary, hallazgos] = await Promise.all([getSummary(f), getFindings(fs), lista])
+      const [summary, hallazgos] = await Promise.all([getSummary(f), getFindings(fs), lista, bloques])
       setDatos({ summary, hallazgos: hallazgos.items })
     } catch (err) {
       if (err instanceof ApiError) {
@@ -341,7 +347,7 @@ export function Dashboard() {
     }
   }
 
-  const revisar = async (i: InspectionListaItem) => {
+  const revisar = async (i: Pick<InspectionListaItem, 'id'>) => {
     setDetalleInspeccion({ fase: 'cargando', id: i.id })
     try {
       setDetalleInspeccion({ fase: 'ok', detalle: await getDetalleInspeccion(i.id) })
@@ -475,17 +481,24 @@ export function Dashboard() {
           {/* ── Fila de métricas ──────────────────────────────────────────── */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
             <Metrica
-              etiqueta="Latencia media"
-              valor={summary?.latencia_media_seg ?? null}
-              sufijo=" s"
-              pie="captura → dashboard"
+              etiqueta="Por revisar"
+              valor={supervision?.revision.pendientes ?? null}
+              pie={
+                supervision?.revision.dias_mas_antigua != null
+                  ? `la más antigua: ${Math.floor(supervision.revision.dias_mas_antigua)} d`
+                  : 'inspecciones enviadas'
+              }
               destacado
             />
             <Metrica
-              etiqueta="Latencia p95"
-              valor={summary?.latencia_p95_seg ?? null}
+              etiqueta="Procesamiento p95"
+              valor={supervision?.sincronizacion.procesamiento_p95_seg != null ? Math.round(supervision.sincronizacion.procesamiento_p95_seg) : null}
               sufijo=" s"
-              pie="objetivo: 60 s"
+              pie={
+                supervision?.sincronizacion.muestras_espera
+                  ? `espera sin señal p95: ${duracion(supervision.sincronizacion.espera_sin_senal_p95_seg)}`
+                  : 'objetivo: 60 s por lote'
+              }
             />
             <Metrica
               etiqueta="Hallazgos urgentes"
@@ -495,6 +508,10 @@ export function Dashboard() {
             />
             <Metrica etiqueta="Inspecciones" valor={totalInsp} pie={`${enCurso} en curso ahora`} />
           </div>
+
+          {supervision && (
+            <BloquesSupervision datos={supervision} onRevisar={(id) => void revisar({ id })} />
+          )}
 
           {!summary && cargando ? (
             <div className="panel p-8 text-center">
