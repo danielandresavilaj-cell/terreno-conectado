@@ -12,15 +12,14 @@
  *   FR-012     · la foto se comprime a ≤1280 px antes de encolar
  *   FR-031/032 · draft→submitted y el ítem NOK con hallazgo obligatorio
  *
- * Cada test entra con la cola VACÍA: la app siembra ~10 filas de demo al
- * hidratar (FR-013) y sin ese vaciado "el lote se drenó" no distinguiría lo que
- * hizo el test de lo que trajo la semilla.
+ * Cada test entra con la cola VACÍA y crea sólo los registros que mide.
  */
 
 import { expect, test, type Page } from '@playwright/test'
 
 import {
   CUENTAS,
+  ITEMS_FIXTURE_A,
   SITES,
   TENANTS,
   campoNumerico,
@@ -36,36 +35,25 @@ import {
   loginEnApp,
   reiniciarDispositivo,
   responderOkNokNa,
+  responderTemperaturaValida,
   vaciarCola,
 } from '../helpers/e2e'
 
-/** Prompts del fixture publicado del tenant A (backend/db/seed.ts). */
-const P = {
-  barriers: 'Barriers perimetrales del nivel de trabajo completos y estables',
-  senalizacion: 'Señalización de rutas de evacuación visible desde el punto de corte',
-  foto: 'Foto del área inspeccionada',
-} as const
-
-/** Texto único del hallazgo que crea el test. La semilla demo siembra otro con
- *  un texto muy parecido ("Sin señalización en ruta de evacuación"), así que el
- *  filtro tiene que ser por igualdad y no por substring. */
+/** Texto único del hallazgo que crea el test; se filtra por igualdad. */
 const DESCRIPCION_HALLAZGO = 'Falta señalización en ruta de evacuación'
 
 /** Id del ítem numérico en el fixture publicado (backend/db/seed.ts). */
-const ITEM_NUMERICO = '01890000-0000-7000-8000-00000000f103'
+const ITEM_NUMERICO = ITEMS_FIXTURE_A.temperatura
 
 /**
  * Login + cola vacía, en el orden correcto.
  *
- * `loginEnApp` deja que la app termine de hidratar, y en ese momento
- * `arrancarSesión` YA sembró la semilla demo y probablemente intentó un flush
- * (FR-004). Recién ahí tiene sentido vaciar el outbox: hacerlo antes dejaría
- * que la app re-sembrara encima y los conteos serían ruido, no evidencia.
+ * `loginEnApp` abre el formulario asignado y la prueba parte con un outbox
+ * conocido. No se presupone contenido local de demostración.
  */
 async function entrarConColaLimpia(page: Page): Promise<void> {
   await loginEnApp(page, CUENTAS.trabajadorA)
-  const borradas = await vaciarCola(page)
-  expect(borradas, 'la app no sembró filas de demo: cambió el fixture del backend').toBeGreaterThan(0)
+  await vaciarCola(page)
 }
 
 test.beforeEach(async ({ page }) => {
@@ -103,8 +91,8 @@ test.describe('FR-011/014 — captura offline y persistencia', () => {
     // exactamente lo que pasa en terreno (se entra con señal y se sigue sin ella).
     await context.setOffline(true)
 
-    await responderOkNokNa(page, P.barriers, 'OK')
-    await responderOkNokNa(page, P.senalizacion, 'OK')
+    await responderOkNokNa(page, ITEMS_FIXTURE_A.barriers, 'OK')
+    await responderOkNokNa(page, ITEMS_FIXTURE_A.senalizacion, 'OK')
 
     // Antes de enviar no hay nada encolado: `enviarInspeccion` arma el lote.
     expect((await leerCola(page)).pendientes).toBe(0)
@@ -115,7 +103,8 @@ test.describe('FR-011/014 — captura offline y persistencia', () => {
 
     await expect(
       page
-        .getByRole('radiogroup', { name: `Respuesta para: ${P.barriers}` })
+        .getByTestId(`template-item-${ITEMS_FIXTURE_A.barriers}`)
+        .getByRole('radiogroup')
         .getByRole('radio', { name: 'OK', exact: true }),
     ).toHaveAttribute('aria-checked', 'true')
   })
@@ -127,7 +116,8 @@ test.describe('FR-011/014 — captura offline y persistencia', () => {
     await entrarConColaLimpia(page)
     await context.setOffline(true)
 
-    await responderOkNokNa(page, P.barriers, 'OK')
+    await responderOkNokNa(page, ITEMS_FIXTURE_A.barriers, 'OK')
+    await responderTemperaturaValida(page)
     await enviarInspeccion(page)
 
     // Con la red caída el lote NO se vacía y NADA queda `synced`: si se
@@ -153,8 +143,9 @@ test.describe('FR-016 — el sync arranca sin intervención', () => {
     await entrarConColaLimpia(page)
     await context.setOffline(true)
 
-    await responderOkNokNa(page, P.barriers, 'OK')
-    await responderOkNokNa(page, P.senalizacion, 'OK')
+    await responderOkNokNa(page, ITEMS_FIXTURE_A.barriers, 'OK')
+    await responderOkNokNa(page, ITEMS_FIXTURE_A.senalizacion, 'OK')
+    await responderTemperaturaValida(page)
     await enviarInspeccion(page)
 
     const antes = await db.contar('SELECT count(*)::int AS n FROM inspection WHERE tenant_id = $1', [
@@ -204,14 +195,15 @@ test.describe('FR-018 — captura con plantillas en caché', () => {
 
     // La plantilla cacheada dibuja los ítems reales del fixture, no la demo.
     await expect(
-      page.getByRole('radiogroup', { name: `Respuesta para: ${P.barriers}` }),
+      page.getByTestId(`template-item-${ITEMS_FIXTURE_A.barriers}`).getByRole('radiogroup'),
     ).toBeVisible()
     await expect(
-      page.getByRole('radiogroup', { name: `Respuesta para: ${P.senalizacion}` }),
+      page.getByTestId(`template-item-${ITEMS_FIXTURE_A.senalizacion}`).getByRole('radiogroup'),
     ).toBeVisible()
 
     // Y se puede seguir capturando sin una sola petición de red.
-    await responderOkNokNa(page, P.barriers, 'OK')
+    await responderOkNokNa(page, ITEMS_FIXTURE_A.barriers, 'OK')
+    await responderTemperaturaValida(page)
     await enviarInspeccion(page)
     expect((await leerCola(page)).pendientes).toBeGreaterThan(0)
   })
@@ -227,21 +219,20 @@ test.describe('FR-036/039 — los 8 tipos y la validación en vivo', () => {
 
     // 2 ok_nok_na + numeric + date + time + select_single + select_multiple
     // (chips) + photo: los 8 tipos del contrato compartido.
-    await expect(page.getByRole('radiogroup', { name: `Respuesta para: ${P.barriers}` })).toBeVisible()
-    await expect(page.getByRole('radiogroup', { name: `Respuesta para: ${P.senalizacion}` })).toBeVisible()
+    await expect(page.getByTestId(`template-item-${ITEMS_FIXTURE_A.barriers}`).getByRole('radiogroup')).toBeVisible()
+    await expect(page.getByTestId(`template-item-${ITEMS_FIXTURE_A.senalizacion}`).getByRole('radiogroup')).toBeVisible()
     await expect(page.locator('input[type="date"]')).toHaveCount(1)
     await expect(page.locator('input[type="time"]')).toHaveCount(1)
     await expect(page.getByRole('button', { name: 'Diurno', exact: true })).toBeVisible()
     await expect(page.getByRole('button', { name: 'Casco', exact: true })).toBeVisible()
-    await expect(page.getByText(P.foto)).toBeVisible()
+    await expect(page.getByTestId(`template-item-${ITEMS_FIXTURE_A.foto}`)).toBeVisible()
   })
 
   test('un valor fuera de rango se rechaza EN EL DISPOSITIVO y no llega a la cola (FR-039)', async ({
     page,
   }) => {
     await entrarConColaLimpia(page)
-    // La semilla demo escribe una respuesta en f103; se limpia ese ítem para
-    // que la aserción mida la escritura del test y no la de arranque.
+    // Se limpia el ítem para que la aserción mida sólo la escritura del test.
     await limpiarItem(page, ITEM_NUMERICO)
 
     // El ítem numérico del fixture declara `props: { min: -10, max: 45 }`.
@@ -254,8 +245,7 @@ test.describe('FR-036/039 — los 8 tipos y la validación en vivo', () => {
     await expect(page.getByRole('alert').first()).toBeVisible()
 
     // Lo importante: NO se persistió ninguna respuesta para ESE ítem. Se filtra
-    // por id porque la semilla demo dejó otra respuesta numérica (i-04 = 180)
-    // que no participa de esta aserción.
+    // por id para aislar este campo de cualquier otra respuesta del formulario.
     const respuestas = await leerRespuestas(page)
     expect(respuestas.filter((r) => r.templateItemId === ITEM_NUMERICO)).toHaveLength(0)
   })
@@ -288,7 +278,7 @@ test.describe('FR-012 — compresión de la foto antes de encolar', () => {
     // El input de foto está en la última sección ("Evidencias") y `motion`
     // anima su bloque de entrada. `setInputFiles` no necesita visibilidad, así
     // que basta con que el ítem haya montado.
-    await expect(page.getByText(P.foto)).toBeVisible()
+    await expect(page.getByTestId(`template-item-${ITEMS_FIXTURE_A.foto}`)).toBeVisible()
     await elegirFotoGrande(page)
 
     await expect
@@ -317,7 +307,8 @@ test.describe('FR-031/032 — ciclo de la inspección', () => {
     await entrarConColaLimpia(page)
     const lineaBase = await baseDeInspecciones(page, TENANTS.A)
 
-    await responderOkNokNa(page, P.barriers, 'OK')
+    await responderOkNokNa(page, ITEMS_FIXTURE_A.barriers, 'OK')
+    await responderTemperaturaValida(page)
     await enviarInspeccion(page)
     await esperarColaVacia(page, { timeout: 60_000 })
 
@@ -325,7 +316,7 @@ test.describe('FR-031/032 — ciclo de la inspección', () => {
       'SELECT status, site_id FROM inspection WHERE tenant_id = $1',
       [TENANTS.A],
     )
-    // La línea de base incluye lo que la semilla demo subió por su cuenta.
+    // La línea de base permite contar sólo la inspección creada por este test.
     expect(filas.length - lineaBase).toBe(1)
     expect(filas[0].status).toBe('submitted')
     // El site_id es el de la identidad REAL del login (no un id falso): es lo
@@ -339,7 +330,7 @@ test.describe('FR-031/032 — ciclo de la inspección', () => {
     const db = await conectarDb()
     await entrarConColaLimpia(page)
 
-    await responderOkNokNa(page, P.barriers, 'NOK')
+    await responderOkNokNa(page, ITEMS_FIXTURE_A.barriers, 'NOK')
     // El ítem declara `require_finding_on_nok`: al marcar NOK se despliega el
     // panel de hallazgo y recién ahí aparece el botón para abrirlo.
     await expect(page.getByRole('button', { name: /hallazgo/i }).first()).toBeVisible()
@@ -350,10 +341,11 @@ test.describe('FR-031/032 — ciclo de la inspección', () => {
     // siguiente puede armarse antes de que exista la fila.
     await expect.poll(() => contarStore(page, 'findings'), { timeout: 15_000 }).toBeGreaterThan(0)
 
+    await responderTemperaturaValida(page)
     await enviarInspeccion(page)
     await esperarColaVacia(page, { timeout: 60_000 })
 
-    // El hallazgo del TEST: la semilla también siembra uno con su descripción.
+    // El hallazgo creado por este test.
     const delTest = await db.filas<{ description: string }>(
       'SELECT description FROM finding WHERE tenant_id = $1',
       [TENANTS.A],
@@ -393,7 +385,8 @@ async function elegirFotoGrande(page: Page): Promise<void> {
     return btoa(bin)
   })
 
-  await page.locator('input[type="file"][accept="image/*"]').first().setInputFiles({
+  await page.getByRole('button', { name: 'Tomar foto', exact: true }).click()
+  await page.getByRole('dialog', { name: 'Tomar fotografía' }).locator('input[type="file"][accept="image/*"]').setInputFiles({
     name: 'evidencia.jpg',
     mimeType: 'image/jpeg',
     buffer: Buffer.from(base64, 'base64'),
