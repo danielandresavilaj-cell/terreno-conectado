@@ -132,7 +132,7 @@ export function login(email: string, password: string): Promise<{ access_token: 
 }
 
 export function me(): Promise<PerfilWire> {
-  return apiFetch('/auth/me')
+  return apiFetch('/me')
 }
 
 /* ----------------------------------------------------------- lecturas */

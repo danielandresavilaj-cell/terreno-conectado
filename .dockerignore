@@ -15,5 +15,12 @@ Fase 1
 *.log
 .env
 .env.*
+**/.env
+**/.env.*
+infra/config-bundle
+infra/backups
+infra/secrets
+infra/backup/*.conf
+infra/backup/*.key
 !.env.example
 !.env.prod.example
