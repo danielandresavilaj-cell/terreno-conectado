@@ -162,7 +162,7 @@ test.describe('Checklist §1 — ⭐ Humo H-01…H-10 (issue #130)', () => {
       await context.setOffline(false)
       const estado = await esperarColaVacia(page, { timeout: 90_000 })
       expect(estado.pendientes).toBe(0)
-      await expect(page.getByText('En línea', { exact: true }).first()).toBeVisible()
+      await expect(page.getByText('En línea', { exact: true }).filter({ visible: true }).first()).toBeVisible()
     })
 
     await test.step('H-09 · El supervisor ve el dato', async () => {
