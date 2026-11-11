@@ -34,6 +34,7 @@
 | TSK-AUTH-006 | **Alinear el almacenamiento del access token con D5**: hoy la PWA usa `sessionStorage` (`tc_access_token`); D5 dice "solo en memoria" | FR-001, D5 | TSK-WS-003 | El token vive sólo en memoria de módulo (re-login en recarga) **o** D5 se enmienda reconociendo `sessionStorage` como "memoria de pestaña" | ⬜ Pendiente (diferido) |
 | TSK-AUTH-007 | **Store compartido para el rate-limit por IP** (multi-réplica) | FR-005 | TSK-WS-003 | Con ≥2 réplicas, 5 fallos desde una IP siguen bloqueando 15 min (p. ej. Redis) | ⬜ Pendiente (lo levanta el despliegue, Tarea 3 del brief) |
 | TSK-AUTH-008 | **Alinear `CONFLICT_VIEWER_ROLES` con los roles canónicos** (módulo 003/sync): permitir `supervisor`/`tenant_admin`, excluir `field_worker`/`platform_admin`, conservar RLS tenant (issue **#128**) | FR-003, FR-023 | TSK-WS-003 | `backend/test/conflicts.spec.ts` cubre `tenant_admin` 200 con conflictos propios, sin filtración del tenant B; `field_worker`/`platform_admin` 403 | ✅ Hecho (PR #129) |
+| TSK-AUTH-009 | **Endurecer bordes del backend**: techo de 32 MB sólo en `/sync/batch` (resto 2 MB), rate-limit por IP con ventana y memoria acotada, CSP en Caddy | FR-005, FR-020, Art. IX | — | Login con >2 MB → 413; sync acepta 20 MB; IP sin estado tras cumplir el bloqueo; el mapa nunca supera su techo (`backend/test/ip-rate-limiter.spec.ts`, `backend/test/body-limit.spec.ts`) | ✅ Hecho |
 
 > Los FR-001…006 quedan ✅ con las deudas de seguridad diferidas **TSK-AUTH-006/007** declaradas. El hallazgo cross-módulo **TSK-AUTH-008** (issue #128) ya quedó corregido y cubierto.
 
@@ -41,4 +42,5 @@
 
 | Versión | Fecha | Cambio | Autor |
 | :--- | :--- | :--- | :--- |
+| 1.0.2 | 2026-11-11 | TSK-AUTH-009: techo de cuerpo por ruta, rate-limit por IP acotado y CSP | Daniel Ávila |
 | 1.0.1 | 2026-10-14 | TSK-AUTH-008 implementado y probado en el módulo 003; quedan diferidos TSK-AUTH-006/007 | Daniel Ávila |

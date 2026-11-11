@@ -13,6 +13,12 @@ import { requestLogger } from './observability/request-logger'
  * el middleware de correlación (`request_id`/`tenant_id`). `/health` queda
  * fuera del prefijo `/api/v1` para el uptime monitor externo (FR-052).
  */
+/** Ruta de la ingesta por lotes (FR-020), la única que recibe fotos en base64. */
+export const SYNC_BATCH_PATH = '/api/v1/sync/batch'
+export const SYNC_BATCH_BODY_LIMIT = '32mb'
+/** Techo del cuerpo para el resto de la API (login, plantillas, admin…). */
+export const DEFAULT_BODY_LIMIT = '2mb'
+
 export function configureApp(app: INestApplication): INestApplication {
   const allowedOrigin = (process.env.ALLOWED_ORIGIN ?? 'http://localhost:5173')
     .split(',')
@@ -39,8 +45,15 @@ export function configureApp(app: INestApplication): INestApplication {
   // sin ninguna pista. El techo sube a 32 MB para que quepa el rezago de un turno
   // sin señal (NFR-02: 100 fotos ≈ 20 MB) sin convertir el proceso en un sumidero
   // de memoria: el lote del cliente sigue acotado por conteo (500 registros).
-  app.use(json({ limit: '32mb' }))
-  app.use(urlencoded({ extended: true, limit: '32mb' }))
+  //
+  // Los 32 MB aplican SÓLO a la ingesta: con un techo global, cualquier ruta
+  // (incluido `POST /auth/login`, que es pública) aceptaba cuerpos de 32 MB y
+  // cada petición obligaba a parsear hasta 32 MB de JSON en memoria. El resto de
+  // la API queda en 2 MB, holgado para una definición de plantilla. Va primero:
+  // body-parser marca el cuerpo como leído y el parser global lo salta.
+  app.use(SYNC_BATCH_PATH, json({ limit: SYNC_BATCH_BODY_LIMIT }))
+  app.use(json({ limit: DEFAULT_BODY_LIMIT }))
+  app.use(urlencoded({ extended: true, limit: DEFAULT_BODY_LIMIT }))
 
   // Observabilidad: logs JSON con request_id/tenant_id (NFR-09).
   const logger = new JsonLogger()
