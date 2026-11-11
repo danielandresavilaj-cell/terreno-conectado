@@ -1,0 +1,35 @@
+name: Autorizar llave SSH en la VM
+on:
+  workflow_dispatch:
+    inputs:
+      public_key:
+        description: Llave PÚBLICA completa (contenido del archivo .pub)
+        required: true
+permissions:
+  contents: read
+jobs:
+  autorizar:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Validar formato
+        env:
+          KEY: ${{ inputs.public_key }}
+        run: |
+          printf '%s' "$KEY" | grep -Eq '^(ssh-ed25519|ssh-rsa) [A-Za-z0-9+/=]+( [^[:cntrl:]]*)?$' \
+            || { echo "::error::No es una llave pública SSH"; exit 1; }
+      - uses: appleboy/ssh-action@v1.2.0
+        env:
+          KEY: ${{ inputs.public_key }}
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          fingerprint: ${{ secrets.VPS_HOST_FINGERPRINT }}
+          envs: KEY
+          script: |
+            set -eu
+            mkdir -p ~/.ssh && chmod 700 ~/.ssh
+            touch ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys
+            grep -qxF "$KEY" ~/.ssh/authorized_keys || printf '%s\n' "$KEY" >> ~/.ssh/authorized_keys
+            echo "Llave autorizada para $(whoami)"
