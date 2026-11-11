@@ -150,6 +150,7 @@ function FilaCampo({
 
   return (
     <motion.div
+      data-testid={`template-item-${item.id}`}
       initial={reducir ? { opacity: 1 } : { opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35, ease: EASE.out, delay }}

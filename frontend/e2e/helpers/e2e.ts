@@ -64,7 +64,16 @@ export function passwordDemo(): string {
   return p
 }
 
-/** Cuentas demo sembradas por `backend/db/seed.ts` (data-model §5). */
+/** Ítems estables de la plantilla publicada del tenant A (`backend/db/seed.ts`). */
+export const ITEMS_FIXTURE_A = {
+  barriers: '01890000-0000-7000-8000-00000000f101',
+  senalizacion: '01890000-0000-7000-8000-00000000f102',
+  temperatura: '01890000-0000-7000-8000-00000000f103',
+  fecha: '01890000-0000-7000-8000-00000000f104',
+  turno: '01890000-0000-7000-8000-00000000f106',
+  foto: '01890000-0000-7000-8000-00000000f109',
+} as const
+
 /**
  * Click en una opción OK/NOK/NA de un ítem.
  *
@@ -72,8 +81,8 @@ export function passwordDemo(): string {
  * "N/A" (Playwright hace substring, no palabra completa) y "NOK" empieza con
  * "N"... el resultado eran 2 nodos y un strict-mode violation.
  */
-export async function responderOkNokNa(page: Page, prompt: string, opcion: 'OK' | 'NOK' | 'N/A') {
-  const grupo = page.getByRole('radiogroup', { name: `Respuesta para: ${prompt}` })
+export async function responderOkNokNa(page: Page, itemId: string, opcion: 'OK' | 'NOK' | 'N/A') {
+  const grupo = page.getByTestId(`template-item-${itemId}`).getByRole('radiogroup')
   /* En el viewport móvil (Pixel 5) el formulario es largo: los ítems de las
    * secciones siguientes están fuera de pantalla y `motion/react` los anima al
    * aparecer. Sin traerlos a la vista, el click falla con "element is not
@@ -85,14 +94,9 @@ export async function responderOkNokNa(page: Page, prompt: string, opcion: 'OK' 
 }
 
 /**
- * Línea de base de inspecciones del tenant, una vez que la semilla demo ya
- * subió lo suyo.
- *
- * La app siembra datos de demo al hidratar (FR-013) y los sube como cualquier
- * otro registro, así que un `count()` absoluto mezcla lo que trajo la semilla
- * con lo que hizo el test. Este helper fuerza el flush de arranque y espera a
- * que la cola quede vacía ANTES de contar: a partir de ahí, todo lo que
- * aparezca en el servidor lo puso la prueba.
+ * Línea de base de inspecciones del tenant, una vez que cualquier sync de
+ * arranque haya terminado. Los specs generan sus propios registros y miden
+ * deltas, sin depender de filas locales de demostración.
  */
 export async function baseDeInspecciones(page: Page, tenantId: string): Promise<number> {
   await forzarFlush(page)
@@ -104,10 +108,8 @@ export async function baseDeInspecciones(page: Page, tenantId: string): Promise<
 /**
  * Borra las respuestas locales de un ítem concreto.
  *
- * La semilla demo (`db.ts:seedDemoDataIfNeeded`) escribe respuestas para los
- * primeros cinco ítems del fixture con valores plausibles. Un test que mida
- * "el valor X quedó persistido" sobre uno de esos ítems no distinguiría su
- * escritura de la de arranque, así que se limpia el ítem antes de escribir.
+ * El test limpia el ítem antes de escribir para que su aserción mida sólo el
+ * valor creado durante ese escenario.
  */
 export async function limpiarItem(page: Page, templateItemId: string): Promise<number> {
   return page.evaluate(
@@ -157,18 +159,37 @@ export async function limpiarItem(page: Page, templateItemId: string): Promise<n
  * demo) y llama a la misma función de cola, así que no falsea el escenario.
  */
 export async function forzarFlush(page: Page): Promise<void> {
-  const interruptor = page.getByRole('switch', { name: /señal/i })
+  const interruptor = page.getByTestId('signal-toggle')
   await interruptor.scrollIntoViewIfNeeded()
+  if ((await interruptor.getAttribute('aria-checked')) !== 'true') {
+    await interruptor.click()
+    await expect(interruptor).toHaveAttribute('aria-checked', 'true')
+  }
   await interruptor.click()
+  await expect(interruptor).toHaveAttribute('aria-checked', 'false')
   await page.waitForTimeout(400)
   await interruptor.click()
+  await expect(interruptor).toHaveAttribute('aria-checked', 'true')
 }
 
 /** El campo numérico del ítem, ya a la vista en el viewport móvil. */
-export async function campoNumerico(page: Page): Promise<Locator> {
-  const campo = page.locator('input[inputmode="decimal"]').first()
+export async function campoNumerico(page: Page, itemId = ITEMS_FIXTURE_A.temperatura): Promise<Locator> {
+  const campo = page.getByTestId(`template-item-${itemId}`).locator('input[inputmode="decimal"]')
   await campo.scrollIntoViewIfNeeded()
   return campo
+}
+
+/** Completa los obligatorios del fixture y verifica la fecha automática. */
+export async function responderTemperaturaValida(page: Page): Promise<void> {
+  const campo = await campoNumerico(page)
+  await campo.fill('18')
+  await campo.blur()
+  await expect(campo).toHaveValue('18')
+  await expect(page.getByTestId(`template-item-${ITEMS_FIXTURE_A.fecha}`).locator('input[type="date"]')).not.toHaveValue('')
+  await page
+    .getByTestId(`template-item-${ITEMS_FIXTURE_A.turno}`)
+    .getByRole('button', { name: 'Diurno', exact: true })
+    .click()
 }
 
 /**
@@ -252,25 +273,25 @@ export async function loginEnApp(page: Page, email: string): Promise<void> {
     .waitFor({ state: 'visible', timeout: 8_000 })
     .then(() => true)
     .catch(() => false)
-  if (!hayLogin) return
-
-  const pass = passwordDemo()
-  await page.getByRole('button', { name: new RegExp(correoANombre(email).split(' ')[0]) }).click()
-  await page.getByRole('textbox', { name: 'Correo' }).fill(email)
+  if (hayLogin) {
+    const pass = passwordDemo()
+    await page.getByRole('button', { name: new RegExp(correoANombre(email).split(' ')[0]) }).click()
+    await page.getByRole('textbox', { name: 'Correo' }).fill(email)
   /* El campo de contraseña se busca por SU TIPO, no por etiqueta: en
    * `screens/Login.tsx` el `<label>` envuelve un `<span>` "Contraseña" y el
    * `<input>`, así que `getByLabel` resuelve a dos nodos y Playwright se niega
    * a adivinar. Además el botón "Mostrar contraseña" matchea el mismo texto. */
-  await page.locator('input[type="password"]').fill(pass)
-  await page.getByRole('button', { name: 'Entrar' }).click()
-  /* La pantalla posterior al login depende del rol: el campo_worker cae en
-   * captura y el resto en dashboard. Lo que no puede seguir visible es el
-   * propio formulario de login. */
-  try {
-    await page.getByRole('heading', { name: 'Iniciar sesión' }).waitFor({ state: 'detached' })
-  } catch (e) {
-    console.log('DIAG login body:', (await page.locator('body').innerText()).slice(0, 300).replace(/\n+/g, ' | '))
-    throw e
+    await page.locator('input[type="password"]').fill(pass)
+    await page.getByRole('button', { name: 'Entrar' }).click()
+  /* La pantalla posterior al login depende del rol: el trabajador llega a la
+   * selección de formularios y los perfiles de gestión a sus vistas. Lo que no
+   * puede seguir visible es el propio formulario de login. */
+    try {
+      await page.getByRole('heading', { name: 'Iniciar sesión' }).waitFor({ state: 'detached' })
+    } catch (e) {
+      console.log('DIAG login body:', (await page.locator('body').innerText()).slice(0, 300).replace(/\n+/g, ' | '))
+      throw e
+    }
   }
   /* "Iniciar sesión" es el `<h1>` del formulario (`Login.tsx`), NO un botón:
    * esperarlo por rol button nunca se cumplía. Y sólo con eso no alcanza:
@@ -278,6 +299,30 @@ export async function loginEnApp(page: Page, email: string): Promise<void> {
    * `arrancarSesión` siembra Dexie y pide las plantillas, así que además se
    * espera a que aparezca la barra de navegación del Shell. */
   await page.locator('nav button').first().waitFor({ state: 'visible' })
+  await expect.poll(() => page.evaluate(() => sessionStorage.getItem('tc_access_token'))).toBeTruthy()
+  if (email === CUENTAS.trabajadorA || email === CUENTAS.trabajadorB) {
+    await abrirFormularioAsignado(page)
+  }
+}
+
+/** Recorre la selección explícita de un formulario antes de capturarlo. */
+async function abrirFormularioAsignado(page: Page): Promise<void> {
+  const enviar = page.getByRole('button', { name: 'Enviar inspección' })
+  if (await enviar.isVisible({ timeout: 500 }).catch(() => false)) return
+
+  await page.getByRole('heading', { name: 'Elegí qué vas a inspeccionar' }).waitFor({ state: 'visible' })
+  /* Un borrador congelado tiene prioridad sobre la tarjeta: es la única ruta
+   * que conserva sus respuestas y no intenta cambiar de revisión. */
+  const continuar = page.getByTestId('continue-draft')
+  const abrir = (await continuar.isVisible({ timeout: 500 }).catch(() => false))
+    ? continuar
+    : page
+        .getByRole('button', { name: /^(Usar este formulario|Abrir formulario|Continuar formulario)$/ })
+        .first()
+  await expect(abrir).toBeVisible()
+  await abrir.click()
+  await expect(page.getByTestId('capture-screen')).toBeVisible()
+  await expect(enviar).toBeVisible()
 }
 
 function correoANombre(correo: string): string {
@@ -428,13 +473,8 @@ export async function leerRespuestas(
 }
 
 /**
- * Vacía el outbox sembrado por la app.
- *
- * `seedDemoDataIfNeeded` deja ~10 filas de demo (FR-013: el primer frame tiene
- * datos) en cuanto hay sesión. Para un caos la cola tiene que estar en cero:
- * si no, "el lote se drenó" no distingue lo que hizo el test de lo que trajo
- * la semilla, y los conteos de filas no significan nada. Se borran SÓLO las
- * filas del outbox (las entidades de la semilla quedan, que son inocuas).
+ * Vacía el outbox local antes de cada escenario. La aplicación parte sin
+ * registros de prueba: cada spec debe crear únicamente los datos que mide.
  */
 export async function vaciarCola(page: Page): Promise<number> {
   return page.evaluate(
@@ -489,9 +529,17 @@ export async function esperarColaVacia(
     if (listo) return ultimo
     await page.waitForTimeout(300)
   }
+  const errores = await leerStore<{ status: string; entityType: string; entityId: string; lastError?: string }>(page, 'outbox')
+  const diagnostico = errores
+    .filter((fila) => fila.status === 'failed')
+    .slice(0, 3)
+    .map((fila) => `${fila.entityType}:${fila.entityId}: ${fila.lastError ?? 'sin detalle'}`)
+    .join(' | ')
   throw new Error(
     `la cola no quedó vacía en ${timeout / 1000}s ` +
-      `(último estado: ${JSON.stringify(ultimo.porEstado)}, fallidas: ${ultimo.fallidas})`,
+      `(último estado: ${JSON.stringify(ultimo.porEstado)}, fallidas: ${ultimo.fallidas}` +
+      (diagnostico ? `, diagnóstico: ${diagnostico}` : '') +
+      ')',
   )
 }
 

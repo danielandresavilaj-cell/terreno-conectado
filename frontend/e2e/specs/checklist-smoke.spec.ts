@@ -15,18 +15,15 @@
  *   npx vite preview --port 4173 --strictPort       (en frontend/)
  *   ALLOWED_ORIGIN debe incluir http://localhost:4173 (backend/.env y reinicio)
  *
- * Un ajuste de datos (documentado, no es un fallo del producto en sí):
- * el seed local deja filas demo con UUID FIJO; la inspección `…0031` ya existe
- * en el servidor (de una sesión previa) y su re-envío devuelve `duplicate key`
- * → queda `failed` para siempre y "Pendientes" nunca vuelve a 0 en un
- * dispositivo nuevo. Se vacía el outbox (como hacen los e2e del repo) para medir
- * sólo lo que captura este recorrido; el defecto se registra aparte.
+ * La pasada parte con una cola local limpia y genera su propia evidencia. Así
+ * los contadores no dependen de datos de demostración preexistentes.
  */
 
 import { expect, test, type Page } from '@playwright/test'
 
 import {
   CUENTAS,
+  ITEMS_FIXTURE_A,
   contarStore,
   enviarInspeccion,
   esperarColaVacia,
@@ -34,14 +31,9 @@ import {
   leerCola,
   loginEnApp,
   responderOkNokNa,
+  responderTemperaturaValida,
   vaciarCola,
 } from '../helpers/e2e'
-
-/** Prompts del fixture publicado del tenant A (backend/db/seed.ts). */
-const P = {
-  barriers: 'Barriers perimetrales del nivel de trabajo completos y estables',
-  senalizacion: 'Señalización de rutas de evacuación visible desde el punto de corte',
-} as const
 
 const HALLAZGO = 'Validación #130 · falta señalización en la ruta de evacuación'
 const BITACORA = 'Validación #130 · turno cerrado sin novedades'
@@ -67,7 +59,8 @@ async function adjuntarFoto(page: Page): Promise<void> {
     for (const b of buf) bin += String.fromCharCode(b)
     return btoa(bin)
   })
-  await page.locator('input[type="file"][accept="image/*"]').first().setInputFiles({
+  await page.getByRole('button', { name: 'Tomar foto', exact: true }).click()
+  await page.getByRole('dialog', { name: 'Tomar fotografía' }).locator('input[type="file"][accept="image/*"]').setInputFiles({
     name: 'evidencia.jpg',
     mimeType: 'image/jpeg',
     buffer: Buffer.from(base64, 'base64'),
@@ -87,15 +80,14 @@ test.describe('Checklist §1 — ⭐ Humo H-01…H-10 (issue #130)', () => {
       await loginEnApp(page, CUENTAS.trabajadorA)
       await expect(page.getByRole('heading', { name: 'Chequeo de seguridad minera' })).toBeVisible()
       await expect(
-        page.getByRole('radiogroup', { name: `Respuesta para: ${P.barriers}` }),
+        page.getByTestId(`template-item-${ITEMS_FIXTURE_A.barriers}`).getByRole('radiogroup'),
       ).toBeVisible()
 
-      // Diagnóstico: el seed local deja filas `failed` por UUID fijo duplicado.
       const c = await leerCola(page)
-      console.log(`[H-01] seed local: total=${c.total} pendientes=${c.pendientes} estados=${JSON.stringify(c.porEstado)}`)
+      console.log(`[H-01] cola inicial: total=${c.total} pendientes=${c.pendientes} estados=${JSON.stringify(c.porEstado)}`)
     })
 
-    await test.step('Preparación · pre-calentar pantallas y limpiar la cola demo', async () => {
+    await test.step('Preparación · pre-calentar pantallas y limpiar la cola', async () => {
       // Pre-calentar los chunks perezosos: en la PWA el SW ya los precacheó,
       // pero abrirlos deja además la línea base lista antes de cortar la señal.
       await page.getByRole('button', { name: 'Bitácora', exact: true }).click()
@@ -104,15 +96,15 @@ test.describe('Checklist §1 — ⭐ Humo H-01…H-10 (issue #130)', () => {
       await expect(page.getByText('FR-013 · Outbox local')).toBeVisible()
       await page.getByRole('button', { name: 'Inspección', exact: true }).click()
       await expect(
-        page.getByRole('radiogroup', { name: `Respuesta para: ${P.barriers}` }),
+        page.getByTestId(`template-item-${ITEMS_FIXTURE_A.barriers}`).getByRole('radiogroup'),
       ).toBeVisible()
       // Línea base: medir sólo lo que captura este recorrido.
       const borradas = await vaciarCola(page)
-      console.log(`[setup] filas demo retiradas del outbox: ${borradas}`)
+      console.log(`[setup] filas retiradas del outbox: ${borradas}`)
     })
 
     await test.step('H-02 · Cortar la señal', async () => {
-      const sw = page.getByRole('switch', { name: /señal/i })
+      const sw = page.getByTestId('signal-toggle')
       await sw.scrollIntoViewIfNeeded()
       if ((await sw.getAttribute('aria-checked')) === 'true') await sw.click()
       await expect(sw).toHaveAttribute('aria-checked', 'false')
@@ -121,8 +113,9 @@ test.describe('Checklist §1 — ⭐ Humo H-01…H-10 (issue #130)', () => {
     })
 
     await test.step('H-03 · Capturar con hallazgo', async () => {
-      await responderOkNokNa(page, P.barriers, 'OK')
-      await responderOkNokNa(page, P.senalizacion, 'NOK')
+      await responderOkNokNa(page, ITEMS_FIXTURE_A.barriers, 'OK')
+      await responderOkNokNa(page, ITEMS_FIXTURE_A.senalizacion, 'NOK')
+      await responderTemperaturaValida(page)
       await page.getByRole('button', { name: /registrar hallazgo/i }).first().click()
       await page.getByRole('button', { name: 'Alta', exact: true }).click()
       await page.locator('textarea').first().fill(HALLAZGO)

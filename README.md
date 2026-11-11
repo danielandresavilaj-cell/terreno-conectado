@@ -231,8 +231,8 @@ npm run e2e
 Requiere **Docker** y esas variables: el harness no tiene contraseña por omisión y falla ruidosamente
 si faltan (Constitución Art. IX). En **Windows** usa el `.env` (Opción A) o `npx cross-env` (Opción B);
 `export VAR=…` es de shell Unix y no funciona en `cmd`/PowerShell (ver
-[`CONTRIBUTING.md`](CONTRIBUTING.md) §9). Corre en el workflow nightly
-(`.github/workflows/e2e.yml`) y **nunca bloquea un PR** — la puerta de esa capa es el nightly, no el
+[`CONTRIBUTING.md`](CONTRIBUTING.md) §9). Corre manualmente desde el workflow
+(`.github/workflows/e2e.yml`) y **nunca bloquea un PR** — debe ejecutarse antes de una demo o publicación, no en cada cambio.
 CI de cada push. Resultados y hallazgos: [`docs/informe-pruebas-validacion.md`](docs/informe-pruebas-validacion.md).
 
 ### Auth (TSK-WS-003)

@@ -10,16 +10,15 @@
  * · 5. Cola masiva (NFR-02) → 200 registros suben íntegros.
  * · 6. Token expirado con cola pendiente → la cola NO se pierde.
  *
- * Nota sobre los conteos absolutos: la app siembra datos de demo al hidratar
- * (FR-013) y esos registros también sincronizan. Por eso el caos 1 mide un
- * DELTA y no un total: lo que tiene que ser exactamente 1 es la inspección del
- * test, no la cantidad absoluta de filas del tenant.
+ * Los conteos se expresan como delta sobre la línea de base del escenario: lo
+ * importante es la inspección creada por el test, no el total del tenant.
  */
 
 import { expect, test, type Page } from '@playwright/test'
 
 import {
   CUENTAS,
+  ITEMS_FIXTURE_A,
   TENANTS,
   conectarDb,
   esperarColaVacia,
@@ -30,13 +29,9 @@ import {
   loginEnApp,
   reiniciarDispositivo,
   responderOkNokNa,
+  responderTemperaturaValida,
   vaciarCola,
 } from '../helpers/e2e'
-
-const P = {
-  barriers: 'Barriers perimetrales del nivel de trabajo completos y estables',
-  senalizacion: 'Señalización de rutas de evacuación visible desde el punto de corte',
-} as const
 
 /** Ruta del endpoint de ingesta; el route handler la intercepta. */
 const RUTA_LOTE = '**/sync/batch'
@@ -72,10 +67,11 @@ test.afterEach(async () => {
   }
 })
 
-/** Encola una inspección respondiendo dos ítems y pulsando enviar. */
+/** Encola una inspección válida creada por la propia prueba. */
 async function enviarUna(page: Page): Promise<void> {
-  await responderOkNokNa(page, P.barriers, 'OK')
-  await responderOkNokNa(page, P.senalizacion, 'OK')
+  await responderOkNokNa(page, ITEMS_FIXTURE_A.barriers, 'OK')
+  await responderOkNokNa(page, ITEMS_FIXTURE_A.senalizacion, 'OK')
+  await responderTemperaturaValida(page)
   const boton = page.getByRole('button', { name: 'Enviar inspección' })
   await boton.scrollIntoViewIfNeeded()
   await boton.click()
@@ -122,7 +118,7 @@ test.describe('caos 1 — corte a mitad de sync', () => {
     await esperarColaVacia(page, { timeout: 120_000, permitirFallidas: true })
 
     /* Invariante §4: lo que entró en la cola terminó en el servidor exactamente
-     * una vez. Se mide como delta porque la semilla demo también sincroniza. */
+     * una vez. Se mide como delta para aislar lo creado por el escenario. */
     const inspeccionesTras = await db.contar(CONTAR_INSPECCIONES, [TENANTS.A])
     expect(inspeccionesTras - inspeccionesAntes).toBe(1)
     expect(encoladas).toBeGreaterThan(0)
