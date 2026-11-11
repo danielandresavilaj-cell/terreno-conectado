@@ -107,14 +107,15 @@ describe('propuestaADefinicion — mapeo al contrato', () => {
     }
   })
 
-  it('no copia los metadatos del parser (source/opcionesConteo/muestra/filasConDato)', () => {
+  it('guarda el origen de cada ítem y no copia el resto de metadatos del parser', () => {
     const res = propuestaADefinicion(propuesta([{ titulo: 'Inspección', items: ITEMS_8 }]))
     expect(res.ok).toBe(true)
     if (!res.ok) return
     const [seccion] = res.definition.sections
     expect(Object.keys(seccion).sort()).toEqual(['id', 'items', 'position', 'title'])
     for (const item of seccion.items) {
-      expect(Object.keys(item).sort()).toEqual(['id', 'prompt', 'props', 'response_type'])
+      // TSK-FORM-019: `origen` (copia de `source`) permite exportar tras editar.
+      expect(Object.keys(item).sort()).toEqual(['id', 'origen', 'prompt', 'props', 'response_type'])
       expect(item).not.toHaveProperty('source')
       expect(item).not.toHaveProperty('opcionesConteo')
       expect(item).not.toHaveProperty('muestra')

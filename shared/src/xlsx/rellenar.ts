@@ -108,54 +108,74 @@ export type ResultadoRellenado =
 
 const NOMBRE_HOJA_EVIDENCIAS = 'Evidencias'
 
+/** Normaliza un encabezado para compararlo: sin tildes, mayúsculas ni espacios extra. */
+function normalizar(texto: string): string {
+  return texto
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
 /**
- * Empareja cada ítem de la plantilla con su celda en el libro original.
+ * Empareja cada ítem de la plantilla con su celda en el libro original
+ * (TSK-FORM-019).
  *
- * Por posición: la sección N de la plantilla contra la hoja N del libro y el
- * ítem M contra el ítem M. El wizard de importación (TSK-FORM-006) no reordena
- * ni añade ítems, así que el supuesto se sostiene; el caso de que no se sostenga
- * es exactamente lo que este chequeo existe para detectar.
+ * 1. **Origen guardado** (`item.origen`, plantillas importadas desde v1): se usa
+ *    tal cual. Borrar, reordenar o renombrar ítems no afecta la exportación.
+ * 2. **Plantillas previas sin origen:**
+ *    - si la sección tiene los mismos ítems que la hoja, se empareja por
+ *      posición (comportamiento original);
+ *    - si no (p. ej. se borraron ítems), se empareja por el texto del
+ *      encabezado, **sólo cuando la coincidencia es única**. Un ítem sin
+ *      coincidencia única queda sin celda y se reporta en `omitidas`: nunca se
+ *      adivina la columna de otro ítem.
  *
- * **Sólo posición, deliberadamente.** Renombrar un ítem o cambiarle el tipo NO
- * rompe el mapeo (el destino depende del orden, no del texto), y si algún día
- * alguien reordena, el desajuste se ve como desajuste. Una comparación por texto
- * como red de seguridad sería peor: adivinaría en cuál celda escribir y podría
- * volcar la respuesta de un ítem en la celda de otro sin avisar. Fallar es el
- * comportamiento correcto.
+ * La sección se busca primero por nombre de hoja y, si no, por posición.
  */
 export function emparejarItemsConOrigen(
   definition: TemplateDefinition,
   propuesta: TemplateImportProposal,
 ): Emparejado {
-  const seccionesDef = definition.sections
-  const seccionesProp = propuesta.secciones
+  const destinos = new Map<string, ImportSourceOrigin>()
+  const hojasPorNombre = new Map(propuesta.secciones.map((s) => [normalizar(s.titulo), s]))
 
-  if (seccionesDef.length !== seccionesProp.length) {
-    return {
-      ok: false,
-      error:
-        `el documento original tiene ${seccionesProp.length} hoja(s) y la plantilla ` +
-        `${seccionesDef.length} sección(es): el libro no corresponde a esta plantilla. ` +
-        'Reimporta el .xlsx o crea una plantilla nueva (FR-019).',
+  for (const [si, seccionDef] of definition.sections.entries()) {
+    const pendientes = seccionDef.items.filter((item) => {
+      if (item.origen) {
+        destinos.set(item.id, item.origen)
+        return false
+      }
+      return true
+    })
+    if (pendientes.length === 0) continue
+
+    const hoja = hojasPorNombre.get(normalizar(seccionDef.title)) ?? propuesta.secciones[si]
+    if (!hoja) continue
+
+    if (pendientes.length === seccionDef.items.length && hoja.items.length === seccionDef.items.length) {
+      for (const [ii, item] of seccionDef.items.entries()) destinos.set(item.id, hoja.items[ii].source)
+      continue
+    }
+
+    const porTexto = new Map<string, ImportSourceOrigin[]>()
+    for (const it of hoja.items) {
+      const clave = normalizar(it.prompt)
+      porTexto.set(clave, [...(porTexto.get(clave) ?? []), it.source])
+    }
+    for (const item of pendientes) {
+      const candidatos = porTexto.get(normalizar(item.prompt)) ?? []
+      if (candidatos.length === 1) destinos.set(item.id, candidatos[0])
     }
   }
 
-  const destinos = new Map<string, ImportSourceOrigin>()
-  for (const [si, seccionDef] of seccionesDef.entries()) {
-    const seccionProp = seccionesProp[si]
-    const itemsDef = seccionDef.items
-    const itemsProp = seccionProp.items
-    if (itemsDef.length !== itemsProp.length) {
-      return {
-        ok: false,
-        error:
-          `la sección "${seccionDef.title}" tiene ${itemsDef.length} ítem(s) en la plantilla ` +
-          `y ${itemsProp.length} en el libro original: el mapeo de celdas no es fiable. ` +
-          'Reimporta el .xlsx o crea una plantilla nueva (FR-019).',
-      }
-    }
-    for (const [ii, itemDef] of itemsDef.entries()) {
-      destinos.set(itemDef.id, itemsProp[ii].source)
+  if (destinos.size === 0) {
+    return {
+      ok: false,
+      error:
+        'Ningún ítem de la plantilla coincide con el libro original: el documento no corresponde ' +
+        'a esta plantilla. Reimporta el .xlsx o crea una plantilla nueva (FR-019).',
     }
   }
   return { ok: true, destinos }

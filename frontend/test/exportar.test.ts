@@ -307,8 +307,10 @@ describe('exportación con el documento original en el caché', () => {
     // Libro de DOS hojas contra una plantilla de UNA: `rellenarOriginal` no
     // puede emparejar ítem→celda, y ese error tiene que verse, no adivinarse.
     const wb = new ExcelJS.Workbook()
+    // TSK-FORM-019: sin ningún encabezado en común (ni origen guardado) no
+    // hay forma segura de emparejar.
     const seguridad = wb.addWorksheet('Seguridad')
-    seguridad.addRow(['Estado'])
+    seguridad.addRow(['Columna ajena'])
     seguridad.addRow(['OK'])
     const extra = wb.addWorksheet('Extra')
     extra.addRow(['Otro'])
