@@ -5,7 +5,7 @@
 **Fase:** F3, producto v1.3 en producción.  
 **Fecha:** 2026-11-11.  
 **Repo:** `https://github.com/danielandresavilaj-cell/terreno-conectado`  
-**Producción:** `https://terreno-conectado-demo.duckdns.org` (Oracle Always Free, US$0/mes)
+**Producción:** `https://terrenoconectado.cl` (Oracle Always Free, US$0/mes)
 
 ## 1. Resumen ejecutivo
 

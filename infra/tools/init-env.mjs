@@ -2,15 +2,20 @@
 import { randomBytes } from 'node:crypto'
 import { writeFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
-const [domain, sha, target = 'infra/.env'] = process.argv.slice(2)
-if (!domain || !/^[a-z0-9-]+\.duckdns\.org$/.test(domain) || !/^[a-f0-9]{40}$/.test(sha ?? '')) {
-  throw new Error('Uso: node infra/tools/init-env.mjs SUBDOMINIO.duckdns.org SHA_COMPLETO [archivo]')
+const [dominios, sha, target = 'infra/.env'] = process.argv.slice(2)
+// Uno o varios dominios separados por coma; el primero es el principal.
+// Ej.: terrenoconectado.cl,www.terrenoconectado.cl (el DNS debe apuntar a la VM).
+const HOST = /^(?=.{1,253}$)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}$/
+const hosts = (dominios ?? '').split(',').map((h) => h.trim().toLowerCase()).filter(Boolean)
+if (!hosts.length || !hosts.every((h) => HOST.test(h)) || !/^[a-f0-9]{40}$/.test(sha ?? '')) {
+  throw new Error('Uso: node infra/tools/init-env.mjs DOMINIO[,OTRO_DOMINIO] SHA_COMPLETO [archivo]')
 }
 const secret = () => randomBytes(32).toString('hex')
 const owner = secret(), app = secret()
 const prefix = 'ghcr.io/danielandresavilaj-cell/terreno-conectado'
 const env = {
-  DOMAIN: domain, ALLOWED_ORIGIN: `https://${domain}`,
+  // Caddy acepta varias direcciones separadas por coma en un mismo bloque.
+  DOMAIN: hosts.join(', '), ALLOWED_ORIGIN: hosts.map((h) => `https://${h}`).join(','),
   POSTGRES_USER: 'postgres', POSTGRES_DB: 'terreno', POSTGRES_PASSWORD: owner, APP_DB_PASSWORD: app,
   DATABASE_URL: `postgres://postgres:${owner}@db:5432/terreno`,
   APP_DATABASE_URL: `postgres://tc_app:${app}@db:5432/terreno`,

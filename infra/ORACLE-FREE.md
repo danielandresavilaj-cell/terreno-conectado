@@ -62,7 +62,7 @@ antes de crear contenedores.
 Copiar `infra/` a `/opt/terreno/infra` (sin `.env` local). Generar allí secretos nuevos:
 
 ```bash
-node /opt/terreno/infra/tools/init-env.mjs SUBDOMINIO.duckdns.org SHA_COMPLETO /opt/terreno/infra/.env
+node /opt/terreno/infra/tools/init-env.mjs DOMINIO[,OTRO_DOMINIO] SHA_COMPLETO /opt/terreno/infra/.env
 ```
 
 El generador rechaza sobrescribir archivos. Configurar estos GitHub Actions secrets:
@@ -96,7 +96,22 @@ node tools/ops.mjs bootstrap-admin
 
 Desde la app, ese administrador crea las empresas y su administrador; cada empresa crea
 sus cuentas y faenas. Procedimiento completo: [`OPERACION.md`](OPERACION.md).
-Revisar `https://SUBDOMINIO.duckdns.org/health`, cookies Secure/HttpOnly y service worker.
+Revisar `https://DOMINIO/health`, cookies Secure/HttpOnly y service worker.
+
+## Dominio propio (ADR-002, adenda 2)
+
+Desde el 2026-11-12, la v1 se publica en **`terrenoconectado.cl`** (NIC Chile, con DNS en
+Cloudflare Free). DuckDNS se mantiene como dirección alternativa.
+
+1. En NIC Chile, delega los servidores de nombre a los que asigna Cloudflare.
+2. En Cloudflare, crea registros `A` para `@` y `www` hacia la IP de la VM, con la nube gris
+   ("DNS only"). Con el proxy activado, el tráfico pasaría por Cloudflare y habría que
+   rehacer TLS y la detección de IP del rate-limit.
+3. En `/opt/terreno/infra/.env`, lista primero el dominio principal:
+   `DOMAIN=terrenoconectado.cl, www.terrenoconectado.cl, terreno-conectado-demo.duckdns.org`
+   y `ALLOWED_ORIGIN=https://terrenoconectado.cl,https://www.terrenoconectado.cl,https://terreno-conectado-demo.duckdns.org`.
+4. Aplica con `docker compose --env-file .env -f docker-compose.prod.yml up -d caddy backend`.
+   Caddy emite los certificados solo en cuanto el DNS resuelve.
 Primer arranque requiere red; luego la captura usa la caché y cola offline.
 
 ## 4. Backups, alertas y actualizaciones

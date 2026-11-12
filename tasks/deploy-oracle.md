@@ -32,7 +32,7 @@ Timer diario instalado. Clave age de recuperación copiada fuera de Oracle.
 Clave API administrativa temporal eliminada en OCI (lista vacía verificada en consola);
 clave privada y configuración temporales eliminadas localmente. SSH/age siguen privados.
 
-Demo pública operativa: https://terreno-conectado-demo.duckdns.org/ . El release publicado es
+Demo pública operativa: https://terreno-conectado-demo.duckdns.org/ (desde el 2026-11-12 también en https://terrenoconectado.cl, ADR-002 adenda 2). El release publicado es
 `8185fd75c143a8d414c179a051e75d1e7b348e32`; el workflow de publicación completó sus tres
 jobs correctamente (validación, imágenes y despliegue). Logins de los 7 perfiles, cookies
 seguras/refresh API, aislamiento, descarga original con checksum y alta/baja de asignación
