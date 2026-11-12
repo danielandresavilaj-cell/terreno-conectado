@@ -47,6 +47,9 @@ verde.
 | FR-004 | Access token vencido con cola pendiente → la cola NO se pierde y drena al reingresar; el refresh rota `rt` y detecta reuso | Integración + **caos 6** | `backend/test/auth.spec.ts` (rotación/reuso y CSRF) + `e2e-caos-sync.spec.ts` → "caos 6 — token expirado en cola" | 🟢 verde |
 | FR-006 | Tenant demo sembrado (A: minera + faena + 3 roles; B: constructora) y login de cada rol | Integración | `backend/db/seed.ts` + `backend/test/auth.spec.ts` (`login (FR-001, FR-006)`) | 🟢 verde |
 | FR-031/032 | Ciclo draft→submitted→reviewed; ítem `nok` exige hallazgo; sólo supervisión revisa (un `field_worker` no puede declarar `reviewed` por sync); estado del hallazgo open/in_progress/resolved auditado | Unit + Integración + E2E | `e2e-captura-offline.spec.ts` (submitted, hallazgo desde NOK) + `backend/test/supervision.spec.ts` (revisión, RLS, auditoría) | 🟢 verde |
+| FR-056/057/061 | Inspector firma sin red → recarga → sync; reintento del lote deja una firma por rol; cofirma sólo por supervisor/admin del mismo tenant y `reviewed` se rechaza si falta | Unit + Integración + E2E + caos | Plan: `plans/008-operacion-certificada/plan.md` §4; se crearán pruebas de PWA, batch y RLS | 🟡 pendiente (Enmienda 007 propuesta) |
+| FR-059/061 | Crear programación puntual/diaria/semanal/mensual con zona IANA; ejecutar worker dos veces y comprobar una sola ocurrencia; completar una ocurrencia ya sincronizada sin red | Unit + Integración + E2E + caos | Plan: `plans/008-operacion-certificada/plan.md` §2.3/§4 | 🟡 pendiente (Enmienda 007 propuesta) |
+| FR-058/061 | Evento crítico/cierre/programación crea una outbox única; fallo del proveedor reintenta sin cambiar la inspección ni duplicar correo lógico; destinatario cross-tenant no es visible | Unit + Integración + caos | Plan: `plans/008-operacion-certificada/plan.md` §2.3/§4 | 🟡 pendiente (Enmienda 007 propuesta) |
 | FR-034 | *(Enmienda 004: sin geolocalización)* Cada captura queda asociada a una faena del tenant; el envío ya no pide ubicación y el sync sigue aceptando `location` nulo de colas antiguas | Integración | `backend/test/sync.spec.ts` (location opcional) | ⚪ geolocalización fuera de V1 · 🟢 asociación a faena |
 | FR-040/043, NFR-03 | Procesamiento del lote ≤ 60 s (`sync_log`) y espera sin señal informada aparte, ambas con un solo reloj (Enmienda 004, TSK-REP-006) | Integración con relojes de dispositivo desfasados | `backend/test/dashboard-supervision.spec.ts` + `frontend/test/supervision-titulares.test.ts` | ✅ |
 | FR-041 | Dashboard: filtros de faena, rango de fechas, severidad y autor | Integración | `backend/test/dashboard.spec.ts` (`dashboardFiltrosSchema`, `findingsFiltrosSchema.autor_id`) | 🟢 verde |
@@ -75,7 +78,7 @@ verde.
 | FR-050 | `platform_admin` crea tenant, le asigna el `tenant_admin` inicial y lo suspende/reactiva; un rol distinto recibe 403 en toda la consola | Integración | `backend/test/admin.spec.ts` | 🟢 verde |
 | FR-051 (`admin`) | Cada mutación admin deja exactamente una fila en `audit_log` con `actor_id` y `tenant_id` correctos; `tc_app` no puede UPDATE/DELETE y la API no expone rutas de modificación | Integración | `backend/test/admin.spec.ts` | 🟢 verde |
 
-**Recuento (2026-11-11):** 44 filas · 🟢 43 (97,7%) · 🟡 0 · 🔴 0 · ⚪ 1 (2,3%).
+**Recuento (2026-11-12):** 47 filas · 🟢 43 (91,5%) · 🟡 3 (6,4%) · 🔴 0 · ⚪ 1 (2,1%). Las tres filas pendientes corresponden a la Enmienda 007 propuesta y no declaran implementación.
 
 > La única fila con ⚪ es **FR-034**, y solo por la parte de geolocalización, que la
 > Enmienda 004 sacó de V1; su parte vigente (asociación a faena) está en 🟢. FR-048

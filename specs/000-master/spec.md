@@ -3,8 +3,8 @@
 | | |
 | :--- | :--- |
 | **ID** | 000-master |
-| **Versión** | 1.5.0 · Enmienda 006 (importar con IA: fotos y PDF escaneados, 2026-11-11) |
-| **Estado** | APROBADO — Raúl González (2026-09-24) y Daniel Ávila (2026-10-13) · Enmienda 002 aprobada en `main` · Enmienda 003 firmada por Daniel Ávila (2026-11-11), pendiente ratificación de Raúl González |
+| **Versión** | 1.6.0 · Enmienda 007 propuesta (operación certificada, 2026-11-12) |
+| **Estado** | APROBADO — Raúl González (2026-09-24) y Daniel Ávila (2026-10-13) · Enmienda 007 pendiente de aprobación de ambos integrantes |
 | **Autores** | Daniel Ávila (datos/negocio) · Raúl González (infra/plataforma) |
 | **Fuente** | Informe de Definición APT, Fase 1 (2026-09-04) |
 | **Specs derivados** | 001-auth-tenancy · 002-captura-offline · 003-motor-sincronizacion · 004-dominio-inspecciones · 005-reportes-gerencia · 006-admin-plataforma · 007-formularios-dinamicos |
@@ -74,7 +74,7 @@ flowchart LR
 
 Convención EARS en español: ubicuo (`EL SISTEMA DEBERÁ…`), evento (`CUANDO…`), estado (`MIENTRAS…`), no deseado (`SI… ENTONCES…`), opcional (`DONDE…`).
 
-> **Nota de numeración:** los IDs FR se numeran por bloques de módulo, dejando huecos **reservados** a propósito para ampliaciones futuras sin renumerar. La **Enmienda 002** (módulo 007 — formularios dinámicos) ocupó los bloques **007–009, 018–019, 027–029, 036–039 y 044–049**; el bloque **053–059** queda reservado para futuras ampliaciones.
+> **Nota de numeración:** los IDs FR se numeran por bloques de módulo, dejando huecos **reservados** a propósito para ampliaciones futuras sin renumerar. La **Enmienda 002** (módulo 007 — formularios dinámicos) ocupó los bloques **007–009, 018–019, 027–029, 036–039 y 044–049**; la **Enmienda 007** ocupa el bloque **056–061** para operación certificada.
 
 ### 5.1 Módulo 001 — Autenticación y tenancy
 
@@ -127,6 +127,12 @@ Convención EARS en español: ubicuo (`EL SISTEMA DEBERÁ…`), evento (`CUANDO�
 - **FR-037** CUANDO un ítem de tipo foto se responde, EL SISTEMA DEBERÁ comprimir el adjunto (FR-012) y asociarlo a la respuesta (`ATTACHMENT` referenciando `INSPECTION_RESPONSE`).
 - **FR-038** EL SISTEMA DEBERÁ congelar en cada inspección la `template_version` utilizada y conservarla en el historial para reproductibilidad de la respuesta.
 - **FR-039** SI la respuesta a un ítem no cumple el tipo definido por la plantilla, ENTONCES EL SISTEMA DEBERÁ rechazarla en el dispositivo y mostrar el error de validación antes de encolar.
+- **FR-056** ANTES de enviar una inspección cerrada, EL SISTEMA DEBERÁ exigir la firma manuscrita en pantalla de la persona inspectora, asociada a su sesión autenticada, la versión congelada de la plantilla y el contenido que declara haber completado; dicha firma DEBERÁ poder capturarse, persistirse y encolarse sin red.
+- **FR-057** DONDE la revisión de plantilla configure cofirma de supervisión, EL SISTEMA DEBERÁ exigir la firma manuscrita posterior de un `supervisor` o `tenant_admin` de la misma empresa antes de que la inspección pueda pasar a `reviewed`; ninguna cuenta podrá firmar por otro rol ni sustituir una firma ya registrada.
+- **FR-058** CUANDO se programe, venza, se cierre una inspección o se sincronice un hallazgo crítico, EL SISTEMA DEBERÁ crear un aviso de correo para los destinatarios configurados, con clave idempotente, trazabilidad y reintentos; la captura y el cierre nunca dependerán de que el envío de correo funcione.
+- **FR-059** EL SISTEMA DEBERÁ permitir al `tenant_admin` programar inspecciones puntuales o recurrentes por faena, plantilla, activo/lugar y responsable, conservando una zona horaria IANA y materializando cada ocurrencia una sola vez.
+- **FR-060** EL SISTEMA DEBERÁ permitir al `tenant_admin` registrar activos o lugares de su empresa con un identificador QR opaco y revocable, asociado a una plantilla; un QR resuelto sólo abrirá una plantilla publicada que esté asignada a la faena y al rol de quien lo escanea.
+- **FR-061** EL SISTEMA DEBERÁ proporcionar escaneo por cámara y entrada manual de QR; los nuevos datos de firma, programación, avisos y activos DEBERÁN mantener UUIDv7 cuando nazcan en cliente, RLS, auditoría e idempotencia de sincronización.
 
 ### 5.5 Módulo 005 — Reportes y gerencia
 
@@ -247,6 +253,14 @@ Fuera de alcance explícito — cualquier inclusión requiere enmienda a este sp
 > - **Activación:** la IA existe sólo si el servidor tiene `ANTHROPIC_API_KEY`; sin ella el asistente funciona como antes. Tope de **20 análisis por empresa cada 24 h** (`IA_TOPE_DIARIO`); cada análisis queda en `audit_log` (`template_import_ia`, con modelo y tokens). El costo se acota además con el límite de gasto de la cuenta de API.
 > - **Privacidad:** sólo se envía a Anthropic la **pauta en blanco** que sube el administrador. Nunca inspecciones, respuestas, hallazgos ni fotos de terreno. La captura sin conexión (Art. I) no depende de la IA.
 
+> **Enmienda 007 propuesta (2026-11-12, operación certificada).**
+>
+> - **Entran a alcance:** FR-056…061: cierre con firma manuscrita de inspector, cofirma opcional de supervisión, avisos por correo, programación de inspecciones y QR de activo/lugar. El diseño detallado está en `specs/004-dominio-inspecciones/`, `data-model.md` y `plans/008-operacion-certificada/`.
+> - **Firma:** es evidencia operativa de trazo, identidad autenticada y declaración de cierre; **no se presenta como firma electrónica avanzada ni biometría**. Se conserva como vector normalizado con hash del contenido inspeccionado, nunca como imagen de huella. Es obligatoria para el inspector y opcional por plantilla para supervisión. La firma de inspector viaja offline por la cola; la cofirma se toma cuando el supervisor abre el registro.
+> - **Correo:** se usa una outbox durable. El proveedor, remitente y destinatarios por evento se configuran fuera del repositorio; si el envío falla, queda pendiente/reintentable y no bloquea una inspección. Push sigue fuera de alcance.
+> - **Programación:** el backend materializa ocurrencias con zona horaria IANA y clave única, mientras el dispositivo completa sin red las ocurrencias que ya haya recibido. La recurrencia inicial es puntual, diaria, semanal y mensual; un calendario libre (RRULE) queda fuera hasta validación posterior.
+> - **QR:** el código contiene un token aleatorio opaco, no IDs, nombres de empresa ni URL con información sensible. Puede revocarse/regenerarse. Resolverlo respeta RLS y la asignación faena+rol; hay entrada manual para navegadores sin cámara.
+
 ## 11. Supuestos y restricciones
 
 - Sin acceso a faenas reales: datos simulados (semillas + faker es-CL) y escenarios de desconexión simulados (informe APT §3.5).
@@ -309,3 +323,4 @@ La demo se considera exitosa si, en vivo ante el docente:
 | 1.1.1 | 2026-10-10 | **Nota de implementación bajo FR-027** (no es Enmienda): documenta que el cursor del delta es `published_seq` (secuencia global de publicación) y no `version`, que es por plantilla. El texto y la numeración de los FR quedan intactos; la nota queda en el punto donde el requisito se lee, para que nadie reintroduzca el defecto. Detalle en `data-model.md` v1.1.2 y `adr/003` Enmienda 2 | Daniel Ávila |
 | 1.1.0 | 2026-10-07 | **Enmienda 002** — módulo 007 formularios dinámicos: §4 nueva fila 007; §5 18 FR nuevos en bloques reservados (007–009, 018–019, 027–029, 036–039, 044–049) sin renumerar; §10 importación asistida de `.xlsx` pasa a V1 y OCR/IA quedan en V2 opcional | Raúl González / Daniel Ávila (PR AMD-002) |
 | 1.0.1 | 2026-10-13 | Daniel Ávila **ratifica personalmente** su firma (reemplaza la firma delegada del 2026-10-06) y se actualiza el Estado (Enmienda 002 aprobada en `main`); sin cambio de contenido | Daniel Ávila |
+| 1.6.0 | 2026-11-12 | **Enmienda 007 propuesta** — firma de cierre, cofirma opcional, outbox de avisos por correo, programación e identificador QR de activo/lugar (FR-056…061). Requiere aprobación de Raúl y Daniel antes de implementar | Raúl González (con IA) |

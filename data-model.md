@@ -1,6 +1,6 @@
 # DATA MODEL — Modelo conceptual de datos
 
-**Versión:** 1.2.0 (v1, Enmienda 003) · **Fecha:** 2026-09-14 · actualizado 2026-11-11 · **Autor:** Daniel Ávila · **Relacionado:** spec maestro §5/§7 (Enmienda 002), specs 001–007, ADR-003
+**Versión:** 1.6.0 (Enmienda 007 propuesta) · **Fecha:** 2026-09-14 · actualizado 2026-11-12 · **Autor:** Daniel Ávila · **Relacionado:** spec maestro §5/§7, specs 001–007, ADR-003
 **Evidencia APT:** "Modelo conceptual de datos preliminar" (informe §6).
 **Reglas transversales:** toda tabla de dominio lleva `tenant_id UUID NOT NULL` + política RLS (Artículo IV); IDs `UUIDv7` generados en el cliente cuando el registro nace offline (FR-015); timestamps `created_at`, `updated_at` (servidor) y `captured_at` (cliente, autoridad para LWW — FR-023).
 
@@ -146,6 +146,18 @@ erDiagram
 
 **ATTACHMENT (Foto)** — `id, tenant_id, owner_type ENUM(inspection, finding, log_entry, response), owner_id, file_key TEXT, mime, bytes INT, width/height INT, captured_at, client_version`. `owner_type` incluye **`response`** (módulo 007, FR-037): la foto de un ítem se asocia a su respuesta. V1: `file_key` apunta a volumen Docker; evolución S3 documentada en research.md §6.
 
+> **Extensión propuesta — Enmienda 007 (FR-056…061).** Estas entidades no existen aún en la base. Se versionan aquí antes del código para que la migración, RLS, contratos de sync y pruebas nazcan coherentes; no deben declararse implementadas hasta que la enmienda sea aprobada y sus tareas terminen.
+
+**INSPECTION_SIGNATURE** — `id UUIDv7, tenant_id, inspection_id FK→INSPECTION, signer_id FK→USER, signer_role ENUM(inspector, supervisor), strokes_json JSONB, content_hash TEXT, declaration_version TEXT, signed_at TIMESTAMPTZ (cliente), client_version INT, created_at`. Un índice único `(inspection_id, signer_role)` evita duplicar la firma de cada rol. `strokes_json` lleva puntos vectoriales normalizados, no una imagen de una firma ni datos biométricos; `content_hash` fija el contenido/ciclo de cierre que la persona declaró. RLS por tenant y auditoría de creación; no se permite reemplazo ni borrado desde `tc_app`.
+
+**ASSET (activo o lugar)** — `id UUID, tenant_id, site_id FK→SITE, template_id FK→TEMPLATE, name TEXT, kind ENUM(vehicle, equipment, location), qr_token_hash TEXT UNIQUE, status ENUM(active, revoked), created_by FK→USER, created_at, updated_at`. El QR muestra el token aleatorio en claro sólo al generarlo; la base conserva su hash. `template_id` es una referencia estable: al resolver el QR se elige la revisión publicada que corresponda y se aplica de todos modos `TEMPLATE_ASSIGNMENT` por faena+rol. Regenerar QR invalida el token anterior y deja audit log.
+
+**INSPECTION_SCHEDULE** — `id UUID, tenant_id, site_id FK→SITE, asset_id FK→ASSET NULL, template_id FK→TEMPLATE, assignee_id FK→USER NULL, cadence ENUM(once, daily, weekly, monthly), timezone TEXT, starts_at TIMESTAMPTZ, next_occurs_at TIMESTAMPTZ, due_after_minutes INT NULL, active BOOLEAN, created_by FK→USER, created_at, updated_at`. La zona horaria es IANA. El backend calcula fechas de pared, no suma 24 horas ciegamente, para respetar cambios de horario.
+
+**SCHEDULED_INSPECTION** — `id UUID, tenant_id, schedule_id FK→INSPECTION_SCHEDULE, occurrence_at TIMESTAMPTZ, due_at TIMESTAMPTZ NULL, inspection_id FK→INSPECTION NULL, status ENUM(open, completed, missed, cancelled), created_at`. Índice único `(schedule_id, occurrence_at)` para que el worker y sus reintentos materialicen una sola ocurrencia. La inspección final referencia la ocurrencia sin cambiar la versión de plantilla que congeló al iniciarse.
+
+**NOTIFICATION_OUTBOX** — `id UUID, tenant_id, event_type ENUM(schedule_created, schedule_due, schedule_overdue, inspection_submitted, critical_finding), recipient_user_id FK→USER NULL, recipient_email_snapshot CITEXT, idempotency_key TEXT UNIQUE, payload JSONB, status ENUM(pending, sending, delivered, failed), attempts INT, available_at TIMESTAMPTZ, delivered_at TIMESTAMPTZ NULL, last_error TEXT NULL, created_at`. El worker de correo consume únicamente esta tabla; las credenciales del proveedor permanecen en variables de entorno. El aviso se crea en la misma transacción que el evento y no bloquea la transacción de captura/sync.
+
 ### 2.3 Sincronización y auditoría (spec 003 / 006)
 
 **SYNC_LOG** — `id, tenant_id, user_id, device_id UUID, batch_id UUID, records_total INT, records_ok INT, records_failed INT, started_at, finished_at, status ENUM(pending, ok, partial, failed)`. Se abre en dos fases (`pending` → `UPDATE` con totales y `finished_at`, TSK-WS-009) para que `conflict_record.sync_log_id` referencie el batch. Satisface FR-024 y alimenta el dashboard (latencia media).
@@ -179,7 +191,7 @@ CREATE POLICY tenant_isolation ON inspection
 ## 4. Reglas de integridad clave
 
 1. **Idempotencia de ingesta:** `INSERT ... ON CONFLICT (id) DO UPDATE ... WHERE excluded.client_version > inspection.client_version` (upsert por UUID cliente + versión → FR-021/023); aplica también a `template_import` (FR-029).
-2. **Orden de dependencias del batch:** site → template (revisiones, imports, asignaciones) → inspection → responses → findings → log_entries → attachments (FR-020); un lote se rechaza completo si cruza tenants (FR-025).
+2. **Orden de dependencias del batch:** site → template (revisiones, imports, asignaciones) → inspection → responses → findings → log_entries → attachments → inspection_signature (Enmienda 007) (FR-020); un lote se rechaza completo si cruza tenants (FR-025).
 3. **Latencia medida:** `synced_at - captured_at` por registro; agregado diario por tenant para dashboard (FR-040).
 4. **Retención demo:** sin borrado físico; `is_active`/status para baja lógica.
 5. **Congelamiento de revisiones:** `TEMPLATE_REVISION.published` es inmutable (sin UPDATE/DELETE desde `tc_app`); todo cambio exige una nueva revisión `draft → published` (FR-049). Las respuestas se validan contra `TEMPLATE_ITEM.props` en el dispositivo antes de encolar (FR-039).
@@ -199,6 +211,7 @@ CREATE POLICY tenant_isolation ON inspection
 | Versión | Fecha | Cambio |
 | :--- | :--- | :--- |
 | 1.0.0 | 2026-09-14 | Modelo base (specs 001–006) |
+| 1.6.0 | 2026-11-12 | **Enmienda 007 propuesta:** modelo previo a implementación para `inspection_signature`, `asset`, `inspection_schedule`, `scheduled_inspection` y `notification_outbox`; RLS, inmutabilidad e idempotencia explícitas | Raúl González (con IA) |
 | 1.5.0 | 2026-11-11 | **Enmienda 006:** `template_imports.motor` y formatos `jpg`/`png` (migración 018); `audit_log` registra `template_import_ia` | Daniel Ávila (con IA) |
 | 1.4.0 | 2026-11-11 | **Enmienda 005:** `template_imports.formato` (migración 017); el archivo fuente se guarda con su extensión y MIME reales | Daniel Ávila (con IA) |
 | 1.3.0 | 2026-11-11 | **Enmienda 004:** `auth_session.revoked_reason` (migración 015, sesión reemplazada); `inspection.queued_at` / `client_sent_at` / `reviewed_at` y `finding.resolved_at` (migración 016, métricas del dashboard de supervisión, TSK-REP-006). `inspection.location` queda en desuso | Daniel Ávila (con IA) |
