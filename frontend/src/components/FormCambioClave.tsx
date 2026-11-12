@@ -61,6 +61,7 @@ export function FormCambioClave({ alTerminar }: { alTerminar?: () => void }) {
         <span className="label-inst">Contraseña actual</span>
         <input
           type="password"
+          name="contrasena-actual"
           value={actual}
           onChange={(e) => {
             setActual(e.target.value)
@@ -75,6 +76,7 @@ export function FormCambioClave({ alTerminar }: { alTerminar?: () => void }) {
         <span className="label-inst">Nueva contraseña</span>
         <input
           type="password"
+          name="contrasena-nueva"
           value={nueva}
           onChange={(e) => setNueva(e.target.value)}
           autoComplete="new-password"
@@ -87,6 +89,7 @@ export function FormCambioClave({ alTerminar }: { alTerminar?: () => void }) {
         <span className="label-inst">Repite la nueva contraseña</span>
         <input
           type="password"
+          name="repetir-contrasena-nueva"
           value={repetir}
           onChange={(e) => setRepetir(e.target.value)}
           autoComplete="new-password"
@@ -108,7 +111,7 @@ export function FormCambioClave({ alTerminar }: { alTerminar?: () => void }) {
         variante="primaria"
         tamano="lg"
         bloqueCompleto
-        disabled={enviando || !!problema || !actual || !nueva || nueva !== repetir}
+        disabled={enviando}
       >
         {enviando ? 'Guardando…' : 'Cambiar contraseña'}
       </Boton>

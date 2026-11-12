@@ -72,7 +72,6 @@ export function Bitacora() {
                   value={texto}
                   onChange={(e) => setTexto(e.target.value)}
                   rows={4}
-                  autoFocus
                   placeholder="Qué pasó en el turno, qué se dejó pendiente, qué hay que saber del turno siguiente…"
                   className="mt-1.5 w-full px-3 py-2.5 rounded-[10px] bg-s0 border border-line-soft text-[14px] leading-relaxed placeholder:text-ink-3 focus:border-beam transition-colors duration-150 resize-none"
                 />

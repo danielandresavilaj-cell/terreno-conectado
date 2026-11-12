@@ -31,7 +31,7 @@ Verificado sobre `main` al 2026-10-13.
 
 | Requisito | Estado | Evidencia |
 | :--- | :--- | :--- |
-| FR-010 PWA instalable + SW | ✅ | `frontend/vite.config.ts` (`VitePWA`, `registerType: autoUpdate`, Workbox); `frontend/scripts/check-pwa.mjs` |
+| FR-010 PWA instalable + SW | ✅ | `frontend/vite.config.ts` (`VitePWA`, `registerType: autoUpdate`, Workbox); `frontend/src/components/PwaInstalacion.tsx`; `frontend/scripts/check-pwa.mjs` |
 | FR-011 captura offline | ✅ | `frontend/src/lib/db.ts`, `frontend/src/screens/`; `e2e-captura-offline.spec.ts` |
 | FR-012 compresión de foto | ✅ | `frontend/src/lib/compresor.ts`; `shared` (unit) + E2E |
 | FR-013 estados + contador | ✅ | `db.ts` (`SyncEstado`), `store.tsx` (`pendientes`, `fallidos`) |
@@ -58,7 +58,7 @@ Evolución por versiones (`frontend/src/lib/db.ts`), alineada con `data-model.md
 
 ## 4. UX de captura en terreno
 
-Targets táctiles amplios, alto contraste para luz solar, y **autoguardado de borrador** por ítem: una captura a medias sobrevive cerrar/reabrir (FR-014). Los errores de validación de tipo (FR-039) se muestran **antes de encolar**, en el dispositivo.
+Targets táctiles amplios, alto contraste para luz solar, y **autoguardado de borrador** por ítem: una captura a medias sobrevive cerrar/reabrir (FR-014). Los errores de validación de tipo (FR-039) se muestran **antes de encolar**, en el dispositivo. Cuando el navegador permite instalar la PWA, la app ofrece una acción explícita; si no, indica el camino manual sin impedir el uso web (FR-010).
 
 ## 5. Cache del service worker (Workbox)
 
@@ -99,6 +99,7 @@ La toma usa `getUserMedia` y prefiere la cámara trasera. El stream se detiene a
 
 | Versión | Fecha | Cambio | Autor |
 | :--- | :--- | :--- | :--- |
+| 0.3.2 | 2026-11-12 | TSK-OFF-004 (#184): acción visible de instalación PWA, ayuda por plataforma y formularios sin autofoco móvil | Raúl González (con IA) |
 | 0.3.1 | 2026-10-16 | TSK-OFF-002 (#150): cámara del dispositivo para fotos de ítems y hallazgos; fallback explícito de archivo y apagado del stream | Raúl González (con IA) |
 | 0.3.0 | 2026-10-13 | **Spec completado (F2).** Documenta el estado real de FR-010…019 con evidencia: esquema Dexie por versiones, caché de plantillas + cursor por tenant, Workbox, compresión y export offline | Daniel Ávila |
 | 0.2.0 | 2026-10-07 | **Módulo 007 (Enmienda 002):** alcance +FR-018 (caché de plantillas publicadas asignadas) y +FR-019 (export `.xlsx` rellenado + hoja Evidencias en el dispositivo) | Raúl González (con IA) |
