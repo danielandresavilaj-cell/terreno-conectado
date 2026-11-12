@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 
 type EstadoCamara = 'iniciando' | 'lista' | 'error'
 
@@ -14,6 +14,19 @@ export function mensajeErrorCamara(error: unknown): string {
   return 'No se pudo iniciar la cámara. Prueba nuevamente o selecciona un archivo.'
 }
 
+/** Devuelve el índice al que debe volver Tab al llegar al borde del diálogo. */
+export function focoEnDialogo(
+  tecla: string,
+  retrocede: boolean,
+  indiceActivo: number,
+  cantidad: number,
+): number | null {
+  if (tecla !== 'Tab' || cantidad === 0 || indiceActivo < 0) return null
+  if (retrocede && indiceActivo === 0) return cantidad - 1
+  if (!retrocede && indiceActivo === cantidad - 1) return 0
+  return null
+}
+
 /** Cámara efímera: el stream sólo existe mientras el cuadro está abierto. */
 export function CamaraCaptura({
   abierta,
@@ -27,6 +40,9 @@ export function CamaraCaptura({
   const video = useRef<HTMLVideoElement>(null)
   const stream = useRef<MediaStream | null>(null)
   const archivo = useRef<HTMLInputElement>(null)
+  const dialogo = useRef<HTMLElement>(null)
+  const cancelar = useRef<HTMLButtonElement>(null)
+  const activador = useRef<HTMLElement | null>(null)
   const abiertaActual = useRef(abierta)
   abiertaActual.current = abierta
   const [estado, setEstado] = useState<EstadoCamara>('iniciando')
@@ -36,6 +52,11 @@ export function CamaraCaptura({
     stream.current?.getTracks().forEach((track) => track.stop())
     stream.current = null
     if (video.current) video.current.srcObject = null
+  }
+
+  const cerrar = () => {
+    detener()
+    alCerrar()
   }
 
   const iniciar = async () => {
@@ -71,15 +92,40 @@ export function CamaraCaptura({
 
   useEffect(() => {
     if (!abierta) return
+    activador.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
     void iniciar()
-    return detener
+    // Un diálogo debe recibir el foco; de lo contrario el lector de pantalla y
+    // el teclado siguen interactuando con la captura que quedó detrás.
+    queueMicrotask(() => cancelar.current?.focus())
+    return () => {
+      detener()
+      if (activador.current?.isConnected) activador.current.focus()
+      activador.current = null
+    }
   }, [abierta])
 
   if (!abierta) return null
 
-  const cerrar = () => {
-    detener()
-    alCerrar()
+  const alTeclado = (event: KeyboardEvent<HTMLElement>) => {
+    if (event.key === 'Escape') {
+      event.preventDefault()
+      cerrar()
+      return
+    }
+    const focos = dialogo.current?.querySelectorAll<HTMLElement>(
+      'button:not([disabled]), input:not([disabled]), [href], select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+    )
+    if (!focos?.length) return
+    const destino = focoEnDialogo(
+      event.key,
+      event.shiftKey,
+      Array.from(focos).indexOf(document.activeElement as HTMLElement),
+      focos.length,
+    )
+    if (destino !== null) {
+      event.preventDefault()
+      focos[destino].focus()
+    }
   }
 
   const tomar = () => {
@@ -106,25 +152,25 @@ export function CamaraCaptura({
   }
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-black/75 p-4" role="dialog" aria-modal="true" aria-label="Tomar fotografía">
-      <section className="w-full max-w-lg rounded-2xl border border-line bg-s1 p-4 shadow-2xl">
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/75 p-4" role="dialog" aria-modal="true" aria-label="Tomar fotografía" onKeyDown={alTeclado}>
+      <section ref={dialogo} className="w-full max-w-lg rounded-2xl border border-line bg-s1 p-4 shadow-2xl">
         <div className="mb-3 flex items-center justify-between gap-3">
           <div>
             <p className="text-[15px] font-semibold">Tomar foto</p>
             <p className="text-[12px] text-ink-3">La imagen se guarda en este dispositivo y se comprime antes de enviarse.</p>
           </div>
-          <button type="button" onClick={cerrar} className="h-10 px-3 text-[13px] text-ink-2 hover:text-ink-1">Cancelar</button>
+          <button ref={cancelar} type="button" onClick={cerrar} className="h-10 px-3 text-[13px] text-ink-2 hover:text-ink-1">Cancelar</button>
         </div>
         <div className="relative aspect-[4/3] overflow-hidden rounded-xl bg-black">
           <video ref={video} autoPlay playsInline muted className="h-full w-full object-cover" />
-          {estado === 'iniciando' && <p className="absolute inset-0 grid place-items-center text-[13px] text-white">Abriendo cámara…</p>}
+          {estado === 'iniciando' && <p role="status" aria-live="polite" className="absolute inset-0 grid place-items-center text-[13px] text-white">Abriendo cámara…</p>}
           {estado === 'error' && (
             <div className="absolute inset-0 grid place-items-center p-6 text-center">
-              <p className="text-[13px] leading-relaxed text-white">{mensaje}</p>
+              <p role="alert" className="text-[13px] leading-relaxed text-white">{mensaje}</p>
             </div>
           )}
         </div>
-        <input ref={archivo} type="file" accept="image/*" className="hidden" onChange={(event) => {
+        <input ref={archivo} type="file" accept="image/*" aria-label="Seleccionar fotografía desde archivos" className="hidden" onChange={(event) => {
           const foto = event.target.files?.[0]
           event.target.value = ''
           if (!foto) return
