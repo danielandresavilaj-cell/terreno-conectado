@@ -92,8 +92,10 @@ export interface TemplateImportRow {
   file_key: string
   file_name: string
   status: TemplateImportStatus
-  /** TSK-FORM-020: `xlsx` | `docx` | `pdf`. */
-  formato?: 'xlsx' | 'docx' | 'pdf'
+  /** TSK-FORM-020/021: `xlsx` | `docx` | `pdf` | `jpg` | `png`. */
+  formato?: 'xlsx' | 'docx' | 'pdf' | 'jpg' | 'png'
+  /** TSK-FORM-021: quién armó la propuesta. */
+  motor?: 'reglas' | 'ia'
   proposed_schema: Record<string, unknown> | null
   error: string | null
   confirmed_at: string | null

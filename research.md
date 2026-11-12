@@ -73,6 +73,7 @@
 | Monitoreo | Uptime Kuma self-hosted o betterstack free | $0; cubre NFR-09 |
 | Importar PDF (backend) | `pdfjs-dist` | Texto con posiciones y campos AcroForm; Apache-2.0; sólo servidor (ADR-003 Enmienda 4) |
 | Informes PDF / Word (backend) | `pdfkit` / `docx` | Puro JS, MIT, sin navegador headless; sólo servidor (ADR-003 Enmienda 4) |
+| Importar con IA (backend) | `@anthropic-ai/sdk` | SDK oficial de la API de Claude, MIT; reintentos y errores tipados; sólo servidor y opcional (ADR-005) |
 | Leer Word (`shared`) | `jszip` + `saxes` | Ya venían con exceljs; se declaran explícitos, cero peso nuevo |
 
 ## 7. Resultado

@@ -11,5 +11,5 @@
     "isolatedModules": false,
     "types": ["node", "multer"]
   },
-  "include": ["src", "db", "test", "vitest.config.mts"]
+  "include": ["src", "db", "test", "scripts/*.ts", "vitest.config.mts"]
 }

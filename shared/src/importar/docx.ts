@@ -185,8 +185,8 @@ export function bloquesDeDocumentXml(xml: string): Bloque[] {
   return bloques
 }
 
-/** `.docx` → propuesta de plantilla. */
-export async function proponerImportDocx(buffer: Uint8Array, nombre_archivo = 'plantilla.docx'): Promise<ParseResult> {
+/** `.docx` → bloques (títulos, párrafos, tablas), o el motivo si no se puede leer. */
+export async function bloquesDeDocx(buffer: Uint8Array): Promise<{ ok: true; bloques: Bloque[] } | { ok: false; error: string }> {
   let xml: string | undefined
   try {
     const zip = await JSZip.loadAsync(buffer)
@@ -196,7 +196,18 @@ export async function proponerImportDocx(buffer: Uint8Array, nombre_archivo = 'p
   }
   if (!xml) return { ok: false, error: 'El archivo no es un documento de Word (.docx).' }
   try {
-    return proponerDesdeDocumento(bloquesDeDocumentXml(xml), nombre_archivo, 'docx')
+    return { ok: true, bloques: bloquesDeDocumentXml(xml) }
+  } catch (err) {
+    return { ok: false, error: `No se pudo leer el .docx: ${err instanceof Error ? err.message : String(err)}` }
+  }
+}
+
+/** `.docx` → propuesta de plantilla. */
+export async function proponerImportDocx(buffer: Uint8Array, nombre_archivo = 'plantilla.docx'): Promise<ParseResult> {
+  const r = await bloquesDeDocx(buffer)
+  if (!r.ok) return r
+  try {
+    return proponerDesdeDocumento(r.bloques, nombre_archivo, 'docx')
   } catch (err) {
     return { ok: false, error: `No se pudo leer el .docx: ${err instanceof Error ? err.message : String(err)}` }
   }

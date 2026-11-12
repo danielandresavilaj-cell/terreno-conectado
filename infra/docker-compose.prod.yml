@@ -50,6 +50,10 @@ services:
       ALLOWED_ORIGIN: ${ALLOWED_ORIGIN:?}
       LOG_LEVEL: ${LOG_LEVEL:-info}
       SYNC_VOLUME: /data/sync
+      # TSK-FORM-021: importar con IA. Opcionales: sin clave, el botón no aparece.
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      IA_MODELO: ${IA_MODELO:-claude-haiku-5-5}
+      IA_TOPE_DIARIO: ${IA_TOPE_DIARIO:-20}
     volumes:
       - sync_data:/data/sync
     expose:

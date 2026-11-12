@@ -16,6 +16,7 @@
 
 import { nombreArchivoDeContentDisposition } from '@terreno/shared'
 import type {
+  CapacidadesImport,
   ConfirmImportBody,
   ConflictRecordDto,
   DashboardFindingsResponse,
@@ -30,6 +31,7 @@ import type {
   TemplateAssignmentRole,
   TemplateAssignmentsResponse,
   TemplateDefinition,
+  MotorImport,
   TemplateImport,
   TemplateRevisionDetailDto,
   TemplatesDeltaResponse,
@@ -575,10 +577,22 @@ export async function eliminarAsignacion(assignmentId: string): Promise<void> {
  * fuente (FR-019/044) tenga algo que rellenar. Sin él, una plantilla creada
  * desde la UI no era exportable — «importada» pero sin documento que exportar.
  */
-export function subirImportOriginal(file: File): Promise<TemplateImport> {
+export function subirImportOriginal(file: File, motor: MotorImport = 'reglas'): Promise<TemplateImport> {
   const fd = new FormData()
+  // TSK-FORM-021: el motor va ANTES del archivo, como campo del multipart.
+  if (motor !== 'reglas') fd.append('motor', motor)
   fd.append('file', file)
   return apiFetch<TemplateImport>('/templates/imports', { method: 'POST', body: fd })
+}
+
+/** TSK-FORM-021: ¿hay IA en el servidor y cuántos análisis quedan hoy? */
+export function getCapacidadesImport(): Promise<CapacidadesImport> {
+  return apiFetch<CapacidadesImport>('/templates/imports/capacidades')
+}
+
+/** TSK-FORM-021: vuelve a analizar con IA un import ya subido (p. ej. un PDF escaneado). */
+export function analizarImportConIA(importId: string): Promise<TemplateImport> {
+  return apiFetch<TemplateImport>(`/templates/imports/${importId}/analizar-ia`, { method: 'POST' })
 }
 
 /**
