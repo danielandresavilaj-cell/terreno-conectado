@@ -246,11 +246,10 @@ los flujos en **perfil móvil**, incluidos los siete escenarios de caos de `test
 ```bash
 # Opción A (recomendada): define DEMO_PASSWORD y JWT_ACCESS_SECRET
 # en tu `.env` local (cópialo de `.env.example`). El harness lo carga solo.
-# El E2E usa backend :3310; la URL de API se incrusta al compilar, no al arrancar
-# vite preview. Construye shared/backend y luego el frontend con la URL correcta:
+# El E2E levanta PostgreSQL y recompila el frontend contra su API temporal.
+# Sólo necesita que shared y backend estén compilados:
 npm run build --workspace @terreno/shared
 npm run build --workspace @terreno/backend
-npx cross-env VITE_API_URL=http://127.0.0.1:3310/api/v1 npm run build --workspace @terreno/frontend
 npm run e2e                         # stack + specs + teardown en un comando
 npm run e2e -- --grep "caos 7"      # un solo escenario
 
