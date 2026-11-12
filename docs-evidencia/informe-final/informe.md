@@ -22,14 +22,14 @@ Después del cierre de F2, el producto dejó de ser una demo y sumó:
 - formularios importados desde **Excel, Word, PDF y fotos de pautas en papel** (con IA opcional);
 - una exportación consolidada.
 
-La matriz de requisitos está en **97,7% verde** y hay **517 pruebas automatizadas** en CI.
+La matriz de requisitos está en **97,7% verde** y hay **521 pruebas automatizadas** en CI.
 
 ## 2. Alcance entregado
 
 | Módulo | Qué hace hoy |
 | :--- | :--- |
 | 001 Auth y tenancy | Login con correo y clave, JWT con tenant, refresh `httponly` con rotación y detección de reuso, bloqueo por intentos, RLS de Postgres, clave temporal en el primer ingreso, aviso si la sesión se abre en otro dispositivo |
-| 002 Captura offline | PWA instalable, borradores, cámara con compresión, cola local, cuota real del dispositivo con aviso al 80%, entrada sin señal con la identidad cacheada |
+| 002 Captura offline | PWA instalable (con botón "Instalar app" y ayuda por plataforma), borradores, cámara con compresión, cola local, cuota real del dispositivo con aviso al 80%, entrada sin señal con la identidad cacheada, captura operable con lector de pantalla y teclado |
 | 003 Sincronización | Lotes idempotentes (UUIDv7 + `client_version`), orden de dependencias, LWW determinista, registro de conflictos visible para el supervisor |
 | 004 Dominio | Plantillas versionadas, inspecciones con versión congelada, hallazgos, adjuntos, asociación a faena (sin geolocalización, Enmienda 004) |
 | 005 Reportes | Dashboard con filtros, latencia (media y p95), "espera sin señal" medida aparte, supervisión de la sincronización por faena y equipo, exportación Excel consolidado / PDF / Word por filtro o selección |
@@ -44,6 +44,7 @@ La matriz de requisitos está en **97,7% verde** y hay **517 pruebas automatizad
 | 004 | Se retira la geolocalización; aviso de sesión reemplazada; métricas de supervisión (TSK-REP-006) | PRs #170–#172 |
 | 005 | Importar Word y PDF (TSK-FORM-020); exportar Excel consolidado, PDF y Word (TSK-REP-007) | PRs #173, #174 |
 | 006 | Importar con IA, opcional, auditado y con tope diario (TSK-FORM-021, ADR-005) | PR #175 |
+| — | Validación en Windows/Mac/CI y E2E aislado (TSK-OPS-001, TSK-E2E-002); accesibilidad de la captura (TSK-OFF-003); instalación visible de la PWA (TSK-OFF-004); dominio propio `terrenoconectado.cl` (ADR-002 adenda 2) | PRs #178, #179, #182, #183, #185 |
 
 Las enmiendas 003 a 006 quedan pendientes de ratificación por Raúl González.
 
@@ -60,10 +61,10 @@ Se cumple con holgura el criterio de salida de F2 (**≥ 90% verde**).
 | Capa | Cantidad | Estado |
 | :--- | :--- | :--- |
 | Integración backend (Vitest + Testcontainers, Postgres real) | 253 | Verde en el CI de `main` (`a13c50c`) |
-| Unidad frontend (Vitest) | 149 | Verde |
+| Unidad frontend (Vitest) | 153 | Verde |
 | Unidad shared (Vitest) | 92 | Verde |
 | E2E + caos (Playwright, perfil móvil) | 23 | Verde en la última corrida |
-| **Total** | **517** | |
+| **Total** | **521** | |
 
 Invariantes de los escenarios de caos 1–7: **0 pérdidas, 0 duplicados, 0 fugas entre empresas**.
 
@@ -122,5 +123,6 @@ La IA de importación se prueba con un analizador simulado, así que la CI no ll
 
 | Versión | Fecha | Cambio | Autor |
 | :--- | :--- | :--- | :--- |
+| 2.1.0 | 2026-11-12 | Mejoras de validación, E2E, accesibilidad e instalación PWA; dominio `terrenoconectado.cl`; 521 pruebas | Daniel Ávila (con IA) |
 | 2.0.0 | 2026-11-11 | Estado v1.3 en producción: enmiendas 003–006, matriz 43/44 y 517 pruebas reales del CI de `main` | Daniel Ávila (con IA) |
 | 1.0.0 | 2026-10-14 | Borrador del informe final de F2 | Daniel Ávila |

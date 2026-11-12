@@ -179,7 +179,7 @@ function FilaCampo({
       </div>
 
       {error && (
-        <p role="alert" className="mt-2.5 text-[12px] font-medium text-failed">
+        <p id={`respuesta-error-${item.id}`} role="alert" className="mt-2.5 text-[12px] font-medium text-failed">
           {error}
         </p>
       )}

@@ -20,6 +20,7 @@
 import { useState, type FormEvent } from 'react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { Boton } from '../components/ui'
+import { PwaInstalacion } from '../components/PwaInstalacion'
 import { useEstado } from '../lib/store'
 import { ApiError } from '../lib/api'
 import { EASE, STAGGER } from '../lib/motion'
@@ -37,7 +38,7 @@ export function Login() {
 
   const enviar = async (e: FormEvent) => {
     e.preventDefault()
-    if (enviando || !email || !pass) return
+    if (enviando) return
     setEnviando(true)
     setError(null)
     try {
@@ -171,7 +172,9 @@ export function Login() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
+                  name="email"
                   autoComplete="username"
+                  spellCheck={false}
                   placeholder="nombre@empresa.cl"
                   className="mt-1.5 w-full h-11 px-3 rounded-[10px] bg-s1 border border-line-soft text-[14px] placeholder:text-ink-3 focus:border-beam transition-colors duration-150"
                 />
@@ -185,6 +188,7 @@ export function Login() {
                     value={pass}
                     onChange={(e) => setPass(e.target.value)}
                     required
+                    name="password"
                     autoComplete="current-password"
                     placeholder="••••••••"
                     className="w-full h-11 px-3 pr-11 rounded-[10px] bg-s1 border border-line-soft text-[14px] placeholder:text-ink-3 focus:border-beam transition-colors duration-150"
@@ -214,8 +218,10 @@ export function Login() {
                     type="text"
                     value={empresa}
                     onChange={(e) => setEmpresa(e.target.value)}
-                    autoComplete="organization"
+                    name="codigo-empresa"
+                    autoComplete="off"
                     autoCapitalize="none"
+                    spellCheck={false}
                     placeholder="ej. minera-el-cobre"
                     className="mt-1.5 w-full h-11 px-3 rounded-[10px] bg-s1 border border-line-soft text-[14px] placeholder:text-ink-3 focus:border-beam transition-colors duration-150"
                   />
@@ -253,7 +259,7 @@ export function Login() {
                 variante="primaria"
                 tamano="lg"
                 bloqueCompleto
-                disabled={enviando || !email || !pass}
+                disabled={enviando}
               >
                 {enviando ? 'Ingresando…' : 'Entrar'}
               </Boton>
@@ -264,6 +270,7 @@ export function Login() {
             ¿Olvidaste tu contraseña o no tienes cuenta? Pídele al administrador de tu empresa que
             la cree o la restablezca.
           </motion.p>
+          <PwaInstalacion />
         </div>
       </main>
     </div>

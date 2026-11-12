@@ -333,7 +333,6 @@ function Faenas() {
                   value={editando.nombre}
                   onChange={(e) => setEditando({ id: f.id, nombre: e.target.value })}
                   className={CLASE_CAMPO}
-                  autoFocus
                 />
               </label>
               <Boton variante="primaria" disabled={!editando.nombre.trim()}>

@@ -1,6 +1,6 @@
 # TEST PLAN — Plan de pruebas de validación
 
-**Versión:** 1.2.1 · **Fecha:** 2026-09-14 · actualizado 2026-11-11 · **Autor:** Raúl González (validación) · **Relacionado:** spec maestro §5–6, constitución Artículos III/IV/VII
+**Versión:** 1.2.2 · **Fecha:** 2026-09-14 · actualizado 2026-11-11 · **Autor:** Raúl González (validación) · **Relacionado:** spec maestro §5–6, constitución Artículos III/IV/VII
 **Evidencia APT:** "Plan de pruebas de validación" (informe §6) y soporte de la competencia "Realizar pruebas de certificación de productos y procesos".
 
 ## 1. Principio rector
@@ -89,10 +89,10 @@ verde.
 ```
 E2E + caos (Playwright, manual)           23 tests
 Integración backend (Vitest + Testcontainers) 253 tests
-Unidad frontend (Vitest)                     149 tests
+Unidad frontend (Vitest)                     153 tests
 Unidad shared (Vitest)                        92 tests
                                            ───────────────
-                                           517 tests   (v1.3, CI de main a13c50c, 2026-11-11)
+                                           521 tests   (v1.3, main 99aa24c, 2026-11-12)
 ```
 
 > El criterio de salida de Fase 2 (§8) pide "matriz §3 ≥ 90% verde": hoy está en
@@ -207,6 +207,7 @@ y nunca bloquea un PR. Informe por módulo en
 
 | Versión | Fecha | Cambio | Autor |
 | :--- | :--- | :--- | :--- |
+| 1.2.2 | 2026-11-12 | **TSK-OFF-003 (#182) y TSK-OFF-004 (#185)**, revisados por Daniel Ávila: accesibilidad de la captura (controles con su pregunta y error, diálogo de cámara con foco/Escape) e instalación visible de la PWA. E2E 23/23 en ambas ramas (runs 43269750831 y 43324635847); volumen 521 tests (frontend 153) | Daniel Ávila (con IA) |
 | 1.2.1 | 2026-11-12 | **TSK-OPS-001 (#178) y TSK-E2E-002 (#179)**, revisados por Daniel Ávila: E2E nocturno + manual (tabla §2); harness E2E aislado (recompila el frontend contra su API temporal y entrega las URLs a Playwright); auditoría de respaldos sin `rclone` simulado; migraciones y seed cargan el `.env` raíz. Revalidación en CI del 2026-11-12: 23/23 E2E con caos 1–7 | Daniel Ávila (con IA) |
 | 1.2.0 | 2026-11-11 | **v1.3 (Enmiendas 004–006)**: filas de importar Word/PDF, exportar consolidado/PDF/Word e importar con IA; FR-048 a 🟢; recuento 43/44 (97,7%); volumen 517 tests (253 backend, 149 frontend, 92 shared, 23 E2E) | Daniel Ávila (con IA) |
 | 1.1.0 | 2026-11-11 | **v1 (Enmienda 003)**: FR-029 reescrito como acción en línea (la fila anterior afirmaba algo que la prueba no comprobaba); FR-048 pasa a V2; filas nuevas FR-053/054, FR-055 y autoría; FR-024 y FR-031/032 con evidencia de `supervision.spec.ts`; volumen 463 tests (224 backend, 138 frontend, 78 shared, 23 E2E) | Daniel Ávila (con IA) |
