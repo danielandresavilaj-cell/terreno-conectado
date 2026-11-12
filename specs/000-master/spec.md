@@ -3,7 +3,7 @@
 | | |
 | :--- | :--- |
 | **ID** | 000-master |
-| **Versión** | 1.4.0 · Enmienda 005 (importar Word/PDF; exportar consolidado, PDF y Word, 2026-11-11) |
+| **Versión** | 1.5.0 · Enmienda 006 (importar con IA: fotos y PDF escaneados, 2026-11-11) |
 | **Estado** | APROBADO — Raúl González (2026-09-24) y Daniel Ávila (2026-10-13) · Enmienda 002 aprobada en `main` · Enmienda 003 firmada por Daniel Ávila (2026-11-11), pendiente ratificación de Raúl González |
 | **Autores** | Daniel Ávila (datos/negocio) · Raúl González (infra/plataforma) |
 | **Fuente** | Informe de Definición APT, Fase 1 (2026-09-04) |
@@ -211,7 +211,7 @@ Fuera de alcance explícito — cualquier inclusión requiere enmienda a este sp
 - SSO corporativo (SAML/OIDC con el IdP del cliente).
 - Notificaciones push.
 - Colaboración en tiempo real (edición simultánea con merge fino/CRDT — V1 usa LWW + auditoría).
-- OCR de formularios de papel escaneados y analítica con IA — **V2 opcional** *(Enmienda 005: importar Word `.docx` y PDF con texto o rellenable entra en V1.2; sólo el OCR de imágenes queda en V2)* tras feature flag `ai` (off por defecto, ejecución solo en backend; ver FR-048 y ADR-003).
+- OCR de formularios de papel escaneados y analítica con IA — **V2 opcional** *(Enmienda 005: importar Word `.docx` y PDF con texto o rellenable entra en V1.2. Enmienda 006: leer fotos de pautas en papel y PDF escaneados entra en V1.3 con un motor de IA opcional; la analítica con IA sigue en V2)* tras feature flag `ai` (off por defecto, ejecución solo en backend; ver FR-048 y ADR-003).
 - Integración con ERPs mineros reales.
 - Despliegue productivo multi-región, alta disponibilidad, backups gestionados (se documentan como diseño "real" en ADRs, no se pagan).
 - Alta self-service de empresas, invitaciones y recuperación de clave por correo (V1 usa clave temporal entregada por un administrador; FR-053/055).
@@ -240,6 +240,12 @@ Fuera de alcance explícito — cualquier inclusión requiere enmienda a este sp
 > - **FR-029:** el import de plantillas acepta **Excel (`.xlsx`), Word (`.docx`) y PDF** (con texto o rellenable). Word y PDF se leen en el servidor; títulos → secciones, tablas de pauta (Sí/No/N.A., Cumple/No cumple, B/R/M) y casillas → ítems, campos de un PDF rellenable → ítems con su tipo. La revisión humana sigue siendo obligatoria y la propuesta lista sus **advertencias** (lo omitido o supuesto). Un PDF escaneado (imagen) se rechaza con un mensaje claro: el **OCR** sigue en V2. El formato se valida por la firma de los bytes. Un import puede confirmarse como **nueva versión** de una plantilla existente, para no duplicar formularios.
 > - **FR-019/044:** el "original rellenado" existe sólo para plantillas importadas desde `.xlsx` (Word/PDF no tienen celdas que rellenar). Las demás se exportan con los formatos de FR-045.
 > - **FR-045:** la exportación por lote se cumple en su texto literal: **un solo `.xlsx` consolidado** con las inspecciones del filtro o de la selección; además se exportan en **PDF** y **Word**, en un archivo o uno por inspección (TSK-REP-007).
+
+> **Enmienda 006 (2026-11-11, importar con IA).**
+>
+> - **FR-029 / FR-048:** el import gana un **motor de IA opcional** (Claude Haiku 5.5 por API, sólo en el backend; ADR-005). Lee PDF —incluidos los **escaneados**—, Word y **fotos JPG/PNG de pautas en papel**, y devuelve la misma propuesta que las reglas. La revisión humana sigue siendo obligatoria: la IA nunca guarda ni publica. El OCR que estaba en V2 queda cubierto por este motor. FR-048 se cumple en su sentido: la IA *propone* y el `tenant_admin` decide.
+> - **Activación:** la IA existe sólo si el servidor tiene `ANTHROPIC_API_KEY`; sin ella el asistente funciona como antes. Tope de **20 análisis por empresa cada 24 h** (`IA_TOPE_DIARIO`); cada análisis queda en `audit_log` (`template_import_ia`, con modelo y tokens). El costo se acota además con el límite de gasto de la cuenta de API.
+> - **Privacidad:** sólo se envía a Anthropic la **pauta en blanco** que sube el administrador. Nunca inspecciones, respuestas, hallazgos ni fotos de terreno. La captura sin conexión (Art. I) no depende de la IA.
 
 ## 11. Supuestos y restricciones
 
@@ -296,6 +302,7 @@ La demo se considera exitosa si, en vivo ante el docente:
 | 1.0.1 | 2026-09-23 | Título: "Decisiones en Tiempo Real" → "Datos al día donde no hay señal" (Opción A — alinear la promesa con la realidad offline-first) | Raúl González (con IA) |
 | 1.0.1 | 2026-09-24 | Firmado por Raúl González; pendiente firma de Daniel Ávila | Raúl González (con IA) |
 | 1.0.1 | 2026-10-06 | Firmado por Daniel Ávila — firma delegada con autorización explícita del titular, registrada por el agente del equipo | Daniel Ávila |
+| 1.5.0 | 2026-11-11 | **Enmienda 006** — importar con IA (fotos, PDF escaneados; FR-029/048), opcional y auditado; OCR deja de estar en V2. Pendiente ratificación de Raúl González | Daniel Ávila (con IA) |
 | 1.4.0 | 2026-11-11 | **Enmienda 005** — importar Word/PDF (FR-029), exportación consolidada, PDF y Word (FR-045); OCR sigue en V2. Pendiente ratificación de Raúl González | Daniel Ávila (con IA) |
 | 1.3.0 | 2026-11-11 | **Enmienda 004** — FR-034 sin geolocalización; NFR-03 se mide como procesamiento del lote y la espera sin señal se informa aparte. Pendiente ratificación de Raúl González | Daniel Ávila (con IA) |
 | 1.2.0 | 2026-11-11 | **Enmienda 003** — v1 como producto: FR-053/054/055 (cuentas y faenas por empresa, clave temporal), fuera el modo demo; aclaraciones de alcance de FR-012, 029, 040, 042 y 048 (§10); §12 apunta al informe Fase 1 versionado y a la URL de la v1. Pendiente ratificación de Raúl González | Daniel Ávila (con IA) |

@@ -1,23 +1,30 @@
 import { randomUUID } from 'node:crypto'
-import { mkdir, stat, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, stat, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import {
   BadRequestException,
   ConflictException,
+  HttpException,
+  HttpStatus,
+  Inject,
   Injectable,
   NotFoundException,
+  ServiceUnavailableException,
 } from '@nestjs/common'
 import { ZodError } from 'zod'
 import {
   parseTemplateDefinition,
   templateImportProposalSchema,
+  type CapacidadesImport,
+  type MotorImport,
   type TemplateDefinition,
   type TemplatesDeltaResponse,
   type TemplateImportProposal,
 } from '@terreno/shared'
 import { proponerImport } from '@terreno/shared/xlsx'
 import type { FormatoImport, ParseResult } from '@terreno/shared/xlsx'
-import { MIME_POR_FORMATO, proponerImportDocx } from '@terreno/shared/importar'
+import { FORMATOS_IA, MIME_POR_FORMATO, proponerImportDocx } from '@terreno/shared/importar'
+import { ANALIZADOR_IA, type AnalizadorIA } from './importar-ia'
 import { proponerImportPdf } from './importar-pdf'
 import { DbService } from '../db/db.service'
 import { SyncVolumeService } from '../storage/sync-volume.service'
@@ -36,6 +43,12 @@ import type {
   UpdateDraftInput,
   WorkerTemplateFilter,
 } from './templates.types'
+
+/** TSK-FORM-021: análisis con IA por empresa en 24 h (`IA_TOPE_DIARIO`, por defecto 20). */
+function topeDiarioIA(): number {
+  const n = Number(process.env.IA_TOPE_DIARIO)
+  return Number.isInteger(n) && n >= 0 ? n : 20
+}
 
 /** Fila de la consulta del delta: la revisión más el nombre de su plantilla. */
 type DeltaRow = TemplateRevisionRow & { name: string }
@@ -93,6 +106,7 @@ export class TemplatesService {
   constructor(
     private readonly db: DbService,
     private readonly volume: SyncVolumeService,
+    @Inject(ANALIZADOR_IA) private readonly ia: AnalizadorIA,
   ) {}
 
   /** Crea la cabecera de una plantilla (tenant_admin). */
@@ -534,10 +548,14 @@ export class TemplatesService {
   /* ── Importación de plantillas desde .xlsx (TSK-FORM-007) ──────────────── */
 
   /**
-   * Recibe el buffer de un .xlsx, .docx o .pdf (TSK-FORM-020), crea el import, guarda el archivo fuente como
-   * ATTACHMENT (`owner_type='template_import'`), lo parsea y deja el import en
-   * estado `proposed` (éxito) o `failed` (error). Todo en una transacción por
-   * tenant (FR-029/047/051).
+   * Recibe el buffer de un .xlsx, .docx, .pdf (TSK-FORM-020) o una foto
+   * (TSK-FORM-021), crea el import, guarda el archivo fuente como ATTACHMENT
+   * (`owner_type='template_import'`), lo analiza con el motor pedido y deja el
+   * import en `proposed` (éxito) o `failed` (error) (FR-029/047/051).
+   *
+   * Guardar el archivo y guardar el resultado son dos transacciones: el
+   * análisis con IA puede tardar decenas de segundos y no debe retener una
+   * conexión con la transacción abierta.
    */
   async uploadAndParseTemplateImport(
     tenantId: string,
@@ -545,75 +563,165 @@ export class TemplatesService {
     fileName: string,
     buffer: Buffer,
     formato: FormatoImport = 'xlsx',
+    motor: MotorImport = 'reglas',
   ): Promise<TemplateImportRow> {
-    return this.db.withTenantTransaction<TemplateImportRow>(tenantId, async (run) => {
-      const [imp] = await run<TemplateImportRow>(
-        `INSERT INTO template_imports
-           (id, tenant_id, uploaded_by, file_key, file_name, status, formato)
-         VALUES (gen_random_uuid(), $1, $2, '', $3, 'uploaded', $4)
-         RETURNING *`,
-        [tenantId, uploadedBy, fileName, formato],
-      )
+    if (motor === 'ia') await this.exigirIA(tenantId, formato)
 
-      const fileKey = await this.writeImportFile(tenantId, imp.id, buffer, formato)
+    const imp = await this.db.withTenantTransaction<TemplateImportRow>(tenantId, async (run) => {
+      const [nuevo] = await run<TemplateImportRow>(
+        `INSERT INTO template_imports
+           (id, tenant_id, uploaded_by, file_key, file_name, status, formato, motor)
+         VALUES (gen_random_uuid(), $1, $2, '', $3, 'uploaded', $4, $5)
+         RETURNING *`,
+        [tenantId, uploadedBy, fileName, formato, motor],
+      )
+      const fileKey = await this.writeImportFile(tenantId, nuevo.id, buffer, formato)
       await run(
         `INSERT INTO attachment
            (id, tenant_id, owner_type, owner_id, file_key, mime, bytes,
             width, height, captured_at, client_version)
          VALUES ($1, $2, $3, $4, $5, $6, $7, NULL, NULL, now(), 0)`,
-        [randomUUID(), tenantId, 'template_import', imp.id, fileKey, MIME_POR_FORMATO[formato], buffer.length],
+        [randomUUID(), tenantId, 'template_import', nuevo.id, fileKey, MIME_POR_FORMATO[formato], buffer.length],
       )
-
-      await run(
-        `UPDATE template_imports SET file_key = $2 WHERE id = $1`,
-        [imp.id, fileKey],
+      const [conArchivo] = await run<TemplateImportRow>(
+        `UPDATE template_imports SET file_key = $2 WHERE id = $1 RETURNING *`,
+        [nuevo.id, fileKey],
       )
+      return conArchivo
+    })
 
-      const bytes = new Uint8Array(buffer)
-      const parsed: ParseResult =
-        formato === 'docx'
-          ? await proponerImportDocx(bytes, fileName)
-          : formato === 'pdf'
-            ? await proponerImportPdf(bytes, fileName)
-            : await proponerImport(bytes, fileName)
-      if (!parsed.ok) {
-        await run(
-          `UPDATE template_imports
-           SET status = 'failed', error = $2, updated_at = now()
-           WHERE id = $1`,
-          [imp.id, parsed.error],
-        )
-        const [failed] = await run<TemplateImportRow>(`SELECT * FROM template_imports WHERE id = $1`, [imp.id])
-        return failed
+    const bytes = new Uint8Array(buffer)
+    const parsed =
+      motor === 'ia'
+        ? await this.analizarConIA(tenantId, uploadedBy, imp, bytes)
+        : await this.parsearConReglas(bytes, formato, fileName)
+    return this.guardarResultado(tenantId, imp.id, parsed, motor)
+  }
+
+  /**
+   * TSK-FORM-021: vuelve a analizar con IA un import ya subido (las reglas
+   * fallaron —PDF escaneado— o la propuesta no convenció). Usa el archivo
+   * guardado; un import ya confirmado no se toca.
+   */
+  async reanalizarConIA(tenantId: string, actorId: string, importId: string): Promise<TemplateImportRow> {
+    const imp = await this.getTemplateImport(tenantId, importId)
+    if (imp.status === 'confirmed') throw new ConflictException('Este import ya se confirmó: sube el archivo de nuevo.')
+    const formato = imp.formato ?? 'xlsx'
+    await this.exigirIA(tenantId, formato)
+    let bytes: Uint8Array
+    try {
+      bytes = new Uint8Array(await readFile(join(this.volume.raiz(), imp.file_key)))
+    } catch {
+      throw new NotFoundException('No se encontró el archivo de este import: súbelo de nuevo.')
+    }
+    const parsed = await this.analizarConIA(tenantId, actorId, imp, bytes)
+    return this.guardarResultado(tenantId, imp.id, parsed, 'ia')
+  }
+
+  /** TSK-FORM-021: si hay IA y cuántos análisis le quedan hoy a la empresa. */
+  async capacidadesImport(tenantId: string): Promise<CapacidadesImport> {
+    const tope = topeDiarioIA()
+    if (!this.ia.disponible()) return { ia: false, restantes_hoy: 0, tope_diario: tope }
+    return { ia: true, restantes_hoy: Math.max(0, tope - (await this.usosIAHoy(tenantId))), tope_diario: tope }
+  }
+
+  private async usosIAHoy(tenantId: string): Promise<number> {
+    const [fila] = await this.db.queryAsTenant<{ n: number }>(
+      tenantId,
+      `SELECT count(*)::int AS n FROM audit_log
+        WHERE tenant_id = $1 AND action = 'template_import_ia'
+          AND occurred_at > now() - interval '24 hours'`,
+      [tenantId],
+    )
+    return fila?.n ?? 0
+  }
+
+  private async exigirIA(tenantId: string, formato: FormatoImport): Promise<void> {
+    if (!this.ia.disponible()) {
+      throw new ServiceUnavailableException('La IA no está configurada en este servidor.')
+    }
+    if (!FORMATOS_IA.includes(formato)) {
+      throw new BadRequestException('La IA lee PDF, Word y fotos; un Excel se importa con las reglas.')
+    }
+    const tope = topeDiarioIA()
+    if ((await this.usosIAHoy(tenantId)) >= tope) {
+      throw new HttpException(
+        `Se alcanzó el máximo de ${tope} análisis con IA de hoy. Mañana se renueva; mientras tanto usa las reglas.`,
+        HttpStatus.TOO_MANY_REQUESTS,
+      )
+    }
+  }
+
+  private async parsearConReglas(bytes: Uint8Array, formato: FormatoImport, fileName: string): Promise<ParseResult> {
+    if (formato === 'docx') return proponerImportDocx(bytes, fileName)
+    if (formato === 'pdf') return proponerImportPdf(bytes, fileName)
+    if (formato === 'xlsx') return proponerImport(bytes, fileName)
+    return { ok: false, error: 'Una foto sólo se puede leer con IA.' }
+  }
+
+  /** Llama a la IA y deja el uso en `audit_log` (cuenta para el tope diario). */
+  private async analizarConIA(
+    tenantId: string,
+    actorId: string,
+    imp: TemplateImportRow,
+    bytes: Uint8Array,
+  ): Promise<ParseResult> {
+    const formato = imp.formato ?? 'xlsx'
+    const r = await this.ia.analizar({ bytes, formato, nombre_archivo: imp.file_name })
+    await this.db.withTenantTransaction(tenantId, (run) =>
+      run(
+        `INSERT INTO audit_log (id, actor_id, tenant_id, action, entity_type, entity_id, payload)
+         VALUES ($1, $2, $3, 'template_import_ia', 'template_import', $4, $5)`,
+        [
+          randomUUID(),
+          actorId,
+          tenantId,
+          imp.id,
+          JSON.stringify({
+            formato,
+            modelo: r.modelo,
+            tokens_entrada: r.tokens_entrada,
+            tokens_salida: r.tokens_salida,
+            ok: r.resultado.ok,
+          }),
+        ],
+      ),
+    )
+    return r.resultado
+  }
+
+  /** Valida la propuesta y deja el import en `proposed` o `failed`. */
+  private async guardarResultado(
+    tenantId: string,
+    importId: string,
+    parsed: ParseResult,
+    motor: MotorImport,
+  ): Promise<TemplateImportRow> {
+    let proposal: TemplateImportProposal | null = null
+    let error: string | null = null
+    if (!parsed.ok) {
+      error = parsed.error
+    } else {
+      const r = templateImportProposalSchema.safeParse(parsed.propuesta)
+      if (r.success) proposal = r.data
+      else {
+        const detail = r.error.issues
+          .slice(0, 3)
+          .map((i) => `${i.path.join('.') || 'proposal'}: ${i.message}`)
+          .join('; ')
+        error = `propuesta inválida: ${detail}`
       }
-
-      let proposal: TemplateImportProposal
-      try {
-        proposal = templateImportProposalSchema.parse(parsed.propuesta)
-      } catch (error) {
-        if (error instanceof ZodError) {
-          const detail = error.issues
-            .slice(0, 3)
-            .map((i) => `${i.path.join('.') || 'proposal'}: ${i.message}`)
-            .join('; ')
-          await run(
-            `UPDATE template_imports
-             SET status = 'failed', error = $2, updated_at = now()
-             WHERE id = $1`,
-            [imp.id, `propuesta inválida: ${detail}`],
-          )
-          const [failed] = await run<TemplateImportRow>(`SELECT * FROM template_imports WHERE id = $1`, [imp.id])
-          return failed
-        }
-        throw error
-      }
-
+    }
+    return this.db.withTenantTransaction<TemplateImportRow>(tenantId, async (run) => {
       const [row] = await run<TemplateImportRow>(
-        `UPDATE template_imports
-         SET status = 'proposed', proposed_schema = $2::jsonb, updated_at = now()
-         WHERE id = $1
-         RETURNING *`,
-        [imp.id, JSON.stringify(proposal)],
+        proposal
+          ? `UPDATE template_imports
+             SET status = 'proposed', proposed_schema = $2::jsonb, error = NULL, motor = $3, updated_at = now()
+             WHERE id = $1 RETURNING *`
+          : `UPDATE template_imports
+             SET status = 'failed', error = $2, motor = $3, updated_at = now()
+             WHERE id = $1 RETURNING *`,
+        [importId, proposal ? JSON.stringify(proposal) : error, motor],
       )
       return row
     })

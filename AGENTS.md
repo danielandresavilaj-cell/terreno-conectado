@@ -33,7 +33,7 @@ Monorepo npm workspaces:
 
 Módulos de dominio ya implementados: `auth`, `users`, `supervision`, `admin`, `sync`, `templates`, `dashboard`,
 `storage`, `health`, `observability`, `db`. Specs en `specs/001..007`, ADRs en
-`adr/001..003`.
+`adr/001..005`.
 
 ---
 
@@ -90,6 +90,8 @@ Claves que importan:
 | `DEMO_PASSWORD` | cuentas del seed (sólo desarrollo, tests y E2E) | producción no usa seed |
 | `VITE_API_URL` | URL de la API en el bundle | **build-time** |
 | `SYNC_VOLUME` | volumen de adjuntos | local `.vol/sync` |
+| `ANTHROPIC_API_KEY` | importar con IA (TSK-FORM-021, ADR-005) | **opcional**; sin ella no hay IA. Los tests nunca la usan |
+| `IA_MODELO` / `IA_TOPE_DIARIO` | modelo y tope diario de la IA | por defecto `claude-haiku-5-5` / 20 |
 
 **Nunca hardcodear secretos ni passwords en el código, tests, docs o commits**
 (Art. IX). En CI hay escaneo de secretos (gitleaks) que falla el PR.
@@ -212,7 +214,7 @@ Si algo que escribes rompería en Windows, **arreglalo en el mismo PR**.
 | `CONTRIBUTING.md` | proceso, sprint, handoff, **§9 Windows** |
 | `specs/000-master/spec.md` | visión, FR/NFR, mapa de evidencia |
 | `specs/001..007/` | spec por módulo (congelados por enmienda) |
-| `adr/001..003/` | decisiones de arquitectura y despliegue |
+| `adr/001..005/` | decisiones de arquitectura, despliegue e IA |
 | `data-model.md` | entidades, RLS |
 | `test-plan.md` | matriz §3, caos §4, defectos §5 |
 | `docs/informe-pruebas-validacion.md` | resultados de la Fase 2 |

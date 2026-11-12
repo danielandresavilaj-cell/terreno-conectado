@@ -26,7 +26,7 @@ Requisitos que este spec detallará: **FR-007–009, 018–019, 027–029, 036�
 
 ## Decisiones rectoras (cerradas en ADR-003 + plan 007; no reabrir sin ADR nuevo)
 
-1. **xlsx-first:** V1 = import/export de `.xlsx` estructurado; OCR/docx/PDF e IA quedan en V2 opcional (Enmienda 002 §10). *(Enmienda 005 del maestro: Word `.docx` y PDF con texto o rellenable se importan desde V1.2 — ver Enmienda 005 abajo; OCR e IA siguen en V2.)*
+1. **xlsx-first:** V1 = import/export de `.xlsx` estructurado; OCR/docx/PDF e IA quedan en V2 opcional (Enmienda 002 §10). *(Enmienda 005 del maestro: Word `.docx` y PDF con texto o rellenable se importan desde V1.2. Enmienda 006: fotos y PDF escaneados se leen con un motor de IA opcional desde V1.3 — ver abajo.)*
 2. **Revisión humana obligatoria:** el import nunca publica automático; el `tenant_admin` confirma la propuesta.
 3. **Renderer data-driven:** la captura dibuja desde `definition` JSONB; contrato de tipos y `props` validado con **Zod en `shared/`** (única fuente: frontend y backend).
 4. **Versionado inmutable:** toda inspección congela `template_revision_id`; cambios requieren nueva revisión.
@@ -65,6 +65,7 @@ Requisitos que este spec detallará: **FR-007–009, 018–019, 027–029, 036�
 
 | Versión | Fecha | Cambio | Autor |
 | :--- | :--- | :--- | :--- |
+| 0.4.0 | 2026-11-11 | Enmienda 006: importar con IA (TSK-FORM-021) | Daniel Ávila (con IA) |
 | 0.3.0 | 2026-11-11 | Enmienda 005: importar Word y PDF (TSK-FORM-020) | Daniel Ávila (con IA) |
 | 0.2.4 | 2026-10-12 | Checklist: TSK-FORM-011 completado (PR #100) — pruebas de caos 8–11 (delta resumible FR-027/028; doble import sin duplicar FR-029; edición concurrente = una sola versión FR-049; versión en vuelo congelada FR-028/038) y matriz de libros `.xlsx` reales, incluido el ciclo import→publish→captura→export rellenado (FR-019/044). V1 completa (TSK-FORM-001→011); solo queda V2 (#45) | Daniel Ávila |
 | 0.2.3 | 2026-10-12 | Coherencia documental (refs #98): el Estado deja de ser «ESQUELETO» (V1 en `main`, TSK-FORM-001→010); versiones del padre y del data-model alineadas (spec maestro v1.1.1, data-model v1.1.3); checklist del plan técnico marcado | Daniel Ávila |
@@ -84,6 +85,13 @@ Requisitos que este spec detallará: **FR-007–009, 018–019, 027–029, 036�
 ### Enmienda 003 — Catálogo asignado offline (TSK-FORM-014, #149)
 
 FR-009/018/027: el catálogo visible se persiste por tenant, usuario, rol y faena. La caché legada por tenant no acredita asignaciones y no se muestra hasta obtener un catálogo del servidor para ese ámbito. Al iniciar o recuperar señal se consulta el catálogo completo sin cursor: los cambios de asignación no incrementan published_seq. El snapshot reemplaza la lista visible de forma atómica, incluyendo una lista vacía; sin red se usa exclusivamente el último snapshot del ámbito. Se conservan las definiciones históricas y las capturas; un borrador desasignado queda no disponible conforme a FR-028.
+
+### Enmienda 006 — Importar con IA (TSK-FORM-021)
+
+- **Motor opcional:** `backend/src/templates/importar-ia.ts` manda la pauta en blanco a Claude (`IA_MODELO`, por defecto `claude-haiku-5-5`) con salida estructurada. PDF (también escaneado) y fotos JPG/PNG van como documento/imagen; un Word va como el texto y las tablas que ya extrae `bloquesDeDocx`. El `.xlsx` sigue sólo con reglas. La salida pasa por `propuestaDesdeIA` (`shared/src/importar/ia.ts`: limpia, quita firmas y duplicados, corrige tipos sin opciones) y por `templateImportProposalSchema`, como cualquier propuesta.
+- **API:** `POST /templates/imports` acepta el campo `motor` (`reglas` | `ia`); una foto sin IA → 415. `POST /templates/imports/:id/analizar-ia` re-analiza con IA el archivo guardado (409 si ya se confirmó). `GET /templates/imports/capacidades` → `{ ia, restantes_hoy, tope_diario }`. Sin clave → 503; tope diario → 429; Excel con IA → 400. Sólo `tenant_admin`.
+- **Datos:** `template_imports.motor` y formatos `jpg`/`png` (migración 018). Cada análisis escribe `audit_log` (`template_import_ia`: formato, modelo, tokens, ok), que también sirve de contador del tope.
+- **Asistente:** interruptor "Analizar Word y PDF con IA", botón "Fotografiar una pauta en papel" (la foto se reescala a 2000 px en el teléfono), chip "Propuesta de IA"/"Reglas" y "Reintentar con IA" cuando las reglas fallan o no convencen. Los errores de la API (sin crédito, caída, rechazo) se muestran en español y el import queda `failed` sin guardar nada.
 
 ### Enmienda 005 — Importar Word y PDF (TSK-FORM-020)
 

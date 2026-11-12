@@ -416,7 +416,20 @@ export const proposedSectionSchema = z.object({
 
 export type ProposedSection = z.infer<typeof proposedSectionSchema>
 
-export const IMPORT_FORMATOS = ['xlsx', 'docx', 'pdf'] as const
+export const IMPORT_FORMATOS = ['xlsx', 'docx', 'pdf', 'jpg', 'png'] as const
+
+/** Motor que armó la propuesta (TSK-FORM-021). */
+export const IMPORT_MOTORES = ['reglas', 'ia'] as const
+export type MotorImport = (typeof IMPORT_MOTORES)[number]
+
+/** `GET /templates/imports/capacidades` (TSK-FORM-021). */
+export interface CapacidadesImport {
+  /** Hay IA configurada en el servidor. */
+  ia: boolean
+  /** Análisis con IA que le quedan hoy a la empresa (ventana de 24 h). */
+  restantes_hoy: number
+  tope_diario: number
+}
 
 export const templateImportProposalSchema = z.object({
   nombre_archivo: z.string().min(1),
@@ -466,6 +479,7 @@ export const templateImportSchema = z.object({
   file_name: z.string().min(1),
   status: z.enum(TEMPLATE_IMPORT_STATUSES),
   formato: z.enum(IMPORT_FORMATOS).optional(),
+  motor: z.enum(IMPORT_MOTORES).optional(),
   proposed_schema: templateImportProposalSchema.nullable(),
   error: z.string().nullable().optional(),
   confirmed_at: z.string().datetime().nullable().optional(),

@@ -44,8 +44,9 @@ export interface ProposedSection {
 }
 
 /** Propuesta determinística de plantilla desde un `.xlsx` estructurado. */
-/** Formato del archivo importado (TSK-FORM-020). Sin valor = `.xlsx`. */
-export type FormatoImport = 'xlsx' | 'docx' | 'pdf'
+/** Formato del archivo importado (TSK-FORM-020). Sin valor = `.xlsx`.
+ *  `jpg`/`png`: foto de una pauta en papel, sólo con el motor de IA (TSK-FORM-021). */
+export type FormatoImport = 'xlsx' | 'docx' | 'pdf' | 'jpg' | 'png'
 
 export interface TemplateImportProposal {
   nombre_archivo: string

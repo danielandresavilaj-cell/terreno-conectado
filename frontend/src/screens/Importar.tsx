@@ -27,23 +27,26 @@
  * de "página" con historial. Nada más se anima: el wizard es trabajo de foco.
  */
 
-import { useRef, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { Chip } from '../components/Badges'
 import { Boton } from '../components/ui'
 import {
   ApiError,
   actualizarBorrador,
+  analizarImportConIA,
   confirmarImport,
+  getCapacidadesImport,
   getPlantillas,
   publicarRevision,
   subirImportOriginal,
 } from '../lib/api'
+import { comprimirImagen } from '../lib/compresor'
 import { useEstado } from '../lib/store'
 import { EASE } from '../lib/motion'
 import { proponerImport, propuestaADefinicion } from '@terreno/shared/xlsx'
 import { FIELD_PROPS_SCHEMA, RESPONSE_TYPES } from '@terreno/shared'
-import type { FieldProps, ResponseType, TemplateImport, TemplateRevisionDetailDto } from '@terreno/shared'
+import type { CapacidadesImport, FieldProps, MotorImport, ResponseType, TemplateImport, TemplateRevisionDetailDto } from '@terreno/shared'
 import type { ProposedItem, TemplateImportProposal } from '@terreno/shared/xlsx'
 
 const PASOS = ['Subir', 'Preview', 'Editar', 'Borrador', 'Publicar'] as const
@@ -111,6 +114,19 @@ function desdeServidor(p: NonNullable<TemplateImport['proposed_schema']>): Templ
   }
 }
 
+/** TSK-FORM-021: una foto de pauta en papel (sólo la lee la IA). */
+const esFoto = (f: File) => /^image\//.test(f.type) || /\.(jpe?g|png|heic|heif|webp)$/i.test(f.name)
+
+/**
+ * Las fotos del teléfono pesan varios MB: se reescalan a JPEG con un lado
+ * mayor de 2000 px (el texto sigue legible y cabe en el tope de 5 MB).
+ */
+async function prepararFoto(f: File): Promise<File> {
+  const c = await comprimirImagen(f, { maxLado: 2000, calidad: 0.85 })
+  const nombre = f.name.replace(/\.[^.]+$/, '') || 'pauta'
+  return new File([c.blob], `${nombre}.jpg`, { type: 'image/jpeg' })
+}
+
 export function Importar() {
   const { ir } = useEstado()
   const reducir = useReducedMotion()
@@ -135,6 +151,23 @@ export function Importar() {
    * crear el borrador como NUEVA VERSIÓN suya en vez de duplicarlo. */
   const [publicadas, setPublicadas] = useState<{ template_id: string; name: string; version: number }[]>([])
   const [comoVersion, setComoVersion] = useState(true)
+  /* TSK-FORM-021: importar con IA (opcional; sólo si el servidor la tiene). */
+  const camaraRef = useRef<HTMLInputElement>(null)
+  const [capacidades, setCapacidades] = useState<CapacidadesImport | null>(null)
+  const [usarIA, setUsarIA] = useState(true)
+  const [motorPropuesta, setMotorPropuesta] = useState<MotorImport>('reglas')
+  /** Import que las reglas no pudieron leer: se ofrece "Reintentar con IA". */
+  const [fallido, setFallido] = useState<string | null>(null)
+
+  const refrescarCapacidades = () =>
+    getCapacidadesImport()
+      .then(setCapacidades)
+      .catch(() => setCapacidades(null))
+  useEffect(() => {
+    void refrescarCapacidades()
+  }, [])
+  const iaDisponible = capacidades?.ia === true
+  const iaRestante = iaDisponible && (capacidades?.restantes_hoy ?? 0) > 0
 
   const secciones = propuesta?.secciones ?? []
   const totalItems = secciones.reduce((acc, s) => acc + s.items.length, 0)
@@ -155,11 +188,48 @@ export function Importar() {
   const puedeContinuar = nombreValido && errores.length === 0 && totalItems > 0
 
   /* ── PASO 1 · lectura del archivo ─────────────────────────────────────── */
-  const leerArchivo = async (file: File) => {
+
+  /** Deja el wizard en el Preview con la propuesta de un import exitoso. */
+  const aplicarImport = (imp: TemplateImport, local: TemplateImportProposal | null) => {
+    const prop = local ?? (imp.proposed_schema ? desdeServidor(imp.proposed_schema) : null)
+    if (!prop) return
+    void getPlantillas()
+      .then((d) => setPublicadas(d.items))
+      .catch(() => setPublicadas([]))
+    setComoVersion(true)
+    setImportId(imp.id)
+    setFallido(null)
+    setMotorPropuesta(imp.motor ?? 'reglas')
+    setPropuesta(prop)
+    setNombre(prop.nombre_archivo.replace(/\.[^.]+$/, '') || 'Plantilla importada')
+    setRevision(null)
+    setPublicado(null)
+    setErrorGuardar(null)
+    setErrorPublicar(null)
+    setConfirmado(false)
+    setPaso(2)
+  }
+
+  const mensajeDe = (err: unknown) =>
+    err instanceof ApiError ? err.detalle : 'No se pudo subir el archivo al servidor. Intenta de nuevo.'
+
+  const leerArchivo = async (original: File) => {
     setErrorCarga(null)
+    setFallido(null)
+    const foto = esFoto(original)
+    if (foto && !iaRestante) {
+      setErrorCarga(
+        iaDisponible
+          ? 'Se alcanzó el máximo de análisis con IA de hoy; una foto sólo se puede leer con IA.'
+          : 'Para leer una foto de una pauta en papel hace falta "Analizar con IA", que no está activo en este servidor.',
+      )
+      return
+    }
     setAnalizando(true)
     try {
-      const esXlsx = /\.xlsx$/i.test(file.name)
+      const esXlsx = /\.xlsx$/i.test(original.name)
+      const motor: MotorImport = foto || (!esXlsx && usarIA && iaRestante) ? 'ia' : 'reglas'
+      const file = foto ? await prepararFoto(original) : original
       let local: TemplateImportProposal | null = null
       if (esXlsx) {
         // El .xlsx se lee también en el dispositivo (mismo código que el servidor).
@@ -173,39 +243,47 @@ export function Importar() {
         local = r.propuesta
       }
       // El ORIGINAL siempre se sube: la revisión nace atada a un `template_import`
-      // (FR-019/044). Word y PDF se leen sólo en el servidor (TSK-FORM-020), para
-      // no cargar pdf.js en el teléfono: su propuesta es la que devuelve la subida.
-      const imp = await subirImportOriginal(file)
-      const delServidor = imp.proposed_schema
-      if (imp.status === 'failed' || (!local && !delServidor)) {
+      // (FR-019/044). Word, PDF y fotos se leen sólo en el servidor (TSK-FORM-020/021):
+      // su propuesta es la que devuelve la subida.
+      const imp = await subirImportOriginal(file, motor)
+      if (motor === 'ia') void refrescarCapacidades()
+      if (imp.status === 'failed' || (!local && !imp.proposed_schema)) {
         setPropuesta(null)
         setImportId(null)
         setErrorCarga(imp.error ?? 'El servidor no pudo interpretar el archivo.')
+        // Las reglas no pudieron (p. ej. un PDF escaneado): la IA puede reintentar.
+        if (motor === 'reglas' && !esXlsx) setFallido(imp.id)
         return
       }
-      const prop = local ?? (delServidor ? desdeServidor(delServidor) : null)
-      if (!prop) return
-      void getPlantillas()
-        .then((d) => setPublicadas(d.items))
-        .catch(() => setPublicadas([]))
-      setComoVersion(true)
-      setImportId(imp.id)
-      setPropuesta(prop)
-      setNombre(prop.nombre_archivo.replace(/\.[^.]+$/, '') || 'Plantilla importada')
-      setRevision(null)
-      setPublicado(null)
-      setErrorGuardar(null)
-      setErrorPublicar(null)
-      setConfirmado(false)
-      setPaso(2)
+      aplicarImport(imp, local)
     } catch (err) {
       setPropuesta(null)
       setImportId(null)
-      setErrorCarga(
-        err instanceof ApiError
-          ? err.detalle
-          : 'No se pudo subir el archivo al servidor. Intenta de nuevo.',
-      )
+      setErrorCarga(err instanceof Error && !(err instanceof ApiError) && foto ? 'No se pudo leer la foto en este dispositivo.' : mensajeDe(err))
+    } finally {
+      setAnalizando(false)
+    }
+  }
+
+  /** TSK-FORM-021: re-analiza con IA el archivo ya subido. */
+  const reintentarConIA = async (id: string) => {
+    setErrorCarga(null)
+    setAnalizando(true)
+    try {
+      const imp = await analizarImportConIA(id)
+      void refrescarCapacidades()
+      if (imp.status === 'failed' || !imp.proposed_schema) {
+        setPaso(1)
+        setPropuesta(null)
+        setImportId(null)
+        setFallido(null)
+        setErrorCarga(imp.error ?? 'La IA no pudo interpretar el archivo.')
+        return
+      }
+      aplicarImport(imp, null)
+    } catch (err) {
+      setPaso(1)
+      setErrorCarga(mensajeDe(err))
     } finally {
       setAnalizando(false)
     }
@@ -213,6 +291,8 @@ export function Importar() {
 
   const resetear = () => {
     setPaso(1)
+    setFallido(null)
+    setMotorPropuesta('reglas')
     setPropuesta(null)
     setNombre('')
     setImportId(null)
@@ -389,7 +469,7 @@ export function Importar() {
                 <input
                   ref={inputRef}
                   type="file"
-                  accept=".xlsx,.docx,.pdf,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                  accept={`.xlsx,.docx,.pdf,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet${iaDisponible ? ',.jpg,.jpeg,.png,image/jpeg,image/png' : ''}`}
                   className="sr-only"
                   onChange={(e) => {
                     const f = e.target.files?.[0]
@@ -414,16 +494,69 @@ export function Importar() {
                   </svg>
                 </span>
                 <span className="text-[15px] font-medium">
-                  {analizando ? 'Analizando el archivo…' : 'Elige un Excel, Word o PDF'}
+                  {analizando
+                    ? usarIA && iaRestante
+                      ? 'Analizando con IA… puede tardar hasta un minuto'
+                      : 'Analizando el archivo…'
+                    : iaDisponible
+                      ? 'Elige un Excel, Word, PDF o una foto'
+                      : 'Elige un Excel, Word o PDF'}
                 </span>
                 <span className="text-[12px] text-ink-3 max-w-[48ch] leading-relaxed">
                   Excel: cada hoja es una sección y cada columna con encabezado, un ítem. Word y
                   PDF: los títulos son secciones; las tablas con columnas Sí/No/N.A., las casillas
                   ☐ y las líneas «Etiqueta: ____» se vuelven preguntas, y los PDF rellenables
-                  aportan sus campos. Lectura determinística, sin IA. Los PDF escaneados (imagen)
-                  aún no se pueden leer.
+                  aportan sus campos.{' '}
+                  {iaDisponible
+                    ? 'Con IA también se leen PDF escaneados y fotos de pautas en papel. Siempre revisas la propuesta antes de guardar.'
+                    : 'Los PDF escaneados (imagen) necesitan la IA, que no está activa en este servidor.'}
                 </span>
               </label>
+
+              {/* TSK-FORM-021: motor de IA opcional (sólo si el servidor la tiene). */}
+              {iaDisponible && (
+                <div className="panel p-4 space-y-3">
+                  <label className="flex items-start gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      className="mt-0.5"
+                      checked={usarIA}
+                      disabled={analizando}
+                      onChange={(e) => setUsarIA(e.target.checked)}
+                    />
+                    <span className="space-y-0.5">
+                      <span className="block text-[13px] font-medium">Analizar Word y PDF con IA</span>
+                      <span className="block text-[12px] text-ink-3 leading-relaxed">
+                        La IA entiende pautas desordenadas y escaneadas; sin ella se usan las reglas.
+                        Sólo se envía la pauta en blanco, nunca inspecciones ni respuestas.{' '}
+                        {iaRestante
+                          ? `Quedan ${capacidades?.restantes_hoy} análisis con IA hoy.`
+                          : 'Se alcanzó el máximo de análisis con IA de hoy.'}
+                      </span>
+                    </span>
+                  </label>
+                  <input
+                    ref={camaraRef}
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    className="sr-only"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0]
+                      e.target.value = ''
+                      if (f) void leerArchivo(f)
+                    }}
+                  />
+                  <Boton
+                    tamano="sm"
+                    variante="secundaria"
+                    disabled={analizando || !iaRestante}
+                    onClick={() => camaraRef.current?.click()}
+                  >
+                    Fotografiar una pauta en papel
+                  </Boton>
+                </div>
+              )}
 
               <AnimatePresence>
                 {errorCarga && (
@@ -433,6 +566,13 @@ export function Importar() {
                     exit={{ opacity: 0 }}
                   >
                     <Aviso>No se pudo interpretar el archivo: {errorCarga}</Aviso>
+                    {fallido && iaRestante && (
+                      <div className="pt-2">
+                        <Boton tamano="sm" variante="primaria" disabled={analizando} onClick={() => void reintentarConIA(fallido)}>
+                          Reintentar con IA
+                        </Boton>
+                      </div>
+                    )}
                   </motion.div>
                 )}
               </AnimatePresence>
@@ -446,8 +586,14 @@ export function Importar() {
                 <Chip>{propuesta.resumen.secciones} secciones</Chip>
                 <Chip>{propuesta.resumen.items} ítems</Chip>
                 <Chip>{(propuesta.formato ?? 'xlsx').toUpperCase()}</Chip>
+                <Chip>{motorPropuesta === 'ia' ? 'Propuesta de IA' : 'Reglas'}</Chip>
                 {(propuesta.formato ?? 'xlsx') === 'xlsx' && <Chip>{propuesta.resumen.filasDatos} filas de datos</Chip>}
                 <span className="flex-1" />
+                {motorPropuesta === 'reglas' && importId && iaRestante && (propuesta.formato === 'pdf' || propuesta.formato === 'docx') && (
+                  <Boton tamano="sm" variante="secundaria" disabled={analizando} onClick={() => void reintentarConIA(importId)}>
+                    {analizando ? 'Analizando con IA…' : '¿No quedó bien? Analizar con IA'}
+                  </Boton>
+                )}
                 <Boton tamano="sm" variante="secundaria" onClick={resetear}>
                   Elegir otro archivo
                 </Boton>

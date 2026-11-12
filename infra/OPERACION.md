@@ -37,6 +37,28 @@ Desde GitHub → Actions → **Deploy** → elegir el commit de `main`. El workf
 imágenes por SHA y ejecuta en la VM `node tools/ops.mjs deploy <SHA>`: respaldo previo, migraciones,
 arranque con verificación de salud y vuelta atrás automática si no cambió el esquema.
 
+## 3.1 Activar la importación con IA (opcional, TSK-FORM-021)
+
+Sin clave, el asistente funciona solo con reglas y "Analizar con IA" no aparece.
+
+1. En console.anthropic.com, carga crédito, fija un **límite de gasto mensual** (por ejemplo USD 1)
+   y crea una clave para `terreno-conectado-prod`. La clave se ve una sola vez: no la pegues en
+   chats, issues ni commits.
+2. En la VM, desde `/opt/terreno/infra`, guárdala sin que quede en pantalla ni en el historial:
+
+   ```bash
+   read -rsp 'Clave de Anthropic: ' K; echo; grep -v '^ANTHROPIC_API_KEY=' .env > .env.tmp && printf 'ANTHROPIC_API_KEY=%s\n' "$K" >> .env.tmp && mv .env.tmp .env && chmod 600 .env; unset K
+   ```
+
+3. Reinicia solo el backend: `docker compose --env-file .env -f docker-compose.prod.yml up -d backend`.
+4. Comprueba que esté activa. `GET /api/v1/templates/imports/capacidades` debe responder
+   `"ia": true`; también se ve en el asistente, como el interruptor "Analizar Word y PDF con IA".
+
+Opcionales: `IA_MODELO` (por defecto `claude-haiku-5-5`) e `IA_TOPE_DIARIO`, que es el número de
+análisis por empresa cada 24 h (por defecto 20). Para vigilar el gasto, cada análisis queda en
+`audit_log` con `action = 'template_import_ia'`, con el modelo y los tokens usados, y la consola de
+Anthropic muestra el consumo. Para apagar la IA, borra la línea de `.env` y reinicia el backend.
+
 ## 4. Respaldos
 
 - Automáticos: `terreno-backup.timer` (systemd) cifra con `age` la base y las fotos y los sube al

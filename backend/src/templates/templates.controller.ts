@@ -21,7 +21,7 @@
  */
 
 import { createReadStream } from 'node:fs'
-import { TOPE_BYTES_POR_FORMATO, detectarFormato } from '@terreno/shared/importar'
+import { FORMATOS_SOLO_IA, TOPE_BYTES_POR_FORMATO, detectarFormato } from '@terreno/shared/importar'
 import {
   BadRequestException,
   Body,
@@ -52,6 +52,9 @@ import { z } from 'zod'
 import {
   assignTemplateSchema,
   confirmImportBodySchema,
+  IMPORT_MOTORES,
+  type CapacidadesImport,
+  type MotorImport,
   XLSX_MIME,
   type TemplateAssignmentDto,
   type TemplateRevisionDetailDto,
@@ -367,7 +370,7 @@ export class TemplatesController {
     await this.templates.deleteAssignment(tenantDe(req), assignmentId)
   }
 
-  /* ── Importación de plantillas: .xlsx, .docx y .pdf (TSK-FORM-006/007/020) ── */
+  /* ── Importación de plantillas: .xlsx, .docx, .pdf y fotos (TSK-FORM-006/007/020/021) ── */
 
   @UseGuards(AuthGuard)
   @Post('imports')
@@ -381,16 +384,26 @@ export class TemplatesController {
       }),
     )
     file: Express.Multer.File,
+    @Body() body: unknown,
   ): Promise<TemplateImportRow> {
     const claims = req.user as JwtClaims
     if (claims.rol !== 'tenant_admin') {
       throw new ForbiddenException('Sólo tenant_admin puede importar plantillas')
     }
+    // TSK-FORM-021: el motor llega como campo del formulario multipart.
+    const motorPedido = (body as { motor?: unknown } | undefined)?.motor ?? 'reglas'
+    if (!IMPORT_MOTORES.includes(motorPedido as MotorImport)) {
+      throw new BadRequestException('motor debe ser "reglas" o "ia"')
+    }
+    const motor = motorPedido as MotorImport
     // TSK-FORM-020: el formato se decide por la firma de los bytes, no por el
     // MIME del navegador (que varía por sistema) ni por la extensión.
     const formato = detectarFormato(new Uint8Array(file.buffer))
     if (!formato) {
-      throw new UnsupportedMediaTypeException('Formato no soportado: sube un Excel (.xlsx), Word (.docx) o PDF.')
+      throw new UnsupportedMediaTypeException('Formato no soportado: sube un Excel (.xlsx), Word (.docx), PDF o una foto (JPG/PNG).')
+    }
+    if (FORMATOS_SOLO_IA.includes(formato) && motor !== 'ia') {
+      throw new UnsupportedMediaTypeException('Una foto de una pauta sólo se puede leer con "Analizar con IA".')
     }
     if (file.size > TOPE_BYTES_POR_FORMATO[formato]) {
       throw new PayloadTooLargeException(
@@ -403,7 +416,29 @@ export class TemplatesController {
       nombreOriginal(file.originalname),
       file.buffer,
       formato,
+      motor,
     )
+  }
+
+  /** TSK-FORM-021: ¿hay IA? ¿cuántos análisis quedan hoy? (antes de `imports/:id`). */
+  @UseGuards(AuthGuard)
+  @Get('imports/capacidades')
+  async capacidadesImport(@Req() req: AuthedRequest): Promise<CapacidadesImport> {
+    requireTenantAdmin(req)
+    return this.templates.capacidadesImport(tenantDe(req))
+  }
+
+  /** TSK-FORM-021: vuelve a analizar con IA un import ya subido. */
+  @UseGuards(AuthGuard)
+  @Post('imports/:importId/analizar-ia')
+  @HttpCode(200)
+  async analizarImportConIA(
+    @Req() req: AuthedRequest,
+    @Param('importId') importId: string,
+  ): Promise<TemplateImportRow> {
+    requireTenantAdmin(req)
+    if (!z.string().uuid().safeParse(importId).success) throw new BadRequestException('importId inválido')
+    return this.templates.reanalizarConIA(tenantDe(req), (req.user as JwtClaims).sub, importId)
   }
 
   @UseGuards(AuthGuard)

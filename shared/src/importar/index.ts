@@ -5,3 +5,4 @@
 export * from './documento'
 export * from './docx'
 export * from './formato'
+export * from './ia'
