@@ -223,7 +223,8 @@ reales (auth, ingesta idempotente, conflictos, dashboard y plantillas versionada
 de la app llegó en **TSK-WS-003**.
 
 ```bash
-cp .env.example .env                                # credenciales locales (no se versiona)
+# Windows PowerShell: Copy-Item .env.example .env
+# macOS/Linux:       cp .env.example .env
 docker compose -f infra/docker-compose.yml up -d    # PostgreSQL 16 -> :5432
 npm run db:migrate --workspace @terreno/backend     # aplica esquema + políticas RLS
 npm run db:seed    --workspace @terreno/backend     # tenants A y B + faenas (FR-006)
@@ -231,8 +232,7 @@ npm test                                            # unit + integración (todos
 ```
 
 `npm test` necesita `DEMO_PASSWORD`: la clave de las cuentas que siembra `backend/db/seed.ts` (sólo
-desarrollo y pruebas; producción no usa seed). Nunca está hardcodeada en el fuente. Van en tu `.env` local (ver `.env.example`) y el runner de tests del
-backend lo carga solo, así que basta con `npm test`. Para sobreescribirlas en un comando,
+desarrollo y pruebas; producción no usa seed). Nunca está hardcodeada en el fuente. Va en tu `.env` local (ver `.env.example`); los comandos de migración, seed y los runners de pruebas la cargan desde la raíz, así que basta con ejecutar los comandos anteriores. Para sobreescribirla en un comando,
 `npx cross-env DEMO_PASSWORD=… npm test` funciona igual en macOS, Linux y Windows. Guía por
 plataforma: [`CONTRIBUTING.md`](CONTRIBUTING.md) §9.
 
@@ -263,8 +263,8 @@ npm run e2e
 Requiere **Docker** y esas variables: el harness no tiene contraseña por omisión y falla ruidosamente
 si faltan (Constitución Art. IX). En **Windows** usa el `.env` (Opción A) o `npx cross-env` (Opción B);
 `export VAR=…` es de shell Unix y no funciona en `cmd`/PowerShell (ver
-[`CONTRIBUTING.md`](CONTRIBUTING.md) §9). Corre manualmente desde el workflow
-(`.github/workflows/e2e.yml`) y **nunca bloquea un PR** — debe ejecutarse antes de una demo o publicación, no en cada cambio.
+[`CONTRIBUTING.md`](CONTRIBUTING.md) §9). Corre cada noche y también se puede lanzar manualmente desde el workflow
+([`.github/workflows/e2e.yml`](.github/workflows/e2e.yml)); **nunca bloquea un PR** — debe revisarse antes de una demo o publicación, no en cada cambio.
 CI de cada push. Resultados y hallazgos: [`docs/informe-pruebas-validacion.md`](docs/informe-pruebas-validacion.md).
 
 ### Auth (TSK-WS-003)

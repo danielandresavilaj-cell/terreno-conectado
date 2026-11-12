@@ -9,6 +9,7 @@ export default tseslint.config(
       '**/build/**',
       '**/node_modules/**',
       '**/coverage/**',
+      '.ppt-build/**',
       'Fase 1/**',
     ],
   },

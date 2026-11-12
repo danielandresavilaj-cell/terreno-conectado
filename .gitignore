@@ -29,6 +29,9 @@ coverage/
 playwright-report/
 test-results/
 
+# Artefactos locales de la presentación académica (no son código del producto).
+.ppt-build/
+
 # Binding nativo de SWC en Windows: se materializa fuera de AppData para que
 # sus ACL sean verificables por el runtime. Nunca contiene código del proyecto.
 .swc-native-cache/

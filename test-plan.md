@@ -13,8 +13,8 @@ Cada promesa del spec maestro tiene una prueba que la verifica (NFR-12). Las pru
 | :--- | :--- | :--- | :--- |
 | Unit | Vitest | Lógica de cola de sync, compresión de foto, upsert/conflictos, validaciones | Cada push (CI) |
 | Integración API | Vitest + Testcontainers (Postgres real con RLS) | Endpoints, idempotencia, políticas RLS, auth | Cada push (CI) |
-| E2E | Playwright (Chromium, perfil **móvil**) | Flujos completos con `context.setOffline(true/false)` | `workflow_dispatch` manual (CI) |
-| Caos offline | Playwright + scripts de corte aleatorio | Escenarios §4 | Semanal y antes de la demo |
+| E2E | Playwright (Chromium, perfil **móvil**) | Flujos completos con `context.setOffline(true/false)` | nocturno + `workflow_dispatch` manual (CI) |
+| Caos offline | Playwright + scripts de corte aleatorio | Escenarios §4 | Nocturno y antes de la demo |
 | Adversarial cross-model | Modelo de IA ≠ implementador + suite guiada por spec | Ataque a invariantes §5 | Al cierre de cada módulo |
 | Rendimiento | Lighthouse CI + k6 básico | NFR-07, NFR-03 | Pre-deploy |
 | Manual documentado | Protocolo en vivo (demo) | Criterios de aceptación §13 del spec maestro | Fases 2 y 3 |

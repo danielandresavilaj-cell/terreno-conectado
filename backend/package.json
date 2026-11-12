@@ -10,9 +10,9 @@
     "start:dev": "node --watch -r ts-node/register src/main.ts",
     "prestart:dev": "npm run build --workspace @terreno/shared",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "db:migrate": "node-pg-migrate -m db/migrations up",
-    "db:rollback": "node-pg-migrate -m db/migrations down",
-    "db:seed": "node -r ts-node/register db/seed.ts",
+    "db:migrate": "node --env-file-if-exists=../.env ../node_modules/node-pg-migrate/bin/node-pg-migrate.js -m db/migrations up",
+    "db:rollback": "node --env-file-if-exists=../.env ../node_modules/node-pg-migrate/bin/node-pg-migrate.js -m db/migrations down",
+    "db:seed": "node --env-file-if-exists=../.env -r ts-node/register db/seed.ts",
     "test": "node scripts/run-vitest.mjs run",
     "test:watch": "node scripts/run-vitest.mjs",
     "probar-ia": "node --env-file-if-exists=../.env -r ts-node/register scripts/probar-ia.ts"
