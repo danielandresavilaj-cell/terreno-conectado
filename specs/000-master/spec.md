@@ -262,7 +262,7 @@ Fuera de alcance explícito — cualquier inclusión requiere enmienda a este sp
 | Modelo conceptual de datos preliminar | Avance | `data-model.md` |
 | Boceto del flujo de captura y sincronización | Avance | §3.1 de este spec (mermaid) + `specs/003-motor-sincronizacion/` |
 | Plan de pruebas de validación | Avance | `test-plan.md` |
-| Prototipo o maqueta demostrativa | Final | `frontend/` + `backend/` + v1 desplegada en https://terreno-conectado-demo.duckdns.org (ADR-002, `infra/OPERACION.md`) + guion de demo (§9) |
+| Prototipo o maqueta demostrativa | Final | `frontend/` + `backend/` + v1 desplegada en https://terrenoconectado.cl (ADR-002 adenda 2, `infra/OPERACION.md`) + guion de demo (§9) |
 | Informe final y presentación de resultados | Final | `docs-evidencia/informe-final/informe.md` + `docs-evidencia/informe-final/presentacion.md` (Fase 3; consolida specs, resultados de test-plan y ADRs) |
 | Plan de trabajo / Carta Gantt | Transversal | Intactos en el informe APT §7–8; el avance SDD se evidencia en `tasks/` e historial git |
 

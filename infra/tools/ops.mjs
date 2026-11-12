@@ -15,6 +15,9 @@ const run = (cmd, args, options = {}) => {
   return result.stdout?.toString().trim()
 }
 const capture = (cmd, args) => run(cmd, args, { stdio: ['ignore', 'pipe', 'inherit'], maxBuffer: 16 * 1024 * 1024 })
+// `DOMAIN` puede listar varios hosts separados por coma (Caddy los acepta así);
+// las comprobaciones públicas usan el primero, que es el dominio principal.
+const host = String(env.DOMAIN ?? '').split(',')[0].trim()
 const dcArgs = ['compose', '--env-file', envFile, '-f', join(root, process.env.COMPOSE_FILE ?? 'docker-compose.prod.yml')]
 const dc = (...args) => run('docker', [...dcArgs, ...args])
 const dcCapture = (...args) => capture('docker', [...dcArgs, ...args])
@@ -99,9 +102,9 @@ async function deploy() {
     let publicReady = false
     for (let attempt = 0; attempt < 30; attempt++) {
       try {
-        const response = await fetch(`https://${env.DOMAIN}/health`, { signal: AbortSignal.timeout(5000) })
+        const response = await fetch(`https://${host}/health`, { signal: AbortSignal.timeout(5000) })
         if (!response.ok || (await response.json()).db !== 'up') throw new Error('API pública no disponible')
-        const page = await fetch(`https://${env.DOMAIN}/`, { signal: AbortSignal.timeout(5000) })
+        const page = await fetch(`https://${host}/`, { signal: AbortSignal.timeout(5000) })
         if (!page.ok || !page.headers.get('content-type')?.includes('text/html')) throw new Error('Página pública no disponible')
         publicReady = true
         break
@@ -113,7 +116,7 @@ async function deploy() {
       copyFileSync(join(root, '.release'), join(root, '.release.previous'))
     }
     writeFileSync(join(root, '.release'), `${sha}\n`, { mode: 0o600 })
-    console.log(`Publicado ${sha}: https://${env.DOMAIN}`)
+    console.log(`Publicado ${sha}: https://${host}`)
   } catch (e) {
     if (released && before === migrations()) {
       writeFileSync(envFile, previous, { mode: 0o600 })

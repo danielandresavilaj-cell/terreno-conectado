@@ -75,6 +75,13 @@ Internet
 - **V1 (decisión actual):** subdominio gratuito de la plataforma (`.fly.dev` / reverse-proxy) → US$0.
 - **Opción documentada:** `.cl` en NIC.cl (~CLP 12.000–16.000/año ≈ US$15–20 **anual**): se compra solo si el docente lo pide para la demo. Configuración: registro A → IP del VPS, TTL bajo durante pruebas.
 
+#### Adenda 2 — Dominio propio `terrenoconectado.cl` (2026-11-12)
+
+- **Motivo:** la red de la universidad no abría la demo. Los filtros de contenido de redes institucionales (Fortinet, Umbrella y similares) suelen bloquear por categoría todos los dominios de **DNS dinámico**, como `*.duckdns.org`, sin mirar el sitio.
+- **Decisión:** el titular compra `terrenoconectado.cl` en NIC Chile. Los servidores de nombre se delegan a **Cloudflare (plan Free)**, con registros `A` para `@` y `www` hacia la IP de la VM en modo **"DNS only"** (sin proxy). TLS lo sigue emitiendo Caddy con Let's Encrypt.
+- **Transición:** `DOMAIN` lista los tres hosts (`terrenoconectado.cl, www.terrenoconectado.cl, terreno-conectado-demo.duckdns.org`) y `ALLOWED_ORIGIN` sus orígenes, así las PWA ya instaladas siguen sincronizando lo pendiente. `tools/ops.mjs` comprueba la salud pública en el **primer** host de la lista.
+- **Costo:** solo el dominio (anual). La infraestructura sigue en US$0/mes.
+
 ## Parte B — Ejercicio de diseño: qué sería "producción real" (NO se provisiona)
 
 Comparación educativa para el informe final (muestra que entendemos la diferencia entre demo y producción):

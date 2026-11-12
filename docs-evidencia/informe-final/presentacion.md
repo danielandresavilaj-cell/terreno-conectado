@@ -106,6 +106,6 @@
 
 **Terreno Conectado: captura donde no hay señal y decide con datos al día.**
 
-- Producción: `terreno-conectado-demo.duckdns.org`
+- Producción: `terrenoconectado.cl`
 - Repo: `github.com/danielandresavilaj-cell/terreno-conectado`
 - Equipo: Daniel Ávila · Raúl González

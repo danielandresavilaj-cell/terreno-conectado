@@ -15,8 +15,11 @@ jobs:
     steps:
       - name: Check public HTTPS and database
         run: |
-          curl --fail --silent --show-error --retry 3 --max-time 15 https://terreno-conectado-demo.duckdns.org/health | jq -e '.db == "up"'
-          curl --fail --silent --show-error --retry 3 --max-time 15 -o /dev/null https://terreno-conectado-demo.duckdns.org/
+          # Dominio principal (ADR-002 adenda 2) y la dirección anterior, que sigue activa.
+          for host in terrenoconectado.cl terreno-conectado-demo.duckdns.org; do
+            curl --fail --silent --show-error --retry 3 --max-time 15 "https://$host/health" | jq -e '.db == "up"'
+            curl --fail --silent --show-error --retry 3 --max-time 15 -o /dev/null "https://$host/"
+          done
       - name: Check daily backup timer and remote retention
         uses: appleboy/ssh-action@v1.2.0
         with:
