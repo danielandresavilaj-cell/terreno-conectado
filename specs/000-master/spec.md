@@ -3,8 +3,8 @@
 | | |
 | :--- | :--- |
 | **ID** | 000-master |
-| **Versión** | 1.6.0 · Enmienda 007 propuesta (operación certificada, 2026-11-12) |
-| **Estado** | APROBADO — Raúl González (2026-09-24) y Daniel Ávila (2026-10-13) · Enmienda 007 pendiente de aprobación de ambos integrantes |
+| **Versión** | 1.6.0 · Enmienda 007 (operación certificada, aprobada 2026-11-12; por implementar) |
+| **Estado** | APROBADO — Raúl González (2026-09-24) y Daniel Ávila (2026-10-13) · Enmiendas 003–006 firmadas por Daniel Ávila, pendientes de ratificación de Raúl González · Enmienda 007 propuesta por Raúl González y aprobada por Daniel Ávila el 2026-11-12; se implementa por tareas (TSK-OPS-003-B…E) |
 | **Autores** | Daniel Ávila (datos/negocio) · Raúl González (infra/plataforma) |
 | **Fuente** | Informe de Definición APT, Fase 1 (2026-09-04) |
 | **Specs derivados** | 001-auth-tenancy · 002-captura-offline · 003-motor-sincronizacion · 004-dominio-inspecciones · 005-reportes-gerencia · 006-admin-plataforma · 007-formularios-dinamicos |
@@ -253,7 +253,7 @@ Fuera de alcance explícito — cualquier inclusión requiere enmienda a este sp
 > - **Activación:** la IA existe sólo si el servidor tiene `ANTHROPIC_API_KEY`; sin ella el asistente funciona como antes. Tope de **20 análisis por empresa cada 24 h** (`IA_TOPE_DIARIO`); cada análisis queda en `audit_log` (`template_import_ia`, con modelo y tokens). El costo se acota además con el límite de gasto de la cuenta de API.
 > - **Privacidad:** sólo se envía a Anthropic la **pauta en blanco** que sube el administrador. Nunca inspecciones, respuestas, hallazgos ni fotos de terreno. La captura sin conexión (Art. I) no depende de la IA.
 
-> **Enmienda 007 propuesta (2026-11-12, operación certificada).**
+> **Enmienda 007 (2026-11-12, operación certificada).** Propuesta por Raúl González y aprobada por Daniel Ávila el 2026-11-12. Los requisitos quedan en alcance, pero **no están implementados**: se entregan por tareas verticales (TSK-OPS-003-B firma, -C QR, -D programación, -E correo).
 >
 > - **Entran a alcance:** FR-056…061: cierre con firma manuscrita de inspector, cofirma opcional de supervisión, avisos por correo, programación de inspecciones y QR de activo/lugar. El diseño detallado está en `specs/004-dominio-inspecciones/`, `data-model.md` y `plans/008-operacion-certificada/`.
 > - **Firma:** es evidencia operativa de trazo, identidad autenticada y declaración de cierre; **no se presenta como firma electrónica avanzada ni biometría**. Se conserva como vector normalizado con hash del contenido inspeccionado, nunca como imagen de huella. Es obligatoria para el inspector y opcional por plantilla para supervisión. La firma de inspector viaja offline por la cola; la cofirma se toma cuando el supervisor abre el registro.
@@ -316,6 +316,7 @@ La demo se considera exitosa si, en vivo ante el docente:
 | 1.0.1 | 2026-09-23 | Título: "Decisiones en Tiempo Real" → "Datos al día donde no hay señal" (Opción A — alinear la promesa con la realidad offline-first) | Raúl González (con IA) |
 | 1.0.1 | 2026-09-24 | Firmado por Raúl González; pendiente firma de Daniel Ávila | Raúl González (con IA) |
 | 1.0.1 | 2026-10-06 | Firmado por Daniel Ávila — firma delegada con autorización explícita del titular, registrada por el agente del equipo | Daniel Ávila |
+| 1.6.0 | 2026-11-12 | **Enmienda 007** — firma de cierre, cofirma opcional, outbox de avisos por correo, programación e identificador QR de activo/lugar (FR-056…061). Propuesta por Raúl González y aprobada por Daniel Ávila el 2026-11-12; por implementar (TSK-OPS-003-B…E) | Raúl González (con IA) · aprobación Daniel Ávila |
 | 1.5.0 | 2026-11-11 | **Enmienda 006** — importar con IA (fotos, PDF escaneados; FR-029/048), opcional y auditado; OCR deja de estar en V2. Pendiente ratificación de Raúl González | Daniel Ávila (con IA) |
 | 1.4.0 | 2026-11-11 | **Enmienda 005** — importar Word/PDF (FR-029), exportación consolidada, PDF y Word (FR-045); OCR sigue en V2. Pendiente ratificación de Raúl González | Daniel Ávila (con IA) |
 | 1.3.0 | 2026-11-11 | **Enmienda 004** — FR-034 sin geolocalización; NFR-03 se mide como procesamiento del lote y la espera sin señal se informa aparte. Pendiente ratificación de Raúl González | Daniel Ávila (con IA) |
@@ -323,4 +324,3 @@ La demo se considera exitosa si, en vivo ante el docente:
 | 1.1.1 | 2026-10-10 | **Nota de implementación bajo FR-027** (no es Enmienda): documenta que el cursor del delta es `published_seq` (secuencia global de publicación) y no `version`, que es por plantilla. El texto y la numeración de los FR quedan intactos; la nota queda en el punto donde el requisito se lee, para que nadie reintroduzca el defecto. Detalle en `data-model.md` v1.1.2 y `adr/003` Enmienda 2 | Daniel Ávila |
 | 1.1.0 | 2026-10-07 | **Enmienda 002** — módulo 007 formularios dinámicos: §4 nueva fila 007; §5 18 FR nuevos en bloques reservados (007–009, 018–019, 027–029, 036–039, 044–049) sin renumerar; §10 importación asistida de `.xlsx` pasa a V1 y OCR/IA quedan en V2 opcional | Raúl González / Daniel Ávila (PR AMD-002) |
 | 1.0.1 | 2026-10-13 | Daniel Ávila **ratifica personalmente** su firma (reemplaza la firma delegada del 2026-10-06) y se actualiza el Estado (Enmienda 002 aprobada en `main`); sin cambio de contenido | Daniel Ávila |
-| 1.6.0 | 2026-11-12 | **Enmienda 007 propuesta** — firma de cierre, cofirma opcional, outbox de avisos por correo, programación e identificador QR de activo/lugar (FR-056…061). Requiere aprobación de Raúl y Daniel antes de implementar | Raúl González (con IA) |

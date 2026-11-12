@@ -1,10 +1,10 @@
 # PLAN — Operación certificada
 
-**Versión:** 0.1.0 (propuesta) · **Fecha:** 2026-11-12 · **Autor:** Raúl González (con IA)  
+**Versión:** 0.1.1 (aprobada 2026-11-12) · **Fecha:** 2026-11-12 · **Autor:** Raúl González (con IA)  
 **Issue:** #186 · **Tarea raíz:** TSK-OPS-003 · **Requisitos:** FR-056…061  
 **Depende de:** specs 001–004 y 007; motor de sync (003); RLS y auditoría (006).
 
-> Este plan sólo puede pasar a implementación cuando la Enmienda 007 del spec maestro reciba la aprobación cruzada requerida. Conserva el límite WIP: las tareas verticales se toman una por una, no se abre una rama de código para las cuatro a la vez.
+> La Enmienda 007 del spec maestro quedó aprobada (propuesta por Raúl González, aprobada por Daniel Ávila el 2026-11-12), así que este plan puede pasar a implementación. Conserva el límite WIP: las tareas verticales se toman una por una, no se abre una rama de código para las cuatro a la vez.
 
 ## 1. Resultado operativo
 

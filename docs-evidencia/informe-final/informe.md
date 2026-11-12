@@ -22,7 +22,7 @@ Después del cierre de F2, el producto dejó de ser una demo y sumó:
 - formularios importados desde **Excel, Word, PDF y fotos de pautas en papel** (con IA opcional);
 - una exportación consolidada.
 
-La matriz de requisitos está en **97,7% verde** y hay **521 pruebas automatizadas** en CI.
+De los requisitos implementados, la matriz está en **97,7% verde** (43/44), y hay **521 pruebas automatizadas** en CI. La Enmienda 007, aprobada el 2026-11-12, suma 3 filas de requisitos que todavía no se implementan.
 
 ## 2. Alcance entregado
 
@@ -44,17 +44,20 @@ La matriz de requisitos está en **97,7% verde** y hay **521 pruebas automatizad
 | 004 | Se retira la geolocalización; aviso de sesión reemplazada; métricas de supervisión (TSK-REP-006) | PRs #170–#172 |
 | 005 | Importar Word y PDF (TSK-FORM-020); exportar Excel consolidado, PDF y Word (TSK-REP-007) | PRs #173, #174 |
 | 006 | Importar con IA, opcional, auditado y con tope diario (TSK-FORM-021, ADR-005) | PR #175 |
+| 007 | **Aprobada, por implementar:** firma con el dedo al cerrar y cofirma opcional, avisos por correo, inspecciones programadas y QR por activo o lugar (FR-056…061, plan 008) | PR #187 |
 | — | Validación en Windows/Mac/CI y E2E aislado (TSK-OPS-001, TSK-E2E-002); accesibilidad de la captura (TSK-OFF-003); instalación visible de la PWA (TSK-OFF-004); dominio propio `terrenoconectado.cl` (ADR-002 adenda 2) | PRs #178, #179, #182, #183, #185 |
 
 Las enmiendas 003 a 006 quedan pendientes de ratificación por Raúl González.
 
 ## 4. Estado de la matriz de pruebas (§3 del test-plan)
 
-- **44 filas · 🟢 43 (97,7%) · 🟡 0 · 🔴 0 · ⚪ 1.**
+- **47 filas · 🟢 43 · 🟡 3 · 🔴 0 · ⚪ 1.**
+- De lo implementado: **43/44 en verde (97,7%)**.
+- Las 3 🟡 son los requisitos de la Enmienda 007, aprobada y por implementar, que no se declaran cubiertos antes de tener sus pruebas.
 - La única ⚪ es FR-034, por la geolocalización que la Enmienda 004 sacó de V1. Su parte vigente, la asociación a faena, está en 🟢.
 - FR-040/043/NFR-03 (dashboard en ≤ 60 s) se verificaron en producción.
 
-Se cumple con holgura el criterio de salida de F2 (**≥ 90% verde**).
+Se cumple con holgura el criterio de salida de F2 (**≥ 90% verde**); incluso contando la enmienda nueva, la matriz completa está en 91,5%.
 
 ## 5. Resultados de pruebas
 
@@ -117,12 +120,14 @@ La IA de importación se prueba con un analizador simulado, así que la CI no ll
    - dashboard en ≤ 60 s;
    - importar una pauta desde una foto;
    - exportar el mes en Excel consolidado.
-3. Mejoras candidatas: plan de acción para hallazgos (responsable y plazo), avisos automáticos de hallazgos críticos e inspecciones programadas.
+3. Implementar la Enmienda 007 por tareas: firma offline y cofirma (TSK-OPS-003-B), activos y QR (-C), inspecciones programadas (-D) y avisos por correo (-E, que necesita definir proveedor y destinatarios).
+4. Mejora candidata: plan de acción para hallazgos (responsable y plazo).
 
 ## Control de cambios
 
 | Versión | Fecha | Cambio | Autor |
 | :--- | :--- | :--- | :--- |
+| 2.2.0 | 2026-11-12 | Enmienda 007 aprobada (por implementar): matriz 47 filas, 97,7% de lo implementado | Daniel Ávila (con IA) |
 | 2.1.0 | 2026-11-12 | Mejoras de validación, E2E, accesibilidad e instalación PWA; dominio `terrenoconectado.cl`; 521 pruebas | Daniel Ávila (con IA) |
 | 2.0.0 | 2026-11-11 | Estado v1.3 en producción: enmiendas 003–006, matriz 43/44 y 517 pruebas reales del CI de `main` | Daniel Ávila (con IA) |
 | 1.0.0 | 2026-10-14 | Borrador del informe final de F2 | Daniel Ávila |

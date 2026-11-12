@@ -1,6 +1,6 @@
 # DATA MODEL — Modelo conceptual de datos
 
-**Versión:** 1.6.0 (Enmienda 007 propuesta) · **Fecha:** 2026-09-14 · actualizado 2026-11-12 · **Autor:** Daniel Ávila · **Relacionado:** spec maestro §5/§7, specs 001–007, ADR-003
+**Versión:** 1.6.0 (Enmienda 007, por implementar) · **Fecha:** 2026-09-14 · actualizado 2026-11-12 · **Autor:** Daniel Ávila · **Relacionado:** spec maestro §5/§7, specs 001–007, ADR-003
 **Evidencia APT:** "Modelo conceptual de datos preliminar" (informe §6).
 **Reglas transversales:** toda tabla de dominio lleva `tenant_id UUID NOT NULL` + política RLS (Artículo IV); IDs `UUIDv7` generados en el cliente cuando el registro nace offline (FR-015); timestamps `created_at`, `updated_at` (servidor) y `captured_at` (cliente, autoridad para LWW — FR-023).
 
@@ -146,7 +146,7 @@ erDiagram
 
 **ATTACHMENT (Foto)** — `id, tenant_id, owner_type ENUM(inspection, finding, log_entry, response), owner_id, file_key TEXT, mime, bytes INT, width/height INT, captured_at, client_version`. `owner_type` incluye **`response`** (módulo 007, FR-037): la foto de un ítem se asocia a su respuesta. V1: `file_key` apunta a volumen Docker; evolución S3 documentada en research.md §6.
 
-> **Extensión propuesta — Enmienda 007 (FR-056…061).** Estas entidades no existen aún en la base. Se versionan aquí antes del código para que la migración, RLS, contratos de sync y pruebas nazcan coherentes; no deben declararse implementadas hasta que la enmienda sea aprobada y sus tareas terminen.
+> **Extensión de la Enmienda 007 (FR-056…061, aprobada por Daniel Ávila el 2026-11-12).** Estas entidades no existen aún en la base. Se versionan aquí antes del código para que la migración, RLS, contratos de sync y pruebas nazcan coherentes; no deben declararse implementadas hasta que terminen sus tareas (TSK-OPS-003-B…E).
 
 **INSPECTION_SIGNATURE** — `id UUIDv7, tenant_id, inspection_id FK→INSPECTION, signer_id FK→USER, signer_role ENUM(inspector, supervisor), strokes_json JSONB, content_hash TEXT, declaration_version TEXT, signed_at TIMESTAMPTZ (cliente), client_version INT, created_at`. Un índice único `(inspection_id, signer_role)` evita duplicar la firma de cada rol. `strokes_json` lleva puntos vectoriales normalizados, no una imagen de una firma ni datos biométricos; `content_hash` fija el contenido/ciclo de cierre que la persona declaró. RLS por tenant y auditoría de creación; no se permite reemplazo ni borrado desde `tc_app`.
 
@@ -211,7 +211,7 @@ CREATE POLICY tenant_isolation ON inspection
 | Versión | Fecha | Cambio |
 | :--- | :--- | :--- |
 | 1.0.0 | 2026-09-14 | Modelo base (specs 001–006) |
-| 1.6.0 | 2026-11-12 | **Enmienda 007 propuesta:** modelo previo a implementación para `inspection_signature`, `asset`, `inspection_schedule`, `scheduled_inspection` y `notification_outbox`; RLS, inmutabilidad e idempotencia explícitas | Raúl González (con IA) |
+| 1.6.0 | 2026-11-12 | **Enmienda 007** (aprobada por Daniel Ávila el 2026-11-12): modelo previo a implementación para `inspection_signature`, `asset`, `inspection_schedule`, `scheduled_inspection` y `notification_outbox`; RLS, inmutabilidad e idempotencia explícitas | Raúl González (con IA) |
 | 1.5.0 | 2026-11-11 | **Enmienda 006:** `template_imports.motor` y formatos `jpg`/`png` (migración 018); `audit_log` registra `template_import_ia` | Daniel Ávila (con IA) |
 | 1.4.0 | 2026-11-11 | **Enmienda 005:** `template_imports.formato` (migración 017); el archivo fuente se guarda con su extensión y MIME reales | Daniel Ávila (con IA) |
 | 1.3.0 | 2026-11-11 | **Enmienda 004:** `auth_session.revoked_reason` (migración 015, sesión reemplazada); `inspection.queued_at` / `client_sent_at` / `reviewed_at` y `finding.resolved_at` (migración 016, métricas del dashboard de supervisión, TSK-REP-006). `inspection.location` queda en desuso | Daniel Ávila (con IA) |
