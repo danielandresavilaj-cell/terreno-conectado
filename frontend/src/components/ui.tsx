@@ -19,9 +19,9 @@ type Tamano = 'sm' | 'md' | 'lg'
 
 const VARIANTES: Record<Variante, string> = {
   primaria:
-    'bg-beam text-s0 hover:bg-[#ffb733] active:bg-[#d8941c] shadow-[0_1px_0_#ffd27a_inset]',
+    'bg-beam text-on-beam hover:bg-beam-hover active:bg-beam-press shadow-[0_1px_0_var(--color-beam-hi)_inset]',
   secundaria:
-    'bg-s3 text-ink hover:bg-[#31363d] border border-line hover:border-[#3d434b]',
+    'bg-s3 text-ink hover:bg-s3-hover border border-line hover:border-line-strong',
   fantasma: 'bg-transparent text-ink-2 hover:text-ink hover:bg-s3',
   peligro: 'bg-failed/12 text-failed border border-failed/35 hover:bg-failed/20',
 }

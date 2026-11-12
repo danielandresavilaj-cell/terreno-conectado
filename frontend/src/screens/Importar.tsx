@@ -909,7 +909,7 @@ function Stepper({ paso }: { paso: number }) {
               <span
                 className={[
                   'h-5 w-5 rounded-full grid place-items-center num-inst text-[11px] font-semibold',
-                  activo ? 'bg-beam text-s0' : hecho ? 'bg-synced/20 text-synced' : 'bg-s3 text-ink-3',
+                  activo ? 'bg-beam text-on-beam' : hecho ? 'bg-synced/20 text-synced' : 'bg-s3 text-ink-3',
                 ].join(' ')}
               >
                 {hecho ? '✓' : n}

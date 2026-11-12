@@ -1,9 +1,12 @@
 <!doctype html>
-<html lang="es-CL" class="dark">
+<html lang="es-CL" data-theme="dark">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#0e0f11" />
+    <!-- TSK-OFF-005: fija el tema claro/oscuro antes del primer pintado (archivo
+         propio, compatible con la CSP `script-src 'self'`). -->
+    <script src="/tema-inicial.js"></script>
     <link rel="icon" type="image/png" href="/pwa-192.png" />
     <link rel="apple-touch-icon" href="/pwa-192.png" />
     <title>Terreno Conectado — Datos al día donde no hay señal</title>

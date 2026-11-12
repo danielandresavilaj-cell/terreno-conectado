@@ -24,6 +24,7 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { BadgeSync } from './Badges'
 import { CountUp } from './CountUp'
 import { Boton } from './ui'
+import { BotonTema } from './BotonTema'
 import { useEstado, type Pantalla } from '../lib/store'
 import { EASE } from '../lib/motion'
 import type { Rol } from '../lib/types'
@@ -169,7 +170,7 @@ export function Shell({ children }: { children: ReactNode }) {
     <div className="min-h-dvh flex flex-col bg-s0">
       <a
         href="#contenido-principal"
-        className="sr-only fixed left-4 top-4 z-50 rounded-lg bg-beam px-4 py-2 text-[13px] font-semibold text-s0 focus:not-sr-only"
+        className="sr-only fixed left-4 top-4 z-50 rounded-lg bg-beam px-4 py-2 text-[13px] font-semibold text-on-beam focus:not-sr-only"
       >
         Saltar al contenido principal
       </a>
@@ -180,7 +181,7 @@ export function Shell({ children }: { children: ReactNode }) {
         <div className="mx-auto max-w-[1180px] px-4 sm:px-6 pt-safe">
           <div className="h-14 flex items-center gap-3">
             <div className="h-7 w-7 rounded-[8px] bg-beam grid place-items-center shrink-0">
-              <span className="text-s0 font-bold text-[12px] leading-none">TC</span>
+              <span className="text-on-beam font-bold text-[12px] leading-none">TC</span>
             </div>
             <div className="min-w-0 hidden sm:block">
               <p className="text-[13px] font-semibold tracking-[-0.02em] leading-tight truncate">
@@ -192,6 +193,7 @@ export function Shell({ children }: { children: ReactNode }) {
             <div className="flex-1" />
 
             <IndicadorSenal on={online} />
+            <BotonTema />
             <Boton
               tamano="sm"
               variante={pantalla === 'cuenta' ? 'secundaria' : 'fantasma'}

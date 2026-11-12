@@ -3,7 +3,7 @@
 | | |
 | :--- | :--- |
 | **Estado** | COMPLETO (ciclo del módulo, F2 · 2026-10-13) |
-| **Versión** | 0.3.3 |
+| **Versión** | 0.3.4 |
 | **Autor** | Daniel Ávila |
 | **Padre** | specs/000-master/spec.md |
 | **Depende de** | 001 (sesión/tenant), 004 (plantillas a renderizar offline) |
@@ -58,7 +58,7 @@ Evolución por versiones (`frontend/src/lib/db.ts`), alineada con `data-model.md
 
 ## 4. UX de captura en terreno
 
-Targets táctiles amplios, alto contraste para luz solar, y **autoguardado de borrador** por ítem: una captura a medias sobrevive cerrar/reabrir (FR-014). Los errores de validación de tipo (FR-039) se muestran **antes de encolar**, en el dispositivo. Cada control expone la pregunta y el error asociado a tecnologías asistivas; el diálogo de cámara contiene el foco, se cierra con Escape y lo devuelve al activador para que la captura siga siendo operable también con teclado. Cuando el navegador permite instalar la PWA, la app ofrece una acción explícita; si no, indica el camino manual sin impedir el uso web (FR-010).
+Targets táctiles amplios, alto contraste para luz solar, y **autoguardado de borrador** por ítem: una captura a medias sobrevive cerrar/reabrir (FR-014). Los errores de validación de tipo (FR-039) se muestran **antes de encolar**, en el dispositivo. Cada control expone la pregunta y el error asociado a tecnologías asistivas; el diálogo de cámara contiene el foco, se cierra con Escape y lo devuelve al activador para que la captura siga siendo operable también con teclado. Cuando el navegador permite instalar la PWA, la app ofrece una acción explícita; si no, indica el camino manual sin impedir el uso web (FR-010). **Modo claro y oscuro** (TSK-OFF-005): un botón en la barra superior y en las pantallas de ingreso alterna el tema, que se recuerda por dispositivo (oscuro por defecto). El tema sale de tokens CSS (`index.css`, `:root[data-theme='light']`), con contraste AA en ambos, y se fija antes del primer pintado con `public/tema-inicial.js` (sin destello, compatible con la CSP y precacheado para uso offline).
 
 ## 5. Cache del service worker (Workbox)
 
@@ -99,6 +99,7 @@ La toma usa `getUserMedia` y prefiere la cámara trasera. El stream se detiene a
 
 | Versión | Fecha | Cambio | Autor |
 | :--- | :--- | :--- | :--- |
+| 0.3.4 | 2026-11-13 | TSK-OFF-005: modo claro y oscuro con botón, tokens por tema y fijado antes del primer pintado | Daniel Ávila (con IA) |
 | 0.3.3 | 2026-11-12 | TSK-OFF-004 (#184): acción visible de instalación PWA, ayuda por plataforma y formularios sin autofoco móvil | Raúl González (con IA) |
 | 0.3.2 | 2026-11-12 | TSK-OFF-003 (#181): controles de captura identificables por tecnologías asistivas, diálogo de cámara con foco/Escape/retorno y salto al contenido principal | Raúl González (con IA) |
 | 0.3.1 | 2026-10-16 | TSK-OFF-002 (#150): cámara del dispositivo para fotos de ítems y hallazgos; fallback explícito de archivo y apagado del stream | Raúl González (con IA) |

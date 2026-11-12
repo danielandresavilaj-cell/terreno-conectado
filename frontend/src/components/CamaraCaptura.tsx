@@ -181,7 +181,7 @@ export function CamaraCaptura({
         <div className="mt-4 flex flex-wrap justify-end gap-2">
           <button type="button" onClick={() => archivo.current?.click()} className="h-11 rounded-[10px] border border-line-soft px-4 text-[13px] font-medium hover:border-line">Seleccionar archivo</button>
           {estado === 'error' && <button type="button" onClick={() => void iniciar()} className="h-11 rounded-[10px] border border-line-soft px-4 text-[13px] font-medium hover:border-beam">Reintentar cámara</button>}
-          <button type="button" disabled={estado !== 'lista'} onClick={tomar} className="h-11 rounded-[10px] bg-beam px-4 text-[13px] font-semibold text-s0 disabled:cursor-not-allowed disabled:opacity-45">Capturar foto</button>
+          <button type="button" disabled={estado !== 'lista'} onClick={tomar} className="h-11 rounded-[10px] bg-beam px-4 text-[13px] font-semibold text-on-beam disabled:cursor-not-allowed disabled:opacity-45">Capturar foto</button>
         </div>
       </section>
     </div>

@@ -346,7 +346,7 @@ export function Dashboard() {
                 className={[
                   'relative h-8 px-3 rounded-lg text-[12px] font-mono tracking-[0.04em] cursor-pointer',
                   'transition-colors duration-150 ease-out',
-                  periodo === p ? 'text-s0' : 'text-ink-3 hover:text-ink-2',
+                  periodo === p ? 'text-on-beam' : 'text-ink-3 hover:text-ink-2',
                 ].join(' ')}
               >
                 {periodo === p && (

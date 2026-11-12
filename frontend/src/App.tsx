@@ -69,7 +69,7 @@ function Raiz() {
       >
         <div className="text-center space-y-3">
           <div className="h-9 w-9 rounded-[10px] bg-beam grid place-items-center mx-auto">
-            <span className="text-s0 font-bold text-[17px] leading-none">TC</span>
+            <span className="text-on-beam font-bold text-[17px] leading-none">TC</span>
           </div>
           <p className="label-inst">Restaurando sesión y cola local…</p>
         </div>
@@ -115,7 +115,7 @@ function PantallaCargando() {
   return (
     <div className="py-16 text-center" role="status" aria-live="polite">
       <div className="h-9 w-9 rounded-[10px] bg-beam grid place-items-center mx-auto">
-        <span className="text-s0 font-bold text-[17px] leading-none">TC</span>
+        <span className="text-on-beam font-bold text-[17px] leading-none">TC</span>
       </div>
       <p className="label-inst mt-3">Cargando pantalla…</p>
     </div>

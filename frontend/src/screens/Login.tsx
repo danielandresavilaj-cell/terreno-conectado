@@ -21,6 +21,7 @@ import { useState, type FormEvent } from 'react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { Boton } from '../components/ui'
 import { PwaInstalacion } from '../components/PwaInstalacion'
+import { BotonTema } from '../components/BotonTema'
 import { useEstado } from '../lib/store'
 import { ApiError } from '../lib/api'
 import { EASE, STAGGER } from '../lib/motion'
@@ -76,7 +77,8 @@ export function Login() {
   })
 
   return (
-    <div className="min-h-dvh flex flex-col lg:flex-row">
+    <div className="relative min-h-dvh flex flex-col lg:flex-row">
+      <BotonTema className="absolute right-3 top-[calc(env(safe-area-inset-top)_+_0.75rem)] z-10" />
       {/* Columna de marca: solo en desktop, evita el scroll infinito en móvil */}
       <aside className="hidden lg:flex lg:w-[46%] xl:w-[42%] relative overflow-hidden border-r border-line-soft p-12 flex-col justify-between">
         {/* Textura: rejilla de Telemetría, muy tenue. Da profundidad sin ruido. */}
@@ -93,7 +95,7 @@ export function Login() {
         <div className="relative">
           <motion.div {...bloque(0)} className="flex items-center gap-3">
             <div className="h-9 w-9 rounded-[10px] bg-beam grid place-items-center shrink-0">
-              <span className="text-s0 font-bold text-[17px] leading-none">TC</span>
+              <span className="text-on-beam font-bold text-[17px] leading-none">TC</span>
             </div>
             <div>
               <p className="text-[15px] font-semibold tracking-[-0.02em] leading-tight">
@@ -137,7 +139,7 @@ export function Login() {
         <div className="w-full max-w-[400px]">
           <motion.div {...bloque(0.06)} className="lg:hidden flex items-center gap-3 mb-10">
             <div className="h-9 w-9 rounded-[10px] bg-beam grid place-items-center">
-              <span className="text-s0 font-bold text-[17px] leading-none">TC</span>
+              <span className="text-on-beam font-bold text-[17px] leading-none">TC</span>
             </div>
             <div>
               <p className="text-[15px] font-semibold tracking-[-0.02em] leading-tight">
