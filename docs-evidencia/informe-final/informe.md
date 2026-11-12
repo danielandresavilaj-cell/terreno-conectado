@@ -1,97 +1,126 @@
 # Informe final de validación — Terreno Conectado
 
-**Proyecto:** Terreno Conectado — SaaS offline-first para faenas mineras y obras.  
+**Proyecto:** Terreno Conectado, SaaS offline-first para faenas mineras y obras.  
 **Equipo:** Daniel Ávila · Raúl González.  
-**Fase:** F2 — Diseño y desarrollo iterativo (cierre).  
-**Fecha:** 2026-10-14.  
-**Repo:** `https://github.com/danielandresavilaj-cell/terreno-conectado`
+**Fase:** F3, producto v1.3 en producción.  
+**Fecha:** 2026-11-11.  
+**Repo:** `https://github.com/danielandresavilaj-cell/terreno-conectado`  
+**Producción:** `https://terreno-conectado-demo.duckdns.org` (Oracle Always Free, US$0/mes)
 
 ## 1. Resumen ejecutivo
 
-El **walking skeleton** y los módulos críticos de la Fase 2 están implementados. Los cuatro últimos cierres de requisito están en PRs pendientes de aprobación/merge (#121, #123, #124); al integrarlos, el sistema captura inspecciones sin red, las encola localmente en IndexedDB y las sincroniza con PostgreSQL vía lotes idempotentes cuando vuelve la señal. El dashboard del supervisor visualiza hallazgos, métricas de latencia y exporta la vista a CSV.
+Terreno Conectado está **en producción con cuentas reales**. Con el teléfono:
 
-Los huecos reales encontrados en la auditoría de cierre fueron cerrados:
+- se capturan inspecciones **sin señal**;
+- quedan en una cola local (IndexedDB);
+- se sincronizan con PostgreSQL en lotes idempotentes cuando vuelve la conexión.
 
-| Hueco | Solución | PR |
+El supervisor ve en el dashboard las inspecciones, los hallazgos y el estado de la sincronización. Puede revisar inspecciones, mover hallazgos y exportar lo filtrado en Excel, PDF o Word.
+
+Después del cierre de F2, el producto dejó de ser una demo y sumó:
+
+- formularios importados desde **Excel, Word, PDF y fotos de pautas en papel** (con IA opcional);
+- una exportación consolidada.
+
+La matriz de requisitos está en **97,7% verde** y hay **517 pruebas automatizadas** en CI.
+
+## 2. Alcance entregado
+
+| Módulo | Qué hace hoy |
+| :--- | :--- |
+| 001 Auth y tenancy | Login con correo y clave, JWT con tenant, refresh `httponly` con rotación y detección de reuso, bloqueo por intentos, RLS de Postgres, clave temporal en el primer ingreso, aviso si la sesión se abre en otro dispositivo |
+| 002 Captura offline | PWA instalable, borradores, cámara con compresión, cola local, cuota real del dispositivo con aviso al 80%, entrada sin señal con la identidad cacheada |
+| 003 Sincronización | Lotes idempotentes (UUIDv7 + `client_version`), orden de dependencias, LWW determinista, registro de conflictos visible para el supervisor |
+| 004 Dominio | Plantillas versionadas, inspecciones con versión congelada, hallazgos, adjuntos, asociación a faena (sin geolocalización, Enmienda 004) |
+| 005 Reportes | Dashboard con filtros, latencia (media y p95), "espera sin señal" medida aparte, supervisión de la sincronización por faena y equipo, exportación Excel consolidado / PDF / Word por filtro o selección |
+| 006 Administración | Empresas, equipos, faenas y auditoría (`audit_log` append-only) |
+| 007 Formularios dinámicos | Importar Excel, Word y PDF por reglas; con IA, también fotos y PDF escaneados; revisión humana obligatoria; asignación por faena y rol; delta por `published_seq`; exportación del original rellenado |
+
+## 3. Mejoras posteriores a F2 (enmiendas al spec maestro)
+
+| Enmienda | Cambio | Evidencia |
 | :--- | :--- | :--- |
-| FR-017 cuota local simulada | Cuota real con `navigator.storage.estimate()`, aviso al 80 % y priorización de fotos | #121 |
-| FR-041 filtro por autor | `autor_id` en `dashboard/findings`, `autores` en `summary`, filtro en UI | #123 |
-| FR-042 CSV sin test | `frontend/src/lib/dashboard-csv.ts` + tests unitarios | #123 |
-| FR-034 geo documentado pero no implementado | Columnas `location_lat`/`location_lon`, contrato sync aditivo, captura opcional con `navigator.geolocation` | #124 |
-| TSK-AUTH-008 roles no canónicos en conflictos | `supervisor`/`tenant_admin`, prueba de roles y aislamiento RLS | #129 |
+| 003 | Producto real: cuentas, alta de empresas y equipos, sin modo demo; despliegue en Oracle con respaldos cifrados | `supervision.spec.ts`, `auth.spec.ts`, `infra/OPERACION.md` |
+| 004 | Se retira la geolocalización; aviso de sesión reemplazada; métricas de supervisión (TSK-REP-006) | PRs #170–#172 |
+| 005 | Importar Word y PDF (TSK-FORM-020); exportar Excel consolidado, PDF y Word (TSK-REP-007) | PRs #173, #174 |
+| 006 | Importar con IA, opcional, auditado y con tope diario (TSK-FORM-021, ADR-005) | PR #175 |
 
-## 2. Alcance V1 cerrado
+Las enmiendas 003 a 006 quedan pendientes de ratificación por Raúl González.
 
-- **Auth/tenancy (001):** JWT con tenant claim, RLS de Postgres, refresh con rotación, rate-limit, bloqueo por intentos fallidos.
-- **Captura offline (002):** PWA instalable, IndexedDB con Dexie, borradores, cámara con compresión, cola de sync.
-- **Motor de sincronización (003):** batch idempotente, orden de dependencias, LWW con `captured_at`/`client_version`, log de sync.
-- **Dominio inspecciones (004):** plantillas/revisiones, inspecciones con versión congelada, hallazgos, bitácoras, adjuntos, georreferencia opcional.
-- **Reportes y gerencia (005):** dashboard con filtros, métricas de latencia (media+p95), export CSV, export `.xlsx`/ZIP.
-- **Admin plataforma (006):** creación/suspensión de tenants, asignación de `tenant_admin`, audit log.
-- **Formularios dinámicos (007):** importador `.xlsx`, 8 tipos de campo, delta de plantillas por `published_seq`.
+## 4. Estado de la matriz de pruebas (§3 del test-plan)
 
-## 3. Estado de la matriz de pruebas §3
+- **44 filas · 🟢 43 (97,7%) · 🟡 0 · 🔴 0 · ⚪ 1.**
+- La única ⚪ es FR-034, por la geolocalización que la Enmienda 004 sacó de V1. Su parte vigente, la asociación a faena, está en 🟢.
+- FR-040/043/NFR-03 (dashboard en ≤ 60 s) se verificaron en producción.
 
-**Proyección tras mergear #121, #123 y #124:**
+Se cumple con holgura el criterio de salida de F2 (**≥ 90% verde**).
 
-- 39 filas · 🟢 37 (94,9 %) · 🟡 1 (2,6 %) · ⚪ 1 (2,6 %) · 🔴 0
-- El único 🟡 es **FR-040/043 ≤ 60 s**, que se mide en vivo en la demo (Fase 3), no automatizado.
-- El único ⚪ es **NFR-02/100-fotos** del caos 5 (las 100 fotos se verifican en el FR-012 unitario, no en el mismo escenario de 72 h).
-
-Esto cumple el criterio de salida de F2: **matriz §3 ≥ 90 % verde**.
-
-## 4. Resultados de pruebas
+## 5. Resultados de pruebas
 
 | Capa | Cantidad | Estado |
 | :--- | :--- | :--- |
-| E2E + caos (Playwright) | 17 tests | Verde en el nightly más reciente disponible (14-oct-2026) |
-| Integración backend (Vitest + Testcontainers) | 188 tests | 184 tras TSK-AUTH-008 + 4 de PRs #123/#124 |
-| Unidad frontend (Vitest) | 109 tests | Verde |
-| Unidad shared (Vitest) | 77 tests | Verde |
-| **Total** | **391 tests** | Proyección tras mergear #121/#123/#124/#129 |
+| Integración backend (Vitest + Testcontainers, Postgres real) | 253 | Verde en el CI de `main` (`a13c50c`) |
+| Unidad frontend (Vitest) | 149 | Verde |
+| Unidad shared (Vitest) | 92 | Verde |
+| E2E + caos (Playwright, perfil móvil) | 23 | Verde en la última corrida |
+| **Total** | **517** | |
 
-Invariantes de caos 1–7: 0 pérdidas, 0 duplicados, 0 fugas cross-tenant.
+Invariantes de los escenarios de caos 1–7: **0 pérdidas, 0 duplicados, 0 fugas entre empresas**.
 
-## 5. Decisiones de arquitectura relevantes
+La IA de importación se prueba con un analizador simulado, así que la CI no llama a la API ni gasta crédito. También se validó en producción con una foto real de una pauta en papel.
 
-- **Aislamiento multi-tenant por RLS de Postgres** (Art. IV), no por filtros en la app.
-- **Sincronización offline-first:** la nube consolida, nunca es dependencia para trabajar (Art. I).
-- **Idempotencia por UUIDv7 de cliente + `client_version`** (FR-021/023).
-- **Acceso a conflictos por roles canónicos:** supervisor y tenant_admin, con aislamiento por RLS (TSK-AUTH-008).
-- **Geolocalización sin PostGIS** en V1: columnas NUMERIC para mantener el despliegue mínimo.
-- **Resumen ejecutivo V1 read-only** sobre KPIs del dashboard; IA redactada post-V1.
+## 6. Decisiones de arquitectura relevantes
 
-## 6. Huecos y deuda técnica
+- **Aislamiento por RLS de Postgres** (Art. IV), no por filtros de la aplicación.
+- **Offline-first** (Art. I): la nube consolida, pero nunca es requisito para trabajar. La IA es un extra que necesita internet y no toca la captura.
+- **Idempotencia** por UUIDv7 de cliente + `client_version` (FR-021/023).
+- **Un solo contrato** Zod en `shared/` para frontend y backend (ADR-001/003).
+- **Lectores pesados solo en el servidor** (pdf.js, pdfkit, docx, SDK de IA), para que la PWA siga liviana (ADR-003 Enmienda 4).
+- **IA acotada** (ADR-005):
+  - modelo pequeño: menos de USD 0,005 por pauta;
+  - tope de 20 análisis por empresa al día;
+  - límite de gasto de la cuenta;
+  - solo se envía la pauta en blanco;
+  - la persona siempre confirma.
+- **Despliegue de costo cero:** Oracle Always Free + Docker Compose + Caddy; imágenes por SHA en GHCR; respaldos cifrados con `age` fuera de la VM (ADR-002).
 
-- FR-040/043 ≤ 60 s: medido en vivo; no automatizado por limitaciones del harness CI.
-- NFR-02/100-fotos: el escenario de 72 h no verifica explícitamente las 100 fotos; se cubre unitariamente.
-- Dependencias: hardening #84 mergeado en PR #126; quedan 2 moderadas `uuid`→`exceljs`, aceptadas y documentadas en ADR-004 (sin fix no-breaking).
-- Despliegue: artefactos same-origin mergeados en #127; provisioning real y secretos/VPS quedan pendientes tras HITO 2.
+## 7. Huecos y deuda técnica
 
-## 7. Lecciones aprendidas
+- **Catálogo de plantillas de plataforma** (TSK-FORM-012): queda para V2.
+- **Avisos de GitHub Actions:** algunas acciones apuntan a Node 20, que está obsoleto. Funcionan, pero hay que subirlas de versión.
+- **Dependencias:** quedan 2 vulnerabilidades moderadas (`uuid` → `exceljs`), aceptadas en ADR-004.
+- **IA:** depende del crédito de la cuenta. Si se agota, la app sigue con las reglas y lo avisa.
 
-- Documentar un requisito como "hecho" sin prueba migratoria/contrato real genera huecos (FR-034, FR-041).
-- El tablero de tareas y la matriz de pruebas deben actualizarse en el mismo PR que el código (Art. II/VIII).
-- Las pruebas con Postgres real (Testcontainers) detectan errores de esquema que las pruebas en memoria no encuentran.
+## 8. Lecciones aprendidas
 
-## 8. Enlaces a artefactos
+- Marcar un requisito como "hecho" sin una prueba real deja huecos (FR-034, FR-041). La matriz se actualiza en el mismo PR que el código (Art. II/VIII).
+- Postgres real (Testcontainers) encuentra errores de esquema y de RLS que las pruebas en memoria no ven.
+- **PRs apilados:** hay que cambiar la base a `main` antes de mergear. Uno se mergeó en la rama padre y hubo que recuperarlo.
+- Las caídas de GitHub Actions se resolvieron con un despliegue manual por SSH documentado. Conviene tener siempre un plan B de despliegue.
+- La IA rinde más cuando **propone** y una persona decide. Así entra al producto sin arriesgar la calidad de los datos.
 
-- `specs/000-master/spec.md` — visión, FR/NFR, mapeo de evidencia §12.
-- `test-plan.md` — matriz §3, caos §4, defectos §5.
-- `data-model.md` — modelo de datos y políticas RLS.
-- `adr/002-arquitectura-despliegue.md` — VPS + Caddy + HTTPS ≤ US$7/mes.
-- `tasks/` — tareas por módulo.
-- PR #119 — plan de cierre de F2 y transición a F3 (pendiente de revisión/merge).
+## 9. Enlaces a artefactos
 
-## 9. Próximos pasos (Fase 3)
+- `specs/000-master/spec.md`: visión, FR/NFR y enmiendas 001–006.
+- `test-plan.md`: matriz §3, caos §4 y defectos §5.
+- `data-model.md`: modelo de datos y RLS.
+- `adr/001…005`: stack, despliegue, formularios dinámicos, dependencias e IA.
+- `infra/OPERACION.md`: desplegar, respaldar, restaurar y activar la IA.
+- `tasks/`: tareas por módulo.
 
-1. Aprobar y mergear PRs #121, #123, #124 y #129; consolidar `test-plan.md` y los conteos finales.
-2. Completar HITO 2, configurar VPS/dominio/secrets y ejecutar deploy manual (#127).
-3. Demo final en vivo: modo avión real, ≤ 60 s dashboard, caos 1–7.
-4. Entregar informe, presentación y evidencias académicas en el repositorio Capstone.
+## 10. Próximos pasos
+
+1. Que Raúl González ratifique las enmiendas 003 a 006.
+2. Demo final en vivo:
+   - captura en modo avión y sincronización al reconectar;
+   - dashboard en ≤ 60 s;
+   - importar una pauta desde una foto;
+   - exportar el mes en Excel consolidado.
+3. Mejoras candidatas: plan de acción para hallazgos (responsable y plazo), avisos automáticos de hallazgos críticos e inspecciones programadas.
 
 ## Control de cambios
 
 | Versión | Fecha | Cambio | Autor |
 | :--- | :--- | :--- | :--- |
+| 2.0.0 | 2026-11-11 | Estado v1.3 en producción: enmiendas 003–006, matriz 43/44 y 517 pruebas reales del CI de `main` | Daniel Ávila (con IA) |
 | 1.0.0 | 2026-10-14 | Borrador del informe final de F2 | Daniel Ávila |

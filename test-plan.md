@@ -1,6 +1,6 @@
 # TEST PLAN — Plan de pruebas de validación
 
-**Versión:** 1.1.0 · **Fecha:** 2026-09-14 · actualizado 2026-11-11 · **Autor:** Raúl González (validación) · **Relacionado:** spec maestro §5–6, constitución Artículos III/IV/VII
+**Versión:** 1.2.0 · **Fecha:** 2026-09-14 · actualizado 2026-11-11 · **Autor:** Raúl González (validación) · **Relacionado:** spec maestro §5–6, constitución Artículos III/IV/VII
 **Evidencia APT:** "Plan de pruebas de validación" (informe §6) y soporte de la competencia "Realizar pruebas de certificación de productos y procesos".
 
 ## 1. Principio rector
@@ -70,31 +70,30 @@ verde.
 | FR-045/046 | Lote del período con formato de su plantilla + hoja "Evidencias" (adjuntos referenciados/embebidos) | Integración | `backend/test/inspection-export-lote.spec.ts` | 🟢 verde |
 | FR-045/046/047 (Enmienda 005) | Excel consolidado (Resumen + hoja por formulario + Hallazgos + Evidencias, columnas unidas entre versiones, plantilla hecha a mano), PDF y Word (un archivo o ZIP), selección por `ids` con RLS, filtros de formulario/estado, tope 413, 404, 400, roles y auditoría | Unit + integración | `shared/src/exportar/consolidado.test.ts`, `backend/test/inspection-report.spec.ts`, `frontend/test/exportar-inspecciones.test.ts` | ✅ |
 | FR-047 + FR-051 | Import confirmado y export por lote registrados en el audit log (autor, timestamp, tenant) | Integración | `backend/test/import-wizard.spec.ts`, `inspection-export-lote.spec.ts` | 🟢 verde |
-| FR-048 | *(V2 por Enmienda 003 — no hay flag `ai` en V1)* Lo verificable en V1: el mapeo propuesto nunca se publica sin la confirmación explícita del `tenant_admin` | Integración | `backend/test/import-wizard.spec.ts`, `templates.http.spec.ts` | ⚪ V2 (la confirmación humana sí está 🟢) |
+| FR-048 | *(Enmienda 006)* La IA (opcional, sólo backend) propone secciones e ítems desde PDF, Word o foto, y la propuesta nunca se publica sin la confirmación explícita del `tenant_admin`; sin clave la función queda apagada | Integración | `backend/test/import-ia.spec.ts` (analizador falso), `import-wizard.spec.ts`, `templates.http.spec.ts` | 🟢 verde |
 | FR-049 | Revisión publicada inmutable: ítems ya inspeccionados no se modifican; el cambio exige revisión nueva | Integración | `backend/test/templates.http.spec.ts` (409 al editar publicado) | 🟢 verde |
 | FR-050 | `platform_admin` crea tenant, le asigna el `tenant_admin` inicial y lo suspende/reactiva; un rol distinto recibe 403 en toda la consola | Integración | `backend/test/admin.spec.ts` | 🟢 verde |
 | FR-051 (`admin`) | Cada mutación admin deja exactamente una fila en `audit_log` con `actor_id` y `tenant_id` correctos; `tc_app` no puede UPDATE/DELETE y la API no expone rutas de modificación | Integración | `backend/test/admin.spec.ts` | 🟢 verde |
 
-**Recuento:** 39 filas · 🟢 37 (94,9%) · 🟡 1 (2,6%) · 🔴 0 ·
-⚪ 1 (2,6%, automatizable sólo con tooling externo o sin prueba todavía).
+**Recuento (2026-11-11):** 44 filas · 🟢 43 (97,7%) · 🟡 0 · 🔴 0 · ⚪ 1 (2,3%).
 
-> La única fila restante en ⚪ es **NFR-02/100-fotos**: las 100 fotos se
-> comprueban en el FR-012 unitario, no en el escenario de 72 h del caos 5. FR-034
-> (geolocalización), FR-041 (autor) y FR-042 (CSV del cliente) pasaron a 🟢.
+> La única fila con ⚪ es **FR-034**, y solo por la parte de geolocalización, que la
+> Enmienda 004 sacó de V1; su parte vigente (asociación a faena) está en 🟢. FR-048
+> pasó a 🟢 con la importación con IA (Enmienda 006), y FR-040/043/NFR-03 se
+> verificaron en producción (✅).
 
 **Volumen de pruebas en la corrida de referencia:**
 ```
 E2E + caos (Playwright, manual)           23 tests
-Integración backend (Vitest + Testcontainers) 224 tests
-Unidad frontend (Vitest)                     138 tests
-Unidad shared (Vitest)                        78 tests
+Integración backend (Vitest + Testcontainers) 253 tests
+Unidad frontend (Vitest)                     149 tests
+Unidad shared (Vitest)                        92 tests
                                            ───────────────
-                                           463 tests   (v1, 2026-11-11)
+                                           517 tests   (v1.3, CI de main a13c50c, 2026-11-11)
 ```
 
-> El criterio de salida de Fase 2 (§8) pide "matriz §3 ≥ 90% verde". Con FR-034,
-> FR-041 y FR-042 implementados y verificados (🟢 37/39 = 94,9%) el umbral se
-> cumple sin maquillar los huecos restantes (FR-040/043 ≤60 s 🟡; NFR-02/100-fotos ⚪).
+> El criterio de salida de Fase 2 (§8) pide "matriz §3 ≥ 90% verde": hoy está en
+> 97,7% (43/44), sin contar como verde lo que una enmienda sacó del alcance.
 
 ## 4. Pruebas de caos offline-first (protocolo)
 
@@ -204,6 +203,7 @@ cambio de flujo de formularios. Informe por módulo en
 
 | Versión | Fecha | Cambio | Autor |
 | :--- | :--- | :--- | :--- |
+| 1.2.0 | 2026-11-11 | **v1.3 (Enmiendas 004–006)**: filas de importar Word/PDF, exportar consolidado/PDF/Word e importar con IA; FR-048 a 🟢; recuento 43/44 (97,7%); volumen 517 tests (253 backend, 149 frontend, 92 shared, 23 E2E) | Daniel Ávila (con IA) |
 | 1.1.0 | 2026-11-11 | **v1 (Enmienda 003)**: FR-029 reescrito como acción en línea (la fila anterior afirmaba algo que la prueba no comprobaba); FR-048 pasa a V2; filas nuevas FR-053/054, FR-055 y autoría; FR-024 y FR-031/032 con evidencia de `supervision.spec.ts`; volumen 463 tests (224 backend, 138 frontend, 78 shared, 23 E2E) | Daniel Ávila (con IA) |
 | 1.0.10 | 2026-10-14 | **TSK-AUTH-008 / issue #128 resuelto**: FR-023 acredita acceso a conflictos de `supervisor`/`tenant_admin`, denegación a `field_worker`/`platform_admin` y aislamiento RLS en `backend/test/conflicts.spec.ts`; backend actualizado a 188 tests, total 391 con 17 E2E | Daniel Ávila |
 | 1.0.9 | 2026-10-14 | **FR-034 implementado** (georreferencia opcional): migración `1730000011000_inspection_location.js` (`location_lat`/`location_lon` NUMERIC), contrato aditivo `SyncInspectionPayload.location`, validación server-side, captura opcional con `navigator.geolocation` al enviar inspección; nueva fila FR-034 en matriz §3 (🟢) sobre la base 1.0.8: recuento a 🟢37/🟡1/⚪1 (37/39 = 94,9%); volumen backend 187 · frontend 109 · total 390 (refs #7) | Daniel Ávila |
