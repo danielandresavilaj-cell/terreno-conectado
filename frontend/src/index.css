@@ -30,6 +30,15 @@
   --color-beam: #f0a828;
   --color-beam-dim: #8a5f16;
   --color-beam-glow: #f0a82826;
+  /* Estados del acento y texto SOBRE el acento (botón primario, logo). */
+  --color-beam-hover: #ffb733;
+  --color-beam-press: #d8941c;
+  --color-beam-hi: #ffd27a;
+  --color-on-beam: #0e0f11;
+
+  /* Estados de superficie y borde (botón secundario) */
+  --color-s3-hover: #31363d;
+  --color-line-strong: #3d434b;
 
   /* Secundario — cobre del Atacama */
   --color-copper: #c07a4a;
@@ -54,6 +63,52 @@
   --radius-panel: 14px;
 }
 
+/* ============================================================================
+   Modo claro — TSK-OFF-005
+   El tema se elige con `data-theme` en <html> (lo fija `public/tema-inicial.js`
+   antes del primer pintado y lo cambia `lib/tema.ts`). Como todos los
+   componentes usan estos tokens, redefinirlos basta: no hay clases por tema.
+   Paleta "papel de faena": superficies piedra clara cálida, tinta grafito, y
+   acentos/estados oscurecidos para mantener contraste AA sobre fondo claro
+   (el ámbar del modo oscuro sobre blanco no llega a 2:1).
+   ========================================================================== */
+:root[data-theme='light'] {
+  color-scheme: light;
+
+  --color-s0: #f5f3ef;
+  --color-s1: #ffffff;
+  --color-s2: #f0ede7;
+  --color-s3: #e8e4dd;
+  --color-line: #d4cec4;
+  --color-line-soft: #e4dfd7;
+  --color-s3-hover: #ddd8cf;
+  --color-line-strong: #bfb8ac;
+
+  --color-ink: #17191c;
+  --color-ink-2: #48505a;
+  --color-ink-3: #5b6470;
+
+  --color-beam: #b45309;
+  --color-beam-dim: #f3d3a4;
+  --color-beam-glow: #b4530921;
+  --color-beam-hover: #9a4708;
+  --color-beam-press: #823c07;
+  --color-beam-hi: #d9741a;
+  --color-on-beam: #ffffff;
+
+  --color-copper: #9a5527;
+
+  --color-pending: #66707b;
+  --color-syncing: #1d6fd8;
+  --color-synced: #15803d;
+  --color-failed: #c81e1e;
+
+  --color-sev-baja: #66707b;
+  --color-sev-media: #a16207;
+  --color-sev-alta: #c2410c;
+  --color-sev-critica: #c81e1e;
+}
+
 @layer base {
   * {
     -webkit-tap-highlight-color: transparent;
@@ -62,6 +117,8 @@
   html {
     background: var(--color-s0);
     color-scheme: dark;
+    /* Cambiar de tema no debe "parpadear" a medias: transición corta del fondo. */
+    transition: background-color 150ms var(--ease-out-ui);
     /* En horizontal iOS infla el texto y rompe el layout de los panels.
        El index.html declara viewport-fit=cover, que obliga a compensar
        los recortes con env(safe-area-inset-*). */

@@ -5,17 +5,19 @@
  * app no carga nada más.
  */
 import { Boton } from '../components/ui'
+import { BotonTema } from '../components/BotonTema'
 import { FormCambioClave } from '../components/FormCambioClave'
 import { useEstado } from '../lib/store'
 
 export function CambioClaveObligatorio() {
   const { salir } = useEstado()
   return (
-    <main className="min-h-dvh flex items-center justify-center p-6 sm:p-10">
+    <main className="relative min-h-dvh flex items-center justify-center p-6 sm:p-10">
+      <BotonTema className="absolute right-3 top-[calc(env(safe-area-inset-top)_+_0.75rem)] z-10" />
       <div className="w-full max-w-[400px]">
         <div className="flex items-center gap-3 mb-10">
           <div className="h-9 w-9 rounded-[10px] bg-beam grid place-items-center">
-            <span className="text-s0 font-bold text-[17px] leading-none">TC</span>
+            <span className="text-on-beam font-bold text-[17px] leading-none">TC</span>
           </div>
           <p className="text-[15px] font-semibold tracking-[-0.02em]">Terreno Conectado</p>
         </div>
