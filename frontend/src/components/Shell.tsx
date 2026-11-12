@@ -167,6 +167,12 @@ export function Shell({ children }: { children: ReactNode }) {
 
   return (
     <div className="min-h-dvh flex flex-col bg-s0">
+      <a
+        href="#contenido-principal"
+        className="sr-only fixed left-4 top-4 z-50 rounded-lg bg-beam px-4 py-2 text-[13px] font-semibold text-s0 focus:not-sr-only"
+      >
+        Saltar al contenido principal
+      </a>
       {/* ── Barra superior ───────────────────────────────────────────────── */}
       <header className="sticky top-0 z-30 border-b border-line-soft bg-s0/85 backdrop-blur-md">
         {/* pt-safe: con viewport-fit=cover, sin esto la barra superior entra
@@ -233,7 +239,11 @@ export function Shell({ children }: { children: ReactNode }) {
       </header>
 
       {/* ── Contenido ─────────────────────────────────────────────────────── */}
-      <main className="flex-1 mx-auto w-full max-w-[1180px] px-4 sm:px-6 py-7 pb-barra sm:pb-24">
+      <main
+        id="contenido-principal"
+        tabIndex={-1}
+        className="flex-1 mx-auto w-full max-w-[1180px] px-4 sm:px-6 py-7 pb-barra sm:pb-24"
+      >
         {/* TSK-AUTH-010: la sesión expiró con registros por enviar. La cola está
             en pausa e intacta; al volver a ingresar se envía sola. */}
         {sesionExpirada && (
