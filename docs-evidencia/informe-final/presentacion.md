@@ -1,6 +1,6 @@
 # Presentación final — Terreno Conectado
 
-> SaaS offline-first para faenas mineras y obras.
+> SaaS offline-first para faenas mineras y obras. En producción desde la v1.
 
 ---
 
@@ -10,90 +10,102 @@
 
 - Captura en terreno **sin red**.
 - Sincronización automática al reconectar.
-- Dashboard del supervisor con hallazgos y métricas en ≤ 60 s.
+- Dashboard del supervisor actualizado en ≤ 60 s.
 
 ---
 
 ## 2. Problema
 
-- Las faenas mineras y obras carecen de conectividad estable.
-- Los sistemas actuales dependen de la nube para capturar.
-- Pérdida de datos, duplicados y retrasos en la toma de decisiones.
+- Las faenas mineras y las obras no tienen conectividad estable.
+- Los sistemas actuales necesitan la nube para capturar.
+- Las pautas siguen en papel o en Excel sueltos, y consolidarlas toma días.
 
 ---
 
-## 3. Solución: Terreno Conectado
+## 3. Solución
 
 | Capa | Tecnología | Rol |
 | :--- | :--- | :--- |
-| Cliente | PWA React + Dexie + Workbox | Captura offline, cola local |
-| API | NestJS + PostgreSQL 16 + RLS | Ingesta idempotente, aislamiento multi-tenant |
-| Shared | TypeScript + Zod | Contratos y validación única |
-| Deploy | VPS + Docker + Caddy | HTTPS ≤ US$7/mes |
+| Cliente | PWA React + Dexie | Captura sin señal, cola local |
+| API | NestJS + PostgreSQL 16 + RLS | Ingesta idempotente, aislamiento por empresa |
+| Shared | TypeScript + Zod | Un solo contrato para cliente y servidor |
+| IA (opcional) | Claude Haiku, solo en el servidor | Convierte una foto o un PDF escaneado en un formulario |
+| Despliegue | Oracle Always Free + Docker + Caddy | HTTPS, respaldos cifrados, **US$0/mes** |
 
 ---
 
 ## 4. Arquitectura clave
 
-- **Offline-first:** IndexedDB como fuente de verdad local.
-- **Sync idempotente:** UUIDv7 de cliente + `client_version`.
-- **LWW determinista:** `captured_at` → `client_version` → UUID mayor.
-- **Seguridad:** RLS de Postgres por `tenant_id`, no filtros en app.
+- **Offline-first:** IndexedDB es la fuente de verdad local.
+- **Sincronización idempotente:** UUIDv7 de cliente + `client_version`.
+- **LWW determinista:** `captured_at` → `client_version` → UUID.
+- **Seguridad:** RLS de Postgres por `tenant_id`, no filtros en la app.
+- **La IA propone, la persona decide:** nunca se publica sin revisión.
 
 ---
 
-## 5. Demo en vivo (guion)
+## 5. De la pauta en papel al dato consolidado
 
-1. Iniciar inspección con la red apagada.
-2. Responder ítems, adjuntar foto comprimida, crear hallazgo.
-3. Apagar/reducir red, reanudar sin pérdida.
-4. Reconectar: sync automático, dashboard actualizado.
-5. Exportar CSV de hallazgos.
-
----
-
-## 6. Validación
-
-- **391 tests** unitarios + integración tras mergear los PRs de cierre pendientes.
-- **17 escenarios E2E/caos** (Playwright).
-- Caos 1–7: **0 pérdidas, 0 duplicados, 0 fugas cross-tenant**.
-- Matriz §3: **94,9 % verde** proyectado tras integrar FR-017/041/042/034.
+1. **Importar:** Excel, Word, PDF o **una foto de la pauta en papel**.
+2. **Revisar:** la propuesta muestra secciones, preguntas, tipos y advertencias; se edita y se publica.
+3. **Asignar** por faena y rol.
+4. **Capturar** en terreno, con o sin señal, con fotos y hallazgos.
+5. **Supervisar:** inspecciones, hallazgos, conflictos y estado de la sincronización.
+6. **Exportar** el mes en **un solo Excel consolidado**, en PDF o en Word.
 
 ---
 
-## 7. Huecos cerrados en F2
+## 6. Demo en vivo (guion)
 
-| Hueco | Solución |
+1. Fotografiar una pauta en papel y ver el formulario armado por la IA, revisarlo y publicarlo.
+2. En el teléfono, en **modo avión**: iniciar la inspección, responder, adjuntar una foto y crear un hallazgo.
+3. Reconectar: la sincronización es automática y el dashboard se actualiza en ≤ 60 s.
+4. El supervisor revisa la inspección y mueve el hallazgo a "en curso".
+5. Exportar el mes en Excel consolidado y mostrar la hoja por formulario y la de hallazgos.
+
+---
+
+## 7. Validación
+
+- **517 pruebas automatizadas:** 253 de integración backend con Postgres real, 149 del frontend, 92 de shared y 23 E2E/caos.
+- **Caos 1–7:** 0 pérdidas, 0 duplicados, 0 fugas entre empresas.
+- **Matriz de requisitos:** **97,7% verde** (43/44).
+- La IA se prueba en CI con un analizador simulado y se validó en producción con una foto real.
+
+---
+
+## 8. Lo que sumamos después de F2
+
+| Enmienda | Mejora |
 | :--- | :--- |
-| FR-017 cuota simulada | `navigator.storage.estimate()` + priorización de fotos |
-| FR-041 filtro por autor | `autor_id` en findings + `summary.autores` |
-| FR-042 CSV sin test | `dashboard-csv.ts` + tests unitarios |
-| FR-034 geo no implementado | `location_lat`/`location_lon` + captura opcional |
-| TSK-AUTH-008 roles de conflicto | `supervisor`/`tenant_admin` canónicos + prueba de RLS |
+| 003 | Producto real: cuentas, empresas, equipos, despliegue y respaldos |
+| 004 | Sin geolocalización, aviso de sesión reemplazada, supervisión de la sincronización |
+| 005 | Importar Word y PDF; exportar Excel consolidado, PDF y Word |
+| 006 | Importar con IA: fotos y PDF escaneados, con tope de gasto |
 
 ---
 
-## 8. Decisiones de arquitectura
+## 9. Decisiones de arquitectura
 
-- Geolocalización **sin PostGIS** en V1.
-- Resumen ejecutivo V1 **read-only** sobre KPIs del dashboard.
+- Lectores y generadores pesados **solo en el servidor**: la PWA sigue liviana.
+- **IA acotada:** modelo pequeño (menos de medio centavo por pauta), tope diario por empresa, límite de gasto y solo se envía la pauta en blanco.
 - Delta de plantillas por `published_seq` global.
-- Deploy mínimo con Caddy + Let's Encrypt.
+- Despliegue de costo cero con plan B manual por SSH.
 
 ---
 
-## 9. Próximos pasos
+## 10. Próximos pasos
 
-1. Revisar y mergear PRs #121, #123, #124 y #129; consolidar matriz y conteos.
-2. Configurar VPS/dominio/secrets y ejecutar el deploy manual (#127, ADR-002).
-3. Demo final ante el docente.
-4. Entregar evidencias académicas en Capstone.
+1. Ratificar las enmiendas 003 a 006.
+2. Plan de acción para hallazgos: responsable, plazo y avisos.
+3. Inspecciones programadas por faena.
 
 ---
 
-## 10. Cierre
+## 11. Cierre
 
-**Terreno Conectado — captura donde no hay señal, decide con datos al día.**
+**Terreno Conectado: captura donde no hay señal y decide con datos al día.**
 
+- Producción: `terreno-conectado-demo.duckdns.org`
 - Repo: `github.com/danielandresavilaj-cell/terreno-conectado`
 - Equipo: Daniel Ávila · Raúl González

@@ -109,9 +109,23 @@ terreno-conectado/
 - Infra real solo después del ADR correspondiente entendido y firmado por el equipo.
 - Trazabilidad: cada task referencia un ID de requisito (FR/NFR) y cada commit referencia su task.
 
-## Estado v1 (2026-11-11)
+## Estado actual: v1.3 (2026-11-11)
 
-La v1 es un **producto con cuentas reales**, sin modo demo (Enmienda 003 del spec maestro):
+La v1 es un **producto con cuentas reales**, sin modo demo (Enmienda 003 del spec maestro), y desde
+entonces sumó (Enmiendas 004–006):
+
+- **Formularios desde cualquier documento**: el administrador importa una pauta desde **Excel,
+  Word o PDF**. Con la **IA opcional** (Claude Haiku, solo en el servidor; ADR-005) también desde un
+  **PDF escaneado o una foto de una pauta en papel**. Una persona siempre revisa la propuesta antes
+  de publicarla. Si el nombre ya existe, se guarda como versión nueva.
+- **Exportación**: el dashboard filtra por período (este mes, mes anterior o rango), faena,
+  formulario, estado y autor, permite elegir inspecciones y exporta en **un solo Excel
+  consolidado** (resumen, una hoja por formulario, hallazgos y fotos), en **PDF** o en **Word**.
+- **Dashboard de supervisión**: estado de la sincronización por faena y por equipo, y "espera sin
+  señal" medida aparte de la latencia del servidor.
+- **Sin geolocalización** (Enmienda 004), y aviso cuando la sesión se abre en otro dispositivo.
+
+Lo que ya tenía la v1:
 
 - **Sesión**: login con correo y clave; la sesión sobrevive a que Android cierre la PWA (refresh con
   cookie `httponly`) y, sin señal, se entra con la identidad cacheada para seguir capturando. Si la
@@ -124,8 +138,8 @@ La v1 es un **producto con cuentas reales**, sin modo demo (Enmienda 003 del spe
   ([`infra/OPERACION.md`](infra/OPERACION.md)).
 - **Supervisión**: marcar inspecciones como revisadas, mover hallazgos (abierto → en curso →
   resuelto) y revisar conflictos, todo persistente y auditado.
-- **Pruebas**: 463 automatizadas — 224 de integración backend, 138 unitarias frontend, 78 shared y
-  23 E2E/caos ([`test-plan.md`](test-plan.md)).
+- **Pruebas**: 517 automatizadas: 253 de integración del backend, 149 unitarias del frontend, 92 de
+  shared y 23 E2E/caos. La matriz de requisitos está en 97,7% verde ([`test-plan.md`](test-plan.md)).
 - **Producción**: https://terreno-conectado-demo.duckdns.org (Oracle Always Free, US$0/mes).
 
 ## Cómo ejecutar localmente
@@ -306,7 +320,7 @@ nunca existen en producción):
   emite un **access log** `{"level":"info","context":"http","message":"HTTP GET /health 200 …"}`
   con método, ruta, status y duración.
 
-### Plantillas dinámicas — Módulo 007 (Enmienda 002, en curso)
+### Plantillas dinámicas — Módulo 007 (Enmiendas 002, 005 y 006)
 
 Ciclo `tenant_admin` importa `.xlsx` → revisión humana → publica `TEMPLATE_REVISION` inmutable →
 asigna por faena/rol → el worker captura offline → export del documento rellenado. Ya en `main`:
@@ -365,8 +379,17 @@ asigna por faena/rol → el worker captura offline → export del documento rell
   **incrustan hasta 512 kB** (por encima se referencian, ADR-003 Enmienda 3) y cada lote deja una
   fila en `audit_log` con actor, tenant, período y resultado.
 
-Pendiente (issues #44–#45): pruebas de import/export y caos (#44), V2 (#45).
-Cerrados en este ciclo: UX de import (#39), TEMPLATE_IMPORT + auditoría (#40), asignaciones (#41),
+- **TSK-FORM-020** (Enmienda 005): importar **Word y PDF** (con texto o rellenable). Cada archivo se
+  reduce a bloques (título, párrafo, tabla, campo) y pasa por la misma inferencia del `.xlsx`. El
+  formato se valida por la firma de los bytes, y la propuesta lista sus advertencias.
+- **TSK-REP-007** (Enmienda 005): exportación nueva: Excel consolidado, PDF y Word por filtro o
+  selección (`POST /api/v1/dashboard/inspections/exportar`).
+- **TSK-FORM-021** (Enmienda 006): **importar con IA**, opcional y auditado, con tope diario por
+  empresa. Lee fotos y PDF escaneados. Se activa con `ANTHROPIC_API_KEY` en el servidor
+  ([`infra/OPERACION.md`](infra/OPERACION.md) §3.1).
+
+Pendiente: catálogo de plantillas de plataforma (TSK-FORM-012, V2).
+Cerrados en ciclos anteriores: UX de import (#39), TEMPLATE_IMPORT + auditoría (#40), asignaciones (#41),
 delta sync y caché (#42), export en dispositivo, servidor y lote (#43).
 
 | Servicio | URL | Estado |
@@ -385,7 +408,7 @@ datos y fotos fuera de la VM (Object Storage) y restauración probada.
 
 | Qué | Dónde |
 | :--- | :--- |
-| Operación diaria: desplegar, respaldar, restaurar, crear el primer admin | [`infra/OPERACION.md`](infra/OPERACION.md) |
+| Operación diaria: desplegar, respaldar, restaurar, crear el primer admin, activar la IA | [`infra/OPERACION.md`](infra/OPERACION.md) |
 | Provisionar la VM de Oracle y DuckDNS desde cero | [`infra/ORACLE-FREE.md`](infra/ORACLE-FREE.md) |
 | Decisión y costos | [`adr/002-arquitectura-despliegue.md`](adr/002-arquitectura-despliegue.md) (adenda 1) |
 | Compose de producción | `infra/docker-compose.prod.yml` (perfil `tools`: `migrate`, `bootstrap-admin`, `sync-files`) |
