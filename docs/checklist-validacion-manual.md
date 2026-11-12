@@ -369,7 +369,7 @@ Referencia: `test-plan.md` §4 (caos 1–7).
 | X-04 | 🔶 Cross-tenant hostil (caos 7) | 🧩 | Por API: usa el JWT de A con un payload que referencia ids de B en `POST $BASE/sync/batch`. | **Rechazo**, sin fuga, y **rastro en `audit_log`** (FR-025). | [ ] |
 | X-05 | RLS transversal | 🧩 | Recorre endpoints de B (`/sites`, `/dashboard/findings`, `/conflicts`) con token de B. | Nunca aparece una fila de A, en ningún endpoint. | [ ] |
 | X-06 | Health | 🟢 | `curl http://localhost:3000/health`. | `{"status":"ok","db":"up"}`. | [ ] |
-| X-07 | 📲 PWA instalable | 📲 | `npm run build` y `npm run preview`; abre `http://localhost:4173` en Chrome. | Se ofrece "Instalar"; en DevTools, `manifest.webmanifest` (`application/manifest+json`) y `sw.js` (`text/javascript`) responden; `display: standalone`. | [ ] |
+| X-07 | 📲 PWA instalable | 📲 | `npm run build` y `npm run preview`; abre `http://localhost:4173` en Chrome y pulsa **Instalar app**. | Se abre el prompt nativo o, si el navegador no lo permite, aparece la ruta manual; en DevTools, `manifest.webmanifest` (`application/manifest+json`) y `sw.js` (`text/javascript`) responden; `display: standalone`. | [ ] |
 | X-08 | 🔶 Lighthouse Performance | 📲 | Sobre el preview, corre Lighthouse (móvil). | Performance ≥ 80 (NFR-07). | [ ] |
 | X-09 | Modo avión real | 📴 | Activa el modo avión del equipo (sin tocar el toggle), captura, desactívalo. | Igual que el toggle: guarda offline y drena al reconectar (FR-016). | [ ] |
 | X-10 | 🔶 Cola masiva (caos 5, NFR-02) | 🔄 | Encola ~200 registros (script/repetición) y reconecta. | Suben íntegros y sin duplicar (NFR-02). Idealmente vía suite E2E. | [ ] |
