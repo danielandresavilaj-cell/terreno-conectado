@@ -51,6 +51,7 @@ const APP_DB_PASSWORD = process.env.E2E_APP_DB_PASSWORD ?? 'e2e-app-local'
 /** Procesos y contenedores vivos (los apaga `apagar()`). */
 const hijos = new Set()
 const contenedores = new Set()
+let apagandoStack = false
 
 function log(mensaje) {
   process.stdout.write(`[stack] ${mensaje}\n`)
@@ -204,7 +205,7 @@ function lanzarBackend(env) {
   eco(proc.stdout, 'out')
   eco(proc.stderr, 'err')
   proc.on('exit', (code) => {
-    if (code !== 0 && code !== null) {
+    if (!apagandoStack && code !== 0 && code !== null) {
       process.stderr.write(`[stack] el backend terminó con código ${code}\n`)
     }
   })
@@ -214,19 +215,44 @@ function lanzarBackend(env) {
 /* ------------------------------------------------------------- frontend */
 
 /**
+ * El API URL es build-time en Vite. Reconstruimos antes de cada corrida para
+ * que un puerto alternativo (o un `dist/` viejo) no haga que el navegador
+ * apunte a una API distinta de la que el harness acaba de levantar.
+ */
+function construirFrontend(env) {
+  return new Promise((ok, no) => {
+    const vite = resolve(RAIZ, 'node_modules', 'vite', 'bin', 'vite.js')
+    const proc = spawn(process.execPath, [vite, 'build'], {
+      cwd: resolve(RAIZ, 'frontend'),
+      env,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+    let salida = ''
+    const acumular = (stream) => stream.on('data', (data) => (salida += String(data)))
+    acumular(proc.stdout)
+    acumular(proc.stderr)
+    proc.on('error', (err) => no(new Error(`no se pudo compilar el frontend: ${err.message}`)))
+    proc.on('exit', (code) => {
+      if (code === 0) ok(undefined)
+      else no(new Error(`el build del frontend terminó con código ${code}:\n${salida.slice(-1200)}`))
+    })
+  })
+}
+
+/**
  * Sirve el build de producción con `vite preview` (no `vite dev`): el service
  * worker y el manifiesto PWA sólo se emiten al compilar, y el caos 4
  * (reinicio hostil) necesita el bundle real tal como lo baja un dispositivo.
  */
 function lanzarFrontend(env) {
+  const vite = resolve(RAIZ, 'node_modules', 'vite', 'bin', 'vite.js')
   const proc = spawn(
-    process.platform === 'win32' ? 'npx.cmd' : 'npx',
-    ['vite', 'preview', '--port', String(WEB_PORT), '--strictPort', '--host', '127.0.0.1'],
+    process.execPath,
+    [vite, 'preview', '--port', String(WEB_PORT), '--strictPort', '--host', '127.0.0.1'],
     {
       cwd: resolve(RAIZ, 'frontend'),
       env,
       stdio: ['ignore', 'pipe', 'pipe'],
-      shell: process.platform === 'win32',
     },
   )
   hijos.add(proc)
@@ -303,6 +329,7 @@ async function limpiarEstado() {
 /* ------------------------------------------------------------- teardown */
 
 async function apagar() {
+  apagandoStack = true
   log('apagando stack…')
   // En Windows `npx vite preview` deja un nieto (el proceso real de vite)
   // que NO muere con el padre: el puerto queda ocupado y el siguiente
@@ -364,12 +391,15 @@ export async function levantar() {
   // uptime monitor externo sin ruta de API; ver `backend/src/app.setup.ts`).
   await esperarHasta(`http://127.0.0.1:${API_PORT}/health`, 'el backend')
 
-  log(`arrancando frontend en :${WEB_PORT}…`)
-  lanzarFrontend({
+  const envFrontend = {
     ...process.env,
     VITE_API_URL: apiUrl,
     VITE_DEMO_PASSWORD: demo,
-  })
+  }
+  log('compilando frontend para la URL del stack…')
+  await construirFrontend(envFrontend)
+  log(`arrancando frontend en :${WEB_PORT}…`)
+  lanzarFrontend(envFrontend)
   await esperarHasta(webUrl, 'el frontend')
 
   const ruta = await escribirEstado({
