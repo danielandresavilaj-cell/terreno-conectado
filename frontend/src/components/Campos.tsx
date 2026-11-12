@@ -30,6 +30,14 @@ export interface PropsCampo {
   onCambio: (valor: CampoValor) => void
 }
 
+function atributosRespuesta(item: TemplateItem, error?: string) {
+  return {
+    'aria-label': `Respuesta para: ${item.prompt}`,
+    'aria-invalid': error ? true : undefined,
+    'aria-describedby': error ? `respuesta-error-${item.id}` : undefined,
+  }
+}
+
 /* ── ok / nok / na ───────────────────────────────────────────────────────
  * El control estrella del producto: segmentado con knob deslizante (no un
  * cambio de color) para que el usuario vea QUÉ opción está activa antes de
@@ -40,7 +48,7 @@ const OPCIONES = [
   { v: 'na' as const, label: 'N/A', color: 'var(--color-pending)', desc: 'No aplica' },
 ]
 
-export function CampoOkNokNa({ valor, onCambio, item }: PropsCampo) {
+export function CampoOkNokNa({ valor, onCambio, item, error }: PropsCampo) {
   const reducir = useReducedMotion()
   const v = valor === 'ok' || valor === 'nok' || valor === 'na' ? valor : null
   const activo = OPCIONES.find((o) => o.v === v) ?? null
@@ -49,6 +57,8 @@ export function CampoOkNokNa({ valor, onCambio, item }: PropsCampo) {
     <div
       role="radiogroup"
       aria-label={`Respuesta para: ${item.prompt}`}
+      aria-invalid={error ? true : undefined}
+      aria-describedby={error ? `respuesta-error-${item.id}` : undefined}
       className="relative shrink-0 flex p-1 rounded-xl bg-s0 border border-line-soft w-full sm:w-auto"
     >
       {/* Knob activo: `x` en % del ancho del track (transform puro, GPU,
@@ -95,11 +105,13 @@ export function CampoOkNokNa({ valor, onCambio, item }: PropsCampo) {
 }
 
 /* ── texto libre ───────────────────────────────────────────────────────── */
-export function CampoTexto({ valor, onCambio, item }: PropsCampo) {
+export function CampoTexto({ valor, onCambio, item, error }: PropsCampo) {
   return (
     <input
       value={typeof valor === 'string' ? valor : ''}
       maxLength={item.props?.max_length}
+      name={`respuesta-${item.id}`}
+      {...atributosRespuesta(item, error)}
       placeholder="Escribir…"
       onChange={(e) => onCambio(e.target.value)}
       className={INPUT}
@@ -108,7 +120,7 @@ export function CampoTexto({ valor, onCambio, item }: PropsCampo) {
 }
 
 /* ── numérico (decimal con coma o punto) ───────────────────────────────── */
-export function CampoNumerico({ valor, onCambio, item }: PropsCampo) {
+export function CampoNumerico({ valor, onCambio, item, error }: PropsCampo) {
   const props = item.props ?? {}
   const valorInicial = typeof valor === 'number' ? String(valor) : typeof valor === 'string' ? valor : ''
   const [texto, setTexto] = useState(valorInicial)
@@ -137,6 +149,8 @@ export function CampoNumerico({ valor, onCambio, item }: PropsCampo) {
     <input
       value={texto}
       inputMode="decimal"
+      name={`respuesta-${item.id}`}
+      {...atributosRespuesta(item, error)}
       placeholder="0,00"
       min={typeof props.min === 'number' ? props.min : undefined}
       max={typeof props.max === 'number' ? props.max : undefined}
@@ -157,11 +171,13 @@ export function CampoNumerico({ valor, onCambio, item }: PropsCampo) {
 }
 
 /* ── fecha / hora ──────────────────────────────────────────────────────── */
-export function CampoFecha({ valor, onCambio, item }: PropsCampo) {
+export function CampoFecha({ valor, onCambio, item, error }: PropsCampo) {
   const props = item.props ?? {}
   return (
     <input
       type="date"
+      name={`respuesta-${item.id}`}
+      {...atributosRespuesta(item, error)}
       value={typeof valor === 'string' ? valor : ''}
       min={typeof props.min === 'string' ? props.min : undefined}
       max={typeof props.max === 'string' ? props.max : undefined}
@@ -171,10 +187,12 @@ export function CampoFecha({ valor, onCambio, item }: PropsCampo) {
   )
 }
 
-export function CampoHora({ valor, onCambio }: PropsCampo) {
+export function CampoHora({ valor, onCambio, item, error }: PropsCampo) {
   return (
     <input
       type="time"
+      name={`respuesta-${item.id}`}
+      {...atributosRespuesta(item, error)}
       value={typeof valor === 'string' ? valor : ''}
       onChange={(e) => onCambio(e.target.value)}
       className={INPUT}
@@ -224,11 +242,17 @@ function ChipOpcion({
   )
 }
 
-export function CampoSeleccion({ valor, onCambio, item }: PropsCampo) {
+export function CampoSeleccion({ valor, onCambio, item, error }: PropsCampo) {
   const opciones = item.props?.options ?? []
   const v = typeof valor === 'string' ? valor : ''
   return (
-    <div className="flex flex-wrap gap-2 w-full sm:w-auto sm:justify-end shrink-0">
+    <div
+      role="group"
+      aria-label={`Respuesta para: ${item.prompt}`}
+      aria-invalid={error ? true : undefined}
+      aria-describedby={error ? `respuesta-error-${item.id}` : undefined}
+      className="flex flex-wrap gap-2 w-full sm:w-auto sm:justify-end shrink-0"
+    >
       {opciones.map((o) => (
         <ChipOpcion
           key={o}
@@ -241,11 +265,17 @@ export function CampoSeleccion({ valor, onCambio, item }: PropsCampo) {
   )
 }
 
-export function CampoSeleccionMultiple({ valor, onCambio, item }: PropsCampo) {
+export function CampoSeleccionMultiple({ valor, onCambio, item, error }: PropsCampo) {
   const opciones = item.props?.options ?? []
   const arr = Array.isArray(valor) ? valor.filter((x): x is string => typeof x === 'string') : []
   return (
-    <div className="flex flex-wrap gap-2 w-full sm:w-auto sm:justify-end shrink-0">
+    <div
+      role="group"
+      aria-label={`Respuestas para: ${item.prompt}`}
+      aria-invalid={error ? true : undefined}
+      aria-describedby={error ? `respuesta-error-${item.id}` : undefined}
+      className="flex flex-wrap gap-2 w-full sm:w-auto sm:justify-end shrink-0"
+    >
       {opciones.map((o) => (
         <ChipOpcion
           key={o}
@@ -264,13 +294,19 @@ export function CampoSeleccionMultiple({ valor, onCambio, item }: PropsCampo) {
  * se comprime (FR-012) y vive en un ATTACHMENT `owner_type='response'`
  * (FR-037, TSK-FORM-004); el valor del campo queda como referencia no vacía
  * ('capturada'). */
-export function CampoFoto({ valor, onCambio, onFoto, error }: PropsCampo & {
+export function CampoFoto({ valor, onCambio, onFoto, error, item }: PropsCampo & {
   onFoto: (archivo: File) => void
 }) {
   const [camaraAbierta, setCamaraAbierta] = useState(false)
   const hay = typeof valor === 'string' && valor.length > 0
   return (
-    <div className="flex items-center gap-3 w-full sm:w-auto justify-start sm:justify-end shrink-0">
+    <div
+      role="group"
+      aria-label={`Respuesta para: ${item.prompt}`}
+      aria-invalid={error ? true : undefined}
+      aria-describedby={error ? `respuesta-error-${item.id}` : undefined}
+      className="flex items-center gap-3 w-full sm:w-auto justify-start sm:justify-end shrink-0"
+    >
       <CamaraCaptura abierta={camaraAbierta} alCerrar={() => setCamaraAbierta(false)} alCapturar={onFoto} />
       {hay ? (
         <>

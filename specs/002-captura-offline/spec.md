@@ -58,7 +58,7 @@ Evolución por versiones (`frontend/src/lib/db.ts`), alineada con `data-model.md
 
 ## 4. UX de captura en terreno
 
-Targets táctiles amplios, alto contraste para luz solar, y **autoguardado de borrador** por ítem: una captura a medias sobrevive cerrar/reabrir (FR-014). Los errores de validación de tipo (FR-039) se muestran **antes de encolar**, en el dispositivo.
+Targets táctiles amplios, alto contraste para luz solar, y **autoguardado de borrador** por ítem: una captura a medias sobrevive cerrar/reabrir (FR-014). Los errores de validación de tipo (FR-039) se muestran **antes de encolar**, en el dispositivo. Cada control expone la pregunta y el error asociado a tecnologías asistivas; el diálogo de cámara contiene el foco, se cierra con Escape y lo devuelve al activador para que la captura siga siendo operable también con teclado.
 
 ## 5. Cache del service worker (Workbox)
 
@@ -99,6 +99,7 @@ La toma usa `getUserMedia` y prefiere la cámara trasera. El stream se detiene a
 
 | Versión | Fecha | Cambio | Autor |
 | :--- | :--- | :--- | :--- |
+| 0.3.2 | 2026-11-12 | TSK-OFF-003 (#181): controles de captura identificables por tecnologías asistivas, diálogo de cámara con foco/Escape/retorno y salto al contenido principal | Raúl González (con IA) |
 | 0.3.1 | 2026-10-16 | TSK-OFF-002 (#150): cámara del dispositivo para fotos de ítems y hallazgos; fallback explícito de archivo y apagado del stream | Raúl González (con IA) |
 | 0.3.0 | 2026-10-13 | **Spec completado (F2).** Documenta el estado real de FR-010…019 con evidencia: esquema Dexie por versiones, caché de plantillas + cursor por tenant, Workbox, compresión y export offline | Daniel Ávila |
 | 0.2.0 | 2026-10-07 | **Módulo 007 (Enmienda 002):** alcance +FR-018 (caché de plantillas publicadas asignadas) y +FR-019 (export `.xlsx` rellenado + hoja Evidencias en el dispositivo) | Raúl González (con IA) |
