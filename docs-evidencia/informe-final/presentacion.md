@@ -69,7 +69,7 @@
 
 - **521 pruebas automatizadas:** 253 de integración backend con Postgres real, 153 del frontend, 92 de shared y 23 E2E/caos.
 - **Caos 1–7:** 0 pérdidas, 0 duplicados, 0 fugas entre empresas.
-- **Matriz de requisitos:** **97,7% verde** (43/44).
+- **Matriz de requisitos:** **97,7% verde** en lo implementado (43/44).
 - La IA se prueba en CI con un analizador simulado y se validó en producción con una foto real.
 
 ---
@@ -82,6 +82,7 @@
 | 004 | Sin geolocalización, aviso de sesión reemplazada, supervisión de la sincronización |
 | 005 | Importar Word y PDF; exportar Excel consolidado, PDF y Word |
 | 006 | Importar con IA: fotos y PDF escaneados, con tope de gasto |
+| 007 | Aprobada, por implementar: firma al cerrar, avisos por correo, inspecciones programadas y QR |
 
 ---
 
@@ -97,8 +98,8 @@
 ## 10. Próximos pasos
 
 1. Ratificar las enmiendas 003 a 006.
-2. Plan de acción para hallazgos: responsable, plazo y avisos.
-3. Inspecciones programadas por faena.
+2. Implementar la Enmienda 007: firma con el dedo al cerrar, QR por vehículo o lugar, inspecciones programadas y avisos por correo.
+3. Plan de acción para hallazgos: responsable y plazo.
 
 ---
 

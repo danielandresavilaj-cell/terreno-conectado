@@ -2,8 +2,8 @@
 
 | | |
 | :--- | :--- |
-| **Estado** | COMPLETO (ciclo del módulo, F2 · 2026-10-13) |
-| **Versión** | 0.4.0 |
+| **Estado** | COMPLETO (base F2) · Enmienda 007 aprobada (2026-11-12), por implementar |
+| **Versión** | 0.5.0 |
 | **Autor** | Daniel Ávila |
 | **Padre** | specs/000-master/spec.md |
 | **Depende de** | 001 (roles/tenant), 003 (ingesta idempotente) |
@@ -12,7 +12,7 @@
 
 ## 1. Alcance
 
-Requisitos que este spec detalla: **FR-030 → FR-039** y las entidades de dominio de `data-model.md` §2.2.
+Requisitos que este spec detalla: **FR-030 → FR-039** y, por Enmienda 007 (aprobada, por implementar), **FR-056 → FR-061**; entidades de dominio de `data-model.md` §2.2.
 
 - **FR-030** Plantillas de inspección como `TEMPLATE` + `TEMPLATE_REVISION` (secciones, ítems).
 - **FR-031** Ciclo de vida de la inspección: `draft → in_progress → submitted → reviewed`.
@@ -24,6 +24,10 @@ Requisitos que este spec detalla: **FR-030 → FR-039** y las entidades de domin
 - **FR-037** Foto de ítem asociada a la **respuesta** (`ATTACHMENT.owner_type = response`).
 - **FR-038** **Versión congelada** por inspección (`template_revision_id`), conservada en el historial.
 - **FR-039** `value_json` validado contra `TEMPLATE_ITEM.props` en el dispositivo antes de encolar.
+- **FR-056/057** Cierre certificado: firma de inspector y cofirma opcional de supervisión.
+- **FR-058** Avisos de correo durables y no bloqueantes.
+- **FR-059** Programación por responsable, faena, activo/lugar y zona horaria.
+- **FR-060/061** Activo/lugar con QR opaco, escaneable o introducible manualmente.
 
 > El dominio **se escribe por el motor de sincronización** (spec 003) y **se lee por el dashboard** (spec 005): no hay un CRUD de inspecciones aparte. El único CRUD propio es el de plantillas (`tenant_admin`).
 
@@ -98,11 +102,13 @@ Estados `draft → in_progress → submitted → reviewed`. Lleva `site_id` (fae
 - `test-plan.md` §3 (matriz FR-031/032), §4.1 (caos 9–11 del módulo 007)
 - `specs/007-formularios-dinamicos/spec.md`, `adr/003` (formularios dinámicos)
 - `plans/004-dominio-inspecciones/plan.md`
+- `plans/008-operacion-certificada/plan.md` (Enmienda 007)
 
 ## Control de cambios
 
 | Versión | Fecha | Cambio | Autor |
 | :--- | :--- | :--- | :--- |
+| 0.5.0 | 2026-11-12 | **Enmienda 007** (aprobada por Daniel Ávila el 2026-11-12): incorpora FR-056…061 y remite al plan de operación certificada; no declara funcionalidad implementada hasta cerrar sus tareas | Raúl González (con IA) |
 | 0.3.1 | 2026-10-14 | **FR-034 geolocalización implementada realmente** (antes estaba documentada como GEOGRAPHY(Point) que no existía en la migración): columnas `location_lat`/`location_lon` NUMERIC, validación server-side, captura opcional con `navigator.geolocation` al enviar inspección, tests de integración. Actualiza evidencia §2 y `data-model.md` §2.2 | Daniel Ávila |
 | 0.3.0 | 2026-10-13 | **Spec completado (F2).** Documenta el estado real de FR-030…039 (todos implementados), el modelo de dominio (plantilla/revisión, inspección, hallazgo, bitácora, adjunto) y la validación de `value_json`. Apunta al plan técnico y a `tasks/004` | Daniel Ávila |
 | 0.2.0 | 2026-10-07 | **Módulo 007 (Enmienda 002):** alcance +FR-036–039; plantillas por `TEMPLATE_REVISION` inmutable; 8 `response_type` + `props` JSONB; `value_json` validado; foto asociada a la respuesta; versión congelada por inspección | Raúl González (con IA) |
