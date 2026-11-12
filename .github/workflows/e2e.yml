@@ -5,9 +5,12 @@ name: E2E
 # Deliberadamente NO corre en `pull_request`: los E2E levantan Postgres +
 # backend + browser, tardan minutos y un rojo ahí bloquearía el merge de un
 # PR cuyo CI normal ya está verde. Por ahora se ejecuta sólo a demanda: evita
-# notificaciones repetidas mientras se estabiliza el harness. Debe lanzarse
-# antes de una demo o publicación.
+# notificaciones repetidas mientras se estabiliza el harness. Además de la
+# ejecución manual, corre de noche para detectar regresiones sin bloquear PRs.
 on:
+  schedule:
+    # 03:17 UTC, apartado del Lighthouse (03:47 UTC) y de horas punta.
+    - cron: '17 3 * * *'
   workflow_dispatch:
     inputs:
       spec:

@@ -14,7 +14,9 @@ import { TemplatesModule } from './templates/templates.module'
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true, envFilePath: ['.env'] }),
+    // El monorepo mantiene su configuración local en la raíz. Conservamos el
+    // fallback `backend/.env` para despliegues que usen esa estructura.
+    ConfigModule.forRoot({ isGlobal: true, envFilePath: ['../.env', '.env'] }),
     DbModule,
     StorageModule,
     AuthModule,
