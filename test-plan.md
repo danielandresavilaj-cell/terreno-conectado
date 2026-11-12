@@ -1,6 +1,6 @@
 # TEST PLAN — Plan de pruebas de validación
 
-**Versión:** 1.2.0 · **Fecha:** 2026-09-14 · actualizado 2026-11-11 · **Autor:** Raúl González (validación) · **Relacionado:** spec maestro §5–6, constitución Artículos III/IV/VII
+**Versión:** 1.2.1 · **Fecha:** 2026-09-14 · actualizado 2026-11-11 · **Autor:** Raúl González (validación) · **Relacionado:** spec maestro §5–6, constitución Artículos III/IV/VII
 **Evidencia APT:** "Plan de pruebas de validación" (informe §6) y soporte de la competencia "Realizar pruebas de certificación de productos y procesos".
 
 ## 1. Principio rector
@@ -129,7 +129,7 @@ una plantilla para localizar sus controles.
 | 6 | Se sustituye el token por uno vencido y se comprueba que la cola no se pierde | `e2e-caos-sync.spec.ts` |
 | 7 | Lote con `tenant_id` del tenant B bajo el JWT del A: 409 + `audit_log` | `e2e-caos-integridad.spec.ts` |
 
-**Criterio de éxito global:** los escenarios 1–7 con `0 pérdidas ∧ 0 duplicados ∧ 0 fugas cross-tenant`. Cualquier fallo bloquea la demo (Artículo III). **Resultado histórico 2026-10-13: los 7 en verde.** La corrida programada que falló el 2026-10-20 se corrige en TSK-E2E-002 / issue #161 y debe volver a validarse en CI antes de cerrar la tarea.
+**Criterio de éxito global:** los escenarios 1–7 con `0 pérdidas ∧ 0 duplicados ∧ 0 fugas cross-tenant`. Cualquier fallo bloquea la demo (Artículo III). **Resultado histórico 2026-10-13: los 7 en verde.** La corrida programada que falló el 2026-10-20 se corrigió en TSK-E2E-002 / issue #161 (PR #179): el harness recompila el frontend contra su API temporal y entrega las URLs a Playwright. **Revalidado en CI el 2026-11-12: 23/23 en verde, caos 1–7 incluidos** (runs 43239304685 y 43239310758, sobre las ramas de #178 y #179).
 
 ### 4.1 Pruebas de caos del módulo 007 (TSK-FORM-011)
 
@@ -173,9 +173,10 @@ código: hacen falta la app real y la base real para verlos. Eso es el argumento
 a favor de que §4 exista como protocolo automatizado y no como lista de
 comprobaciones manuales. El invariante crítico
 (`0 pérdidas ∧ 0 duplicados ∧ 0 fugas`) se sostiene en la corrida de
-referencia histórica: **17/17 E2E en verde**. El estado vigente se confirma en
-la última ejecución de CI; TSK-E2E-002 / issue #161 revalida la suite tras el
-cambio de flujo de formularios. Informe por módulo en
+referencia histórica (**17/17 E2E en verde**) y en la revalidación de
+TSK-E2E-002 / issue #161 del 2026-11-12 (**23/23 en verde en CI**). Desde
+TSK-OPS-001 (PR #178), el E2E corre cada noche (03:17 UTC) además de a demanda,
+y nunca bloquea un PR. Informe por módulo en
 [`docs/informe-pruebas-validacion.md`](docs/informe-pruebas-validacion.md).
 
 ## 6. Datos de prueba
@@ -203,6 +204,7 @@ cambio de flujo de formularios. Informe por módulo en
 
 | Versión | Fecha | Cambio | Autor |
 | :--- | :--- | :--- | :--- |
+| 1.2.1 | 2026-11-12 | **TSK-OPS-001 (#178) y TSK-E2E-002 (#179)**, revisados por Daniel Ávila: E2E nocturno + manual (tabla §2); harness E2E aislado (recompila el frontend contra su API temporal y entrega las URLs a Playwright); auditoría de respaldos sin `rclone` simulado; migraciones y seed cargan el `.env` raíz. Revalidación en CI del 2026-11-12: 23/23 E2E con caos 1–7 | Daniel Ávila (con IA) |
 | 1.2.0 | 2026-11-11 | **v1.3 (Enmiendas 004–006)**: filas de importar Word/PDF, exportar consolidado/PDF/Word e importar con IA; FR-048 a 🟢; recuento 43/44 (97,7%); volumen 517 tests (253 backend, 149 frontend, 92 shared, 23 E2E) | Daniel Ávila (con IA) |
 | 1.1.0 | 2026-11-11 | **v1 (Enmienda 003)**: FR-029 reescrito como acción en línea (la fila anterior afirmaba algo que la prueba no comprobaba); FR-048 pasa a V2; filas nuevas FR-053/054, FR-055 y autoría; FR-024 y FR-031/032 con evidencia de `supervision.spec.ts`; volumen 463 tests (224 backend, 138 frontend, 78 shared, 23 E2E) | Daniel Ávila (con IA) |
 | 1.0.10 | 2026-10-14 | **TSK-AUTH-008 / issue #128 resuelto**: FR-023 acredita acceso a conflictos de `supervisor`/`tenant_admin`, denegación a `field_worker`/`platform_admin` y aislamiento RLS en `backend/test/conflicts.spec.ts`; backend actualizado a 188 tests, total 391 con 17 E2E | Daniel Ávila |
