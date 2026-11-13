@@ -43,6 +43,7 @@ import {
   getDeviceId,
   getDraftInspectionId,
   getInspection,
+  fotoDeItem,
   guardarFaenaSeleccionada,
   guardarFotoRespuesta,
   guardarOriginalPlantilla,
@@ -198,6 +199,8 @@ interface Ctx {
   responderCampo: (itemId: string, valor: CampoValor, adjunto?: { foto: File }) => void
   /** Crea el hallazgo del ítem o corrige el que ya tenía (TSK-OFF-007). */
   guardarHallazgo: (itemId: string, sev: Severidad, descripcion: string, foto: File | null) => void
+  /** TSK-OFF-011: foto guardada de un ítem del borrador (`null` si no hay). */
+  leerFotoItem: (itemId: string) => Promise<Blob | null>
   /** Hallazgo ya registrado para un ítem del borrador, para poder corregirlo. */
   leerHallazgo: (itemId: string) => Promise<HallazgoGuardado | null>
   /** Resultado del último envío, para confirmarlo en pantalla (TSK-OFF-007). */
@@ -1118,6 +1121,11 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
     [usuario, refrescar, resolverDraft],
   )
 
+  const leerFotoItem = useCallback(async (itemId: string): Promise<Blob | null> => {
+    const draftId = await getDraftInspectionId()
+    return draftId ? fotoDeItem(draftId, itemId) : null
+  }, [])
+
   const leerHallazgo = useCallback(async (itemId: string): Promise<HallazgoGuardado | null> => {
     const draftId = await getDraftInspectionId()
     if (!draftId) return null
@@ -1241,6 +1249,7 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
     responderCampo,
     guardarHallazgo,
     leerHallazgo,
+    leerFotoItem,
     ultimoEnvio,
     descartarAvisoEnvio,
     prepararCierre,

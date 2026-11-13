@@ -294,11 +294,43 @@ export function CampoSeleccionMultiple({ valor, onCambio, item, error }: PropsCa
  * se comprime (FR-012) y vive en un ATTACHMENT `owner_type='response'`
  * (FR-037, TSK-FORM-004); el valor del campo queda como referencia no vacía
  * ('capturada'). */
-export function CampoFoto({ valor, onCambio, onFoto, error, item }: PropsCampo & {
+export function CampoFoto({ valor, onCambio, onFoto, error, item, cargarFoto }: PropsCampo & {
   onFoto: (archivo: File) => void
+  /** TSK-OFF-011: foto ya guardada del ítem, para mostrar la miniatura al volver. */
+  cargarFoto?: (itemId: string) => Promise<Blob | null>
 }) {
   const [camaraAbierta, setCamaraAbierta] = useState(false)
   const hay = typeof valor === 'string' && valor.length > 0
+  /* La persona ve la foto que quedó como evidencia, no sólo "Foto capturada".
+   * La recién tomada se muestra al instante; la guardada se lee del teléfono. */
+  const [recien, setRecien] = useState<File | null>(null)
+  const [guardada, setGuardada] = useState<Blob | null>(null)
+  useEffect(() => {
+    if (!hay) {
+      setRecien(null)
+      setGuardada(null)
+      return
+    }
+    if (recien || !cargarFoto) return
+    let vivo = true
+    void cargarFoto(item.id).then((b) => {
+      if (vivo) setGuardada(b)
+    })
+    return () => {
+      vivo = false
+    }
+  }, [hay, recien, cargarFoto, item.id])
+  const visible = recien ?? guardada
+  const [url, setUrl] = useState<string | null>(null)
+  useEffect(() => {
+    if (!visible) {
+      setUrl(null)
+      return
+    }
+    const u = URL.createObjectURL(visible)
+    setUrl(u)
+    return () => URL.revokeObjectURL(u)
+  }, [visible])
   return (
     <div
       role="group"
@@ -307,17 +339,39 @@ export function CampoFoto({ valor, onCambio, onFoto, error, item }: PropsCampo &
       aria-describedby={error ? `respuesta-error-${item.id}` : undefined}
       className="flex items-center gap-3 w-full sm:w-auto justify-start sm:justify-end shrink-0"
     >
-      <CamaraCaptura abierta={camaraAbierta} alCerrar={() => setCamaraAbierta(false)} alCapturar={onFoto} />
+      <CamaraCaptura
+        abierta={camaraAbierta}
+        alCerrar={() => setCamaraAbierta(false)}
+        alCapturar={(f) => {
+          setRecien(f)
+          onFoto(f)
+        }}
+      />
       {hay ? (
         <>
-          <span className="text-[13px] font-medium text-synced whitespace-nowrap">
-            Foto capturada
-          </span>
+          {url ? (
+            <img
+              src={url}
+              alt={`Foto de: ${item.prompt}`}
+              width={56}
+              height={56}
+              className="h-14 w-14 rounded-lg object-cover border border-campo shrink-0"
+            />
+          ) : (
+            <span className="text-[14px] font-medium text-synced whitespace-nowrap">Foto capturada</span>
+          )}
+          <button
+            type="button"
+            onClick={() => setCamaraAbierta(true)}
+            className="min-h-11 px-3 rounded-[10px] border border-campo bg-s0 text-[14px] font-medium cursor-pointer"
+          >
+            Repetir
+          </button>
           <button
             type="button"
             onClick={() => onCambio(null)}
             className={[
-              'text-[12px] text-ink-2 underline underline-offset-2 cursor-pointer',
+              'min-h-11 px-2 text-[14px] text-ink-2 underline underline-offset-2 cursor-pointer',
               error ? 'text-failed' : '',
             ].join(' ')}
           >

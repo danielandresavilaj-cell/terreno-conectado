@@ -801,6 +801,16 @@ export async function respuestaDelItem(
     .first()
 }
 
+/** TSK-OFF-011: la foto guardada de un ítem del borrador, para mostrarla. */
+export async function fotoDeItem(inspectionId: string, templateItemId: string): Promise<Blob | null> {
+  const r = await respuestaDelItem(inspectionId, templateItemId)
+  if (!r) return null
+  const fotos = (await db.attachments.where('ownerId').equals(r.id).toArray())
+    .filter((a) => a.ownerType === 'response')
+    .sort((x, y) => (x.capturedAt < y.capturedAt ? 1 : -1))
+  return fotos[0]?.blob ?? null
+}
+
 /** Foto de un ítem photo → ATTACHMENT `owner_type='response'` (FR-037). No se
  *  encola: el outbox la toma en `submitInspection`, junto a su respuesta. */
 export async function guardarFotoRespuesta(params: {

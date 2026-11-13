@@ -80,7 +80,7 @@ function FilaCampo({
   delay: number
   onAbrirHallazgo: (item: TemplateItem, seccion: string) => void
 }) {
-  const { respuestas, erroresCampo, responderCampo } = useEstado()
+  const { respuestas, erroresCampo, responderCampo, leerFotoItem } = useEstado()
   const reducir = useReducedMotion()
   const r = respuestas[item.id]
   const campo = r?.campo ?? null
@@ -144,6 +144,7 @@ function FilaCampo({
         error={error}
         onCambio={(v) => responderCampo(item.id, v)}
         onFoto={(f) => responderCampo(item.id, 'capturada', { foto: f })}
+        cargarFoto={leerFotoItem}
       />
     ),
   }
