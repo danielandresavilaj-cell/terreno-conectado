@@ -1,6 +1,6 @@
 # PLAN — Módulo 002: Captura offline (PWA)
 
-**Versión:** 0.1.0 · **Fecha:** 2026-10-13 · **Autor:** Daniel Ávila
+**Versión:** 0.1.1 · **Fecha:** 2026-11-13 · **Autor:** Daniel Ávila
 **Derivado de:** `specs/000-master/spec.md` §5.2 · **Spec:** `specs/002-captura-offline/spec.md` (0.3.0)
 **Issue:** #5 · **Requisitos:** FR-010…FR-019 · **NFR:** NFR-01, NFR-02, NFR-07
 
@@ -22,6 +22,7 @@ Dejar documentado y verificado el módulo 002: spec de ESQUELETO a COMPLETO y ev
 2. **Cursor de plantillas por tenant** en `meta` (no global): un dispositivo compartido cambia de sesión.
 3. **Originales con presupuesto**: se bajan de a poco y se purgan por presupuesto, priorizando la revisión congelada del borrador (FR-018/019).
 4. **Export compartido** con el backend (ADR-003): mismo generador de `.xlsx` rellenado + hoja Evidencias.
+5. **Controles desplegables de Cola** (TSK-OFF-014): se conserva `<details>/<summary>` nativo para teclado y se fija `min-height: 44px` en cada resumen, incluida la vista de soporte. No modifica outbox, estados ni sincronización.
 
 ## 4. Riesgos
 
@@ -41,4 +42,5 @@ Dejar documentado y verificado el módulo 002: spec de ESQUELETO a COMPLETO y ev
 
 | Versión | Fecha | Cambio | Autor |
 | :--- | :--- | :--- | :--- |
+| 0.1.1 | 2026-11-13 | TSK-OFF-014 (#221): decisión de objetivos táctiles de 44 px para los desplegables de Cola | Raúl González (con IA) |
 | 0.1.0 | 2026-10-13 | Plan técnico inicial del ciclo del módulo 002 | Daniel Ávila |

@@ -199,7 +199,7 @@ export function Cola() {
 
       {vista && vista.enviadoHoy.length > 0 && (
         <details className="group">
-          <summary className="flex items-center gap-3 px-0.5 cursor-pointer list-none [&::-webkit-details-marker]:hidden">
+          <summary className="flex min-h-11 touch-manipulation items-center gap-3 px-0.5 cursor-pointer list-none [&::-webkit-details-marker]:hidden">
             <h2 className="label-inst">Enviado en las últimas 24 h ({vista.enviadoHoy.length})</h2>
             <div className="flex-1 rule" />
             <span className="label-inst group-open:rotate-180 transition-transform duration-150">▾</span>
@@ -211,7 +211,7 @@ export function Cola() {
       {/* TSK-OFF-013: historial propio de lo enviado desde este teléfono. */}
       {vista && vista.enviadoAntes.length > 0 && (
         <details className="group">
-          <summary className="flex items-center gap-3 px-0.5 min-h-11 cursor-pointer list-none [&::-webkit-details-marker]:hidden">
+          <summary className="flex min-h-11 touch-manipulation items-center gap-3 px-0.5 cursor-pointer list-none [&::-webkit-details-marker]:hidden">
             <h2 className="label-inst">Enviado los últimos 30 días ({vista.enviadoAntes.length})</h2>
             <div className="flex-1 rule" />
             <span className="label-inst group-open:rotate-180 transition-transform duration-150">▾</span>
@@ -260,7 +260,7 @@ export function Cola() {
       {/* ── Detalles técnicos (soporte): la lista por registro ─────────────── */}
       {verTecnico && cola.length > 0 && (
         <details className="group">
-          <summary className="flex items-center gap-3 px-0.5 cursor-pointer list-none [&::-webkit-details-marker]:hidden">
+          <summary className="flex min-h-11 touch-manipulation items-center gap-3 px-0.5 cursor-pointer list-none [&::-webkit-details-marker]:hidden">
             <h2 className="label-inst">Detalles técnicos ({cola.length} registros)</h2>
             <div className="flex-1 rule" />
             <span className="label-inst group-open:rotate-180 transition-transform duration-150">▾</span>
