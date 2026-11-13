@@ -159,6 +159,8 @@ describe('cola legible', () => {
     )
     expect(v.enviosPendientes).toBe(0)
     expect(v.enviadoHoy.map((g) => g.tipo)).toEqual(['bitacora'])
+    // TSK-OFF-013: lo enviado hace más de un día queda en el historial de 30 días.
+    expect(v.enviadoAntes.map((g) => g.tipo)).toEqual(['inspeccion'])
     expect(v.ultimoEnvioAt).toBe(iso(2))
   })
 
