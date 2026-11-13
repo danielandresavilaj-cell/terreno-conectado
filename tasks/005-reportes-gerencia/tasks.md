@@ -1,6 +1,6 @@
 # TASKS — Módulo 005: Reportes y gerencia
 
-**Versión:** 0.6.1 · **Fecha:** 2026-11-13 · **Autor:** Daniel Ávila
+**Versión:** 0.7.0 · **Fecha:** 2026-11-13 · **Autor:** Daniel Ávila
 **Padre:** `plans/005-reportes-gerencia/plan.md` · **Spec:** `specs/005-reportes-gerencia/spec.md`
 **Issue:** #8 · **Requisitos:** FR-040…FR-047, FR-062, FR-063, NFR-03
 
@@ -24,6 +24,7 @@ La auditoría del 2026-10-13 sobre `main` muestra **FR-040/042 implementados** y
 | TSK-REP-008 | Evidencia fotográfica visible en supervisión | FR-062 | TSK-REP-006 | `GET /dashboard/attachments/:id` entrega los bytes de la foto con RLS y roles del dashboard (otra empresa → 404, trabajador → 403); el detalle trae `foto_id` por respuesta y `hallazgos`; el listado de hallazgos y el detalle muestran miniatura con visor. `backend/test/attachments.spec.ts` y `frontend/test/fotos.test.ts` verdes | ✅ Hecho (0.5.0) |
 | TSK-REP-009 | Bitácora legible por el equipo y la supervisión | FR-033, FR-063 | TSK-REP-008 | `GET /dashboard/bitacora` filtra por faena y período, pagina y respeta RLS (otra empresa no ve nada, plataforma → 403); la pantalla Bitácora muestra "De la faena" y Gerencia "Bitácora del equipo". `backend/test/bitacora.spec.ts` verde | ✅ Hecho (0.6.0) |
 | TSK-REP-010 | Gerencia usable en el teléfono: lista de inspecciones apilada | FR-041, FR-044 | TSK-REP-007 | Bajo 1024 px cada inspección es una tarjeta sin desborde horizontal; desde 1024 px, la tabla de siempre con cabecera alineada. Sin cambios de API | ✅ Hecho (0.6.1) |
+| TSK-REP-011 | Panel de decisiones: plazos vencidos como métrica principal | FR-040, FR-064 | TSK-DOM-007 | `summary.hallazgos_vencidos` cuenta abiertos con plazo pasado (por faena, sin recorte de período) y deja de contarlos al resolver; la fila principal lo muestra en lugar de la latencia; filtro "Sólo vencidos". Prueba en `backend/test/accion-correctiva.spec.ts` | ✅ Hecho (0.7.0) |
 
 ## Criterios de salida del módulo
 
@@ -36,6 +37,7 @@ La auditoría del 2026-10-13 sobre `main` muestra **FR-040/042 implementados** y
 
 | Versión | Fecha | Cambio | Autor |
 | :--- | :--- | :--- | :--- |
+| 0.7.0 | 2026-11-13 | Se agrega TSK-REP-011 (panel de decisiones) | Daniel Ávila (con IA) |
 | 0.6.1 | 2026-11-13 | Se agrega TSK-REP-010 (lista de inspecciones apilada en el teléfono) | Daniel Ávila (con IA) |
 | 0.6.0 | 2026-11-13 | Se agrega TSK-REP-009 (bitácora legible, FR-063) | Daniel Ávila (con IA) |
 | 0.5.0 | 2026-11-13 | Se agrega TSK-REP-008 (evidencia fotográfica visible, FR-062, Enmienda 008) | Daniel Ávila (con IA) |

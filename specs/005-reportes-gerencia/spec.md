@@ -3,7 +3,7 @@
 | | |
 | :--- | :--- |
 | **Estado** | COMPLETO (ciclo del módulo, F2 · 2026-10-13) |
-| **Versión** | 0.7.1 |
+| **Versión** | 0.8.0 |
 | **Autor** | Daniel Ávila |
 | **Padre** | specs/000-master/spec.md |
 | **Depende de** | 003 (datos sincronizados + `SYNC_LOG`), 004 (dominio) |
@@ -108,6 +108,10 @@ La bitácora se escribía en el dispositivo y se sincronizaba, pero ninguna pant
 
 La lista de inspecciones del período se apila como tarjetas en pantallas angostas (casilla a la izquierda; formulario, faena, autor, estado, respuestas, fecha y acciones en una columna) y vuelve a la tabla desde 1024 px. Antes tenía 870 px mínimos y se desbordaba en el teléfono.
 
+### 4.4 Métricas que piden una decisión (TSK-REP-011, FR-040/064)
+
+La fila principal de Gerencia muestra: **Por revisar** (inspecciones enviadas sin revisar y la más antigua), **Hallazgos urgentes** (alta o crítica sin resolver), **Plazos vencidos** (acciones correctivas abiertas con plazo pasado; `summary.hallazgos_vencidos`, sin recorte de período porque es deuda abierta, sí por faena) e **Inspecciones**. La latencia de procesamiento sigue en el bloque de sincronización. El listado de hallazgos tiene el atajo "Sólo vencidos".
+
 ## 5. Export (FR-042)
 
 - **CSV de la vista:** en el cliente, `frontend/src/lib/dashboard-csv.ts` serializa **exactamente lo filtrado en pantalla** (columnas `id, severidad, estado, faena, autor, capturado_at`, `text/csv;charset=utf-8`, escapado de comillas).
@@ -154,6 +158,7 @@ El alcance V1 del **resumen ejecutivo** es **read-only** y se apoya en las métr
 
 | Versión | Fecha | Cambio | Autor |
 | :--- | :--- | :--- | :--- |
+| 0.8.0 | 2026-11-13 | **TSK-REP-011:** "Plazos vencidos" reemplaza a la latencia en la fila principal; `summary.hallazgos_vencidos`; filtro "Sólo vencidos" | Daniel Ávila (con IA) |
 | 0.7.1 | 2026-11-13 | **TSK-REP-010:** lista de inspecciones apilada en pantallas angostas | Daniel Ávila (con IA) |
 | 0.7.0 | 2026-11-13 | **TSK-REP-009 (Enmienda 008, FR-063):** bitácora legible en Bitácora ("De la faena") y en Gerencia; contrato `dashboard/bitacora` | Daniel Ávila (con IA) |
 | 0.6.0 | 2026-11-13 | **TSK-REP-008 (Enmienda 008, FR-062):** la evidencia fotográfica se ve en el listado de hallazgos y en el detalle de la inspección; contratos `dashboard/attachments/:id` y detalle con `foto_id`/`hallazgos` | Daniel Ávila (con IA) |

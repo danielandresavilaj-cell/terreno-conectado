@@ -48,7 +48,6 @@ import {
 import { descargarLibro } from '../lib/exportar'
 import { construirCsvHallazgos } from '../lib/dashboard-csv'
 import { useEstado } from '../lib/store'
-import { duracion } from '../lib/supervision'
 import { BloquesSupervision } from '../components/dashboard/BloquesSupervision'
 import { PanelExportar } from '../components/dashboard/PanelExportar'
 import { FirmaCierre } from '../components/FirmaCierre'
@@ -135,6 +134,8 @@ export function Dashboard() {
   const [faena, setFaena] = useState<string>('todas')
   const [sevFiltro, setSevFiltro] = useState<Severidad | 'todas'>('todas')
   const [autor, setAutor] = useState<string>('todos')
+  /* TSK-REP-011: atajo para ver sólo las acciones correctivas atrasadas. */
+  const [soloVencidos, setSoloVencidos] = useState(false)
   /* TSK-REP-007: rango libre, filtros propios de la lista y selección para exportar. */
   const [rango, setRango] = useState<RangoFechas>({ desde: '', hasta: '' })
   const [formularioFiltro, setFormularioFiltro] = useState('')
@@ -271,8 +272,10 @@ export function Dashboard() {
     : []
   const maxInsp = Math.max(1, ...(summary ? Object.values(summary.inspecciones_por_estado) : [0]))
 
+  const hoy = hoyLocal()
   const filtrados = hallazgos.filter(
     (h) =>
+      (!soloVencidos || estadoPlazo(h.due_date, h.status, hoy) === 'vencido') &&
       (sevFiltro === 'todas' || SEV_WIRE_A_UI[h.severity] === sevFiltro) &&
       (faena === 'todas' || h.faena_id === faena) &&
       (autor === 'todos' || h.autor_id === autor),
@@ -463,21 +466,19 @@ export function Dashboard() {
               }
               destacado
             />
-            <Metrica
-              etiqueta="Procesamiento p95"
-              valor={supervision?.sincronizacion.procesamiento_p95_seg != null ? Math.round(supervision.sincronizacion.procesamiento_p95_seg) : null}
-              sufijo=" s"
-              pie={
-                supervision?.sincronizacion.muestras_espera
-                  ? `espera sin señal p95: ${duracion(supervision.sincronizacion.espera_sin_senal_p95_seg)}`
-                  : 'objetivo: 60 s por lote'
-              }
-            />
+            {/* TSK-REP-011: las métricas de arriba son las que piden una decisión.
+                La latencia técnica sigue en el bloque de sincronización. */}
             <Metrica
               etiqueta="Hallazgos urgentes"
               valor={summary?.hallazgos_urgentes ?? null}
-              pie={`${summary?.hallazgos_total ?? 0} hallazgos registrados`}
+              pie={`alta o crítica sin resolver · ${summary?.hallazgos_total ?? 0} en total`}
               destacado={summary?.hallazgos_urgentes ? true : undefined}
+            />
+            <Metrica
+              etiqueta="Plazos vencidos"
+              valor={summary?.hallazgos_vencidos ?? null}
+              pie={summary?.hallazgos_vencidos ? 'acciones correctivas atrasadas' : 'ninguna acción atrasada'}
+              destacado={summary?.hallazgos_vencidos ? true : undefined}
             />
             <Metrica etiqueta="Inspecciones" valor={totalInsp} pie={`${enCurso} en curso ahora`} />
           </div>
@@ -613,6 +614,17 @@ export function Dashboard() {
                 <div className="flex items-center gap-3">
                   <h2 className="label-inst">Hallazgos filtrados · {filtrados.length}</h2>
                   <div className="flex-1 rule" />
+                  <button
+                    type="button"
+                    aria-pressed={soloVencidos}
+                    onClick={() => setSoloVencidos((v) => !v)}
+                    className={[
+                      'min-h-11 px-3 rounded-lg border text-[13px] font-medium cursor-pointer',
+                      soloVencidos ? 'border-failed text-failed bg-failed/10' : 'border-campo text-ink-2',
+                    ].join(' ')}
+                  >
+                    Sólo vencidos
+                  </button>
                 </div>
 
                 <AnimatePresence mode="wait">

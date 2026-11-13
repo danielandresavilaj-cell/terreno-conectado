@@ -86,7 +86,7 @@ export class DashboardService {
     const tenantId = u.tenant_id as string
     const { siteId, desde, hasta } = normalizeFiltro(filtros)
 
-    const [estados, porSev, sincronizaciones, conflictos, urgentes, autores] = await Promise.all([
+    const [estados, porSev, sincronizaciones, conflictos, urgentes, autores, vencidos] = await Promise.all([
       this.db.queryAsTenant<{ status: string; n: number }>(
         tenantId,
         `SELECT status, count(*)::int AS n
@@ -148,6 +148,17 @@ export class DashboardService {
           ORDER BY u.full_name`,
         [siteId, desde, hasta],
       ),
+      // TSK-REP-011 (FR-064): acciones correctivas con plazo pasado. Es deuda
+      // abierta, no actividad del período: no se recorta por fechas.
+      this.db.queryAsTenant<{ n: number }>(
+        tenantId,
+        `SELECT count(*)::int AS n
+           FROM finding f
+           LEFT JOIN inspection i ON i.id = f.inspection_id
+          WHERE f.status <> 'resolved' AND f.due_date < current_date
+            AND ($1::uuid IS NULL OR i.site_id = $1)`,
+        [siteId],
+      ),
     ])
 
     const porEstado = { draft: 0, in_progress: 0, submitted: 0, reviewed: 0 }
@@ -166,6 +177,7 @@ export class DashboardService {
       inspecciones_por_estado: porEstado,
       hallazgos_por_severidad: porSeveridad,
       hallazgos_urgentes: urgentes[0]?.n ?? 0,
+      hallazgos_vencidos: vencidos[0]?.n ?? 0,
       hallazgos_total: totalHallazgos,
       conflictos_pendientes: conflictos[0]?.n ?? 0,
       sincronizaciones: sincronizaciones[0]?.n ?? 0,
