@@ -125,6 +125,11 @@ entonces sumó (Enmiendas 004–006):
   señal" medida aparte de la latencia del servidor.
 - **Sin geolocalización** (Enmienda 004), y aviso cuando la sesión se abre en otro dispositivo.
 
+- **Evidencia a la vista** (Enmienda 008): supervisión ve las fotos de terreno en el listado de
+  hallazgos y en el detalle de cada inspección, sin exportar nada.
+- **Captura más clara** (Fase 0 del [plan de mejora](docs/auditoria-y-plan-de-mejora.md)): el botón
+  Atrás del teléfono navega, un hallazgo se corrige sin duplicarse y enviar confirma en pantalla.
+
 Lo que ya tenía la v1:
 
 - **Sesión**: login con correo y clave; la sesión sobrevive a que Android cierre la PWA (refresh con
@@ -138,7 +143,7 @@ Lo que ya tenía la v1:
   ([`infra/OPERACION.md`](infra/OPERACION.md)).
 - **Supervisión**: marcar inspecciones como revisadas, mover hallazgos (abierto → en curso →
   resuelto) y revisar conflictos, todo persistente y auditado.
-- **Pruebas**: 557 automatizadas: 253 de integración del backend, 189 unitarias del frontend, 92 de
+- **Pruebas**: 567 automatizadas: 260 de integración del backend, 192 unitarias del frontend, 92 de
   shared y 23 E2E/caos. La matriz de requisitos está en 97,7% verde en lo implementado ([`test-plan.md`](test-plan.md)). La Enmienda 007 (firma, QR, programación y avisos por correo) está aprobada y por implementar ([`plans/008-operacion-certificada/`](plans/008-operacion-certificada/plan.md)).
 - **Producción**: https://terrenoconectado.cl (Oracle Always Free, US$0/mes; dominio en NIC Chile con DNS en Cloudflare). La dirección anterior, `terreno-conectado-demo.duckdns.org`, sigue funcionando durante la transición.
 

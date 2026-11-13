@@ -1,6 +1,6 @@
 # TEST PLAN — Plan de pruebas de validación
 
-**Versión:** 1.2.7 · **Fecha:** 2026-09-14 · actualizado 2026-11-13 · **Autor:** Raúl González (validación) · **Relacionado:** spec maestro §5–6, constitución Artículos III/IV/VII
+**Versión:** 1.2.8 · **Fecha:** 2026-09-14 · actualizado 2026-11-13 · **Autor:** Raúl González (validación) · **Relacionado:** spec maestro §5–6, constitución Artículos III/IV/VII
 **Evidencia APT:** "Plan de pruebas de validación" (informe §6) y soporte de la competencia "Realizar pruebas de certificación de productos y procesos".
 
 ## 1. Principio rector
@@ -73,12 +73,13 @@ verde.
 | FR-045/046 | Lote del período con formato de su plantilla + hoja "Evidencias" (adjuntos referenciados/embebidos) | Integración | `backend/test/inspection-export-lote.spec.ts` | 🟢 verde |
 | FR-045/046/047 (Enmienda 005) | Excel consolidado (Resumen + hoja por formulario + Hallazgos + Evidencias, columnas unidas entre versiones, plantilla hecha a mano), PDF y Word (un archivo o ZIP), selección por `ids` con RLS, filtros de formulario/estado, tope 413, 404, 400, roles y auditoría | Unit + integración | `shared/src/exportar/consolidado.test.ts`, `backend/test/inspection-report.spec.ts`, `frontend/test/exportar-inspecciones.test.ts` | ✅ |
 | FR-047 + FR-051 | Import confirmado y export por lote registrados en el audit log (autor, timestamp, tenant) | Integración | `backend/test/import-wizard.spec.ts`, `inspection-export-lote.spec.ts` | 🟢 verde |
+| FR-062 | *(Enmienda 008)* Supervisión ve en pantalla la foto de una respuesta o de un hallazgo: mismos bytes que subió el dispositivo y tipo de imagen explícito; otra empresa → 404 (RLS), trabajador y plataforma → 403, sin sesión → 401; no sirve el original de un import; archivo ausente → 404 con motivo; el detalle nombra la foto de cada respuesta y hallazgo | Integración + Unit | `backend/test/attachments.spec.ts`; `frontend/test/fotos.test.ts` (caché: una descarga por foto, no recuerda fallos, descarta la menos usada) | 🟢 verde |
 | FR-048 | *(Enmienda 006)* La IA (opcional, sólo backend) propone secciones e ítems desde PDF, Word o foto, y la propuesta nunca se publica sin la confirmación explícita del `tenant_admin`. *(TSK-FORM-022)* Un formulario creado desde cero sigue el mismo camino: borrador por `POST /templates` y publicación explícita, con las mismas validaciones de props; sin clave la función queda apagada | Integración + Unit | `backend/test/import-ia.spec.ts` (analizador falso), `import-wizard.spec.ts`, `templates.http.spec.ts`, `frontend/test/editor-formulario.test.ts` | 🟢 verde |
 | FR-049 | Revisión publicada inmutable: ítems ya inspeccionados no se modifican; el cambio exige revisión nueva | Integración | `backend/test/templates.http.spec.ts` (409 al editar publicado) | 🟢 verde |
 | FR-050 | `platform_admin` crea tenant, le asigna el `tenant_admin` inicial y lo suspende/reactiva; un rol distinto recibe 403 en toda la consola | Integración | `backend/test/admin.spec.ts` | 🟢 verde |
 | FR-051 (`admin`) | Cada mutación admin deja exactamente una fila en `audit_log` con `actor_id` y `tenant_id` correctos; `tc_app` no puede UPDATE/DELETE y la API no expone rutas de modificación | Integración | `backend/test/admin.spec.ts` | 🟢 verde |
 
-**Recuento (2026-11-12):** 47 filas · 🟢 43 (91,5%) · 🟡 3 (6,4%) · 🔴 0 · ⚪ 1 (2,1%). FR-056/057/061 está en revisión con una prueba unitaria verde y validación de integración/E2E/caos pendiente; FR-058/059/061 siguen por implementar. De lo ya validado, **43/44 (97,7%) está en verde**.
+**Recuento (2026-11-13):** 48 filas · 🟢 44 (91,7%) · 🟡 3 (6,3%) · 🔴 0 · ⚪ 1 (2,1%). FR-056/057/061 está en revisión con una prueba unitaria verde y validación de integración/E2E/caos pendiente; FR-058/059/061 siguen por implementar. De lo ya validado, **44/45 (97,8%) está en verde**.
 
 > La única fila con ⚪ es **FR-034**, y solo por la parte de geolocalización, que la
 > Enmienda 004 sacó de V1; su parte vigente (asociación a faena) está en 🟢. FR-048
@@ -88,11 +89,11 @@ verde.
 **Volumen de pruebas en la corrida de referencia:**
 ```
 E2E + caos (Playwright, manual)           23 tests
-Integración backend (Vitest + Testcontainers) 253 tests
-Unidad frontend (Vitest)                     189 tests
+Integración backend (Vitest + Testcontainers) 260 tests
+Unidad frontend (Vitest)                     192 tests
 Unidad shared (Vitest)                        92 tests
                                            ───────────────
-                                           557 tests   (v1.3, TSK-OFF-007/008/009, 2026-11-13)
+                                           567 tests   (v1.4, TSK-REP-008, 2026-11-13)
 ```
 
 > El criterio de salida de Fase 2 (§8) pide "matriz §3 ≥ 90% verde": hoy está en
@@ -207,6 +208,7 @@ y nunca bloquea un PR. Informe por módulo en
 
 | Versión | Fecha | Cambio | Autor |
 | :--- | :--- | :--- | :--- |
+| 1.2.8 | 2026-11-13 | **TSK-REP-008 (Enmienda 008, FR-062):** fila nueva FR-062 con `attachments.spec.ts` (7) y `fotos.test.ts` (3); recuento 48 filas (44 🟢); volumen 567 tests (backend 260 = 253 documentados + 7 nuevos, validados en CI; frontend 192) | Daniel Ávila (con IA) |
 | 1.2.7 | 2026-11-13 | **TSK-OFF-007/008/009 (Fase 0 del plan de mejora):** `hallazgo.test.ts` (11) en la fila FR-009/032/036 y `navegacion.test.ts` (9) para el botón Atrás (FR-010/011); volumen 557 tests (frontend 189, contados en esta corrida; el backend no se re-ejecutó en local) | Daniel Ávila (con IA) |
 | 1.2.6 | 2026-11-13 | **TSK-OPS-003-B (#191, PR #193)**, revisado e integrado por Daniel Ávila: firma de inspector offline y cofirma; `signature_required` sólo lo declara el cliente que firma (las colas de la app anterior quedan revisables); la firma no retrocede una inspección ya revisada; firma agrupada en la cola legible; E2E firman con el pad (`firmarYEnviar`); diálogo de firma con foco y Escape | Raúl González / Daniel Ávila (con IA) |
 | 1.2.5 | 2026-11-13 | **TSK-FORM-022:** crear formulario desde cero con el mismo editor (agregar, reordenar y quitar preguntas y secciones); evidencia en la fila FR-048 (`editor-formulario.test.ts`); volumen 532 tests (frontend 164) | Daniel Ávila (con IA) |

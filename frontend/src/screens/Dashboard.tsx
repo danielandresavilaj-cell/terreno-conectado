@@ -50,6 +50,7 @@ import { duracion } from '../lib/supervision'
 import { BloquesSupervision } from '../components/dashboard/BloquesSupervision'
 import { PanelExportar } from '../components/dashboard/PanelExportar'
 import { FirmaCierre } from '../components/FirmaCierre'
+import { FotoEvidencia } from '../components/FotoEvidencia'
 import { PERIODOS, rangoPeriodo, type Periodo, type RangoFechas } from '../lib/periodos'
 import { EASE } from '../lib/motion'
 import type { DashboardSummary, DashboardSupervision, FindingDto, InspectionDetalle, InspectionListaItem } from '@terreno/shared'
@@ -1029,16 +1030,41 @@ function PanelDetalleInspeccion({
               <p className="label-inst mb-2">{seccion.title}</p>
               <div className="divide-y divide-line-soft rounded-xl border border-line-soft bg-s0">
                 {seccion.respuestas.map((respuesta) => (
-                  <div key={respuesta.id} className="flex flex-wrap items-start justify-between gap-3 px-3.5 py-3">
-                    <span className="text-[13px] text-ink-2 max-w-[62ch]">{respuesta.prompt}</span>
-                    <span className={['text-[13px] font-medium', respuesta.value === null ? 'text-ink-3' : 'text-ink'].join(' ')}>
-                      {textoRespuesta(respuesta.value)}
-                    </span>
+                  <div key={respuesta.id} className="px-3.5 py-3">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <span className="text-[13px] text-ink-2 max-w-[62ch]">{respuesta.prompt}</span>
+                      <span className="flex items-center gap-3">
+                        <span className={['text-[13px] font-medium', respuesta.value === null ? 'text-ink-3' : 'text-ink'].join(' ')}>
+                          {textoRespuesta(respuesta.value)}
+                        </span>
+                        {respuesta.foto_id && (
+                          <FotoEvidencia id={respuesta.foto_id} etiqueta={`Foto de: ${respuesta.prompt}`} />
+                        )}
+                      </span>
+                    </div>
+                    {/* TSK-REP-008: el hallazgo se lee junto a la respuesta que lo originó. */}
+                    {detalle.hallazgos
+                      .filter((h) => h.item_id === respuesta.id)
+                      .map((h) => (
+                        <HallazgoEnDetalle key={h.id} h={h} />
+                      ))}
                   </div>
                 ))}
               </div>
             </div>
           ))}
+          {detalle.hallazgos.some((h) => h.item_id === null) && (
+            <div>
+              <p className="label-inst mb-2">Otros hallazgos</p>
+              <div className="rounded-xl border border-line-soft bg-s0 px-3.5 py-1">
+                {detalle.hallazgos
+                  .filter((h) => h.item_id === null)
+                  .map((h) => (
+                    <HallazgoEnDetalle key={h.id} h={h} />
+                  ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
       {firmando && (
@@ -1049,6 +1075,29 @@ function PanelDetalleInspeccion({
         />
       )}
     </section>
+  )
+}
+
+const ESTADO_HALLAZGO: Record<InspectionDetalle['hallazgos'][number]['status'], string> = {
+  open: 'Abierto',
+  in_progress: 'En curso',
+  resolved: 'Resuelto',
+}
+
+/** Hallazgo dentro del detalle de una inspección: severidad, texto y evidencia. */
+function HallazgoEnDetalle({ h }: { h: InspectionDetalle['hallazgos'][number] }) {
+  const sev = SEV_WIRE_A_UI[h.severity]
+  return (
+    <div className="mt-2.5 flex items-start gap-3 rounded-lg bg-s2 px-3 py-2.5">
+      {h.foto_id && <FotoEvidencia id={h.foto_id} etiqueta={`Foto del hallazgo: ${h.description}`} />}
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-center gap-2">
+          <BadgeSev sev={sev} destacado={sev === 'alta' || sev === 'critica'} />
+          <span className="text-[12px] text-ink-3">{ESTADO_HALLAZGO[h.status]}</span>
+        </div>
+        <p className="mt-1.5 text-[13px] text-ink break-words">{h.description}</p>
+      </div>
+    </div>
   )
 }
 
@@ -1084,20 +1133,18 @@ function FilaHallazgo({ h, onCambio }: { h: FindingDto; onCambio: () => void }) 
       ].join(' ')}
       style={urgente ? { borderLeftColor: meta.color } : undefined}
     >
+      {/* TSK-REP-008: la evidencia se ve, no se describe por su tamaño. */}
+      {h.foto_id && <FotoEvidencia id={h.foto_id} etiqueta={`Foto del hallazgo: ${h.description}`} />}
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2.5 flex-wrap">
           <BadgeSev sev={sev} destacado={urgente} />
-          <p className="text-[13px] font-medium">{h.description}</p>
+          <p className="text-[14px] font-medium break-words">{h.description}</p>
         </div>
-        <div className="mt-2 flex items-center gap-3 flex-wrap">
-          <span className="label-inst">{h.faena_nombre ?? 'faena sin asignar'}</span>
-          <span className="label-inst">· {h.autor ?? 'sin autor'}</span>
-          <span className="label-inst">· {tiempoRelativo(h.captured_at)}</span>
-          {h.foto_id && h.foto_bytes != null && (
-            <span className="label-inst" style={{ color: meta.color }}>
-              · foto {h.foto_ancho}×{h.foto_alto} · {Math.round(h.foto_bytes / 1024)} KB
-            </span>
-          )}
+        <div className="mt-2 flex items-center gap-x-3 gap-y-1 flex-wrap text-[13px] text-ink-2">
+          <span>{h.faena_nombre ?? 'Sin faena'}</span>
+          <span>· {h.autor ?? 'Sin autor'}</span>
+          <span>· {tiempoRelativo(h.captured_at)}</span>
+          {!h.foto_id && <span className="text-ink-3">· sin foto</span>}
         </div>
       </div>
 

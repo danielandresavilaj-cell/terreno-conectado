@@ -12,6 +12,8 @@ import type { DashboardSupervision } from '@terreno/shared'
  *  · `POST /api/v1/dashboard/inspections/export-lote` — ZIP con un `.xlsx` por
  *    inspección del período + manifiesto (FR-045/046) y auditoría del lote
  *    (FR-047)
+ *  · `GET /api/v1/dashboard/attachments/:id` — foto de una respuesta o de un
+ *    hallazgo, para verla en pantalla (FR-062, TSK-REP-008)
  *  · `GET /api/v1/sites`              — faenas/obras del tenant (FR-006)
  *
  * El dashboard no escribe datos de negocio (el flujo es Captura → Sync →
@@ -142,6 +144,28 @@ export class DashboardController {
   @Get('dashboard/inspections/:id')
   detalleInspeccion(@Req() req: AuthedRequest, @Param('id') id: string): Promise<InspectionDetalle> {
     return this.exportacion.detalle(req.user as JwtClaims, exigirUuid(id, 'inspección'))
+  }
+
+  /**
+   * TSK-REP-008 (FR-062): la foto de una respuesta o de un hallazgo, para
+   * verla en pantalla. Va con el mismo guard y los mismos roles que el resto
+   * del dashboard; `nosniff` + tipo de imagen explícito impiden que un adjunto
+   * se interprete como otra cosa. Caché privada y corta: la evidencia es de la
+   * empresa y no debe quedar en cachés compartidas.
+   */
+  @UseGuards(AuthGuard)
+  @Get('dashboard/attachments/:id')
+  async adjunto(
+    @Req() req: AuthedRequest,
+    @Res({ passthrough: true }) res: Response,
+    @Param('id') id: string,
+  ): Promise<StreamableFile> {
+    const foto = await this.exportacion.adjunto(req.user as JwtClaims, exigirUuid(id, 'adjunto'))
+    res.setHeader('Content-Type', foto.mime)
+    res.setHeader('Content-Disposition', 'inline')
+    res.setHeader('X-Content-Type-Options', 'nosniff')
+    res.setHeader('Cache-Control', 'private, max-age=3600')
+    return new StreamableFile(foto.bytes)
   }
 
   /**

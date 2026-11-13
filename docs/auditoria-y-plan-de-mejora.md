@@ -174,7 +174,7 @@ seguimiento operativo)**, que apunta en la misma dirección, para no duplicar di
 
 | # | Acción | Resuelve | Tam. | Enmienda |
 | :--- | :--- | :--- | :---: | :---: |
-| 2.1 | **Ver la evidencia**: ruta autenticada de lectura de adjuntos (RLS + auditoría) y fotos en el detalle de inspección y de hallazgo | S1 | M | Sí (FR nuevo) |
+| 2.1 | **Ver la evidencia** — ✅ hecha (TSK-REP-008, FR-062, Enmienda 008): ruta autenticada de lectura de adjuntos con RLS y fotos en el listado de hallazgos y el detalle de inspección. Sin auditoría por vista: se decidió no llenar `audit_log` con lecturas | S1 | M | Sí (FR nuevo) |
 | 2.2 | **Hallazgo como acción correctiva**: responsable, plazo, comentario y foto de cierre; vencidos destacados | S3 | L | Sí (FR nuevos) |
 | 2.3 | **Bajada de datos al dispositivo**: el trabajador recibe los hallazgos que le asignaron y puede cerrarlos offline. Es el primer flujo servidor → dispositivo fuera de plantillas; hay que definir conflictos | S3, U6 | L | Sí (spec 003) |
 | 2.4 | **Bitácora legible**: vista por faena y fecha para supervisión y para el turno entrante | S2 | M | Sí (FR-033) |
