@@ -1,4 +1,4 @@
-import { ConflictException, Inject, Injectable, NotFoundException } from '@nestjs/common'
+import { BadRequestException, ConflictException, Inject, Injectable, NotFoundException } from '@nestjs/common'
 import { randomUUID } from 'node:crypto'
 import type { SignatureStroke } from '@terreno/shared'
 import { DbService } from '../db/db.service'
@@ -6,6 +6,23 @@ import { DbService } from '../db/db.service'
 type Run = <R = Record<string, unknown>>(sql: string, params?: unknown[]) => Promise<R[]>
 
 export type EstadoHallazgo = 'open' | 'in_progress' | 'resolved'
+
+/** TSK-DOM-007 (FR-064): cambios de gestión del hallazgo; `undefined` = no tocar. */
+export interface CambiosHallazgo {
+  status?: EstadoHallazgo
+  assignee_id?: string | null
+  due_date?: string | null
+  resolution_note?: string | null
+}
+
+export interface HallazgoGestion {
+  id: string
+  status: EstadoHallazgo
+  assignee_id: string | null
+  responsable: string | null
+  due_date: string | null
+  resolution_note: string | null
+}
 
 /**
  * Ciclo de supervisión (FR-031/032, TSK-DOM-005). Decisiones del supervisor o
@@ -117,6 +134,81 @@ export class SupervisionService {
       }
       return { id, status }
     })
+  }
+
+  /**
+   * TSK-DOM-007 (FR-064): gestión del hallazgo como acción correctiva —
+   * estado, responsable, plazo y nota de cierre — en una sola transacción y con
+   * UN registro de auditoría que dice qué cambió (antes → después).
+   *
+   * El responsable tiene que ser una cuenta activa de la misma empresa: se lee
+   * con la conexión del tenant (RLS), así que una cuenta ajena no existe.
+   */
+  gestionarHallazgo(tenantId: string, actorId: string, id: string, cambios: CambiosHallazgo): Promise<HallazgoGestion> {
+    return this.db.withTenantTransaction(tenantId, async (run) => {
+      const [actual] = await run<{
+        status: EstadoHallazgo
+        assignee_id: string | null
+        due_date: string | null
+        resolution_note: string | null
+      }>(
+        `SELECT status, assignee_id, to_char(due_date, 'YYYY-MM-DD') AS due_date, resolution_note
+           FROM finding WHERE id = $1 FOR UPDATE`,
+        [id],
+      )
+      if (!actual) throw new NotFoundException('Hallazgo no encontrado')
+      if (cambios.assignee_id) {
+        const [persona] = await run<{ id: string }>(
+          'SELECT id FROM app_user WHERE id = $1 AND is_active AND tenant_id IS NOT NULL',
+          [cambios.assignee_id],
+        )
+        if (!persona) throw new BadRequestException('El responsable debe ser una cuenta activa de tu empresa')
+      }
+      const nuevo = {
+        status: cambios.status ?? actual.status,
+        assignee_id: cambios.assignee_id !== undefined ? cambios.assignee_id : actual.assignee_id,
+        due_date: cambios.due_date !== undefined ? cambios.due_date : actual.due_date,
+        resolution_note:
+          cambios.resolution_note !== undefined ? cambios.resolution_note?.trim() || null : actual.resolution_note,
+      }
+      const cambio: Record<string, { de: unknown; a: unknown }> = {}
+      for (const k of ['status', 'assignee_id', 'due_date', 'resolution_note'] as const) {
+        if (nuevo[k] !== actual[k]) cambio[k] = { de: actual[k], a: nuevo[k] }
+      }
+      if (Object.keys(cambio).length > 0) {
+        await run(
+          `UPDATE finding SET status = $2, assignee_id = $3, due_date = $4::date, resolution_note = $5,
+                  updated_at = now(),
+                  resolved_at = CASE WHEN $2 = 'resolved' THEN COALESCE(resolved_at, now()) ELSE NULL END
+            WHERE id = $1`,
+          [id, nuevo.status, nuevo.assignee_id, nuevo.due_date, nuevo.resolution_note],
+        )
+        if (cambio.status) {
+          // Mismo evento de siempre para el cambio de estado (TSK-DOM-005).
+          await auditar(run, actorId, tenantId, 'finding_status_changed', 'finding', id, {
+            from: actual.status,
+            to: nuevo.status,
+          })
+        }
+        const { status: _status, ...resto } = cambio
+        if (Object.keys(resto).length > 0) {
+          await auditar(run, actorId, tenantId, 'finding_assigned', 'finding', id, resto)
+        }
+      }
+      const [persona] = nuevo.assignee_id
+        ? await run<{ full_name: string }>('SELECT full_name FROM app_user WHERE id = $1', [nuevo.assignee_id])
+        : []
+      return { id, ...nuevo, responsable: persona?.full_name ?? null }
+    })
+  }
+
+  /** Cuentas activas de la empresa que pueden hacerse cargo de un hallazgo. */
+  async equipo(tenantId: string): Promise<Array<{ id: string; nombre: string; rol: string }>> {
+    return this.db.queryAsTenant<{ id: string; nombre: string; rol: string }>(
+      tenantId,
+      `SELECT id, full_name AS nombre, role AS rol FROM app_user
+        WHERE is_active AND tenant_id IS NOT NULL ORDER BY full_name`,
+    )
   }
 
   /** El conflicto conserva sus dos versiones; sólo se registra la revisión. */

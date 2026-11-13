@@ -1,8 +1,8 @@
 # TASKS — Módulo 004: Dominio inspecciones
 
-**Versión:** 0.2.0 · **Fecha:** 2026-10-14 · **Autor:** Daniel Ávila
+**Versión:** 0.3.0 · **Fecha:** 2026-11-13 · **Autor:** Daniel Ávila
 **Padre:** `plans/004-dominio-inspecciones/plan.md` · **Spec:** `specs/004-dominio-inspecciones/spec.md`
-**Issue:** #7 · **Requisitos:** FR-030…FR-039
+**Issue:** #7 · **Requisitos:** FR-030…FR-039, FR-064
 
 > **Regla (Artículo II):** cada task referencia al menos un ID de requisito; cada commit referencia al menos un task.
 
@@ -20,6 +20,7 @@ La auditoría del 2026-10-13 sobre `main` muestra **FR-030…FR-039 ya implement
 | TSK-DOM-004 | Verificación: actualizar filas FR-031/032/034 de la matriz §3 y evidencias del spec 004 | FR-030…039 | 003 | `test-plan.md` refleja FR-034 implementado; spec 004 §2 con evidencia actualizada | ✅ Hecho (FR-034 🟢; FR-031/032 cerrados por TSK-DOM-005) |
 | TSK-DOM-005 | **Integridad y ciclo de supervisión**: autoría desde el JWT, `reviewed` sólo por supervisión, FR-024 lotes rechazados en `sync_log`, RLS estricta de `audit_log`/`auth_session`, imports sólo `tenant_admin`, revisión de inspección/hallazgo/conflicto | FR-024, FR-031, FR-032, FR-051 | 004 | `backend/test/supervision.spec.ts` verde; UI con "Marcar como revisada", estado de hallazgo y conflictos revisados persistentes | ✅ Hecho |
 | TSK-DOM-006 | **Quitar la geolocalización** (Enmienda 004): el envío ya no pide ubicación; `location` sigue aceptándose nulo por compatibilidad | FR-034 | 005 | `grep geolocation frontend/src` vacío; sync sigue verde | ✅ Hecho |
+| TSK-DOM-007 | **Hallazgo como acción correctiva** (Enmienda 008): responsable, plazo y nota de cierre | FR-032, FR-064 | TSK-DOM-005 | Migración 020; `PATCH /findings/:id` acepta `assignee_id`/`due_date`/`resolution_note` con auditoría antes→después; responsable sólo de la misma empresa; el sync no borra la asignación; Gerencia gestiona y marca vencidos. `backend/test/accion-correctiva.spec.ts` y `frontend/test/plazo.test.ts` verdes | ✅ Hecho |
 
 ## Criterios de salida del módculo
 
@@ -32,5 +33,6 @@ La auditoría del 2026-10-13 sobre `main` muestra **FR-030…FR-039 ya implement
 
 | Versión | Fecha | Cambio | Autor |
 | :--- | :--- | :--- | :--- |
+| 0.3.0 | 2026-11-13 | Se agrega TSK-DOM-007 (acción correctiva, FR-064) | Daniel Ávila (con IA) |
 | 0.2.0 | 2026-10-14 | TSK-DOM-003 reabierto como implementación de FR-034; se agrega TSK-DOM-004 (verificación de matriz §3) | Daniel Ávila |
 | 0.1.0 | 2026-10-13 | Creación: cierre documental del módculo 004 (TSK-DOM-001…003) | Daniel Ávila |

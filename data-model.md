@@ -1,6 +1,6 @@
 # DATA MODEL — Modelo conceptual de datos
 
-**Versión:** 1.6.1 (TSK-OPS-003-B en revisión) · **Fecha:** 2026-09-14 · actualizado 2026-11-12 · **Autor:** Daniel Ávila · **Relacionado:** spec maestro §5/§7, specs 001–007, ADR-003
+**Versión:** 1.7.0 (Enmienda 008) · **Fecha:** 2026-09-14 · actualizado 2026-11-13 · **Autor:** Daniel Ávila · **Relacionado:** spec maestro §5/§7, specs 001–007, ADR-003
 **Evidencia APT:** "Modelo conceptual de datos preliminar" (informe §6).
 **Reglas transversales:** toda tabla de dominio lleva `tenant_id UUID NOT NULL` + política RLS (Artículo IV); IDs `UUIDv7` generados en el cliente cuando el registro nace offline (FR-015); timestamps `created_at`, `updated_at` (servidor) y `captured_at` (cliente, autoridad para LWW — FR-023).
 
@@ -140,7 +140,7 @@ erDiagram
 
 **INSPECTION_RESPONSE** — `id, inspection_id, template_item_id, tenant_id, value_ok ENUM(ok,nok,na) NULL, value_text NULL, value_number NULL, value_json JSONB NULL (select_single/select_multiple/date/time; validado contra `TEMPLATE_ITEM.props` antes de encolar, FR-039), captured_at, client_version`.
 
-**FINDING (Hallazgo)** — `id, inspection_id NULL, response_id NULL, tenant_id, severity ENUM(low, medium, high, critical), description TEXT, status ENUM(open, in_progress, resolved), captured_at, client_version`.
+**FINDING (Hallazgo)** — `id, inspection_id NULL, response_id NULL, tenant_id, severity ENUM(low, medium, high, critical), description TEXT, status ENUM(open, in_progress, resolved), captured_at, client_version`. *(Enmienda 008, migración 020, FR-064)* Acción correctiva: `assignee_id UUID FK→USER NULL` (responsable, cuenta activa del mismo tenant), `due_date DATE NULL` (plazo), `resolution_note TEXT NULL` (≤ 2000, qué se hizo para cerrarlo). Las escribe sólo supervisión por `PATCH /findings/:id`; la ingesta de sync no las toca, así que una corrección del dispositivo no borra la asignación. `resolved_at` (migración 016) se fija al resolver y se limpia al reabrir.
 
 **LOG_ENTRY (Bitácora)** — `id, site_id, author_id, tenant_id, entry_text TEXT, tags TEXT[], shift_date DATE, captured_at, client_version`.
 
@@ -212,6 +212,7 @@ CREATE POLICY tenant_isolation ON inspection
 | :--- | :--- | :--- |
 | 1.0.0 | 2026-09-14 | Modelo base (specs 001–006) |
 | 1.6.0 | 2026-11-12 | **Enmienda 007** (aprobada por Daniel Ávila el 2026-11-12): modelo previo a implementación para `inspection_signature`, `asset`, `inspection_schedule`, `scheduled_inspection` y `notification_outbox`; RLS, inmutabilidad e idempotencia explícitas | Raúl González (con IA) |
+| 1.7.0 | 2026-11-13 | **Enmienda 008 (FR-064, TSK-DOM-007):** migración 020 — `finding.assignee_id`, `due_date`, `resolution_note` e índice parcial por responsable |
 | 1.6.1 | 2026-11-12 | **TSK-OPS-003-B (#191, en revisión):** migración 019 para `inspection_signature`, RLS/inmutabilidad y banderas de cierre en `inspection`; los demás objetos de la Enmienda 007 continúan planificados |
 | 1.5.0 | 2026-11-11 | **Enmienda 006:** `template_imports.motor` y formatos `jpg`/`png` (migración 018); `audit_log` registra `template_import_ia` | Daniel Ávila (con IA) |
 | 1.4.0 | 2026-11-11 | **Enmienda 005:** `template_imports.formato` (migración 017); el archivo fuente se guarda con su extensión y MIME reales | Daniel Ávila (con IA) |

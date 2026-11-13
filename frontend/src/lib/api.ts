@@ -789,6 +789,24 @@ export function cambiarEstadoHallazgo(
   return apiFetch(`/findings/${encodeURIComponent(id)}`, { method: 'PATCH', body: { status } })
 }
 
+/** TSK-DOM-007 (FR-064): responsable, plazo, nota de cierre y/o estado. */
+export function gestionarHallazgo(
+  id: string,
+  cambios: {
+    status?: 'open' | 'in_progress' | 'resolved'
+    assignee_id?: string | null
+    due_date?: string | null
+    resolution_note?: string | null
+  },
+): Promise<{ id: string; status: string; assignee_id: string | null; responsable: string | null; due_date: string | null; resolution_note: string | null }> {
+  return apiFetch(`/findings/${encodeURIComponent(id)}`, { method: 'PATCH', body: cambios })
+}
+
+/** Cuentas activas de la empresa a las que se puede asignar un hallazgo. */
+export function getResponsables(): Promise<Array<{ id: string; nombre: string; rol: string }>> {
+  return apiFetch('/findings/responsables')
+}
+
 /** Revisión persistente de un conflicto (quién y cuándo). */
 export function revisarConflicto(id: string): Promise<{ id: string; reviewed_at: string }> {
   return apiFetch(`/conflicts/${encodeURIComponent(id)}/review`, { method: 'PATCH' })

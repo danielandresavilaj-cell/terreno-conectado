@@ -52,6 +52,12 @@ export interface FindingDto {
   foto_bytes: number | null
   foto_ancho: number | null
   foto_alto: number | null
+  /** TSK-DOM-007 (FR-064): acción correctiva. */
+  assignee_id: string | null
+  responsable: string | null
+  /** Plazo (AAAA-MM-DD). */
+  due_date: string | null
+  resolution_note: string | null
 }
 
 export interface DashboardSummary {

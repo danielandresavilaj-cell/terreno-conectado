@@ -127,7 +127,8 @@ entonces sumó (Enmiendas 004–006):
 
 - **Evidencia a la vista** (Enmienda 008): supervisión ve las fotos de terreno en el listado de
   hallazgos y en el detalle de cada inspección, sin exportar nada; y la bitácora del equipo se lee
-  desde la pantalla Bitácora ("De la faena") y desde Gerencia.
+  desde la pantalla Bitácora ("De la faena") y desde Gerencia. Cada hallazgo tiene responsable, plazo
+  y nota de cierre, y los vencidos se destacan.
 - **Captura más clara** (Fase 0 del [plan de mejora](docs/auditoria-y-plan-de-mejora.md)): el botón
   Atrás del teléfono navega, un hallazgo se corrige sin duplicarse y enviar confirma en pantalla.
 
@@ -144,7 +145,7 @@ Lo que ya tenía la v1:
   ([`infra/OPERACION.md`](infra/OPERACION.md)).
 - **Supervisión**: marcar inspecciones como revisadas, mover hallazgos (abierto → en curso →
   resuelto) y revisar conflictos, todo persistente y auditado.
-- **Pruebas**: 578 automatizadas: 264 de integración del backend, 199 unitarias del frontend, 92 de
+- **Pruebas**: 589 automatizadas: 271 de integración del backend, 203 unitarias del frontend, 92 de
   shared y 23 E2E/caos. La matriz de requisitos está en 97,7% verde en lo implementado ([`test-plan.md`](test-plan.md)). La Enmienda 007 (firma, QR, programación y avisos por correo) está aprobada y por implementar ([`plans/008-operacion-certificada/`](plans/008-operacion-certificada/plan.md)).
 - **Producción**: https://terrenoconectado.cl (Oracle Always Free, US$0/mes; dominio en NIC Chile con DNS en Cloudflare). La dirección anterior, `terreno-conectado-demo.duckdns.org`, sigue funcionando durante la transición.
 
