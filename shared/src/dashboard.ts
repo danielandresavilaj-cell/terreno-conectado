@@ -69,6 +69,8 @@ export interface DashboardSummary {
   hallazgos_por_severidad: Record<SyncSeverity, number>
   /** FR-035: abiertos (no resueltos) de severidad alta o crítica. */
   hallazgos_urgentes: number
+  /** TSK-REP-011 (FR-064): abiertos con plazo vencido (sin recorte de período). */
+  hallazgos_vencidos: number
   hallazgos_total: number
   conflictos_pendientes: number
   sincronizaciones: number

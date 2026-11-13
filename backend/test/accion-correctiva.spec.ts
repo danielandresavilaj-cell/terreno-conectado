@@ -204,3 +204,21 @@ describe('PATCH /api/v1/findings/:id — acción correctiva (FR-064)', () => {
     expect((await server().patch(ruta).set(como('workerA')).send({ due_date: '2026-12-01' })).status).toBe(403)
   })
 })
+
+describe('GET /api/v1/dashboard/summary — plazos vencidos (TSK-REP-011)', () => {
+  it('cuenta los hallazgos abiertos con plazo pasado y deja de contarlos al resolverlos', async () => {
+    const id = randomUUID()
+    await ownerPool.query(
+      `INSERT INTO finding (id, tenant_id, inspection_id, severity, description, status, captured_at, due_date)
+       VALUES ($1, $2, $3, 'medium', 'Señalética caída', 'open', now(), current_date - 2)`,
+      [id, TENANT_A_ID, inspeccionId],
+    )
+    const antes = await server().get('/api/v1/dashboard/summary').set(como('supA'))
+    expect(antes.status).toBe(200)
+    expect(antes.body.hallazgos_vencidos).toBe(1)
+
+    await server().patch(`/api/v1/findings/${id}`).set(como('supA')).send({ status: 'resolved', resolution_note: 'Repuesta' })
+    const despues = await server().get('/api/v1/dashboard/summary').set(como('supA'))
+    expect(despues.body.hallazgos_vencidos).toBe(0)
+  })
+})
