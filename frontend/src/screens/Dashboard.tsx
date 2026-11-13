@@ -36,6 +36,8 @@ import {
   revisarInspeccion,
   cofirmarInspeccion,
   cambiarEstadoHallazgo,
+  gestionarHallazgo,
+  getResponsables,
   getInspecciones,
   getSummary,
   getSupervision,
@@ -52,6 +54,7 @@ import { PanelExportar } from '../components/dashboard/PanelExportar'
 import { FirmaCierre } from '../components/FirmaCierre'
 import { FotoEvidencia } from '../components/FotoEvidencia'
 import { BitacoraFaena } from '../components/BitacoraFaena'
+import { estadoPlazo, hoyLocal, plazoSugerido, type EstadoPlazo } from '../lib/plazo'
 import { PERIODOS, rangoPeriodo, type Periodo, type RangoFechas } from '../lib/periodos'
 import { EASE } from '../lib/motion'
 import type { DashboardSummary, DashboardSupervision, FindingDto, InspectionDetalle, InspectionListaItem } from '@terreno/shared'
@@ -153,6 +156,12 @@ export function Dashboard() {
   const [errorDescarga, setErrorDescarga] = useState<{ id: string; mensaje: string } | null>(null)
   const [detalleInspeccion, setDetalleInspeccion] = useState<DetalleInspeccion>({ fase: 'inactivo' })
   const reducir = useReducedMotion()
+  /* TSK-DOM-007: cuentas a las que se puede asignar un hallazgo. */
+  const [responsables, setResponsables] = useState<Array<{ id: string; nombre: string }>>([])
+  useEffect(() => {
+    if (!usuario || usuario.rol === 'platform_admin') return
+    void getResponsables().then(setResponsables, () => setResponsables([]))
+  }, [usuario])
 
   const esPlataforma = usuario?.rol === 'platform_admin'
 
@@ -624,7 +633,9 @@ export function Dashboard() {
                         </p>
                       </div>
                     ) : (
-                      filtrados.map((h) => <FilaHallazgo key={h.id} h={h} onCambio={() => void cargar()} />)
+                      filtrados.map((h) => (
+                        <FilaHallazgo key={h.id} h={h} onCambio={() => void cargar()} responsables={responsables} />
+                      ))
                     )}
                   </motion.div>
                 </AnimatePresence>
@@ -1137,12 +1148,56 @@ function HallazgoEnDetalle({ h }: { h: InspectionDetalle['hallazgos'][number] })
   )
 }
 
-function FilaHallazgo({ h, onCambio }: { h: FindingDto; onCambio: () => void }) {
+const PLAZO_META: Record<EstadoPlazo, { texto: (d: string | null) => string; clase: string }> = {
+  'sin-plazo': { texto: () => 'Sin plazo', clase: 'text-ink-3' },
+  'a-tiempo': { texto: (d) => `Plazo ${fechaPlazo(d)}`, clase: 'text-ink-2' },
+  'vence-hoy': { texto: () => 'Vence hoy', clase: 'text-sev-media font-semibold' },
+  vencido: { texto: (d) => `Vencido · ${fechaPlazo(d)}`, clase: 'text-failed font-semibold' },
+  cerrado: { texto: () => 'Cerrado', clase: 'text-synced' },
+}
+
+function fechaPlazo(d: string | null): string {
+  if (!d) return ''
+  const [y, m, dd] = d.split('-').map(Number)
+  return new Date(y, m - 1, dd).toLocaleDateString('es-CL', { day: 'numeric', month: 'short' })
+}
+
+/**
+ * Hallazgo del listado de Gerencia. Desde TSK-DOM-007 (FR-064) es una acción
+ * correctiva: además del estado tiene responsable, plazo y nota de cierre.
+ */
+function FilaHallazgo({
+  h,
+  onCambio,
+  responsables,
+}: {
+  h: FindingDto
+  onCambio: () => void
+  responsables: Array<{ id: string; nombre: string }>
+}) {
   const [estado, setEstado] = useState(h.status)
   const [error, setError] = useState<string | null>(null)
+  const [editando, setEditando] = useState(false)
+  const [guardando, setGuardando] = useState(false)
+  const [responsable, setResponsable] = useState(h.assignee_id ?? '')
+  const [plazo, setPlazo] = useState(h.due_date ?? '')
+  const [nota, setNota] = useState(h.resolution_note ?? '')
   useEffect(() => setEstado(h.status), [h.status])
+  useEffect(() => {
+    if (editando) return
+    setResponsable(h.assignee_id ?? '')
+    setPlazo(h.due_date ?? '')
+    setNota(h.resolution_note ?? '')
+  }, [h.assignee_id, h.due_date, h.resolution_note, editando])
+
   /* FR-032 (TSK-DOM-005): la supervisión mueve el hallazgo por su ciclo. */
   const cambiar = async (nuevo: FindingDto['status']) => {
+    if (nuevo === 'resolved' && !h.resolution_note) {
+      // Cerrar pide decir qué se hizo: se abre la gestión con el estado ya elegido.
+      setEstado(nuevo)
+      setEditando(true)
+      return
+    }
     const previo = estado
     setEstado(nuevo)
     setError(null)
@@ -1154,52 +1209,158 @@ function FilaHallazgo({ h, onCambio }: { h: FindingDto; onCambio: () => void }) 
       setError(motivoDe(err))
     }
   }
+
+  const guardar = async () => {
+    setGuardando(true)
+    setError(null)
+    try {
+      await gestionarHallazgo(h.id, {
+        status: estado,
+        assignee_id: responsable || null,
+        due_date: plazo || null,
+        resolution_note: nota.trim() || null,
+      })
+      setEditando(false)
+      onCambio()
+    } catch (err) {
+      setError(motivoDe(err))
+    } finally {
+      setGuardando(false)
+    }
+  }
+
   const sev = SEV_WIRE_A_UI[h.severity]
   const meta = SEV_META[sev]
   // FR-035: alta y crítica quedan demarcados en el listado.
   const urgente = sev === 'alta' || sev === 'critica'
+  const ep = estadoPlazo(h.due_date, h.status, hoyLocal())
+  const pm = PLAZO_META[ep]
+  const faltaNota = estado === 'resolved' && !nota.trim()
 
   return (
     <motion.div
       layout
       transition={{ duration: 0.3, ease: EASE.out }}
       className={[
-        'panel px-4 py-3.5 flex items-start gap-4',
+        'panel px-4 py-3.5',
         urgente ? 'border-l-2' : '',
+        ep === 'vencido' ? 'border-failed/50' : '',
       ].join(' ')}
       style={urgente ? { borderLeftColor: meta.color } : undefined}
     >
-      {/* TSK-REP-008: la evidencia se ve, no se describe por su tamaño. */}
-      {h.foto_id && <FotoEvidencia id={h.foto_id} etiqueta={`Foto del hallazgo: ${h.description}`} />}
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2.5 flex-wrap">
-          <BadgeSev sev={sev} destacado={urgente} />
-          <p className="text-[14px] font-medium break-words">{h.description}</p>
+      <div className="flex items-start gap-4 flex-wrap sm:flex-nowrap">
+        {/* TSK-REP-008: la evidencia se ve, no se describe por su tamaño. */}
+        {h.foto_id && <FotoEvidencia id={h.foto_id} etiqueta={`Foto del hallazgo: ${h.description}`} />}
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <BadgeSev sev={sev} destacado={urgente} />
+            <p className="text-[14px] font-medium break-words">{h.description}</p>
+          </div>
+          <div className="mt-2 flex items-center gap-x-3 gap-y-1 flex-wrap text-[13px] text-ink-2">
+            <span>{h.faena_nombre ?? 'Sin faena'}</span>
+            <span>· {h.autor ?? 'Sin autor'}</span>
+            <span>· {tiempoRelativo(h.captured_at)}</span>
+            {!h.foto_id && <span className="text-ink-3">· sin foto</span>}
+          </div>
+          <div className="mt-1.5 flex items-center gap-x-3 gap-y-1 flex-wrap text-[13px]">
+            <span className={h.responsable ? 'text-ink' : 'text-ink-3'}>
+              {h.responsable ? `Responsable: ${h.responsable}` : 'Sin responsable'}
+            </span>
+            <span className={pm.clase}>· {pm.texto(h.due_date)}</span>
+          </div>
+          {h.status === 'resolved' && h.resolution_note && (
+            <p className="mt-1.5 text-[13px] text-ink-2 break-words">
+              <span className="text-ink-3">Cierre: </span>
+              {h.resolution_note}
+            </p>
+          )}
         </div>
-        <div className="mt-2 flex items-center gap-x-3 gap-y-1 flex-wrap text-[13px] text-ink-2">
-          <span>{h.faena_nombre ?? 'Sin faena'}</span>
-          <span>· {h.autor ?? 'Sin autor'}</span>
-          <span>· {tiempoRelativo(h.captured_at)}</span>
-          {!h.foto_id && <span className="text-ink-3">· sin foto</span>}
+
+        <div className="shrink-0 flex items-end gap-2">
+          <div className="text-right">
+            <label className="label-inst block" htmlFor={`estado-${h.id}`}>
+              Estado
+            </label>
+            <select
+              id={`estado-${h.id}`}
+              value={estado}
+              onChange={(e) => void cambiar(e.target.value as FindingDto['status'])}
+              className="mt-1 h-11 px-2 rounded-[10px] bg-s1 border border-line-soft text-[13px]"
+            >
+              <option value="open">Abierto</option>
+              <option value="in_progress">En curso</option>
+              <option value="resolved">Resuelto</option>
+            </select>
+          </div>
+          <Boton
+            tamano="sm"
+            variante={editando ? 'secundaria' : 'fantasma'}
+            aria-expanded={editando}
+            onClick={() => {
+              if (editando) setEstado(h.status)
+              setEditando((v) => !v)
+            }}
+          >
+            {editando ? 'Cancelar' : 'Gestionar'}
+          </Boton>
         </div>
       </div>
 
-      <div className="shrink-0 text-right">
-        <label className="label-inst block" htmlFor={`estado-${h.id}`}>
-          Estado
-        </label>
-        <select
-          id={`estado-${h.id}`}
-          value={estado}
-          onChange={(e) => void cambiar(e.target.value as FindingDto['status'])}
-          className="mt-1 h-11 px-2 rounded-[10px] bg-s1 border border-line-soft text-[13px]"
-        >
-          <option value="open">Abierto</option>
-          <option value="in_progress">En curso</option>
-          <option value="resolved">Resuelto</option>
-        </select>
-        {error && <p role="alert" className="mt-1 text-[12px] text-failed max-w-[20ch]">{error}</p>}
-      </div>
+      {editando && (
+        <div className="mt-4 pt-4 border-t border-line-soft grid gap-3 sm:grid-cols-2">
+          <label className="block">
+            <span className="label-inst">Responsable</span>
+            <select
+              value={responsable}
+              onChange={(e) => setResponsable(e.target.value)}
+              className="mt-1.5 w-full h-11 px-2 rounded-[10px] bg-s1 border border-line-soft text-[14px]"
+            >
+              <option value="">Sin responsable</option>
+              {responsables.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {r.nombre}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="block">
+            <span className="label-inst">Plazo</span>
+            <div className="mt-1.5 flex gap-2">
+              <input
+                type="date"
+                value={plazo}
+                onChange={(e) => setPlazo(e.target.value)}
+                className="flex-1 h-11 px-2 rounded-[10px] bg-s1 border border-line-soft text-[14px]"
+              />
+              {!plazo && (
+                <Boton tamano="sm" variante="secundaria" type="button" onClick={() => setPlazo(plazoSugerido(h.severity))}>
+                  Sugerir
+                </Boton>
+              )}
+            </div>
+          </label>
+          <label className="block sm:col-span-2">
+            <span className="label-inst">
+              Qué se hizo para cerrarlo{estado === 'resolved' ? ' (obligatorio para resolver)' : ''}
+            </span>
+            <textarea
+              value={nota}
+              onChange={(e) => setNota(e.target.value)}
+              rows={3}
+              maxLength={2000}
+              aria-invalid={faltaNota ? true : undefined}
+              placeholder="Acción tomada, quién la verificó…"
+              className="mt-1.5 w-full px-3 py-2.5 rounded-[10px] bg-s0 border border-line-soft text-[14px] leading-relaxed resize-none"
+            />
+          </label>
+          <div className="sm:col-span-2 flex justify-end">
+            <Boton variante="primaria" disabled={guardando || faltaNota} onClick={() => void guardar()}>
+              {guardando ? 'Guardando…' : 'Guardar gestión'}
+            </Boton>
+          </div>
+        </div>
+      )}
+      {error && <p role="alert" className="mt-2 text-[13px] text-failed">{error}</p>}
     </motion.div>
   )
 }

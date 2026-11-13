@@ -263,6 +263,10 @@ export class DashboardService {
       foto_bytes: number | null
       foto_ancho: number | null
       foto_alto: number | null
+      assignee_id: string | null
+      responsable: string | null
+      due_date: string | null
+      resolution_note: string | null
     }
 
     const where = `
@@ -277,6 +281,7 @@ export class DashboardService {
         LEFT JOIN inspection i ON i.id = f.inspection_id
         LEFT JOIN site s ON s.id = i.site_id
         LEFT JOIN app_user u ON u.id = i.executed_by
+        LEFT JOIN app_user r ON r.id = f.assignee_id
         LEFT JOIN LATERAL (
           SELECT a2.id, a2.mime, a2.bytes, a2.width, a2.height
             FROM attachment a2
@@ -293,7 +298,9 @@ export class DashboardService {
                 (extract(epoch FROM f.captured_at) * 1000)::float8 AS captured_ms,
                 (extract(epoch FROM i.synced_at) * 1000)::float8 AS synced_ms,
                 a.id AS foto_id, a.mime AS foto_mime, a.bytes AS foto_bytes,
-                a.width AS foto_ancho, a.height AS foto_alto
+                a.width AS foto_ancho, a.height AS foto_alto,
+                f.assignee_id, r.full_name AS responsable,
+                to_char(f.due_date, 'YYYY-MM-DD') AS due_date, f.resolution_note
          ${base}
          ${where}
          ORDER BY f.captured_at DESC
@@ -323,6 +330,10 @@ export class DashboardService {
       foto_bytes: r.foto_bytes,
       foto_ancho: r.foto_ancho,
       foto_alto: r.foto_alto,
+      assignee_id: r.assignee_id,
+      responsable: r.responsable,
+      due_date: r.due_date,
+      resolution_note: r.resolution_note,
     }))
 
     return { items, total: totalRows[0]?.n ?? 0 }

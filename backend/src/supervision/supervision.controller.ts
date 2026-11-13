@@ -3,6 +3,7 @@ import {
   Body,
   Controller,
   ForbiddenException,
+  Get,
   Inject,
   Param,
   Patch,
@@ -20,7 +21,16 @@ import { SupervisionService } from './supervision.service'
 type AuthedRequest = Request & { user?: JwtClaims }
 
 const ROLES_SUPERVISION = new Set(['supervisor', 'tenant_admin'])
-const estadoHallazgoSchema = z.object({ status: z.enum(['open', 'in_progress', 'resolved']) })
+/** TSK-DOM-007 (FR-064): estado y/o gestión; al menos un campo. */
+const estadoHallazgoSchema = z
+  .object({
+    status: z.enum(['open', 'in_progress', 'resolved']).optional(),
+    assignee_id: z.string().regex(UUID_RE, 'responsable inválido').nullable().optional(),
+    due_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'plazo inválido (AAAA-MM-DD)').nullable().optional(),
+    resolution_note: z.string().max(2000, 'la nota de cierre no puede superar 2000 caracteres').nullable().optional(),
+  })
+  .strict()
+  .refine((b) => Object.keys(b).length > 0, 'nada que cambiar')
 const cofirmaSchema = z.object({
   strokes: z.array(z.object({
     points: z.array(z.object({ x: z.number().int().min(0).max(1000), y: z.number().int().min(0).max(1000) })).min(2),
@@ -78,8 +88,17 @@ export class SupervisionController {
   cambiarEstadoHallazgo(@Req() req: AuthedRequest, @Param('id') id: string, @Body() body: unknown) {
     const { tenantId, actorId } = exigirSupervision(req)
     const parsed = estadoHallazgoSchema.safeParse(body)
-    if (!parsed.success) throw new BadRequestException('status debe ser open, in_progress o resolved')
-    return this.svc.cambiarEstadoHallazgo(tenantId, actorId, uuid(id), parsed.data.status)
+    if (!parsed.success) {
+      throw new BadRequestException(parsed.error.issues[0]?.message ?? 'status debe ser open, in_progress o resolved')
+    }
+    return this.svc.gestionarHallazgo(tenantId, actorId, uuid(id), parsed.data)
+  }
+
+  /** TSK-DOM-007: a quién se le puede asignar un hallazgo. */
+  @Get('findings/responsables')
+  responsables(@Req() req: AuthedRequest) {
+    const { tenantId } = exigirSupervision(req)
+    return this.svc.equipo(tenantId)
   }
 
   @Patch('conflicts/:id/review')
