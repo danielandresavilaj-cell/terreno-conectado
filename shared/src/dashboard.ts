@@ -117,7 +117,22 @@ export const inspectionRespuestaSchema = z.object({
     'photo',
   ]),
   value: z.union([z.string(), z.number(), z.array(z.string()), z.null()]),
+  /** TSK-REP-008: adjunto con la foto de la respuesta (`GET /dashboard/attachments/:id`). */
+  foto_id: z.string().uuid().nullable(),
 })
+
+/** TSK-REP-008: hallazgo de la inspección, con su evidencia si la tiene. */
+export const inspectionHallazgoSchema = z.object({
+  id: z.string().uuid(),
+  /** Ítem del formulario del que nació; `null` si el hallazgo no viene de una respuesta. */
+  item_id: z.string().uuid().nullable(),
+  severity: z.enum(['low', 'medium', 'high', 'critical']),
+  description: z.string(),
+  status: z.enum(['open', 'in_progress', 'resolved']),
+  foto_id: z.string().uuid().nullable(),
+})
+
+export type InspectionHallazgo = z.infer<typeof inspectionHallazgoSchema>
 
 /** Vista auditable de una inspección y sus respuestas, sin alterar el registro. */
 export const inspectionDetalleSchema = z.object({
@@ -141,6 +156,8 @@ export const inspectionDetalleSchema = z.object({
       respuestas: z.array(inspectionRespuestaSchema),
     }),
   ),
+  /** TSK-REP-008: hallazgos de la inspección, del más antiguo al más reciente. */
+  hallazgos: z.array(inspectionHallazgoSchema),
 })
 
 export type InspectionDetalle = z.infer<typeof inspectionDetalleSchema>

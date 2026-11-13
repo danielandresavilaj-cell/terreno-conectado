@@ -110,6 +110,9 @@ interface AdjuntoRow {
   captured_at: string
 }
 
+/** TSK-REP-008: tipos que el navegador puede mostrar como imagen sin riesgo. */
+const MIMES_DE_FOTO = new Set(['image/jpeg', 'image/png', 'image/webp'])
+
 @Injectable()
 export class InspectionExportService {
   private readonly logger = new Logger(InspectionExportService.name)
@@ -344,6 +347,39 @@ export class InspectionExportService {
       [inspectionId],
     )
 
+    /* TSK-REP-008: la evidencia se ve en pantalla. De cada respuesta y de cada
+     * hallazgo se entrega el id de su foto más reciente; los bytes se piden
+     * aparte (`adjunto`), así el detalle sigue siendo liviano. */
+    const fotosRespuesta = await this.db.queryAsTenant<{ template_item_id: string; foto_id: string }>(
+      tenantId,
+      `SELECT DISTINCT ON (r.template_item_id) r.template_item_id, a.id AS foto_id
+         FROM attachment a
+         JOIN inspection_response r ON r.id = a.owner_id
+        WHERE a.owner_type = 'response' AND r.inspection_id = $1
+        ORDER BY r.template_item_id, a.captured_at DESC, a.id DESC`,
+      [inspectionId],
+    )
+    const fotoDeItem = new Map(fotosRespuesta.map((f) => [f.template_item_id, f.foto_id]))
+    const hallazgos = await this.db.queryAsTenant<{
+      id: string
+      item_id: string | null
+      severity: 'low' | 'medium' | 'high' | 'critical'
+      description: string
+      status: 'open' | 'in_progress' | 'resolved'
+      foto_id: string | null
+    }>(
+      tenantId,
+      `SELECT f.id, r.template_item_id AS item_id, f.severity, f.description, f.status,
+              (SELECT a.id FROM attachment a
+                WHERE a.owner_type = 'finding' AND a.owner_id = f.id
+                ORDER BY a.captured_at DESC, a.id DESC LIMIT 1) AS foto_id
+         FROM finding f
+         LEFT JOIN inspection_response r ON r.id = f.response_id
+        WHERE f.inspection_id = $1
+        ORDER BY f.captured_at ASC, f.id ASC`,
+      [inspectionId],
+    )
+
     return {
       id: inspeccion.id,
       faena_nombre: inspeccion.faena_nombre,
@@ -366,8 +402,46 @@ export class InspectionExportService {
           prompt: item.prompt,
           response_type: item.response_type,
           value: campos[item.id] ?? null,
+          foto_id: fotoDeItem.get(item.id) ?? null,
         })),
       })),
+      hallazgos,
+    }
+  }
+
+  /* ------------------------------------------------------------ evidencia */
+
+  /**
+   * `GET /dashboard/attachments/:id` — TSK-REP-008 (FR-062): los bytes de una
+   * foto de terreno para verla en pantalla.
+   *
+   * El aislamiento es el de siempre: la fila se lee con la conexión del tenant
+   * (RLS, Art. IV), así que el adjunto de otra empresa no existe para esta
+   * consulta y responde 404, igual que un id inventado. Sólo se sirven
+   * imágenes de captura: el documento original de un import
+   * (`owner_type='template_import'`) tiene su propia ruta y sus propias reglas.
+   */
+  async adjunto(u: JwtClaims, attachmentId: string): Promise<{ bytes: Buffer; mime: string }> {
+    exigirDashboard(u)
+    const [fila] = await this.db.queryAsTenant<{ file_key: string; mime: string }>(
+      u.tenant_id as string,
+      `SELECT file_key, mime
+         FROM attachment
+        WHERE id = $1 AND owner_type IN ('inspection', 'response', 'finding', 'log_entry')`,
+      [attachmentId],
+    )
+    if (!fila) throw new NotFoundException('Foto no encontrada')
+    const mime = MIMES_DE_FOTO.has(fila.mime) ? fila.mime : null
+    if (!mime) throw new NotFoundException('El adjunto no es una foto que se pueda mostrar')
+    try {
+      return { bytes: await this.volume.leer(fila.file_key), mime }
+    } catch (err) {
+      // La fila existe pero el archivo no llegó (o se perdió) en el volumen: no
+      // es un error del cliente ni un 500 opaco, es evidencia que falta.
+      if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
+        throw new NotFoundException('La foto no está disponible en el servidor')
+      }
+      throw err
     }
   }
 

@@ -364,6 +364,15 @@ export async function exportarInspecciones(body: ExportarInspeccionesBody): Prom
   }
 }
 
+/**
+ * TSK-REP-008 (FR-062): bytes de una foto de evidencia para verla en pantalla.
+ * Va por `apiFetchResp` (sesión en la cabecera), no por un `<img src>` desnudo.
+ */
+export async function getFotoAdjunto(adjuntoId: string): Promise<Blob> {
+  const resp = await apiFetchResp(`/dashboard/attachments/${encodeURIComponent(adjuntoId)}`)
+  return resp.blob()
+}
+
 /** Respuestas inmutables y autor de una inspección para revisión de supervisión. */
 export function getDetalleInspeccion(inspeccionId: string): Promise<InspectionDetalle> {
   return apiFetch<InspectionDetalle>(`/dashboard/inspections/${encodeURIComponent(inspeccionId)}`)
