@@ -3,7 +3,7 @@
 | | |
 | :--- | :--- |
 | **ID** | 000-master |
-| **Versión** | 1.8.0 · Enmienda 008 (evidencia visible y bitácora legible) |
+| **Versión** | 1.9.0 · Enmienda 008 (evidencia, bitácora y acción correctiva) |
 | **Estado** | APROBADO — Raúl González (2026-09-24) y Daniel Ávila (2026-10-13) · Enmiendas 003–006 firmadas por Daniel Ávila, pendientes de ratificación de Raúl González · Enmienda 007 propuesta por Raúl González y aprobada por Daniel Ávila el 2026-11-12; B está en revisión y C–E se implementan por tareas · Enmienda 008 firmada por Daniel Ávila el 2026-11-13, pendiente de ratificación de Raúl González |
 | **Autores** | Daniel Ávila (datos/negocio) · Raúl González (infra/plataforma) |
 | **Fuente** | Informe de Definición APT, Fase 1 (2026-09-04) |
@@ -150,6 +150,7 @@ Convención EARS en español: ubicuo (`EL SISTEMA DEBERÁ…`), evento (`CUANDO�
 - **FR-049** CUANDO una plantilla se publica, EL SISTEMA DEBERÁ congelar su `template_version` e impedir modificar ítems ya inspeccionados; cualquier cambio requiere una nueva revisión (`draft` → `published`).
 - **FR-062** *(Enmienda 008)* EL SISTEMA DEBERÁ permitir al `supervisor` y al `tenant_admin` ver en pantalla la evidencia fotográfica de las respuestas y de los hallazgos de su empresa, sin necesidad de exportar un archivo; el acceso a cada foto DEBERÁ respetar el aislamiento por tenant (RLS) y los roles del dashboard.
 - **FR-063** *(Enmienda 008)* EL SISTEMA DEBERÁ permitir que el `field_worker`, el `supervisor` y el `tenant_admin` lean las entradas de bitácora de su empresa escritas por otras personas, filtradas por faena y período, para que el turno entrante conozca el relevo y la supervisión siga lo ocurrido; la lectura requiere conexión y respeta el aislamiento por tenant (RLS).
+- **FR-064** *(Enmienda 008)* EL SISTEMA DEBERÁ permitir al `supervisor` y al `tenant_admin` gestionar cada hallazgo como acción correctiva: asignar un responsable (cuenta activa de la empresa), fijar un plazo y registrar una nota de cierre; DEBERÁ destacar los hallazgos con plazo vencido y auditar cada cambio con su valor anterior y nuevo.
 
 ### 5.6 Módulo 006 — Administración plataforma
 
@@ -273,6 +274,7 @@ Fuera de alcance explícito — cualquier inclusión requiere enmienda a este sp
 > - **Sin auditoría por vista:** mirar una foto no escribe en `audit_log` (se refresca cada 30 s y llenaría el log de ruido); las exportaciones siguen auditadas (FR-047).
 > - **Sin cambios de modelo:** no hay migración; se leen las tablas `attachment`, `finding` e `inspection_response` existentes.
 > - **FR-063 (2026-11-13, hallazgo S2):** la bitácora se sincronizaba pero nadie podía leerla. `GET /api/v1/dashboard/bitacora` la entrega por faena y período (TSK-REP-009); la pantalla Bitácora suma la vista "De la faena" y Gerencia un bloque "Bitácora del equipo". La escribe sólo su autor desde el dispositivo, como antes; la lectura no se audita. Sin migración.
+> - **FR-064 (2026-11-13, hallazgo S3):** el hallazgo sólo tenía estado. Ahora tiene responsable, plazo y nota de cierre (migración 020, TSK-DOM-007), que escribe sólo supervisión; la ingesta de sync no los toca. Gerencia muestra "Vencido" / "Vence hoy" y pide la nota al resolver. El aviso por correo al responsable queda para la outbox de la Enmienda 007 (TSK-OPS-003-E); la bajada del hallazgo asignado al dispositivo del responsable queda en el plan (2.3).
 
 ## 11. Supuestos y restricciones
 
@@ -332,6 +334,7 @@ La demo se considera exitosa si, en vivo ante el docente:
 | 1.6.0 | 2026-11-12 | **Enmienda 007** — firma de cierre, cofirma opcional, outbox de avisos por correo, programación e identificador QR de activo/lugar (FR-056…061). Propuesta por Raúl González y aprobada por Daniel Ávila el 2026-11-12; por implementar (TSK-OPS-003-B…E) | Raúl González (con IA) · aprobación Daniel Ávila |
 | 1.6.1 | 2026-11-12 | **TSK-OPS-003-B (#191, en revisión):** firma offline de inspector y cofirma opcional implementadas con validación estática y unitaria; integración/E2E/caos pendientes de Docker/CI | Raúl González (con IA) |
 | 1.6.2 | 2026-11-13 | **Nota de implementación bajo FR-032** (no es Enmienda): un hallazgo por respuesta, corregible; severidad elegida y descripción obligatoria en alta/crítica (TSK-OFF-007) | Daniel Ávila (con IA) |
+| 1.9.0 | 2026-11-13 | **Enmienda 008 (ampliación)** — FR-064: hallazgo como acción correctiva (responsable, plazo, nota de cierre; migración 020, TSK-DOM-007). Pendiente de ratificación de Raúl González | Daniel Ávila (con IA) |
 | 1.8.0 | 2026-11-13 | **Enmienda 008 (ampliación)** — FR-063: bitácora legible por el equipo y la supervisión (TSK-REP-009). Pendiente de ratificación de Raúl González | Daniel Ávila (con IA) |
 | 1.7.1 | 2026-11-13 | **Nota de implementación bajo FR-034** (no es Enmienda): la faena de la inspección es la elegida en la sesión, ya no la primera de la empresa (TSK-OFF-010) | Daniel Ávila (con IA) |
 | 1.7.0 | 2026-11-13 | **Enmienda 008** — FR-062: la evidencia fotográfica se ve en supervisión (TSK-REP-008). Abre el bloque FR-062–069 para el plan de mejora. Pendiente de ratificación de Raúl González | Daniel Ávila (con IA) |

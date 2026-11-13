@@ -175,7 +175,7 @@ seguimiento operativo)**, que apunta en la misma dirección, para no duplicar di
 | # | Acción | Resuelve | Tam. | Enmienda |
 | :--- | :--- | :--- | :---: | :---: |
 | 2.1 | **Ver la evidencia** — ✅ hecha (TSK-REP-008, FR-062, Enmienda 008): ruta autenticada de lectura de adjuntos con RLS y fotos en el listado de hallazgos y el detalle de inspección. Sin auditoría por vista: se decidió no llenar `audit_log` con lecturas | S1 | M | Sí (FR nuevo) |
-| 2.2 | **Hallazgo como acción correctiva**: responsable, plazo, comentario y foto de cierre; vencidos destacados | S3 | L | Sí (FR nuevos) |
+| 2.2 | **Hallazgo como acción correctiva** — ✅ hecho (TSK-DOM-007, FR-064): responsable, plazo, nota de cierre y vencidos destacados. Pendiente: aviso por correo al responsable (outbox de la Enmienda 007) | S3 | L | Sí (FR-064) |
 | 2.3 | **Bajada de datos al dispositivo**: el trabajador recibe los hallazgos que le asignaron y puede cerrarlos offline. Es el primer flujo servidor → dispositivo fuera de plantillas; hay que definir conflictos | S3, U6 | L | Sí (spec 003) |
 | 2.4 | **Bitácora legible** — ✅ hecha (TSK-REP-009, FR-063): vista "De la faena" en Bitácora y bloque en Gerencia, por faena y período | S2 | M | Sí (FR-063) |
 | 2.5 | **Dashboard de decisiones**: críticos abiertos y antigüedad, tiempo captura → revisión, ítems que más fallan, tendencia semanal; latencia técnica a un bloque secundario; filtros en una sola barra; tabla que se apila en móvil | S4, S5, S6 | L | Aclaración spec 005 |
