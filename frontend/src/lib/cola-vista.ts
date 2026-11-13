@@ -80,6 +80,8 @@ export interface VistaCola {
   conProblemas: GrupoCola[]
   pendientes: GrupoCola[]
   enviadoHoy: GrupoCola[]
+  /** TSK-OFF-013: lo enviado hace más de 24 h y menos de 30 días (historial propio). */
+  enviadoAntes: GrupoCola[]
   /** Envíos (grupos) que aún no terminan; no partes técnicas. */
   enviosPendientes: number
   ultimoEnvioAt: string | null
@@ -376,13 +378,15 @@ export function armarVistaCola(e: EntradaVistaCola, ahora: Date = new Date()): V
   }
 
   const masRecientePrimero = (a: GrupoCola, b: GrupoCola) => (a.capturadoAt < b.capturadoAt ? 1 : -1)
-  const enviadoHoy = terminados
-    .filter((g) => ahora.getTime() - new Date(g.actualizadoAt).getTime() < DIA_MS)
-    .sort((a, b) => (a.actualizadoAt < b.actualizadoAt ? 1 : -1))
+  const edad = (g: GrupoCola) => ahora.getTime() - new Date(g.actualizadoAt).getTime()
+  const porEnvio = (a: GrupoCola, b: GrupoCola) => (a.actualizadoAt < b.actualizadoAt ? 1 : -1)
+  const enviadoHoy = terminados.filter((g) => edad(g) < DIA_MS).sort(porEnvio)
+  const enviadoAntes = terminados.filter((g) => edad(g) >= DIA_MS && edad(g) < 30 * DIA_MS).sort(porEnvio)
   return {
     conProblemas: conProblemas.sort(masRecientePrimero),
     pendientes: pendientes.sort(masRecientePrimero),
     enviadoHoy,
+    enviadoAntes,
     enviosPendientes: conProblemas.length + pendientes.length,
     ultimoEnvioAt,
   }

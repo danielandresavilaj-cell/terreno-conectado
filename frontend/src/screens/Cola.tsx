@@ -208,6 +208,18 @@ export function Cola() {
         </details>
       )}
 
+      {/* TSK-OFF-013: historial propio de lo enviado desde este teléfono. */}
+      {vista && vista.enviadoAntes.length > 0 && (
+        <details className="group">
+          <summary className="flex items-center gap-3 px-0.5 min-h-11 cursor-pointer list-none [&::-webkit-details-marker]:hidden">
+            <h2 className="label-inst">Enviado los últimos 30 días ({vista.enviadoAntes.length})</h2>
+            <div className="flex-1 rule" />
+            <span className="label-inst group-open:rotate-180 transition-transform duration-150">▾</span>
+          </summary>
+          <div className="mt-2 space-y-2">{vista.enviadoAntes.map(tarjeta)}</div>
+        </details>
+      )}
+
       {/* ── Cuota de almacenamiento (FR-017) ──────────────────────────────── */}
       <div className="panel p-4">
         <div className="flex items-center justify-between gap-4 mb-2.5">

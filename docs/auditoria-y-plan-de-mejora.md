@@ -160,7 +160,7 @@ La 0.8 son cambios de tokens en `index.css`: afectan toda la app de una vez, hay
 | 1.4 | **Cierre de inspección**: botón grande fijo al pie, resumen antes de firmar (respondidos, NOK, hallazgos) y nombre del firmante en el diálogo | U8, U9 | M | No |
 | 1.5 | **Hallazgo opcional en cualquier NOK** — ✅ hecho (TSK-OFF-012). Pendiente: hallazgo directo sin ítem | D5 | M | Aclaración FR-032 |
 | 1.6 | **Varios borradores** en paralelo (lista "En curso" en Formularios) | U3 | L | Sí (spec 002) |
-| 1.7 | **Mis inspecciones**: historial local de lo enviado (30 días) con reexportación | U6 | M | Aclaración spec 002 |
+| 1.7 | **Mis inspecciones** — 🟡 parcial (TSK-OFF-013): Cola muestra lo enviado los últimos 30 días con su detalle. Pendiente: reexportar una inspección ya enviada desde el teléfono | U6 | M | Aclaración spec 002 |
 | 1.8 | Tema según el sistema — ✅ hecho (TSK-OFF-011) | V3 | S | No |
 
 1.1 es la más importante de la fase: sin ella el producto no sirve a una empresa con más de una faena.

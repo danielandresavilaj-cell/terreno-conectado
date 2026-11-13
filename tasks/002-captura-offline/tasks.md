@@ -1,6 +1,6 @@
 # TASKS — Módulo 002: Captura offline (PWA)
 
-**Versión:** 0.1.9 · **Fecha:** 2026-11-13 · **Autor:** Raúl González (con IA)
+**Versión:** 0.1.10 · **Fecha:** 2026-11-13 · **Autor:** Raúl González (con IA)
 **Padre:** `plans/002-captura-offline/plan.md` · **Spec:** `specs/002-captura-offline/spec.md`
 **Issue:** #5 · **Requisitos:** FR-010…FR-019, NFR-01, NFR-02, NFR-07
 
@@ -26,6 +26,7 @@ La auditoría del 2026-10-14 sobre `main` encontró que **FR-017 estaba simulado
 | TSK-OFF-010 | Elegir la faena al inspeccionar | FR-034, FR-009, FR-018 | 007 | Con más de una faena en la empresa, la persona elige en cuál está: la sesión arranca en la faena de la inspección en curso, o en la última elegida en ese equipo, o en la primera (y entonces pide elegir). Cambiar de faena cambia los formularios disponibles y la faena de la próxima inspección; no se puede con una inspección sin enviar. Los formularios de las otras faenas se guardan en el equipo mientras hay señal, para poder cambiar sin conexión. `frontend/test/faena.test.ts` verde. | ✅ Hecho |
 | TSK-OFF-011 | Terreno en el teléfono: navegación al pulgar, foto visible y tema del sistema | FR-010, FR-011, FR-012, NFR-07 | 008, 009 | En el teléfono, con 5 secciones o menos (trabajador), la navegación va abajo y el estado de señal y la cuenta quedan en la barra superior; el ítem foto muestra la miniatura con Repetir y Quitar; sin elección guardada el tema sigue al del sistema. `tema.test.ts` cubre `temaInicial`; E2E de captura sin cambios de flujo. | ✅ Hecho |
 | TSK-OFF-012 | Hallazgo opcional en cualquier NOK | FR-032 | 007 | Todo NOK ofrece "Registrar hallazgo (opcional)"; con `require_finding_on_nok` sigue siendo obligatorio y bloquea el envío. Sin cambios de sync ni de servidor. | ✅ Hecho |
+| TSK-OFF-013 | Historial propio de envíos (30 días) | FR-013, FR-014 | 006 | Cola muestra, además de lo enviado en 24 h, lo enviado hace 1 a 30 días desde este teléfono, con el mismo detalle por tarjeta. `cola-vista.test.ts` lo cubre. | ✅ Hecho |
 
 ## Criterios de salida del módulo
 
@@ -37,6 +38,7 @@ La auditoría del 2026-10-14 sobre `main` encontró que **FR-017 estaba simulado
 
 | Versión | Fecha | Cambio | Autor |
 | :--- | :--- | :--- | :--- |
+| 0.1.10 | 2026-11-13 | TSK-OFF-013: historial de envíos de 30 días en Cola | Daniel Ávila (con IA) |
 | 0.1.9 | 2026-11-13 | TSK-OFF-012: hallazgo opcional en cualquier NOK | Daniel Ávila (con IA) |
 | 0.1.8 | 2026-11-13 | TSK-OFF-011: navegación inferior en el teléfono, miniatura de la foto del ítem y tema del sistema | Daniel Ávila (con IA) |
 | 0.1.7 | 2026-11-13 | TSK-OFF-010: elegir la faena al inspeccionar (antes siempre la primera de la empresa) | Daniel Ávila (con IA) |
