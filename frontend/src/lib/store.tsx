@@ -43,10 +43,12 @@ import {
   getDeviceId,
   getDraftInspectionId,
   getInspection,
+  guardarFaenaSeleccionada,
   guardarFotoRespuesta,
   guardarOriginalPlantilla,
   guardarPlantillaSeleccionada,
   guardarSesionCaché,
+  leerFaenaSeleccionada,
   leerPlantillaSeleccionada,
   listarOriginalesPlantilla,
   listLogEntries,
@@ -99,6 +101,7 @@ import {
 import { columnasDesdeValor, contestado, esOkNokNa, itemsDe, valorDesdeColumnas } from './valores'
 import { erroresDeEnvio } from './validar-envio-inspeccion'
 import { detalleDeHallazgo } from './hallazgo'
+import { elegirFaenaInicial, motivoParaNoCambiar } from './faena'
 import { anotarPantalla, iniciarHistorial, resolverRetroceso, type Pantalla } from './navegacion'
 
 export type { Pantalla }
@@ -179,6 +182,10 @@ interface Ctx {
    *  espalda invalidaría lo ya respondido. */
   descartarBorradorYRecargar: () => Promise<void>
   seleccionarFormulario: (revisionId: string) => Promise<{ ok: boolean; error?: string }>
+  /** TSK-OFF-010: la empresa tiene varias faenas y la persona aún no eligió la suya. */
+  faenaPorElegir: boolean
+  /** Cambia la faena de la sesión (y sus formularios). No se puede con una inspección sin enviar. */
+  cambiarFaena: (faenaId: string) => Promise<{ ok: boolean; error?: string }>
   descartarRegistroCola: (outboxId: number) => Promise<void>
 
   pendientes: number
@@ -262,8 +269,11 @@ function identidadDeSites(tenantNombre: string, tenantId: string, items: Array<{
   }
 }
 
-function usuarioDe(perfil: { id: string; full_name: string; email: string; role: string }, i: Identidad): Usuario {
-  const faena = i.faenas[0]
+function usuarioDe(
+  perfil: { id: string; full_name: string; email: string; role: string },
+  i: Identidad,
+  faena: Identidad['faenas'][number] | null,
+): Usuario {
   return {
     id: perfil.id,
     nombre: perfil.full_name,
@@ -350,6 +360,7 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
   })
   const [erroresCampo, setErroresCampo] = useState<Record<string, string>>({})
   const [ultimoEnvio, setUltimoEnvio] = useState<EnvioConfirmado | null>(null)
+  const [faenaPorElegir, setFaenaPorElegir] = useState(false)
 
   const refrescar = useCallback(async () => {
     setCola((await listOutbox()).map(mapaCola))
@@ -638,6 +649,28 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
     }
   }, [haySesion])
 
+  /* TSK-OFF-010 (FR-034): la persona elige en qué faena está inspeccionando.
+   * Cambia los formularios disponibles (la asignación es por faena) y la faena
+   * a la que quedará asociada la próxima inspección. */
+  const cambiarFaena = useCallback(
+    async (faenaId: string): Promise<{ ok: boolean; error?: string }> => {
+      if (!usuario || !identidad) return { ok: false, error: 'No hay una sesión activa.' }
+      const motivo = motivoParaNoCambiar(identidad.faenas, faenaId, (await getDraftInspectionId()) !== null)
+      if (motivo) return { ok: false, error: motivo }
+      const faena = identidad.faenas.find((f) => f.id === faenaId)
+      if (!faena) return { ok: false, error: 'Esa faena ya no existe en tu empresa.' }
+      await guardarFaenaSeleccionada(usuario.tenantId, usuario.id, faena.id)
+      const u: Usuario = { ...usuario, faena: faena.nombre, faenaId: faena.id }
+      setUsuario(u)
+      setFaenaPorElegir(false)
+      setUltimoEnvio(null)
+      setRespuestas({})
+      await cargarPlantilla(u)
+      return { ok: true }
+    },
+    [usuario, identidad, cargarPlantilla],
+  )
+
   const descartarRegistroCola = useCallback(async (outboxId: number) => {
     if (!usuario) return
     await descartarRegistroColaDb(outboxId, usuario.tenantId)
@@ -648,9 +681,20 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
 
   const arrancarSesión = useCallback(
     async (perfil: { id: string; tenant_id: string | null; email: string; role: string; full_name: string }, i: Identidad) => {
-      const u = usuarioDe(perfil, i)
       // TSK-AUTH-010: antes de leer cola o borrador, la sesión fija su dueño.
       await setDueñoCola({ userId: perfil.id, tenantId: perfil.tenant_id ?? '' })
+      /* TSK-OFF-010: la faena de la sesión es la de la inspección en curso, o la
+       * última elegida en este equipo, o la primera de la empresa (y entonces,
+       * si hay varias, se pide elegir). */
+      const borradorPrevioId = await getDraftInspectionId()
+      const borradorPrevio = borradorPrevioId ? await getInspection(borradorPrevioId) : undefined
+      const inicial = elegirFaenaInicial(
+        i.faenas,
+        await leerFaenaSeleccionada(i.tenantId, perfil.id),
+        borradorPrevio?.siteId ?? null,
+      )
+      const u = usuarioDe(perfil, i, inicial.faena)
+      setFaenaPorElegir(inicial.porElegir && (u.rol === 'field_worker' || u.rol === 'supervisor'))
       setSesionExpirada(false)
       // TSK-FORM-004: borrares previos con la foto en `valuePhoto` → ATTACHMENT.
       await migrarFotosLegacy()
@@ -714,6 +758,16 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
       setEntradasBitacora(mapEntradas(entradas, u.nombre))
       setHidratando(false)
       await refrescar()
+      /* TSK-OFF-010: los formularios de las OTRAS faenas se dejan en el equipo
+       * mientras hay señal, para poder cambiar de faena sin conexión. No bloquea
+       * el arranque y, si falla, cada faena conserva su último catálogo. */
+      if (u.rol === 'field_worker' || u.rol === 'supervisor') {
+        void (async () => {
+          for (const f of i.faenas.filter((x) => x.id !== u.faenaId).slice(0, 12)) {
+            await actualizarCatalogo({ ...u, faenaId: f.id })
+          }
+        })()
+      }
       // FR-004: el efecto de transporte drena al cambiar usuario/conexión.
       // La hidratación no debe depender de `online`: restaurar la sesión en
       // cada evento de red puede cerrar una sesión válida durante una carrera.
@@ -834,6 +888,7 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
     setDebeCambiarClave(false)
     setUltimoEnvio(null)
     setAvisoSalir(false)
+    setFaenaPorElegir(false)
     setPantalla('captura')
   }, [])
 
@@ -1176,6 +1231,8 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
     enviandoInspeccion,
     descartarBorradorYRecargar,
     seleccionarFormulario,
+    faenaPorElegir,
+    cambiarFaena,
     descartarRegistroCola,
     pendientes,
     enviosPendientes,

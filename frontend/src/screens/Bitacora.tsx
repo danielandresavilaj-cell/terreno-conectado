@@ -33,13 +33,14 @@ function diaDe(iso: string, hoy: Date): string {
 }
 
 export function Bitacora() {
-  const { entradasBitacora, agregarBitacora, identidad, cola } = useEstado()
+  const { entradasBitacora, agregarBitacora, identidad, cola, usuario } = useEstado()
   const hoy = new Date()
   const faenas = identidad?.faenas ?? []
   const [abierto, setAbierto] = useState(false)
   const [texto, setTexto] = useState('')
   const [tags, setTags] = useState<string[]>([])
-  const [faena, setFaena] = useState<string>(faenas[0]?.id ?? '')
+  // TSK-OFF-010: parte en la faena de la sesión, no en la primera de la empresa.
+  const [faena, setFaena] = useState<string>(usuario?.faenaId || faenas[0]?.id || '')
   const reducir = useReducedMotion()
 
   const agregar = () => {
