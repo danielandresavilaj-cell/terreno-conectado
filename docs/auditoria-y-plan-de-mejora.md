@@ -4,7 +4,7 @@
 | :--- | :--- |
 | **Fecha** | 2026-11-13 |
 | **Base auditada** | `main` en `c9ae938` (v1.3 + firma offline #193) |
-| **Estado** | Fase 0 implementada (TSK-OFF-007/008/009). Fases 1–3 siguen siendo propuesta: cada ítem que cambie comportamiento necesita su FR/enmienda, tarea e issue (Art. II y X) |
+| **Estado** | En ejecución. Fase 0 completa; Fases 1–3 avanzadas por incrementos (ver §6). Cada ítem que cambia comportamiento tiene su FR/enmienda, tarea, issue y PR (Art. II y X) |
 | **Autor** | Daniel Ávila (con IA) |
 
 ## 1. Alcance y método
@@ -219,3 +219,32 @@ antes del cierre; el resto es hoja de ruta posterior y conviene decirlo así en 
 
 La última fila es la que más información daría y la única que no se resuelve con código: ninguna
 revisión de escritorio reemplaza ver a alguien de terreno usar la app con guantes.
+
+## 6. Avance al 2026-11-13
+
+Todo lo siguiente está en `main`, con CI verde y desplegado en https://terrenoconectado.cl.
+
+| Ítem | Tarea | PR | Estado |
+| :--- | :--- | :--- | :--- |
+| Fase 0 completa (0.1–0.8) | TSK-OFF-007/008/009 | #196 | ✅ |
+| 1.1 Elegir faena | TSK-OFF-010 | #200 | ✅ selector · pendiente asignación cuenta↔faena en el modelo |
+| 1.2 Fotos | TSK-OFF-011 | #204 | 🟡 miniatura y repetir · pendiente varias fotos por hallazgo |
+| 1.3 Navegación inferior | TSK-OFF-011 | #204 | ✅ trabajador (≤ 5 secciones) |
+| 1.5 Hallazgo en cualquier NOK | TSK-OFF-012 | #208 | ✅ · pendiente hallazgo directo sin ítem |
+| 1.7 Historial propio | TSK-OFF-013 | #216 | 🟡 30 días en Cola · pendiente reexportar |
+| 1.8 Tema del sistema | TSK-OFF-011 | #204 | ✅ |
+| 2.1 Ver la evidencia | TSK-REP-008 (FR-062) | #198 | ✅ |
+| 2.2 Acción correctiva | TSK-DOM-007 (FR-064) | #210 | ✅ · pendiente aviso por correo |
+| 2.4 Bitácora legible | TSK-REP-009 (FR-063) | #202 | ✅ |
+| 2.5 Panel de decisiones | TSK-REP-010/011 | #206, #214 | 🟡 tabla móvil y vencidos · pendiente tendencia y filtros unificados |
+| 3.3 Alta masiva | TSK-ADM-002 | #212 | ✅ |
+| 3.5 Plantillas | TSK-FORM-023 | #218 | 🟡 vista previa · pendiente archivar y duplicar |
+
+**No iniciado, y por qué:**
+
+- **1.4 (resto), 1.6 Varios borradores, 2.3 Bajada de hallazgos al dispositivo, 3.6 Lógica condicional:** cambian el modelo de borrador único o el contrato de sync, que son invariantes del Art. III (0 pérdidas, 0 duplicados). Necesitan su propio plan y pruebas de caos antes del código.
+- **3.4 Recuperación de clave por correo y avisos del 2.2:** dependen de la outbox de correo de la Enmienda 007 (TSK-OPS-003-E), bloqueada hasta elegir proveedor, remitente y secretos fuera del repo (decisión del equipo).
+- **3.1 Página de presentación y 3.2 Biblioteca de formularios:** requieren decisiones de contenido (contacto comercial, pautas reales a publicar) que no son técnicas.
+- **Enmienda 008 (FR-062–064):** firmada por Daniel Ávila; pendiente de ratificación de Raúl González.
+- **Recorrido en un teléfono real** con cuentas reales: no se hizo (la verificación fue con pruebas automáticas, E2E en perfil móvil y CI). Es la prueba que más información daría.
+

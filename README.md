@@ -145,7 +145,7 @@ Lo que ya tenía la v1:
   ([`infra/OPERACION.md`](infra/OPERACION.md)).
 - **Supervisión**: marcar inspecciones como revisadas, mover hallazgos (abierto → en curso →
   resuelto) y revisar conflictos, todo persistente y auditado.
-- **Pruebas**: 589 automatizadas: 271 de integración del backend, 203 unitarias del frontend, 92 de
+- **Pruebas**: 595 automatizadas: 273 de integración del backend, 207 unitarias del frontend, 92 de
   shared y 23 E2E/caos. La matriz de requisitos está en 97,7% verde en lo implementado ([`test-plan.md`](test-plan.md)). La Enmienda 007 (firma, QR, programación y avisos por correo) está aprobada y por implementar ([`plans/008-operacion-certificada/`](plans/008-operacion-certificada/plan.md)).
 - **Producción**: https://terrenoconectado.cl (Oracle Always Free, US$0/mes; dominio en NIC Chile con DNS en Cloudflare). La dirección anterior, `terreno-conectado-demo.duckdns.org`, sigue funcionando durante la transición.
 
