@@ -1,6 +1,6 @@
 # TEST PLAN — Plan de pruebas de validación
 
-**Versión:** 1.2.3 · **Fecha:** 2026-09-14 · actualizado 2026-11-12 · **Autor:** Raúl González (validación) · **Relacionado:** spec maestro §5–6, constitución Artículos III/IV/VII
+**Versión:** 1.2.4 · **Fecha:** 2026-09-14 · actualizado 2026-11-12 · **Autor:** Raúl González (validación) · **Relacionado:** spec maestro §5–6, constitución Artículos III/IV/VII
 **Evidencia APT:** "Plan de pruebas de validación" (informe §6) y soporte de la competencia "Realizar pruebas de certificación de productos y procesos".
 
 ## 1. Principio rector
@@ -33,7 +33,7 @@ verde.
 | FR-012 | Foto de 8 MP → verificar dimensiones ≤1280 px y tamaño comprimido antes de encolar; abrir cámara, tomar foto, cancelar y denegar permiso | Unit + E2E + manual móvil | `shared` (`compresor`) + `e2e-captura-offline.spec.ts` → "la foto de un ítem queda ≤1280 px"; protocolo manual: `CamaraCaptura` abre el lente trasero, detiene el indicador al cerrar y ofrece archivo si no hay permiso | 🟢 verde (compresión) · protocolo manual pendiente por dispositivo |
 | FR-016 | Desactivar red → encolar → reactivar: sync inicia sola sin clic | E2E | `e2e-captura-offline.spec.ts` → "reactivar la red drena la cola sin tocar el botón de sincronizar" | 🟢 verde |
 | FR-017 | Cuota local supera el 80% → aviso al trabajador y prioriza fotos ya sincronizables | Unit | `frontend/test/cuota.test.ts` (`estimarCuota`/`cuotaEsAlta`; `contadorFotosPendientes`; `sincronizables(true)` sube al frente sólo las fotos cuyo dueño no está en cola, sin romper el orden FR-020) | 🟢 verde |
-| FR-013, FR-020, FR-026 | Descartar una inspección o bitácora pendiente/fallida no deja filas locales ni outbox huérfanos; `syncing`/`synced` quedan protegidos | Unit | `frontend/test/cola-descartar.test.ts` (cascada completa, bitácora aislada y bloqueo de fila en envío) | 🟢 verde |
+| FR-013, FR-020, FR-026 | Descartar una inspección o bitácora pendiente/fallida no deja filas locales ni outbox huérfanos; `syncing`/`synced` quedan protegidos. *(TSK-OFF-006)* La cola se muestra por unidad de trabajo: una tarjeta por inspección o bitácora con estado agregado (el peor de sus partes), avance, la pregunta en vez del ID, el motivo del fallo sin UUIDs y "Enviado" limitado a 24 h | Unit | `frontend/test/cola-descartar.test.ts` (cascada completa, bitácora aislada y bloqueo de fila en envío) + `frontend/test/cola-vista.test.ts` (agrupación, estado, textos legibles) | 🟢 verde |
 | FR-020 | Batch con dependencias (inspección + respuestas + hallazgo + foto) sube en orden | Unit + Integración | `backend/test/sync.spec.ts` (`batchOrder` y orden de aplicación) | 🟢 verde |
 | FR-021, NFR-04 | Reenviar el mismo batch 3 veces → contar filas: cero duplicados | Integración + **caos 2** | `e2e-caos-sync.spec.ts` → "reenviar el mismo lote 3 veces no duplica filas" (`records_unchanged`) | 🟢 verde |
 | FR-022 | Fallar red a mitad de subida → backoff observado (1s,2s,4s…), sin intervención | **caos 1** | `e2e-caos-sync.spec.ts` → "al cortar el envío y reconectar…" (`context.route` aborta 2 lotes) | 🟢 verde |
@@ -89,10 +89,10 @@ verde.
 ```
 E2E + caos (Playwright, manual)           23 tests
 Integración backend (Vitest + Testcontainers) 253 tests
-Unidad frontend (Vitest)                     153 tests
+Unidad frontend (Vitest)                     160 tests
 Unidad shared (Vitest)                        92 tests
                                            ───────────────
-                                           521 tests   (v1.3, main 99aa24c, 2026-11-12)
+                                           528 tests   (v1.3, TSK-OFF-006, 2026-11-13)
 ```
 
 > El criterio de salida de Fase 2 (§8) pide "matriz §3 ≥ 90% verde": hoy está en
@@ -207,6 +207,7 @@ y nunca bloquea un PR. Informe por módulo en
 
 | Versión | Fecha | Cambio | Autor |
 | :--- | :--- | :--- | :--- |
+| 1.2.4 | 2026-11-13 | **TSK-OFF-005/006:** modo claro y oscuro (`tema.test.ts`) y cola legible por unidad de trabajo (`cola-vista.test.ts`, evidencia en la fila FR-013/020/026); volumen 528 tests (frontend 160) | Daniel Ávila (con IA) |
 | 1.2.3 | 2026-11-12 | **Enmienda 007 aprobada** (#187, Daniel Ávila): las tres filas FR-056…061 pasan a 🟡 "por implementar"; recuento 47 filas (43 🟢 · 3 🟡 · 1 ⚪), 97,7% de lo implementado | Daniel Ávila (con IA) |
 | 1.2.2 | 2026-11-12 | **TSK-OFF-003 (#182) y TSK-OFF-004 (#185)**, revisados por Daniel Ávila: accesibilidad de la captura (controles con su pregunta y error, diálogo de cámara con foco/Escape) e instalación visible de la PWA. E2E 23/23 en ambas ramas (runs 43269750831 y 43324635847); volumen 521 tests (frontend 153) | Daniel Ávila (con IA) |
 | 1.2.1 | 2026-11-12 | **TSK-OPS-001 (#178) y TSK-E2E-002 (#179)**, revisados por Daniel Ávila: E2E nocturno + manual (tabla §2); harness E2E aislado (recompila el frontend contra su API temporal y entrega las URLs a Playwright); auditoría de respaldos sin `rclone` simulado; migraciones y seed cargan el `.env` raíz. Revalidación en CI del 2026-11-12: 23/23 E2E con caos 1–7 | Daniel Ávila (con IA) |

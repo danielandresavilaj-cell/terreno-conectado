@@ -1,5 +1,12 @@
 /* Cola de sincronización — FR-013, FR-020, FR-021, FR-022, FR-024, FR-026.
  *
+ * TSK-OFF-006: la vista principal muestra una TARJETA por lo que capturó la
+ * persona (inspección, bitácora), no una fila por registro técnico. Estado
+ * agregado (el peor de sus partes), avance, motivo del fallo en lenguaje claro
+ * y acciones. La lista técnica por registro queda en "Detalles técnicos"
+ * (supervisión/admin). La cola en sí no cambia: sólo su representación
+ * (`lib/cola-vista.ts`).
+ *
  * MOVIMIENTO (decisiones):
  * · El BARRIDO de confirmación es el momento más importante de la pantalla:
  *   un registro pasa de syncing a synced y el barrido recorre la fila UNA vez.
@@ -16,7 +23,7 @@
  *   una advertencia la vuelve ruido. Solo crece una vez al entrar.
  */
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { BadgeSync, SYNC_META } from '../components/Badges'
 import { CountUp } from '../components/CountUp'
@@ -25,6 +32,8 @@ import { useEstado } from '../lib/store'
 import { UMBRAL_CUOTA_PCT } from '../lib/cuota'
 import { EASE } from '../lib/motion'
 import type { RegistroCola } from '../lib/types'
+import { armarVistaCola, haceLegible, type GrupoCola, type LineaDetalle, type VistaCola } from '../lib/cola-vista'
+import { datosVistaCola, fotoDeAdjunto } from '../lib/db'
 
 const ORDEN_TIPO: Record<string, string> = {
   faena: 'Faena',
@@ -38,26 +47,96 @@ const ORDEN_TIPO: Record<string, string> = {
 export function Cola() {
   const {
     cola, pendientes, online, recienSincronizado, sincronizarAhora, cuota,
-    descartarRegistroCola,
+    descartarRegistroCola, usuario,
   } = useEstado()
-  const [filtro, setFiltro] = useState<'todos' | 'pendientes' | 'fallidos'>('todos')
-  const [registroADescartar, setRegistroADescartar] = useState<RegistroCola | null>(null)
+  const [vista, setVista] = useState<VistaCola | null>(null)
+  const [aDescartar, setADescartar] = useState<GrupoCola | null>(null)
   const [descartando, setDescartando] = useState(false)
   const [errorDescarte, setErrorDescarte] = useState<string | null>(null)
+  const [ahora, setAhora] = useState(() => new Date())
   const cuotaPct = cuota.usadaPct
   const cuotaAlta = cuotaPct !== null && cuotaPct >= UMBRAL_CUOTA_PCT
+  const verTecnico = usuario?.rol === 'supervisor' || usuario?.rol === 'tenant_admin'
 
-  const lista = cola
-    .filter((r) =>
-      filtro === 'todos'
-        ? true
-        : filtro === 'pendientes'
-          ? r.estado === 'pending' || r.estado === 'syncing'
-          : r.estado === 'failed',
-    )
-    .sort((a, b) => a.orden - b.orden)
+  // La vista se rearma cada vez que el store refresca la cola (encolar,
+  // enviar, fallar, descartar): mismo disparo que la lista técnica.
+  useEffect(() => {
+    let vivo = true
+    void datosVistaCola().then((d) => {
+      if (vivo) {
+        const t = new Date()
+        setAhora(t)
+        setVista(armarVistaCola(d, t))
+      }
+    })
+    return () => {
+      vivo = false
+    }
+  }, [cola])
 
-  const fallidos = cola.filter((r) => r.estado === 'failed').length
+  // Reloj suave para "hace 2 min" y la cuenta del próximo reintento.
+  useEffect(() => {
+    const id = window.setInterval(() => setAhora(new Date()), 30_000)
+    return () => window.clearInterval(id)
+  }, [])
+
+  const grupoReciente = useMemo(() => {
+    if (!recienSincronizado || !vista) return null
+    const todos = [...vista.enviadoHoy, ...vista.pendientes, ...vista.conProblemas]
+    return todos.find((g) => g.claves.includes(recienSincronizado))?.clave ?? null
+  }, [recienSincronizado, vista])
+
+  const envios = vista?.enviosPendientes ?? 0
+  const estadoGeneral =
+    envios === 0
+      ? `Todo enviado${vista?.ultimoEnvioAt ? ` · último envío ${haceLegible(vista.ultimoEnvioAt, ahora)}` : ''}.`
+      : (vista?.conProblemas.length ?? 0) > 0
+        ? `${envios} ${envios === 1 ? 'envío pendiente' : 'envíos pendientes'}; ${vista?.conProblemas.length === 1 ? 'uno necesita' : 'algunos necesitan'} atención.`
+        : online
+          ? `${envios === 1 ? '1 envío' : `${envios} envíos`} en camino al servidor…`
+          : `${envios === 1 ? '1 envío espera' : `${envios} envíos esperan`} señal: se envían solos al volver la conexión.`
+
+  const confirmarDescarte = (g: GrupoCola) => {
+    const id = g.outboxDescartable
+    if (id === null) return
+    setDescartando(true)
+    setErrorDescarte(null)
+    void (async () => {
+      try {
+        await descartarRegistroCola(id)
+        setADescartar(null)
+      } catch (error) {
+        setErrorDescarte(error instanceof Error ? error.message : 'No se pudo descartar.')
+      } finally {
+        setDescartando(false)
+      }
+    })()
+  }
+
+  const tarjeta = (g: GrupoCola) => (
+    <TarjetaEnvio
+      key={g.clave}
+      g={g}
+      ahora={ahora}
+      online={online}
+      sweep={grupoReciente === g.clave}
+      onReintentar={sincronizarAhora}
+      onDescartar={() => {
+        setErrorDescarte(null)
+        setADescartar(g)
+      }}
+      confirmacion={
+        aDescartar?.clave === g.clave
+          ? {
+              descartando,
+              error: errorDescarte,
+              onConfirmar: () => confirmarDescarte(g),
+              onCancelar: () => setADescartar(null),
+            }
+          : null
+      }
+    />
+  )
 
   return (
     <div className="space-y-6">
@@ -67,125 +146,36 @@ export function Cola() {
           <h1 className="mt-1.5 text-[26px] sm:text-[30px] font-semibold tracking-[-0.03em] leading-[1.1]">
             Cola de sincronización
           </h1>
-          <p className="mt-1.5 text-[13px] text-ink-2 max-w-[58ch]">
-            Orden de dependencia: faena → inspección → respuestas → hallazgos → fotos.
-            Reintentos con backoff exponencial de 1 s a 5 min.
+          <p className="mt-1.5 text-[13px] text-ink-2 max-w-[58ch]" role="status">
+            {vista ? estadoGeneral : 'Revisando lo guardado en este dispositivo…'}
           </p>
         </div>
 
-        {/* Contador de pendientes: count-up, es la cifra que el usuario vigila. */}
+        {/* Contador: envíos (lo que capturó la persona), no partes técnicas. */}
         <div className="panel px-4 py-3 shrink-0">
-          <p className="label-inst">Pendientes</p>
-          <CountUp
-            valor={pendientes}
-            className="block mt-1 text-[26px] font-semibold leading-none"
-            sufijo=""
-          />
+          <p className="label-inst">Por enviar</p>
+          <CountUp valor={envios} className="block mt-1 text-[26px] font-semibold leading-none" sufijo="" />
           <div className="mt-2">
             <BadgeSync estado={pendientes === 0 ? 'synced' : online ? 'syncing' : 'pending'} />
           </div>
         </div>
       </header>
 
-      {/* ── Filtros: sin animación de cambio, es un estado de lectura ─────── */}
-      <div className="flex gap-1.5 flex-wrap">
-        {(
-          [
-            ['todos', `Todos (${cola.length})`],
-            ['pendientes', `En cola (${pendientes})`],
-            ['fallidos', `Fallidos (${fallidos})`],
-          ] as const
-        ).map(([k, label]) => (
-          <button
-            key={k}
-            onClick={() => setFiltro(k)}
-            className={[
-              'h-8 px-3 rounded-lg text-[12px] font-medium font-mono tracking-[0.04em] cursor-pointer',
-              'transition-colors duration-150 ease-out border',
-              filtro === k
-                ? 'bg-beam/12 border-beam/40 text-beam'
-                : 'bg-s1 border-line-soft text-ink-3 hover:text-ink-2',
-            ].join(' ')}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-
-      {registroADescartar && (
-        <section className="panel p-4 border-failed/35 bg-failed/[0.04]" role="alert">
-          <p className="text-[13px] font-semibold">¿Descartar {registroADescartar.tipo === 'inspeccion' ? 'esta inspección' : 'esta bitácora'}?</p>
-          <p className="mt-1 text-[12px] text-ink-2 leading-relaxed">
-            {registroADescartar.tipo === 'inspeccion'
-              ? 'Se eliminarán de este dispositivo la inspección, sus respuestas, hallazgos, fotos y registros de cola. Esta acción no borra información ya enviada al servidor.'
-              : 'Se eliminarán de este dispositivo la bitácora y su registro de cola. Esta acción no borra información ya enviada al servidor.'}
-          </p>
-          <div className="mt-3 flex flex-wrap gap-2">
-            <Boton
-              tamano="sm"
-              variante="peligro"
-              disabled={descartando}
-              onClick={() => {
-                setDescartando(true)
-                setErrorDescarte(null)
-                void (async () => {
-                  try {
-                    await descartarRegistroCola(registroADescartar.outboxId)
-                    setRegistroADescartar(null)
-                  } catch (error) {
-                    setErrorDescarte(error instanceof Error ? error.message : 'No se pudo descartar el registro.')
-                  } finally {
-                    setDescartando(false)
-                  }
-                })()
-              }}
-            >
-              {descartando ? 'Descartando…' : 'Sí, descartar'}
-            </Boton>
-            <Boton tamano="sm" variante="fantasma" disabled={descartando} onClick={() => setRegistroADescartar(null)}>
-              Cancelar
-            </Boton>
-          </div>
-          {errorDescarte && <p className="mt-3 text-[12px] text-failed">{errorDescarte}</p>}
-        </section>
+      {vista && vista.conProblemas.length > 0 && (
+        <Seccion titulo="Con problemas" cantidad={vista.conProblemas.length} tono="var(--color-failed)">
+          {vista.conProblemas.map(tarjeta)}
+        </Seccion>
       )}
 
-
-      {/* ── Lista agrupada por tipo ───────────────────────────────────────── */}
-      {Object.entries(ORDEN_TIPO).map(([tipo, etiqueta]) => {
-        const items = lista.filter((r) => r.tipo === tipo)
-        if (!items.length) return null
-        return (
-          <section key={tipo} className="space-y-2">
-            <div className="flex items-center gap-3 px-0.5">
-              <h2 className="label-inst">{etiqueta}</h2>
-              <div className="flex-1 rule" />
-            </div>
-            {items.map((r) => (
-              <FilaRegistro
-                key={r.id}
-                r={r}
-                sweep={recienSincronizado === r.id}
-                onReintentar={sincronizarAhora}
-                onDescartar={() => {
-                  setErrorDescarte(null)
-                  setRegistroADescartar(r)
-                }}
-              />
-            ))}
-          </section>
-        )
-      })}
-
-      {lista.length === 0 && (
-        <div className="panel p-10 text-center">
-          <p className="text-[14px] text-ink-2">Sin registros en este filtro.</p>
-        </div>
+      {vista && vista.pendientes.length > 0 && (
+        <Seccion titulo="Esperando envío" cantidad={vista.pendientes.length}>
+          {vista.pendientes.map(tarjeta)}
+        </Seccion>
       )}
 
-      {/* ── Estado vacío / todo sincronizado ──────────────────────────────── */}
+      {/* ── Todo enviado ──────────────────────────────────────────────────── */}
       <AnimatePresence>
-        {pendientes === 0 && (
+        {vista && envios === 0 && (
           <motion.div
             initial={{ opacity: 0, scale: 0.97 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -195,19 +185,27 @@ export function Cola() {
             <div className="flex items-start gap-3">
               <span className="h-2 w-2 rounded-full bg-synced mt-1.5 shrink-0" />
               <div>
-                <p className="text-[14px] font-semibold tracking-[-0.015em]">
-                  Cola vacía · todo sincronizado
-                </p>
+                <p className="text-[14px] font-semibold tracking-[-0.015em]">Nada por enviar</p>
                 <p className="mt-1 text-[12px] text-ink-2 leading-relaxed">
-                  Sin acción del usuario: el disparo fue el evento <span className="text-ink">online</span>{' '}
-                  del navegador. Los reintentos por red son idempotentes por UUID cliente, así que
-                  reenviar un lote no crea duplicados.
+                  Todo lo que capturaste en este dispositivo ya llegó al servidor. Si te quedas sin señal,
+                  lo nuevo se guarda aquí y se envía solo al volver la conexión.
                 </p>
               </div>
             </div>
           </motion.div>
         )}
       </AnimatePresence>
+
+      {vista && vista.enviadoHoy.length > 0 && (
+        <details className="group">
+          <summary className="flex items-center gap-3 px-0.5 cursor-pointer list-none [&::-webkit-details-marker]:hidden">
+            <h2 className="label-inst">Enviado en las últimas 24 h ({vista.enviadoHoy.length})</h2>
+            <div className="flex-1 rule" />
+            <span className="label-inst group-open:rotate-180 transition-transform duration-150">▾</span>
+          </summary>
+          <div className="mt-2 space-y-2">{vista.enviadoHoy.map(tarjeta)}</div>
+        </details>
+      )}
 
       {/* ── Cuota de almacenamiento (FR-017) ──────────────────────────────── */}
       <div className="panel p-4">
@@ -216,7 +214,7 @@ export function Cola() {
             <p className="label-inst">Almacenamiento local estimado</p>
             <p className="mt-1 text-[12px] text-ink-2">
               {cuotaPct === null ? 'Estimación no disponible' : `${cuotaPct}% de la cuota`} ·{' '}
-              {cuota.fotosPendientes} fotos pendientes de subir
+              {cuota.fotosPendientes} {cuota.fotosPendientes === 1 ? 'foto pendiente' : 'fotos pendientes'} de subir
             </p>
           </div>
           <span
@@ -240,12 +238,274 @@ export function Cola() {
         </div>
         {!online && (
           <p className="mt-3 text-[11px] text-ink-3">
-            Sin señal: las fotos se comprimen en el dispositivo y quedan en cola. Se priorizan las
-            ya sincronizables al recuperar conexión.
+            Sin señal: las fotos se comprimen en el dispositivo y quedan guardadas. Al volver la conexión se
+            envían primero las que ya se pueden subir.
           </p>
         )}
       </div>
+
+      {/* ── Detalles técnicos (soporte / demo): la lista por registro ──────── */}
+      {verTecnico && cola.length > 0 && (
+        <details className="group">
+          <summary className="flex items-center gap-3 px-0.5 cursor-pointer list-none [&::-webkit-details-marker]:hidden">
+            <h2 className="label-inst">Detalles técnicos ({cola.length} registros)</h2>
+            <div className="flex-1 rule" />
+            <span className="label-inst group-open:rotate-180 transition-transform duration-150">▾</span>
+          </summary>
+          <div className="mt-2 space-y-3">
+            <p className="text-[12px] text-ink-3 leading-relaxed max-w-[70ch]">
+              Orden de dependencia del lote: faena → inspección → respuestas → hallazgos → fotos (FR-020).
+              Reintentos con backoff exponencial de 1 s a 5 min (FR-022); reenviar es idempotente por UUID
+              de cliente (FR-021).
+            </p>
+            {Object.entries(ORDEN_TIPO).map(([tipo, etiqueta]) => {
+              const items = cola.filter((r) => r.tipo === tipo).sort((a, b) => a.orden - b.orden)
+              if (!items.length) return null
+              return (
+                <section key={tipo} className="space-y-2">
+                  <div className="flex items-center gap-3 px-0.5">
+                    <h3 className="label-inst">{etiqueta}</h3>
+                    <div className="flex-1 rule" />
+                  </div>
+                  {items.map((r) => (
+                    <FilaRegistro key={r.id} r={r} sweep={recienSincronizado === r.id} onReintentar={sincronizarAhora} />
+                  ))}
+                </section>
+              )
+            })}
+          </div>
+        </details>
+      )}
     </div>
+  )
+}
+
+function Seccion({ titulo, cantidad, tono, children }: { titulo: string; cantidad: number; tono?: string; children: ReactNode }) {
+  return (
+    <section className="space-y-2">
+      <div className="flex items-center gap-3 px-0.5">
+        <h2 className="label-inst" style={tono ? { color: tono } : undefined}>
+          {titulo} ({cantidad})
+        </h2>
+        <div className="flex-1 rule" />
+      </div>
+      {children}
+    </section>
+  )
+}
+
+const ETIQUETA_ESTADO: Record<GrupoCola['estado'], string> = {
+  failed: 'Con problema',
+  syncing: 'Enviando',
+  pending: 'Esperando señal',
+  synced: 'Enviado',
+}
+
+/* ── Tarjeta de envío ──────────────────────────────────────────────────────
+ * Una por inspección o bitácora. El barrido de confirmación recorre la tarjeta
+ * una vez cuando una de sus partes acaba de sincronizarse. */
+function TarjetaEnvio({
+  g,
+  ahora,
+  online,
+  sweep,
+  onReintentar,
+  onDescartar,
+  confirmacion,
+}: {
+  g: GrupoCola
+  ahora: Date
+  online: boolean
+  sweep: boolean
+  onReintentar: () => void
+  onDescartar: () => void
+  /** Confirmación de descarte DENTRO de la tarjeta (en el teléfono, junto al botón tocado). */
+  confirmacion: { descartando: boolean; error: string | null; onConfirmar: () => void; onCancelar: () => void } | null
+}) {
+  const reducir = useReducedMotion()
+  const [abierta, setAbierta] = useState(false)
+  const [recien, setRecien] = useState(false)
+  const t = useRef<number | undefined>(undefined)
+
+  useEffect(() => {
+    if (sweep) {
+      setRecien(true)
+      t.current = window.setTimeout(() => setRecien(false), 760)
+    }
+    return () => window.clearTimeout(t.current)
+  }, [sweep])
+
+  const { total, enviadas } = g.partes
+  const pct = total ? Math.round((enviadas / total) * 100) : 0
+  const color = SYNC_META[g.estado].color
+  const reintentoSeg = g.reintentoAt !== null ? Math.ceil(Math.max(0, g.reintentoAt - ahora.getTime()) / 1000) : null
+  const idDetalle = `detalle-${g.clave.replace(/[^a-z0-9]/gi, '-')}`
+
+  return (
+    <motion.article
+      layout
+      transition={{ duration: 0.3, ease: EASE.out }}
+      className={[
+        'relative overflow-hidden panel px-4 py-3.5',
+        g.estado === 'failed' ? 'border-failed/35' : '',
+        recien && !reducir ? 'sweep border-synced/40' : '',
+      ].join(' ')}
+    >
+      <div className="flex items-start gap-3">
+        <div className="min-w-0 flex-1">
+          <p className="text-[14px] font-semibold tracking-[-0.015em] truncate">{g.titulo}</p>
+          <p className="mt-0.5 text-[12px] text-ink-3 truncate">{g.subtitulo}</p>
+          {g.resumen.length > 0 && (
+            <p className="mt-1.5 text-[12px] text-ink-2 leading-relaxed">{g.resumen.join(' · ')}</p>
+          )}
+        </div>
+        <span
+          className="shrink-0 inline-flex items-center gap-1.5 h-6 px-2 rounded-full text-[11px] font-medium"
+          style={{ color, backgroundColor: `color-mix(in oklab, ${color} 14%, transparent)` }}
+        >
+          <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: color }} />
+          {g.estado === 'pending' && online ? 'En cola' : ETIQUETA_ESTADO[g.estado]}
+        </span>
+      </div>
+
+      {/* Avance: sólo cuando hay más de una parte y no terminó. */}
+      {total > 1 && g.estado !== 'synced' && (
+        <div className="mt-3">
+          <div className="h-1.5 rounded-full bg-s3 overflow-hidden" aria-hidden>
+            <span className="block h-full rounded-full transition-[width] duration-300" style={{ width: `${pct}%`, backgroundColor: color }} />
+          </div>
+          <p className="mt-1 text-[11px] text-ink-3">
+            {enviadas} de {total} partes enviadas
+          </p>
+        </div>
+      )}
+
+      {g.error && g.estado === 'failed' && (
+        <p className="mt-3 rounded-lg bg-failed/[0.07] border border-failed/25 px-3 py-2 text-[12px] leading-relaxed text-ink">
+          {g.error}
+          {reintentoSeg !== null && reintentoSeg > 0 && online && (
+            <span className="text-ink-3"> Nuevo intento automático en ~{reintentoSeg < 60 ? `${reintentoSeg} s` : `${Math.ceil(reintentoSeg / 60)} min`}.</span>
+          )}
+        </p>
+      )}
+
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        {g.detalle.length > 0 && (
+          <Boton
+            tamano="sm"
+            variante="fantasma"
+            aria-expanded={abierta}
+            aria-controls={idDetalle}
+            onClick={() => setAbierta((v) => !v)}
+          >
+            {abierta ? 'Ocultar detalle' : 'Ver detalle'}
+          </Boton>
+        )}
+        <span className="flex-1" />
+        {g.estado === 'failed' && (
+          <Boton tamano="sm" variante="secundaria" onClick={onReintentar}>
+            Reintentar
+          </Boton>
+        )}
+        {g.outboxDescartable !== null && (g.estado === 'pending' || g.estado === 'failed') && !confirmacion && (
+          <Boton tamano="sm" variante="fantasma" onClick={onDescartar}>
+            Descartar
+          </Boton>
+        )}
+      </div>
+
+      {confirmacion && (
+        <div className="mt-3 rounded-lg border border-failed/35 bg-failed/[0.05] p-3" role="alert">
+          <p className="text-[13px] font-semibold">
+            ¿Descartar {g.tipo === 'bitacora' ? 'esta bitácora' : 'esta inspección'}?
+          </p>
+          <p className="mt-1 text-[12px] text-ink-2 leading-relaxed">
+            {g.tipo === 'bitacora'
+              ? 'Se elimina de este dispositivo. No borra lo que ya llegó al servidor.'
+              : 'Se eliminan de este dispositivo la inspección, sus respuestas, hallazgos y fotos. No borra lo que ya llegó al servidor.'}
+          </p>
+          <div className="mt-2.5 flex flex-wrap gap-2">
+            <Boton tamano="sm" variante="peligro" disabled={confirmacion.descartando} onClick={confirmacion.onConfirmar}>
+              {confirmacion.descartando ? 'Descartando…' : 'Sí, descartar'}
+            </Boton>
+            <Boton tamano="sm" variante="fantasma" disabled={confirmacion.descartando} onClick={confirmacion.onCancelar}>
+              Cancelar
+            </Boton>
+          </div>
+          {confirmacion.error && <p className="mt-2 text-[12px] text-failed">{confirmacion.error}</p>}
+        </div>
+      )}
+
+      <AnimatePresence initial={false}>
+        {abierta && (
+          <motion.ul
+            id={idDetalle}
+            initial={reducir ? { opacity: 1 } : { opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={reducir ? { opacity: 0 } : { opacity: 0, height: 0 }}
+            transition={{ duration: 0.2, ease: EASE.out }}
+            className="mt-2 divide-y divide-line-soft border-t border-line-soft overflow-hidden"
+          >
+            {g.detalle.map((l) => (
+              <LineaEnvio key={l.clave} l={l} />
+            ))}
+          </motion.ul>
+        )}
+      </AnimatePresence>
+    </motion.article>
+  )
+}
+
+function LineaEnvio({ l }: { l: LineaDetalle }) {
+  const [url, setUrl] = useState<string | null>(null)
+  useEffect(() => {
+    if (!l.adjuntoId) return
+    let vivo = true
+    let creada: string | null = null
+    void fotoDeAdjunto(l.adjuntoId).then((b) => {
+      if (!vivo || !b) return
+      creada = URL.createObjectURL(b)
+      setUrl(creada)
+    })
+    return () => {
+      vivo = false
+      if (creada) URL.revokeObjectURL(creada)
+    }
+  }, [l.adjuntoId])
+
+  const color =
+    l.severidad === 'critical'
+      ? 'var(--color-sev-critica)'
+      : l.severidad === 'high'
+        ? 'var(--color-sev-alta)'
+        : l.severidad === 'medium'
+          ? 'var(--color-sev-media)'
+          : undefined
+  const noOk = l.valor === 'No OK'
+
+  return (
+    <li className="flex items-start gap-3 py-2.5">
+      {l.adjuntoId &&
+        (url ? (
+          <img src={url} alt="" className="h-10 w-10 rounded-md object-cover shrink-0 border border-line-soft" />
+        ) : (
+          <span className="h-10 w-10 rounded-md bg-s3 shrink-0" aria-hidden />
+        ))}
+      <div className="min-w-0 flex-1">
+        <p className="text-[12px] text-ink-2 leading-snug" style={color ? { color } : undefined}>
+          {l.texto}
+        </p>
+        <p className={['mt-0.5 text-[13px] leading-snug break-words', noOk ? 'font-semibold text-failed' : 'text-ink'].join(' ')}>
+          {l.valor}
+        </p>
+      </div>
+      <span
+        className="mt-1 h-2 w-2 rounded-full shrink-0"
+        title={ETIQUETA_ESTADO[l.estado]}
+        aria-label={ETIQUETA_ESTADO[l.estado]}
+        style={{ backgroundColor: SYNC_META[l.estado].color }}
+      />
+    </li>
   )
 }
 
@@ -263,7 +523,8 @@ function FilaRegistro({
   r: RegistroCola
   sweep: boolean
   onReintentar: () => void
-  onDescartar: () => void
+  /** La vista técnica no descarta: eso se hace sobre la tarjeta del envío. */
+  onDescartar?: () => void
 }) {
   const reducir = useReducedMotion()
   const [recien, setRecien] = useState(false)
@@ -319,7 +580,7 @@ function FilaRegistro({
             </svg>
           </button>
         )}
-        {(r.tipo === 'inspeccion' || r.tipo === 'bitacora') && (r.estado === 'pending' || r.estado === 'failed') && (
+        {onDescartar && (r.tipo === 'inspeccion' || r.tipo === 'bitacora') && (r.estado === 'pending' || r.estado === 'failed') && (
           <button
             aria-label={`Descartar ${r.titulo}`}
             onClick={onDescartar}

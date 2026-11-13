@@ -22,14 +22,14 @@ Después del cierre de F2, el producto dejó de ser una demo y sumó:
 - formularios importados desde **Excel, Word, PDF y fotos de pautas en papel** (con IA opcional);
 - una exportación consolidada.
 
-De los requisitos implementados, la matriz está en **97,7% verde** (43/44), y hay **521 pruebas automatizadas** en CI. La Enmienda 007, aprobada el 2026-11-12, suma 3 filas de requisitos que todavía no se implementan.
+De los requisitos implementados, la matriz está en **97,7% verde** (43/44), y hay **528 pruebas automatizadas** en CI. La Enmienda 007, aprobada el 2026-11-12, suma 3 filas de requisitos que todavía no se implementan.
 
 ## 2. Alcance entregado
 
 | Módulo | Qué hace hoy |
 | :--- | :--- |
 | 001 Auth y tenancy | Login con correo y clave, JWT con tenant, refresh `httponly` con rotación y detección de reuso, bloqueo por intentos, RLS de Postgres, clave temporal en el primer ingreso, aviso si la sesión se abre en otro dispositivo |
-| 002 Captura offline | PWA instalable (con botón "Instalar app" y ayuda por plataforma), borradores, cámara con compresión, cola local, cuota real del dispositivo con aviso al 80%, entrada sin señal con la identidad cacheada, captura operable con lector de pantalla y teclado |
+| 002 Captura offline | PWA instalable (con botón "Instalar app" y ayuda por plataforma), borradores, cámara con compresión, cola local, cuota real del dispositivo con aviso al 80%, entrada sin señal con la identidad cacheada, captura operable con lector de pantalla y teclado, modo claro y oscuro, y cola de envíos legible (una tarjeta por inspección o bitácora, con estado y motivo del fallo) |
 | 003 Sincronización | Lotes idempotentes (UUIDv7 + `client_version`), orden de dependencias, LWW determinista, registro de conflictos visible para el supervisor |
 | 004 Dominio | Plantillas versionadas, inspecciones con versión congelada, hallazgos, adjuntos, asociación a faena (sin geolocalización, Enmienda 004) |
 | 005 Reportes | Dashboard con filtros, latencia (media y p95), "espera sin señal" medida aparte, supervisión de la sincronización por faena y equipo, exportación Excel consolidado / PDF / Word por filtro o selección |
@@ -64,10 +64,10 @@ Se cumple con holgura el criterio de salida de F2 (**≥ 90% verde**); incluso c
 | Capa | Cantidad | Estado |
 | :--- | :--- | :--- |
 | Integración backend (Vitest + Testcontainers, Postgres real) | 253 | Verde en el CI de `main` (`a13c50c`) |
-| Unidad frontend (Vitest) | 153 | Verde |
+| Unidad frontend (Vitest) | 160 | Verde |
 | Unidad shared (Vitest) | 92 | Verde |
 | E2E + caos (Playwright, perfil móvil) | 23 | Verde en la última corrida |
-| **Total** | **521** | |
+| **Total** | **528** | |
 
 Invariantes de los escenarios de caos 1–7: **0 pérdidas, 0 duplicados, 0 fugas entre empresas**.
 
@@ -127,6 +127,7 @@ La IA de importación se prueba con un analizador simulado, así que la CI no ll
 
 | Versión | Fecha | Cambio | Autor |
 | :--- | :--- | :--- | :--- |
+| 2.3.0 | 2026-11-13 | Modo claro/oscuro y cola legible (TSK-OFF-005/006); 528 pruebas | Daniel Ávila (con IA) |
 | 2.2.0 | 2026-11-12 | Enmienda 007 aprobada (por implementar): matriz 47 filas, 97,7% de lo implementado | Daniel Ávila (con IA) |
 | 2.1.0 | 2026-11-12 | Mejoras de validación, E2E, accesibilidad e instalación PWA; dominio `terrenoconectado.cl`; 521 pruebas | Daniel Ávila (con IA) |
 | 2.0.0 | 2026-11-11 | Estado v1.3 en producción: enmiendas 003–006, matriz 43/44 y 517 pruebas reales del CI de `main` | Daniel Ávila (con IA) |

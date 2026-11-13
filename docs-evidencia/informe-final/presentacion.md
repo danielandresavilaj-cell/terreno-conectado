@@ -67,7 +67,7 @@
 
 ## 7. Validación
 
-- **521 pruebas automatizadas:** 253 de integración backend con Postgres real, 153 del frontend, 92 de shared y 23 E2E/caos.
+- **528 pruebas automatizadas:** 253 de integración backend con Postgres real, 160 del frontend, 92 de shared y 23 E2E/caos.
 - **Caos 1–7:** 0 pérdidas, 0 duplicados, 0 fugas entre empresas.
 - **Matriz de requisitos:** **97,7% verde** en lo implementado (43/44).
 - La IA se prueba en CI con un analizador simulado y se validó en producción con una foto real.

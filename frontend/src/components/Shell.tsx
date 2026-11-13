@@ -150,7 +150,7 @@ const NAV: Array<{ id: Pantalla; label: string; roles: Rol[]; icono: ReactNode }
 ]
 
 export function Shell({ children }: { children: ReactNode }) {
-  const { usuario, salir, pantalla, ir, online, pendientes, cuotaAviso, cuota, sincronizarAhora, sesionExpirada } =
+  const { usuario, salir, pantalla, ir, online, enviosPendientes, cuotaAviso, cuota, sincronizarAhora, sesionExpirada } =
     useEstado()
   const reducir = useReducedMotion()
   const [verAviso, setVerAviso] = useState(false)
@@ -255,7 +255,7 @@ export function Shell({ children }: { children: ReactNode }) {
           >
             <p className="flex-1 min-w-[200px] text-[14px] leading-relaxed">
               Tu sesión expiró. Ingresa de nuevo para enviar{' '}
-              {pendientes === 1 ? '1 registro pendiente' : `${pendientes} registros pendientes`}; nada se
+              {enviosPendientes === 1 ? 'lo que tienes pendiente' : `tus ${enviosPendientes} envíos pendientes`}; nada se
               ha perdido.
             </p>
             <Boton variante="primaria" onClick={salir}>
@@ -290,8 +290,8 @@ export function Shell({ children }: { children: ReactNode }) {
             <span className="label-inst">{online ? 'En línea' : 'Sin señal'}</span>
           </div>
           <div className="flex items-center gap-1.5">
-            <span className="label-inst">Pendientes</span>
-            <CountUp valor={pendientes} className="text-[14px] font-semibold text-beam" />
+            <span className="label-inst">Por enviar</span>
+            <CountUp valor={enviosPendientes} className="text-[14px] font-semibold text-beam" />
           </div>
         </div>
       </div>
