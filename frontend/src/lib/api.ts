@@ -19,6 +19,7 @@ import type {
   CapacidadesImport,
   ConfirmImportBody,
   ConflictRecordDto,
+  BitacoraResponse,
   DashboardFindingsResponse,
   DashboardSummary,
   DashboardSupervision,
@@ -296,6 +297,11 @@ export function getSummary(f: DashboardFiltros = {}): Promise<DashboardSummary> 
 /** TSK-REP-006: los 4 bloques accionables del dashboard de supervisión. */
 export function getSupervision(f: DashboardFiltros = {}): Promise<DashboardSupervision> {
   return apiFetch<DashboardSupervision>(`/dashboard/supervision${qsFiltros(f)}`)
+}
+
+/** TSK-REP-009 (FR-063): bitácora de la empresa por faena y período. */
+export function getBitacora(f: DashboardFiltros & { limit?: number; offset?: number } = {}): Promise<BitacoraResponse> {
+  return apiFetch<BitacoraResponse>(`/dashboard/bitacora${qsFiltros(f, { limit: f.limit, offset: f.offset })}`)
 }
 
 export interface FindingsFiltros extends DashboardFiltros {

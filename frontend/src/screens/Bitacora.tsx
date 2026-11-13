@@ -17,6 +17,7 @@ import { useState } from 'react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { Boton } from '../components/ui'
 import { BadgeSync } from '../components/Badges'
+import { BitacoraFaena } from '../components/BitacoraFaena'
 import { CountUp } from '../components/CountUp'
 import { useEstado } from '../lib/store'
 import { EASE } from '../lib/motion'
@@ -33,7 +34,13 @@ function diaDe(iso: string, hoy: Date): string {
 }
 
 export function Bitacora() {
-  const { entradasBitacora, agregarBitacora, identidad, cola, usuario } = useEstado()
+  const { entradasBitacora, agregarBitacora, identidad, cola, usuario, online } = useEstado()
+  /* TSK-REP-009: "Mías" es lo escrito en este teléfono (funciona sin señal);
+   * "De la faena" es lo que escribió todo el equipo, leído del servidor. */
+  const [vista, setVista] = useState<'mias' | 'faena'>('mias')
+  // Fijo al montar: recalcularlo en cada render cambiaría la consulta y la
+  // bitácora se volvería a pedir sin parar.
+  const [desdeFaena] = useState(() => new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString())
   const hoy = new Date()
   const faenas = identidad?.faenas ?? []
   const [abierto, setAbierto] = useState(false)
@@ -164,7 +171,35 @@ export function Bitacora() {
         )}
       </AnimatePresence>
 
-      {/* ── Línea de tiempo ───────────────────────────────────────────────── */}
+      <div className="flex gap-1 p-1 rounded-xl bg-s1 border border-line-soft w-fit" role="group" aria-label="Qué bitácora ver">
+        {([
+          ['mias', 'Mis entradas'],
+          ['faena', 'De la faena'],
+        ] as const).map(([id, label]) => (
+          <button
+            key={id}
+            type="button"
+            aria-pressed={vista === id}
+            onClick={() => setVista(id)}
+            className={[
+              'min-h-11 px-4 rounded-lg text-[14px] font-medium cursor-pointer transition-colors duration-150',
+              vista === id ? 'bg-beam text-on-beam' : 'text-ink-2 hover:text-ink',
+            ].join(' ')}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {vista === 'faena' ? (
+        <section className="space-y-2.5" aria-label="Bitácora de la faena">
+          <p className="text-[13px] text-ink-2">
+            Lo que escribió el equipo en {faenas.find((f) => f.id === faena)?.nombre ?? 'esta faena'} los últimos 7 días.
+          </p>
+          <BitacoraFaena faenaId={faena || null} desde={desdeFaena} online={online} />
+        </section>
+      ) : (
+      /* ── Línea de tiempo ───────────────────────────────────────────────── */
       <div className="space-y-2.5">
         <div className="flex items-center gap-3 px-0.5">
           <h2 className="label-inst">
@@ -216,6 +251,7 @@ export function Bitacora() {
           </motion.article>
         ))}
       </div>
+      )}
     </div>
   )
 }

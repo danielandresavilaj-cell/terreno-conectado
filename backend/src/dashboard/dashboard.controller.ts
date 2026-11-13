@@ -14,6 +14,8 @@ import type { DashboardSupervision } from '@terreno/shared'
  *    (FR-047)
  *  · `GET /api/v1/dashboard/attachments/:id` — foto de una respuesta o de un
  *    hallazgo, para verla en pantalla (FR-062, TSK-REP-008)
+ *  · `GET /api/v1/dashboard/bitacora` — bitácora de la empresa por faena y
+ *    período, legible también por trabajadores (FR-063, TSK-REP-009)
  *  · `GET /api/v1/sites`              — faenas/obras del tenant (FR-006)
  *
  * El dashboard no escribe datos de negocio (el flujo es Captura → Sync →
@@ -39,6 +41,7 @@ import {
 import type { Request, Response } from 'express'
 import {
   XLSX_MIME,
+  type BitacoraResponse,
   type DashboardFindingsResponse,
   type DashboardSummary,
   type SitesResponse,
@@ -111,6 +114,19 @@ export class DashboardController {
       autor_id: s(q.autor_id),
       limit: int(q.limit, 50),
       offset: int(q.offset, 0),
+    })
+  }
+
+  /** TSK-REP-009 (FR-063): bitácora de la empresa, por faena y período. */
+  @UseGuards(AuthGuard)
+  @Get('dashboard/bitacora')
+  bitacora(@Req() req: AuthedRequest, @Query() q: Record<string, unknown>): Promise<BitacoraResponse> {
+    return this.dashboard.bitacora(req.user as JwtClaims, {
+      site_id: s(q.site_id),
+      desde: s(q.desde),
+      hasta: s(q.hasta),
+      limit: int(q.limit, 50, 100),
+      offset: int(q.offset, 0, 100_000),
     })
   }
 

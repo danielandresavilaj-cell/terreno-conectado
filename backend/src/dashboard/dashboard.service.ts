@@ -15,6 +15,7 @@ import type { JwtClaims } from '../auth/auth.types'
 import { exigirDashboard, DASHBOARD_ROLES } from './dashboard.auth'
 import { parsearFiltrosPeriodo, parsearFiltrosFindings, type FiltrosPeriodo } from './dashboard.contract'
 import type {
+  BitacoraResponse,
   DashboardFindingsResponse,
   DashboardSummary,
   FindingDto,
@@ -168,6 +169,74 @@ export class DashboardService {
       hallazgos_total: totalHallazgos,
       conflictos_pendientes: conflictos[0]?.n ?? 0,
       sincronizaciones: sincronizaciones[0]?.n ?? 0,
+    }
+  }
+
+  /* ------------------------------------------------------------ bitácora */
+
+  /**
+   * TSK-REP-009 (FR-033/063): la bitácora de la empresa, para que la lea quien
+   * no la escribió — el turno entrante y la supervisión.
+   *
+   * Lo pueden leer también los trabajadores: el relevo es justamente para
+   * ellos. La RLS limita a la empresa (Art. IV); dentro de ella no hay
+   * restricción por faena porque una cuenta no tiene faenas asignadas.
+   */
+  async bitacora(
+    u: JwtClaims,
+    f: { site_id: string | null; desde: string | null; hasta: string | null; limit: number; offset: number },
+  ): Promise<BitacoraResponse> {
+    this.exigir(u, ['field_worker', 'supervisor', 'tenant_admin'])
+    const tenantId = u.tenant_id as string
+    const { siteId, desde, hasta } = parsearFiltrosPeriodo(f)
+    const where = `
+        WHERE ($1::uuid IS NULL OR l.site_id = $1)
+          AND l.captured_at >= COALESCE($2::timestamptz, '-infinity'::timestamptz)
+          AND l.captured_at <= COALESCE($3::timestamptz, 'infinity'::timestamptz)`
+    const [rows, total] = await Promise.all([
+      this.db.queryAsTenant<{
+        id: string
+        faena_id: string
+        faena_nombre: string
+        autor_id: string
+        autor: string | null
+        texto: string
+        tags: string[]
+        fecha_turno: string
+        captured_ms: number
+      }>(
+        tenantId,
+        `SELECT l.id, l.site_id AS faena_id, s.name AS faena_nombre,
+                l.author_id AS autor_id, u.full_name AS autor,
+                l.entry_text AS texto, l.tags, to_char(l.shift_date, 'YYYY-MM-DD') AS fecha_turno,
+                (extract(epoch FROM l.captured_at) * 1000)::float8 AS captured_ms
+           FROM log_entry l
+           JOIN site s ON s.id = l.site_id
+           LEFT JOIN app_user u ON u.id = l.author_id
+         ${where}
+          ORDER BY l.captured_at DESC, l.id DESC
+          LIMIT $4 OFFSET $5`,
+        [siteId, desde, hasta, f.limit, f.offset],
+      ),
+      this.db.queryAsTenant<{ n: number }>(
+        tenantId,
+        `SELECT count(*)::int AS n FROM log_entry l ${where}`,
+        [siteId, desde, hasta],
+      ),
+    ])
+    return {
+      items: rows.map((r) => ({
+        id: r.id,
+        faena_id: r.faena_id,
+        faena_nombre: r.faena_nombre,
+        autor_id: r.autor_id,
+        autor: r.autor ?? 'Usuario no disponible',
+        texto: r.texto,
+        tags: r.tags ?? [],
+        fecha_turno: r.fecha_turno,
+        captured_at: new Date(r.captured_ms).toISOString(),
+      })),
+      total: total[0]?.n ?? 0,
     }
   }
 
