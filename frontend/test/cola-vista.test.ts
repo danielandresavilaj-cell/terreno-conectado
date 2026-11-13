@@ -69,6 +69,7 @@ const resp = (rid: string, itemId: string, v: Partial<ResponseRow>): ResponseRow
   valueText: null,
   valueNumber: null,
   capturedAt: iso(2),
+  clientVersion: 1,
   ...v,
 })
 
