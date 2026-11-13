@@ -6,8 +6,8 @@
  * cambia y se recuerda por dispositivo. Todos los colores salen de tokens CSS
  * (`index.css`), así que cambiar el atributo basta para toda la app.
  *
- * Sin elección guardada se usa el modo oscuro, la identidad original de la
- * app. `localStorage` puede fallar (modo privado, almacenamiento bloqueado):
+ * Sin elección guardada se sigue el tema del sistema (TSK-OFF-011): a pleno
+ * sol muchos teléfonos ya están en claro y una pantalla clara se lee mejor. `localStorage` puede fallar (modo privado, almacenamiento bloqueado):
  * entonces el tema funciona igual durante la sesión, solo que no se recuerda.
  */
 import { useSyncExternalStore } from 'react'
@@ -21,6 +21,12 @@ export const COLOR_BARRA: Record<Tema, string> = { oscuro: '#0e0f11', claro: '#f
 /** Valor guardado → tema válido (cualquier otra cosa cae al oscuro por defecto). */
 export function temaGuardado(valor: string | null | undefined): Tema {
   return valor === 'claro' ? 'claro' : 'oscuro'
+}
+
+/** Tema al abrir: lo elegido en este equipo o, si no hay elección, el del sistema. */
+export function temaInicial(guardado: string | null | undefined, sistemaClaro: boolean): Tema {
+  if (guardado === 'claro' || guardado === 'oscuro') return guardado
+  return sistemaClaro ? 'claro' : 'oscuro'
 }
 
 export const otroTema = (t: Tema): Tema => (t === 'claro' ? 'oscuro' : 'claro')

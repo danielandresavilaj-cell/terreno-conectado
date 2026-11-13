@@ -24,6 +24,7 @@ import { Boton } from './ui'
 import { BotonTema } from './BotonTema'
 import { useEstado, type Pantalla } from '../lib/store'
 import { EASE } from '../lib/motion'
+import { useMedia } from '../lib/useMedia'
 import type { Rol } from '../lib/types'
 
 const NAV: Array<{ id: Pantalla; label: string; roles: Rol[]; icono: ReactNode }> = [
@@ -161,6 +162,7 @@ export function Shell({ children }: { children: ReactNode }) {
     avisoSalir,
   } = useEstado()
   const reducir = useReducedMotion()
+  const esTelefono = useMedia('(max-width: 639px)')
   const [verAviso, setVerAviso] = useState(false)
 
   /* El aviso de cuota aparece solo, una vez (FR-017). */
@@ -173,6 +175,11 @@ export function Shell({ children }: { children: ReactNode }) {
   if (!usuario) return null
 
   const nav = NAV.filter((n) => n.roles.includes(usuario.rol))
+  /* TSK-OFF-011: en el teléfono, con pocas secciones (el trabajador tiene 4),
+   * la navegación va abajo, al alcance del pulgar. Con más secciones siguen las
+   * pestañas de arriba. Se decide al renderizar (no con CSS) para que exista
+   * una sola barra de navegación en la página. */
+  const navAbajo = esTelefono && nav.length <= 5
 
   return (
     <div className="min-h-dvh flex flex-col bg-s0">
@@ -203,16 +210,34 @@ export function Shell({ children }: { children: ReactNode }) {
 
             <div className="flex-1" />
 
-            <IndicadorSenal on={online} />
+            <IndicadorSenal on={online} visibleEnTelefono={navAbajo} />
             <BotonTema />
-            <Boton
-              tamano="sm"
-              variante={pantalla === 'cuenta' ? 'secundaria' : 'fantasma'}
-              onClick={() => ir('cuenta')}
-              aria-current={pantalla === 'cuenta' ? 'page' : undefined}
-            >
-              Mi cuenta
-            </Boton>
+            {navAbajo ? (
+              <button
+                type="button"
+                onClick={() => ir('cuenta')}
+                aria-label="Mi cuenta"
+                aria-current={pantalla === 'cuenta' ? 'page' : undefined}
+                className={[
+                  'h-11 w-11 shrink-0 grid place-items-center rounded-lg cursor-pointer transition-colors duration-150',
+                  pantalla === 'cuenta' ? 'bg-s3 text-ink' : 'text-ink-2 hover:text-ink hover:bg-s3',
+                ].join(' ')}
+              >
+                <svg width="19" height="19" viewBox="0 0 18 18" fill="none" aria-hidden>
+                  <circle cx="9" cy="6.2" r="3" stroke="currentColor" strokeWidth="1.5" />
+                  <path d="M3 15.5c.7-3 3-4.5 6-4.5s5.3 1.5 6 4.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                </svg>
+              </button>
+            ) : (
+              <Boton
+                tamano="sm"
+                variante={pantalla === 'cuenta' ? 'secundaria' : 'fantasma'}
+                onClick={() => ir('cuenta')}
+                aria-current={pantalla === 'cuenta' ? 'page' : undefined}
+              >
+                Mi cuenta
+              </Boton>
+            )}
           </div>
 
           {/* Navegación: pestañas. El indicador activo se desliza con layout, lo
@@ -221,6 +246,7 @@ export function Shell({ children }: { children: ReactNode }) {
           {/* overflow-x-auto: con 5 pestañas y roles de supervisor, en 360 px no caben.
               scrollbar-width:none + la alternativa para WebKit evitan que la
               barra de scroll nativa aparezca bajo las pestañas. */}
+          {!navAbajo && (
           <nav className="flex gap-1 -mb-px overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {nav.map((n) => {
               const activa = pantalla === n.id
@@ -248,6 +274,7 @@ export function Shell({ children }: { children: ReactNode }) {
               )
             })}
           </nav>
+          )}
         </div>
       </header>
 
@@ -287,7 +314,52 @@ export function Shell({ children }: { children: ReactNode }) {
         </AnimatePresence>
       </main>
 
-      {/* ── Barra de estado inferior (solo móvil) ─────────────────────────── */}
+      {/* ── Navegación inferior (teléfono, pocas secciones) — TSK-OFF-011 ───
+          El texto de cada botón es sólo su nombre: el contador de envíos va
+          en un punto aparte y en la descripción accesible, no en el nombre. */}
+      {navAbajo && (
+        <nav
+          aria-label="Secciones"
+          className="fixed bottom-0 inset-x-0 z-30 border-t border-line-soft bg-s1/95 backdrop-blur-md pb-safe"
+        >
+          <div className="grid" style={{ gridTemplateColumns: `repeat(${nav.length}, minmax(0, 1fr))` }}>
+            {nav.map((n) => {
+              const activa = pantalla === n.id
+              const conAviso = n.id === 'cola' && enviosPendientes > 0
+              return (
+                <button
+                  key={n.id}
+                  type="button"
+                  onClick={() => ir(n.id)}
+                  aria-label={n.label}
+                  aria-describedby={conAviso ? 'nav-por-enviar' : undefined}
+                  aria-current={activa ? 'page' : undefined}
+                  className={[
+                    'relative h-14 flex flex-col items-center justify-center gap-0.5 text-[12px] font-medium cursor-pointer',
+                    'transition-colors duration-150',
+                    activa ? 'text-beam' : 'text-ink-2',
+                  ].join(' ')}
+                >
+                  <span className="relative" aria-hidden>
+                    {n.icono}
+                    {conAviso && (
+                      <span className="absolute -right-2 -top-1.5 h-2.5 w-2.5 rounded-full bg-beam ring-2 ring-s1" />
+                    )}
+                  </span>
+                  {n.label}
+                  {activa && <span className="absolute top-0 inset-x-4 h-[2px] rounded-full bg-beam" aria-hidden />}
+                </button>
+              )
+            })}
+          </div>
+          <span id="nav-por-enviar" className="sr-only">
+            {enviosPendientes} por enviar
+          </span>
+        </nav>
+      )}
+
+      {/* ── Barra de estado inferior (solo móvil, si la navegación va arriba) ── */}
+      {!navAbajo && (
       <div className="fixed bottom-0 inset-x-0 z-30 border-t border-line-soft bg-s1/95 backdrop-blur-md sm:hidden">
         <div className="flex items-center justify-between px-4 h-barra-inferior pb-safe">
           <div className="flex items-center gap-2" role="status" aria-live="polite">
@@ -306,6 +378,7 @@ export function Shell({ children }: { children: ReactNode }) {
           </div>
         </div>
       </div>
+      )}
 
       {/* ── Aviso de salida (TSK-OFF-008) ─────────────────────────────────
           Se pulsó Atrás en la primera pantalla: se avisa antes de cerrar. */}
@@ -372,10 +445,13 @@ export function Shell({ children }: { children: ReactNode }) {
 }
 
 /** Estado real de la red (navigator.onLine): ya no es un interruptor manual. */
-function IndicadorSenal({ on }: { on: boolean }) {
+function IndicadorSenal({ on, visibleEnTelefono }: { on: boolean; visibleEnTelefono: boolean }) {
   return (
     <span
-      className="hidden sm:inline-flex items-center gap-2 px-2.5 h-9 rounded-lg text-[13px] text-ink-2"
+      className={[
+        visibleEnTelefono ? 'inline-flex' : 'hidden sm:inline-flex',
+        'items-center gap-2 px-2 h-9 rounded-lg text-[13px] text-ink-2 shrink-0 whitespace-nowrap',
+      ].join(' ')}
       role="status"
       aria-live="polite"
     >

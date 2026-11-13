@@ -1,6 +1,6 @@
 /* Modo claro / oscuro — TSK-OFF-005: elección, persistencia y barra del navegador. */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { CLAVE_TEMA, COLOR_BARRA, aplicarTema, otroTema, temaGuardado } from '../src/lib/tema'
+import { CLAVE_TEMA, COLOR_BARRA, aplicarTema, otroTema, temaGuardado, temaInicial } from '../src/lib/tema'
 
 const meta = { content: '', setAttribute(_: string, v: string) { this.content = v } }
 const raiz = { dataset: {} as Record<string, string> }
@@ -47,5 +47,13 @@ describe('tema', () => {
     })
     expect(() => aplicarTema('claro')).not.toThrow()
     expect(raiz.dataset.theme).toBe('light')
+  })
+
+  it('sin elección sigue el tema del sistema; una elección guardada manda (TSK-OFF-011)', () => {
+    expect(temaInicial(null, true)).toBe('claro')
+    expect(temaInicial(null, false)).toBe('oscuro')
+    expect(temaInicial('raro', true)).toBe('claro')
+    expect(temaInicial('oscuro', true)).toBe('oscuro')
+    expect(temaInicial('claro', false)).toBe('claro')
   })
 })
