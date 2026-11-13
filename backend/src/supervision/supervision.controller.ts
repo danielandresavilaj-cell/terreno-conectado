@@ -6,6 +6,7 @@ import {
   Inject,
   Param,
   Patch,
+  Post,
   Req,
   UseGuards,
 } from '@nestjs/common'
@@ -20,6 +21,20 @@ type AuthedRequest = Request & { user?: JwtClaims }
 
 const ROLES_SUPERVISION = new Set(['supervisor', 'tenant_admin'])
 const estadoHallazgoSchema = z.object({ status: z.enum(['open', 'in_progress', 'resolved']) })
+const cofirmaSchema = z.object({
+  strokes: z.array(z.object({
+    points: z.array(z.object({ x: z.number().int().min(0).max(1000), y: z.number().int().min(0).max(1000) })).min(2),
+  })).min(1).max(32),
+}).superRefine(({ strokes }, ctx) => {
+  const totalPuntos = strokes.reduce((total, stroke) => total + stroke.points.length, 0)
+  if (totalPuntos > 1024) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'La firma no puede superar 1024 puntos.',
+      path: ['strokes'],
+    })
+  }
+})
 
 function exigirSupervision(req: AuthedRequest): { tenantId: string; actorId: string } {
   const c = req.user
@@ -49,6 +64,14 @@ export class SupervisionController {
   revisarInspeccion(@Req() req: AuthedRequest, @Param('id') id: string) {
     const { tenantId, actorId } = exigirSupervision(req)
     return this.svc.revisarInspeccion(tenantId, actorId, uuid(id))
+  }
+
+  @Post('inspections/:id/signature')
+  cofirmarInspeccion(@Req() req: AuthedRequest, @Param('id') id: string, @Body() body: unknown) {
+    const { tenantId, actorId } = exigirSupervision(req)
+    const parsed = cofirmaSchema.safeParse(body)
+    if (!parsed.success) throw new BadRequestException('strokes debe contener trazos válidos de firma')
+    return this.svc.cofirmarInspeccion(tenantId, actorId, uuid(id), parsed.data.strokes)
   }
 
   @Patch('findings/:id')

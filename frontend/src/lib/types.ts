@@ -61,7 +61,7 @@ export interface RegistroCola {
   outboxId: number
   /** UUIDv7 simulado — FR-015. */
   uuid: string
-  tipo: 'inspeccion' | 'respuesta' | 'hallazgo' | 'foto' | 'bitacora'
+  tipo: 'inspeccion' | 'respuesta' | 'hallazgo' | 'foto' | 'bitacora' | 'firma'
   titulo: string
   detalle: string
   estado: SyncEstado

@@ -21,6 +21,7 @@ import { Chip } from '../components/Badges'
 import { Boton } from '../components/ui'
 import { FormRenderer } from '../components/FormRenderer'
 import { SheetHallazgo } from '../components/SheetHallazgo'
+import { FirmaCierre } from '../components/FirmaCierre'
 import { useEstado, type PlantillaActual } from '../lib/store'
 import {
   descargarLibro,
@@ -49,6 +50,7 @@ export function Captura() {
     plantilla,
     respuestas,
     pendientes,
+    prepararCierre,
     enviarInspeccion,
     enviandoInspeccion,
     erroresCampo,
@@ -64,6 +66,7 @@ export function Captura() {
   const [confirmarDescarte, setConfirmarDescarte] = useState(false)
   const [estadoExport, setEstadoExport] = useState<EstadoExport>({ fase: 'inactivo' })
   const [hayOriginal, setHayOriginal] = useState(false)
+  const [firmando, setFirmando] = useState(false)
   const revisionId = plantilla?.revisionId ?? null
 
   /* Al abrir un formulario, fecha y hora representan el momento de inicio del
@@ -328,8 +331,15 @@ export function Captura() {
                 terreno un control que no cambia nada parece una falla. El
                 estado de autoguardado queda visible en la cabecera y junto a
                 la cola local de este mismo pie. */}
-            <Boton tamano="sm" variante="primaria" disabled={enviandoInspeccion} onClick={() => void enviarInspeccion()}>
-              {enviandoInspeccion ? 'Enviando…' : 'Enviar inspección'}
+            <Boton
+              tamano="sm"
+              variante="primaria"
+              disabled={enviandoInspeccion}
+              onClick={() => {
+                if (prepararCierre()) setFirmando(true)
+              }}
+            >
+              {enviandoInspeccion ? 'Enviando…' : 'Firmar y enviar'}
             </Boton>
           </div>
         )}
@@ -339,6 +349,16 @@ export function Captura() {
         <p role="alert" className="-mt-3 text-[12px] font-medium text-failed">
           Completa los campos obligatorios marcados antes de enviar la inspección.
         </p>
+      )}
+
+      {firmando && (
+        <FirmaCierre
+          onCancelar={() => setFirmando(false)}
+          onConfirmar={(strokes) => {
+            setFirmando(false)
+            enviarInspeccion(strokes)
+          }}
+        />
       )}
 
       {/* ── Export del documento original (FR-019) ──────────────────────

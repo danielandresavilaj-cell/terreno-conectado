@@ -88,6 +88,7 @@ import {
   validateValorCampo,
   XLSX_MIME,
   type CampoValor,
+  type SignatureStroke,
   type TemplateDefinition,
   type TemplatePublicadaDto,
 } from '@terreno/shared'
@@ -188,7 +189,9 @@ interface Ctx {
    *  y persiste el valor en las columnas naturales del borrador. */
   responderCampo: (itemId: string, valor: CampoValor, adjunto?: { foto: File }) => void
   crearHallazgo: (itemId: string, sev: Severidad, descripcion: string, foto: File | null) => void
-  enviarInspeccion: () => void
+  /** Revalida antes de abrir el pad de firma; mantiene la firma fuera si faltan datos. */
+  prepararCierre: () => boolean
+  enviarInspeccion: (strokes: SignatureStroke[]) => void
   agregarBitacora: (texto: string, tags: string[], faenaId: string) => void
 }
 
@@ -816,6 +819,7 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
         templateId: plantilla?.templateId,
         templateVersion: plantilla?.version ?? undefined,
         templateRevisionId: plantilla?.revisionId ?? null,
+        requiresSupervisorSignature: plantilla?.definition.closing?.require_supervisor_signature ?? false,
       })
       setHayBorrador(true)
       return borrador
@@ -953,14 +957,19 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
     [usuario, refrescar, resolverDraft],
   )
 
-  const enviarInspeccion = useCallback(() => {
-    if (!usuario || !plantilla || plantilla.estado !== 'ok' || envioInspeccionEnCurso.current) return
+  const prepararCierre = useCallback((): boolean => {
+    if (!usuario || !plantilla || plantilla.estado !== 'ok' || envioInspeccionEnCurso.current) return false
     const errores = erroresDeEnvio(plantilla.definition, respuestas, erroresCampo)
     if (Object.keys(errores).length > 0) {
       setErroresCampo(errores)
-      return
+      return false
     }
     setErroresCampo({})
+    return true
+  }, [usuario, plantilla, respuestas, erroresCampo])
+
+  const enviarInspeccion = useCallback((strokes: SignatureStroke[]) => {
+    if (!prepararCierre() || envioInspeccionEnCurso.current) return
     envioInspeccionEnCurso.current = true
     setEnviandoInspeccion(true)
     void (async () => {
@@ -969,7 +978,7 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
         if (!draftId) return
         // Enmienda 004 (TSK-DOM-006): la ubicación ya no se registra. Se pedía
         // en cada envío sin explicar para qué y ningún reporte la usaba.
-        await submitInspection(draftId, null)
+        await submitInspection(draftId, { strokes, declarationVersion: 'v1' }, null)
         setRespuestas({})
         setHayBorrador(false)
         await refrescar()
@@ -981,7 +990,7 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
         setEnviandoInspeccion(false)
       }
     })()
-  }, [usuario, plantilla, respuestas, erroresCampo, refrescar, sincronizarAhora])
+  }, [prepararCierre, refrescar, sincronizarAhora])
 
   const agregarBitacora = useCallback(
     (texto: string, tags: string[], faenaId: string) => {
@@ -1039,6 +1048,7 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
     enCola: cola,
     responderCampo,
     crearHallazgo,
+    prepararCierre,
     enviarInspeccion,
     agregarBitacora,
   }

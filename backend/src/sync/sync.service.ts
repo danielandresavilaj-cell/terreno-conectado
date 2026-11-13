@@ -62,6 +62,7 @@ import type {
   SyncEntityType,
   SyncFindingPayload,
   SyncInspectionPayload,
+  SyncInspectionSignaturePayload,
   SyncLogEntryPayload,
   SyncRecord,
   SyncResponsePayload,
@@ -81,6 +82,7 @@ const BATCH_ORDER: SyncEntityType[] = [
   'finding',
   'log_entry',
   'attachment',
+  'inspection_signature',
 ]
 
 /** Roles canónicos que pueden revisar conflictos de su tenant (FR-023). */
@@ -94,6 +96,9 @@ const OK_NOK_NA = new Set(['ok', 'nok', 'na'])
 const SEVERITIES = new Set(['low', 'medium', 'high', 'critical'])
 const FINDING_STATUSES = new Set(['open', 'in_progress', 'resolved'])
 const OWNER_TYPES = new Set(['inspection', 'finding', 'log_entry', 'response', 'template_import'])
+const SIGNER_ROLES = new Set(['inspector', 'supervisor'])
+const MAX_SIGNATURE_STROKES = 32
+const MAX_SIGNATURE_POINTS = 1_024
 const MIME_EXT: Record<string, string> = {
   'image/jpeg': 'jpg',
   'image/png': 'png',
@@ -307,6 +312,9 @@ export class SyncService {
         if (!INSPECTION_STATUSES.has(x.status)) {
           throw new BadRequestException(`${at}.payload.status inválido`)
         }
+        if (x.requires_supervisor_signature !== undefined && typeof x.requires_supervisor_signature !== 'boolean') {
+          throw new BadRequestException(`${at}.payload.requires_supervisor_signature inválido`)
+        }
         this.assertLocation(x.location, `${at}.payload.location`)
         break
       }
@@ -393,6 +401,25 @@ export class SyncService {
         }
         break
       }
+      case 'inspection_signature': {
+        const x = p as unknown as SyncInspectionSignaturePayload
+        this.assertUuid(x.inspection_id, `${at}.payload.inspection_id`)
+        this.assertUuid(x.signer_id, `${at}.payload.signer_id`)
+        if (!SIGNER_ROLES.has(x.signer_role)) {
+          throw new BadRequestException(`${at}.payload.signer_role inválido`)
+        }
+        this.assertSignatureStrokes(x.strokes, `${at}.payload.strokes`)
+        if (typeof x.content_hash !== 'string' || !/^[0-9a-f]{64}$/.test(x.content_hash)) {
+          throw new BadRequestException(`${at}.payload.content_hash inválido`)
+        }
+        if (typeof x.declaration_version !== 'string' || x.declaration_version.length < 1 || x.declaration_version.length > 64) {
+          throw new BadRequestException(`${at}.payload.declaration_version inválido`)
+        }
+        if (typeof x.signed_at !== 'string' || Number.isNaN(Date.parse(x.signed_at))) {
+          throw new BadRequestException(`${at}.payload.signed_at inválido`)
+        }
+        break
+      }
     }
   }
 
@@ -418,6 +445,29 @@ export class SyncService {
       throw new BadRequestException(`${field} fuera de rangos geográficos válidos`)
     }
     return { lat: loc.lat, lon: loc.lon }
+  }
+
+  private assertSignatureStrokes(value: unknown, field: string): void {
+    if (!Array.isArray(value) || value.length === 0 || value.length > MAX_SIGNATURE_STROKES) {
+      throw new BadRequestException(`${field} debe tener entre 1 y ${MAX_SIGNATURE_STROKES} trazos`)
+    }
+    let points = 0
+    for (const stroke of value) {
+      if (!stroke || typeof stroke !== 'object' || !Array.isArray((stroke as { points?: unknown }).points)) {
+        throw new BadRequestException(`${field} contiene un trazo inválido`)
+      }
+      const trazo = (stroke as { points: unknown[] }).points
+      points += trazo.length
+      if (trazo.length < 2 || points > MAX_SIGNATURE_POINTS) {
+        throw new BadRequestException(`${field} debe tener trazos de al menos 2 puntos (máx. ${MAX_SIGNATURE_POINTS})`)
+      }
+      for (const point of trazo) {
+        const p = point as { x?: unknown; y?: unknown }
+        if (!p || typeof p.x !== 'number' || typeof p.y !== 'number' || !Number.isInteger(p.x) || !Number.isInteger(p.y) || p.x < 0 || p.x > 1000 || p.y < 0 || p.y > 1000) {
+          throw new BadRequestException(`${field} contiene un punto inválido`)
+        }
+      }
+    }
   }
 
   /* ------------------------------------------------------------ proceso */
@@ -482,6 +532,12 @@ export class SyncService {
       if (p.author_id !== claims.sub) {
         throw new Error('author_id no coincide con el usuario de la sesión')
       }
+    } else if (rec.entity_type === 'inspection_signature') {
+      const p = rec.payload as unknown as SyncInspectionSignaturePayload
+      if (p.signer_id !== claims.sub) throw new Error('signer_id no coincide con el usuario de la sesión')
+      if (p.signer_role === 'supervisor' && !CONFLICT_VIEWER_ROLES.has(claims.rol)) {
+        throw new Error('sólo supervisión puede cofirmar una inspección')
+      }
     }
   }
 
@@ -516,19 +572,22 @@ export class SyncService {
               loc?.lon ?? null,
               tiempos.queuedAt,
               tiempos.sentAt,
+              p.requires_supervisor_signature ?? false,
+              true,
             ],
             insertSql: `INSERT INTO inspection
               (id, tenant_id, site_id, template_id, template_version, executed_by,
                status, captured_at, client_version, location_lat, location_lon, synced_at,
-               queued_at, client_sent_at)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, now(), $12, $13)
+               queued_at, client_sent_at, requires_supervisor_signature, signature_required)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, now(), $12, $13, $14, $15)
              RETURNING id`,
             updateSql: `UPDATE inspection SET
               site_id = $3, template_id = $4, template_version = $5, executed_by = $6,
               status = $7, captured_at = $8, client_version = $9,
               location_lat = $10, location_lon = $11,
               synced_at = now(), updated_at = now(),
-              queued_at = COALESCE($12, queued_at), client_sent_at = COALESCE($13, client_sent_at)
+              queued_at = COALESCE($12, queued_at), client_sent_at = COALESCE($13, client_sent_at),
+              requires_supervisor_signature = $14
              WHERE id = $1 AND tenant_id = $2`,
             updateValues: () => [
               rec.id,
@@ -544,6 +603,7 @@ export class SyncService {
               loc?.lon ?? null,
               tiempos.queuedAt,
               tiempos.sentAt,
+              p.requires_supervisor_signature ?? false,
             ],
             payloadFrom: (r) => ({
               site_id: r.site_id,
@@ -551,6 +611,7 @@ export class SyncService {
               template_version: r.template_version,
               executed_by: r.executed_by,
               status: r.status,
+              requires_supervisor_signature: r.requires_supervisor_signature,
               location:
                 r.location_lat == null || r.location_lon == null
                   ? null
@@ -794,6 +855,53 @@ export class SyncService {
           return 'applied'
         })
       }
+      case 'inspection_signature': {
+        const p = rec.payload as unknown as SyncInspectionSignaturePayload
+        return this.db.withTenantTransaction(tenantId, async (run) => {
+          await this.assertRefs(run, [['inspection', p.inspection_id], ['app_user', p.signer_id]])
+          const [inspection] = await run<{ executed_by: string }>(
+            'SELECT executed_by FROM inspection WHERE id = $1 FOR UPDATE',
+            [p.inspection_id],
+          )
+          if (!inspection) throw new Error('inspección ajena al tenant o inexistente')
+          if (p.signer_role === 'inspector' && inspection.executed_by !== p.signer_id) {
+            throw new Error('sólo quien ejecutó la inspección puede firmar como inspector')
+          }
+          if (p.signer_role === 'supervisor') {
+            const inspector = await run<{ id: string }>(
+              "SELECT id FROM inspection_signature WHERE inspection_id = $1 AND signer_role = 'inspector'",
+              [p.inspection_id],
+            )
+            if (!inspector[0]) throw new Error('la cofirma requiere primero la firma del inspector')
+          }
+          const existing = await this.selectExisting(run, 'inspection_signature', rec.id)
+          if (existing) return 'unchanged'
+          const sameRole = await run<{ id: string }>(
+            'SELECT id FROM inspection_signature WHERE inspection_id = $1 AND signer_role = $2',
+            [p.inspection_id, p.signer_role],
+          )
+          if (sameRole[0]) throw new Error('ya existe una firma para este rol; no puede reemplazarse')
+          await run(
+            `INSERT INTO inspection_signature
+               (id, tenant_id, inspection_id, signer_id, signer_role, strokes_json,
+                content_hash, declaration_version, signed_at, client_version)
+             VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7, $8, $9, $10)`,
+            [rec.id, tenantId, p.inspection_id, p.signer_id, p.signer_role, JSON.stringify(p.strokes), p.content_hash, p.declaration_version, p.signed_at, rec.client_version],
+          )
+          if (p.signer_role === 'inspector') {
+            await run(
+              "UPDATE inspection SET status = 'submitted', updated_at = now(), synced_at = now() WHERE id = $1",
+              [p.inspection_id],
+            )
+          }
+          await run(
+            `INSERT INTO audit_log (id, actor_id, tenant_id, action, entity_type, entity_id, payload)
+             VALUES ($1, $2, $3, 'inspection_signed', 'inspection_signature', $4, $5::jsonb)`,
+            [randomUUID(), p.signer_id, tenantId, rec.id, JSON.stringify({ inspection_id: p.inspection_id, signer_role: p.signer_role })],
+          )
+          return 'applied'
+        })
+      }
     }
   }
 
@@ -987,6 +1095,16 @@ export class SyncService {
           bytes: row.bytes,
           width: row.width,
           height: row.height,
+        }
+      case 'inspection_signature':
+        return {
+          inspection_id: row.inspection_id,
+          signer_id: row.signer_id,
+          signer_role: row.signer_role,
+          strokes: row.strokes_json,
+          content_hash: row.content_hash,
+          declaration_version: row.declaration_version,
+          signed_at: row.signed_at,
         }
     }
   }

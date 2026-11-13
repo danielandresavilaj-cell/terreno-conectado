@@ -745,6 +745,14 @@ export function revisarInspeccion(id: string): Promise<{ id: string; status: str
   return apiFetch(`/inspections/${encodeURIComponent(id)}/review`, { method: 'PATCH' })
 }
 
+/** FR-057: la cofirma sólo se toma desde una sesión de supervisión. */
+export function cofirmarInspeccion(
+  id: string,
+  strokes: Array<{ points: Array<{ x: number; y: number }> }>,
+): Promise<{ id: string; signer_role: 'supervisor' }> {
+  return apiFetch(`/inspections/${encodeURIComponent(id)}/signature`, { method: 'POST', body: { strokes } })
+}
+
 /** FR-032: estado de un hallazgo. */
 export function cambiarEstadoHallazgo(
   id: string,
