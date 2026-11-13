@@ -19,8 +19,11 @@
  *   5. Publicar  → NUNCA automático (FR-048): confirmación explícita y
  *                  `publicarRevision`; los errores (409…) conservan el draft.
  *
- * Reordenar secciones/ítems queda FUERA de alcance de esta unidad: el orden
- * propuesto por el parser (orden de hoja/columna) se respeta.
+ * TSK-FORM-022: el mismo asistente sirve para CREAR DESDE CERO (`inicio="cero"`):
+ * arranca en Editar con una propuesta vacía (pasos Editar → Borrador → Publicar)
+ * y el primer guardado usa `crearPlantilla` (`POST /templates`). El editor, en
+ * ambos modos, agrega, reordena y quita preguntas y secciones
+ * (`lib/editor-formulario.ts`).
  *
  * MOVIMIENTO: migración entre pasos con fade corto (`EASE.out`, 200 ms) y
  * desplazamiento mínimo de 6 px — el usuario avanza/retrocede; no es un cambio
@@ -36,12 +39,23 @@ import {
   actualizarBorrador,
   analizarImportConIA,
   confirmarImport,
+  crearPlantilla,
   getCapacidadesImport,
   getPlantillas,
   publicarRevision,
   subirImportOriginal,
 } from '../lib/api'
 import { comprimirImagen } from '../lib/compresor'
+import {
+  agregarPregunta,
+  agregarSeccion,
+  moverPregunta,
+  moverSeccion,
+  propuestaVacia,
+  quitarPregunta,
+  quitarSeccion,
+  renombrarSeccion,
+} from '../lib/editor-formulario'
 import { useEstado } from '../lib/store'
 import { EASE } from '../lib/motion'
 import { proponerImport, propuestaADefinicion } from '@terreno/shared/xlsx'
@@ -75,9 +89,16 @@ interface ErrorItem {
 
 /** Error de contrato de un ítem (FR-036/039); null = válido. */
 function validarItem(item: ProposedItem): string | null {
-  if (item.prompt.trim() === '') return 'El texto del ítem no puede estar vacío'
+  if (item.prompt.trim() === '') return 'Escribe el texto de la pregunta.'
+  // TSK-FORM-022: el mensaje crudo de Zod ("Required") no dice qué hacer.
+  if ((item.response_type === 'select_single' || item.response_type === 'select_multiple') && !item.props.options?.length) {
+    return 'Agrega al menos una opción (una por línea).'
+  }
   const check = FIELD_PROPS_SCHEMA[item.response_type].safeParse(item.props)
-  if (!check.success) return check.error.issues[0]?.message ?? 'Props inválidas'
+  if (!check.success) {
+    const m = check.error.issues[0]?.message ?? ''
+    return /^required$/i.test(m) || !m ? 'Completa los datos de esta pregunta.' : m
+  }
   return null
 }
 
@@ -127,15 +148,19 @@ async function prepararFoto(f: File): Promise<File> {
   return new File([c.blob], `${nombre}.jpg`, { type: 'image/jpeg' })
 }
 
-export function Importar() {
+export function Importar({ inicio = 'importar' }: { inicio?: 'importar' | 'cero' } = {}) {
   const { ir } = useEstado()
   const reducir = useReducedMotion()
   const inputRef = useRef<HTMLInputElement>(null)
 
-  const [paso, setPaso] = useState(1)
+  /* TSK-FORM-022: 'cero' = crear desde cero (sin archivo, empieza en Editar). */
+  const [modo, setModo] = useState<'importar' | 'cero'>(inicio)
+  const [paso, setPaso] = useState(inicio === 'cero' ? 3 : 1)
   const [analizando, setAnalizando] = useState(false)
   const [errorCarga, setErrorCarga] = useState<string | null>(null)
-  const [propuesta, setPropuesta] = useState<TemplateImportProposal | null>(null)
+  const [propuesta, setPropuesta] = useState<TemplateImportProposal | null>(() =>
+    inicio === 'cero' ? propuestaVacia() : null,
+  )
   // Import al que se confirmará el borrador. Se llena al SUBIR el original en el
   // paso 1: sin él no hay documento fuente que exportar después (FR-019/044).
   const [importId, setImportId] = useState<string | null>(null)
@@ -166,6 +191,13 @@ export function Importar() {
   useEffect(() => {
     void refrescarCapacidades()
   }, [])
+  // Desde cero también se avisa si el nombre ya existe (no se duplica sin querer).
+  useEffect(() => {
+    if (modo !== 'cero') return
+    void getPlantillas()
+      .then((d) => setPublicadas(d.items))
+      .catch(() => setPublicadas([]))
+  }, [modo])
   const iaDisponible = capacidades?.ia === true
   const iaRestante = iaDisponible && (capacidades?.restantes_hoy ?? 0) > 0
 
@@ -185,7 +217,8 @@ export function Importar() {
   const normalizar = (t: string) => t.trim().toLowerCase().replace(/\s+/g, ' ')
   const existente = publicadas.find((t) => normalizar(t.name) === normalizar(nombre)) ?? null
   const nombreValido = nombre.trim().length > 0
-  const puedeContinuar = nombreValido && errores.length === 0 && totalItems > 0
+  const seccionesSinTitulo = secciones.filter((s) => s.titulo.trim() === '').length
+  const puedeContinuar = nombreValido && errores.length === 0 && totalItems > 0 && seccionesSinTitulo === 0
 
   /* ── PASO 1 · lectura del archivo ─────────────────────────────────────── */
 
@@ -289,6 +322,22 @@ export function Importar() {
     }
   }
 
+  /** TSK-FORM-022: pasa al editor con un formulario vacío. */
+  const empezarDesdeCero = () => {
+    setModo('cero')
+    setPropuesta(propuestaVacia())
+    setNombre('')
+    setImportId(null)
+    setFallido(null)
+    setErrorCarga(null)
+    setRevision(null)
+    setPublicado(null)
+    setErrorGuardar(null)
+    setErrorPublicar(null)
+    setConfirmado(false)
+    setPaso(3)
+  }
+
   const resetear = () => {
     setPaso(1)
     setFallido(null)
@@ -335,21 +384,13 @@ export function Importar() {
   const cambiarProps = (pi: number, ii: number, patch: Partial<FieldProps>) =>
     mutarItem(pi, ii, (it) => ({ ...it, props: { ...it.props, ...patch } }))
 
-  const quitarItem = (pi: number, ii: number) => {
-    setPropuesta((p) => {
-      if (!p) return p
-      return {
-        ...p,
-        secciones: p.secciones.map((s, si) =>
-          si !== pi ? s : { ...s, items: s.items.filter((_, j) => j !== ii) },
-        ),
-      }
-    })
-  }
+  const quitarItem = (pi: number, ii: number) => setPropuesta((p) => (p ? quitarPregunta(p, pi, ii) : p))
+  const editar = (fn: (p: TemplateImportProposal) => TemplateImportProposal) =>
+    setPropuesta((p) => (p ? fn(p) : p))
 
   /* ── PASO 4 · guardar borrador ────────────────────────────────────────── */
   const guardarBorrador = async () => {
-    if (!propuesta || !importId) return
+    if (!propuesta || (!importId && modo !== 'cero')) return
     setErrorGuardar(null)
     const def = propuestaADefinicion(propuesta)
     if (!def.ok) {
@@ -364,11 +405,14 @@ export function Importar() {
       // ya son PATCH sobre ese borrador, como en el camino sin origen.
       const r = revision
         ? await actualizarBorrador(revision.id, def.definition)
-        : await confirmarImport(importId, {
-            name: nombre.trim(),
-            definition: def.definition,
-            ...(existente && comoVersion ? { template_id: existente.template_id } : {}),
-          })
+        : modo === 'cero' || !importId
+          ? // TSK-FORM-022: formulario nuevo sin archivo de origen.
+            await crearPlantilla({ name: nombre.trim(), definition: def.definition })
+          : await confirmarImport(importId, {
+              name: nombre.trim(),
+              definition: def.definition,
+              ...(existente && comoVersion ? { template_id: existente.template_id } : {}),
+            })
       setRevision(r)
     } catch (err) {
       setErrorGuardar(
@@ -422,6 +466,11 @@ export function Importar() {
             <Boton variante="primaria" onClick={() => ir('plantillas')}>
               Asignar a equipo
             </Boton>
+            {modo === 'cero' && (
+              <Boton variante="secundaria" onClick={empezarDesdeCero}>
+                Crear otro formulario
+              </Boton>
+            )}
             <Boton variante="secundaria" onClick={() => ir('dashboard')}>
               Volver a Gerencia
             </Boton>
@@ -433,6 +482,18 @@ export function Importar() {
 
   return (
     <div className="space-y-6">
+      {modo === 'cero' ? (
+        <header>
+          <p className="label-inst">Formulario nuevo</p>
+          <h1 className="mt-1.5 text-[26px] sm:text-[30px] font-semibold tracking-[-0.03em] leading-[1.1]">
+            Crear formulario
+          </h1>
+          <p className="mt-1.5 text-[13px] text-ink-2 max-w-[68ch] leading-relaxed">
+            Arma las secciones y preguntas, elige el tipo de respuesta de cada una, guarda el borrador y
+            publícalo. La publicación nunca es automática: la confirmas tú.
+          </p>
+        </header>
+      ) : (
       <header>
         <p className="label-inst">Importación asistida</p>
         <h1 className="mt-1.5 text-[26px] sm:text-[30px] font-semibold tracking-[-0.03em] leading-[1.1]">
@@ -445,8 +506,9 @@ export function Importar() {
           automática: la confirmas tú.
         </p>
       </header>
+      )}
 
-      <Stepper paso={paso} />
+      <Stepper paso={paso} modo={modo} />
 
       <AnimatePresence mode="wait" initial={false}>
         <motion.div
@@ -557,6 +619,19 @@ export function Importar() {
                   </Boton>
                 </div>
               )}
+
+              {/* TSK-FORM-022: alternativa sin archivo. */}
+              <div className="panel p-4 flex flex-wrap items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-[13px] font-medium">¿No tienes el formulario en un archivo?</p>
+                  <p className="text-[12px] text-ink-3 leading-relaxed">
+                    Créalo desde cero: agregas secciones y preguntas, y eliges el tipo de respuesta.
+                  </p>
+                </div>
+                <Boton tamano="sm" variante="secundaria" disabled={analizando} onClick={empezarDesdeCero}>
+                  Crear desde cero
+                </Boton>
+              </div>
 
               <AnimatePresence>
                 {errorCarga && (
@@ -688,7 +763,13 @@ export function Importar() {
                 {!nombreValido && (
                   <p className="text-[12px] text-sev-alta">El nombre es obligatorio.</p>
                 )}
-                {existente && !revision && (
+                {existente && !revision && modo === 'cero' && (
+                  <p className="pt-1 text-[12px] text-sev-media leading-relaxed">
+                    Ya existe un formulario llamado «{existente.name}». Se creará uno nuevo con el mismo
+                    nombre; si querías una nueva versión de ese, impórtalo desde un archivo.
+                  </p>
+                )}
+                {existente && !revision && modo !== 'cero' && (
                   <label className="flex items-start gap-2 pt-1 text-[12px] text-ink-2 leading-relaxed">
                     <input
                       type="checkbox"
@@ -707,43 +788,98 @@ export function Importar() {
 
               {errores.length > 0 && (
                 <Aviso>
-                  {errores.length} ítem(s) con props inválidas. Corregí los campos marcados para
-                  continuar.
+                  {errores.length === 1
+                    ? 'Hay 1 pregunta por completar: revisa la marcada abajo.'
+                    : `Hay ${errores.length} preguntas por completar: revisa las marcadas abajo.`}
                 </Aviso>
               )}
 
+              {seccionesSinTitulo > 0 && <Aviso>Cada sección necesita un título.</Aviso>}
+
               {secciones.map((s, pi) => (
                 <section key={`sec-edit-${pi}`} className="space-y-2.5">
-                  <div className="flex items-center gap-3">
-                    <h2 className="label-inst truncate">{s.titulo}</h2>
-                    <span className="flex-1 rule" />
+                  {/* TSK-FORM-022: título editable y controles de la sección. */}
+                  <div className="flex flex-wrap sm:flex-nowrap items-center gap-x-2 gap-y-2">
+                    <span className="label-inst shrink-0">Sección {pi + 1}</span>
+                    <input
+                      value={s.titulo}
+                      onChange={(e) => editar((p) => renombrarSeccion(p, pi, e.target.value))}
+                      aria-label={`Título de la sección ${pi + 1}`}
+                      placeholder="Título de la sección"
+                      className={`${INPUT} h-9 font-medium min-w-0 flex-1`}
+                    />
+                    <div className="flex gap-2 w-full sm:w-auto justify-end">
+                    <BotonIcono
+                      etiqueta={`Subir sección ${pi + 1}`}
+                      onClick={pi > 0 ? () => editar((p) => moverSeccion(p, pi, -1)) : null}
+                    >
+                      <path d="M7.5 11.5v-8M4 7l3.5-3.5L11 7" />
+                    </BotonIcono>
+                    <BotonIcono
+                      etiqueta={`Bajar sección ${pi + 1}`}
+                      onClick={pi < secciones.length - 1 ? () => editar((p) => moverSeccion(p, pi, 1)) : null}
+                    >
+                      <path d="M7.5 3.5v8M4 8l3.5 3.5L11 8" />
+                    </BotonIcono>
+                    <BotonIcono
+                      etiqueta={`Quitar sección ${pi + 1}`}
+                      onClick={
+                        secciones.length > 1
+                          ? () => {
+                              if (
+                                s.items.length === 0 ||
+                                window.confirm(`¿Quitar la sección «${s.titulo || pi + 1}» y sus ${s.items.length} preguntas?`)
+                              ) {
+                                editar((p) => quitarSeccion(p, pi))
+                              }
+                            }
+                          : null
+                      }
+                    >
+                      <path d="M3.2 4h8.6M6 4V2.7h3V4M4.3 4l.5 8h5.4l.5-8" />
+                    </BotonIcono>
+                    </div>
                   </div>
-                  {s.items.length === 0 ? (
+                  {s.items.length === 0 && (
                     <p className="panel px-4 py-3 text-[12px] text-ink-3">
-                      Sección sin ítems. Se guardará vacía salvo que agregues otro archivo.
+                      Esta sección todavía no tiene preguntas.
                     </p>
-                  ) : (
-                    s.items.map((it, ii) => (
-                      <EditorItem
-                        key={it.source ? `${it.source.sheet}:${it.source.column}` : `${pi}:${ii}`}
-                        indice={`${pi + 1}.${ii + 1}`}
-                        item={it}
-                        error={errorDe(pi, ii)}
-                        onPrompt={(v) => mutarItem(pi, ii, (x) => ({ ...x, prompt: v }))}
-                        onTipo={(t) => cambiarTipo(pi, ii, t)}
-                        onRequerido={(v) => cambiarRequerido(pi, ii, v)}
-                        onProps={(patch) => cambiarProps(pi, ii, patch)}
-                        onQuitar={() => quitarItem(pi, ii)}
-                      />
-                    ))
                   )}
+                  {s.items.map((it, ii) => (
+                    <EditorItem
+                      key={it.source ? `${it.source.sheet}:${it.source.column}` : `${pi}:${ii}`}
+                      indice={`${pi + 1}.${ii + 1}`}
+                      item={it}
+                      error={errorDe(pi, ii)}
+                      onPrompt={(v) => mutarItem(pi, ii, (x) => ({ ...x, prompt: v }))}
+                      onTipo={(t) => cambiarTipo(pi, ii, t)}
+                      onRequerido={(v) => cambiarRequerido(pi, ii, v)}
+                      onProps={(patch) => cambiarProps(pi, ii, patch)}
+                      onQuitar={() => quitarItem(pi, ii)}
+                      onSubir={ii > 0 ? () => editar((p) => moverPregunta(p, pi, ii, -1)) : null}
+                      onBajar={ii < s.items.length - 1 ? () => editar((p) => moverPregunta(p, pi, ii, 1)) : null}
+                    />
+                  ))}
+                  <Boton tamano="sm" variante="fantasma" onClick={() => editar((p) => agregarPregunta(p, pi))}>
+                    + Agregar pregunta
+                  </Boton>
                 </section>
               ))}
 
+              <Boton variante="secundaria" onClick={() => editar((p) => agregarSeccion(p))}>
+                + Agregar sección
+              </Boton>
+
               <footer className="flex items-center justify-between gap-3 pt-1">
-                <Boton variante="fantasma" onClick={() => setPaso(2)}>
-                  Atrás
-                </Boton>
+                {modo === 'cero' ? (
+                  <Boton variante="fantasma" onClick={() => ir('plantillas')}>
+                    Cancelar
+                  </Boton>
+                ) : (
+                  <Boton variante="fantasma" onClick={() => setPaso(2)}>
+                    Atrás
+                  </Boton>
+                )}
                 <Boton variante="primaria" disabled={!puedeContinuar} onClick={() => setPaso(4)}>
                   Continuar
                 </Boton>
@@ -777,8 +913,9 @@ export function Importar() {
                       Guardar borrador
                     </h2>
                     <p className="mt-1 text-[12px] text-ink-2 leading-relaxed">
-                      Se persiste la definición con ids y posiciones generadas, y queda guardado el
-                      archivo original: la plantilla podrá exportar el documento rellenado.
+                      {modo === 'cero'
+                        ? 'Se guarda el formulario con sus secciones y preguntas. Se podrá exportar en Excel consolidado, PDF o Word. '
+                        : 'Se persiste la definición con ids y posiciones generadas, y queda guardado el archivo original: la plantilla podrá exportar el documento rellenado. '}
                       Todavía no se publica: la revisión queda en estado{' '}
                       <span className="text-ink">draft</span> hasta que la confirmes.
                     </p>
@@ -885,11 +1022,14 @@ export function Importar() {
 }
 
 /* ── Stepper ─────────────────────────────────────────────────────────────── */
-function Stepper({ paso }: { paso: number }) {
+function Stepper({ paso, modo }: { paso: number; modo: 'importar' | 'cero' }) {
+  // Desde cero no hay Subir ni Preview: se ven Editar → Borrador → Publicar (1–3).
+  const offset = modo === 'cero' ? 2 : 0
+  const pasos = PASOS.slice(offset)
   return (
-    <ol className="flex items-center gap-1.5 flex-wrap" aria-label="Pasos de la importación">
-      {PASOS.map((label, i) => {
-        const n = i + 1
+    <ol className="flex items-center gap-1.5 flex-wrap" aria-label={modo === 'cero' ? 'Pasos para crear el formulario' : 'Pasos de la importación'}>
+      {pasos.map((label, i) => {
+        const n = i + 1 + offset
         const activo = n === paso
         const hecho = n < paso
         return (
@@ -912,15 +1052,35 @@ function Stepper({ paso }: { paso: number }) {
                   activo ? 'bg-beam text-on-beam' : hecho ? 'bg-synced/20 text-synced' : 'bg-s3 text-ink-3',
                 ].join(' ')}
               >
-                {hecho ? '✓' : n}
+                {hecho ? '✓' : n - offset}
               </span>
               {label}
             </span>
-            {n < PASOS.length && <span className="h-px w-3 bg-line-soft" aria-hidden />}
+            {i < pasos.length - 1 && <span className="h-px w-3 bg-line-soft" aria-hidden />}
           </li>
         )
       })}
     </ol>
+  )
+}
+
+/* ── Botón de ícono del editor (reordenar) ─────────────────────────────────
+ * 40 px como el de quitar; deshabilitado cuando la pregunta/sección ya está en
+ * el borde. TSK-FORM-022. */
+function BotonIcono({ etiqueta, onClick, children }: { etiqueta: string; onClick: (() => void) | null; children: ReactNode }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick ?? undefined}
+      disabled={!onClick}
+      aria-label={etiqueta}
+      title={etiqueta}
+      className="shrink-0 h-10 w-10 grid place-items-center rounded-[10px] border border-line-soft text-ink-3 hover:text-ink hover:border-line transition-colors duration-150 cursor-pointer disabled:opacity-35 disabled:cursor-not-allowed disabled:hover:text-ink-3 disabled:hover:border-line-soft"
+    >
+      <svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        {children}
+      </svg>
+    </button>
   )
 }
 
@@ -934,6 +1094,8 @@ function EditorItem({
   onRequerido,
   onProps,
   onQuitar,
+  onSubir,
+  onBajar,
 }: {
   indice: string
   item: ProposedItem
@@ -943,6 +1105,9 @@ function EditorItem({
   onRequerido: (v: boolean) => void
   onProps: (patch: Partial<FieldProps>) => void
   onQuitar: () => void
+  /** TSK-FORM-022: reordenar; null = ya está en el borde. */
+  onSubir: (() => void) | null
+  onBajar: (() => void) | null
 }) {
   const p = item.props
 
@@ -955,14 +1120,23 @@ function EditorItem({
 
   return (
     <div className={['panel p-4 space-y-3', error ? 'border-sev-alta/40' : ''].join(' ')}>
-      <div className="flex items-start gap-3">
+      <div className="flex flex-wrap sm:flex-nowrap items-start gap-x-3 gap-y-2">
         <span className="label-inst mt-3 shrink-0 w-7">{indice}</span>
         <input
           value={item.prompt}
           onChange={(e) => onPrompt(e.target.value)}
           aria-label={`Texto del ítem ${indice}`}
-          className={INPUT}
+          placeholder="Escribe la pregunta"
+          className={`${INPUT} min-w-0 flex-1`}
         />
+        {/* En móvil los botones bajan a su fila: el texto de la pregunta necesita el ancho. */}
+        <div className="flex gap-2 w-full sm:w-auto justify-end">
+        <BotonIcono etiqueta={`Subir ítem ${indice}`} onClick={onSubir}>
+          <path d="M7.5 11.5v-8M4 7l3.5-3.5L11 7" />
+        </BotonIcono>
+        <BotonIcono etiqueta={`Bajar ítem ${indice}`} onClick={onBajar}>
+          <path d="M7.5 3.5v8M4 8l3.5 3.5L11 8" />
+        </BotonIcono>
         <button
           type="button"
           onClick={onQuitar}
@@ -979,6 +1153,7 @@ function EditorItem({
             />
           </svg>
         </button>
+        </div>
       </div>
 
       <div className="grid sm:grid-cols-2 gap-3">
