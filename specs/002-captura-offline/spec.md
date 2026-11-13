@@ -3,7 +3,7 @@
 | | |
 | :--- | :--- |
 | **Estado** | COMPLETO (ciclo del módulo, F2 · 2026-10-13) |
-| **Versión** | 0.3.6 |
+| **Versión** | 0.3.7 |
 | **Autor** | Daniel Ávila |
 | **Padre** | specs/000-master/spec.md |
 | **Depende de** | 001 (sesión/tenant), 004 (plantillas a renderizar offline) |
@@ -68,6 +68,8 @@ Targets táctiles amplios, alto contraste para luz solar, y **autoguardado de bo
 
 **Lenguaje y legibilidad** (TSK-OFF-009): las pantallas hablan de formularios, preguntas, envíos y "este teléfono", no de plantillas dinámicas, caché, cola de sincronización ni identificadores internos. El texto secundario mide al menos 12 px y mantiene contraste ≥ 4,5:1 sobre todas las superficies en ambos temas; el borde de los campos y controles alcanza 3:1 (WCAG 1.4.11) con un token propio (`--color-campo`); los objetivos táctiles de captura, bitácora y navegación miden al menos 44 px; y el encabezado muestra el nombre y la faena de la sesión también en el teléfono.
 
+**Faena de la sesión** (TSK-OFF-010, FR-034): una cuenta pertenece a una empresa, no a una faena. Si la empresa tiene más de una, la pantalla Formularios muestra las faenas y la persona elige en cuál está; la app recuerda la elección por usuario y equipo. Al iniciar sesión manda, en este orden: la faena de la inspección en curso, la última elegida, la primera de la empresa (y en ese caso pregunta "¿En qué faena estás hoy?"). Cambiar de faena recarga los formularios asignados a ella (FR-009) y es la faena a la que queda asociada la próxima inspección; con una inspección sin enviar no se permite el cambio, porque el borrador ya nació asociado a su faena. Para que el cambio funcione sin conexión, al iniciar sesión con señal se guarda también el catálogo de formularios de las otras faenas (hasta 12); los documentos originales para exportar siguen bajándose sólo para la faena activa (FR-018). La bitácora parte en la faena de la sesión. Queda fuera de esta tarea restringir qué faenas puede elegir cada cuenta: hoy cualquier cuenta de la empresa puede elegir cualquiera de sus faenas, igual que el servidor acepta inspecciones de cualquier faena del tenant.
+
 ## 5. Cache del service worker (Workbox)
 
 `vite-plugin-pwa` con `registerType: 'autoUpdate'`:
@@ -107,6 +109,7 @@ La toma usa `getUserMedia` y prefiere la cámara trasera. El stream se detiene a
 
 | Versión | Fecha | Cambio | Autor |
 | :--- | :--- | :--- | :--- |
+| 0.3.7 | 2026-11-13 | TSK-OFF-010: faena de la sesión elegible, recordada por usuario y equipo, con catálogo de las otras faenas disponible sin conexión | Daniel Ávila (con IA) |
 | 0.3.6 | 2026-11-13 | TSK-OFF-007/008/009: botón Atrás con historial, cierre con confirmación de envío y sin turno fijo, lenguaje claro y legibilidad (texto ≥ 12 px, contraste AA, borde de campos 3:1) | Daniel Ávila (con IA) |
 | 0.3.5 | 2026-11-13 | TSK-OFF-006: cola legible por unidad de trabajo | Daniel Ávila (con IA) |
 | 0.3.4 | 2026-11-13 | TSK-OFF-005: modo claro y oscuro con botón, tokens por tema y fijado antes del primer pintado | Daniel Ávila (con IA) |

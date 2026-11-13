@@ -1,6 +1,6 @@
 # TEST PLAN — Plan de pruebas de validación
 
-**Versión:** 1.2.8 · **Fecha:** 2026-09-14 · actualizado 2026-11-13 · **Autor:** Raúl González (validación) · **Relacionado:** spec maestro §5–6, constitución Artículos III/IV/VII
+**Versión:** 1.2.9 · **Fecha:** 2026-09-14 · actualizado 2026-11-13 · **Autor:** Raúl González (validación) · **Relacionado:** spec maestro §5–6, constitución Artículos III/IV/VII
 **Evidencia APT:** "Plan de pruebas de validación" (informe §6) y soporte de la competencia "Realizar pruebas de certificación de productos y procesos".
 
 ## 1. Principio rector
@@ -50,7 +50,7 @@ verde.
 | FR-056/057/061 | Inspector firma sin red → recarga → sync; reintento del lote deja una firma por rol; cofirma sólo por supervisor/admin del mismo tenant y `reviewed` se rechaza si falta | Unit + Integración + E2E + caos | `frontend/test/firma-cierre.test.ts` y `firma-offline.test.ts` 🟢; `backend/test/supervision.spec.ts` (cofirma, pendiente de ejecución con Docker); E2E de recarga y caos de reintento pendientes | 🟡 en revisión (#191: cobertura parcial) |
 | FR-059/061 | Crear programación puntual/diaria/semanal/mensual con zona IANA; ejecutar worker dos veces y comprobar una sola ocurrencia; completar una ocurrencia ya sincronizada sin red | Unit + Integración + E2E + caos | Plan: `plans/008-operacion-certificada/plan.md` §2.3/§4 | 🟡 por implementar (Enmienda 007) |
 | FR-058/061 | Evento crítico/cierre/programación crea una outbox única; fallo del proveedor reintenta sin cambiar la inspección ni duplicar correo lógico; destinatario cross-tenant no es visible | Unit + Integración + caos | Plan: `plans/008-operacion-certificada/plan.md` §2.3/§4 | 🟡 por implementar (Enmienda 007) |
-| FR-034 | *(Enmienda 004: sin geolocalización)* Cada captura queda asociada a una faena del tenant; el envío ya no pide ubicación y el sync sigue aceptando `location` nulo de colas antiguas | Integración | `backend/test/sync.spec.ts` (location opcional) | ⚪ geolocalización fuera de V1 · 🟢 asociación a faena |
+| FR-034 | *(Enmienda 004: sin geolocalización)* Cada captura queda asociada a una faena del tenant; el envío ya no pide ubicación y el sync sigue aceptando `location` nulo de colas antiguas | Integración + Unit | `backend/test/sync.spec.ts` (location opcional); *(TSK-OFF-010)* `frontend/test/faena.test.ts`: la sesión arranca en la faena del borrador, la última elegida o la primera (pidiendo elegir), y no se cambia de faena con una inspección sin enviar | ⚪ geolocalización fuera de V1 · 🟢 asociación a faena |
 | FR-040/043, NFR-03 | Procesamiento del lote ≤ 60 s (`sync_log`) y espera sin señal informada aparte, ambas con un solo reloj (Enmienda 004, TSK-REP-006) | Integración con relojes de dispositivo desfasados | `backend/test/dashboard-supervision.spec.ts` + `frontend/test/supervision-titulares.test.ts` | ✅ |
 | FR-041 | Dashboard: filtros de faena, rango de fechas, severidad y autor | Integración | `backend/test/dashboard.spec.ts` (`dashboardFiltrosSchema`, `findingsFiltrosSchema.autor_id`) | 🟢 verde |
 | FR-042 | Export de la vista de hallazgos a CSV (columnas y escapado) | Unit | `frontend/src/lib/dashboard-csv.ts` (`construirCsvHallazgos`) + `frontend/test/dashboard-csv.test.ts` | 🟢 verde |
@@ -90,10 +90,10 @@ verde.
 ```
 E2E + caos (Playwright, manual)           23 tests
 Integración backend (Vitest + Testcontainers) 260 tests
-Unidad frontend (Vitest)                     192 tests
+Unidad frontend (Vitest)                     199 tests
 Unidad shared (Vitest)                        92 tests
                                            ───────────────
-                                           567 tests   (v1.4, TSK-REP-008, 2026-11-13)
+                                           574 tests   (v1.4, TSK-OFF-010, 2026-11-13)
 ```
 
 > El criterio de salida de Fase 2 (§8) pide "matriz §3 ≥ 90% verde": hoy está en
@@ -208,6 +208,7 @@ y nunca bloquea un PR. Informe por módulo en
 
 | Versión | Fecha | Cambio | Autor |
 | :--- | :--- | :--- | :--- |
+| 1.2.9 | 2026-11-13 | **TSK-OFF-010:** `faena.test.ts` (7) en la fila FR-034; volumen 574 tests (frontend 199) | Daniel Ávila (con IA) |
 | 1.2.8 | 2026-11-13 | **TSK-REP-008 (Enmienda 008, FR-062):** fila nueva FR-062 con `attachments.spec.ts` (7) y `fotos.test.ts` (3); recuento 48 filas (44 🟢); volumen 567 tests (backend 260 = 253 documentados + 7 nuevos, validados en CI; frontend 192) | Daniel Ávila (con IA) |
 | 1.2.7 | 2026-11-13 | **TSK-OFF-007/008/009 (Fase 0 del plan de mejora):** `hallazgo.test.ts` (11) en la fila FR-009/032/036 y `navegacion.test.ts` (9) para el botón Atrás (FR-010/011); volumen 557 tests (frontend 189, contados en esta corrida; el backend no se re-ejecutó en local) | Daniel Ávila (con IA) |
 | 1.2.6 | 2026-11-13 | **TSK-OPS-003-B (#191, PR #193)**, revisado e integrado por Daniel Ávila: firma de inspector offline y cofirma; `signature_required` sólo lo declara el cliente que firma (las colas de la app anterior quedan revisables); la firma no retrocede una inspección ya revisada; firma agrupada en la cola legible; E2E firman con el pad (`firmarYEnviar`); diálogo de firma con foco y Escape | Raúl González / Daniel Ávila (con IA) |
