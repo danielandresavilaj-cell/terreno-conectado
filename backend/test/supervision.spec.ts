@@ -143,8 +143,12 @@ describe('autoría desde el JWT (TSK-DOM-005)', () => {
 
 describe('ciclo de supervisión (FR-031/032)', () => {
   it('exige firma del inspector y cofirma configurada antes de revisar', async () => {
-    const inspeccion = inspeccionWire(ids.workerA)
+    const inspeccion = inspeccionWire(ids.workerA) as ReturnType<typeof inspeccionWire> & {
+      payload: { signature_required?: boolean }
+    }
     inspeccion.payload.requires_supervisor_signature = true
+    // La app que firma lo declara (FR-056); sin esto la inspección es de la app anterior.
+    inspeccion.payload.signature_required = true
     const firma = firmaWire(inspeccion.id, ids.workerA)
     const ingreso = await server().post('/api/v1/sync/batch').set(como('workerA')).send(lote([inspeccion, firma]))
     expect(ingreso.status).toBe(200)
@@ -162,6 +166,13 @@ describe('ciclo de supervisión (FR-031/032)', () => {
       [inspeccion.id],
     )
     expect(firmas.rows.map((f) => f.signer_role)).toEqual(['inspector', 'supervisor'])
+  })
+
+  it('una inspección de la app anterior (sin firma declarada) sigue siendo revisable', async () => {
+    const inspeccion = inspeccionWire(ids.workerA)
+    const ingreso = await server().post('/api/v1/sync/batch').set(como('workerA')).send(lote([inspeccion]))
+    expect(ingreso.status).toBe(200)
+    expect((await server().patch(`/api/v1/inspections/${inspeccion.id}/review`).set(como('supA'))).status).toBe(200)
   })
 
   it('revisa una inspección enviada; el trabajador no puede', async () => {
