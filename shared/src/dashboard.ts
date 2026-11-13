@@ -72,6 +72,25 @@ export interface DashboardFindingsResponse {
   items: FindingDto[]
   total: number
 }
+
+/** TSK-REP-009 (FR-033/063): una entrada de bitácora leída desde el servidor. */
+export interface BitacoraEntradaDto {
+  id: string
+  faena_id: string
+  faena_nombre: string
+  autor_id: string
+  autor: string
+  texto: string
+  tags: string[]
+  /** Fecha del turno (YYYY-MM-DD) que registró el dispositivo. */
+  fecha_turno: string
+  captured_at: string
+}
+
+export interface BitacoraResponse {
+  items: BitacoraEntradaDto[]
+  total: number
+}
 /* ── Exportación de inspecciones (TSK-FORM-010, FR-044) ─────────────────────
  * El supervisor ve las inspecciones del período y pide el `.xlsx` original
  * rellenado. El contrato vive aquí porque lo consumen las dos puntas: el backend

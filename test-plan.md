@@ -1,6 +1,6 @@
 # TEST PLAN — Plan de pruebas de validación
 
-**Versión:** 1.2.9 · **Fecha:** 2026-09-14 · actualizado 2026-11-13 · **Autor:** Raúl González (validación) · **Relacionado:** spec maestro §5–6, constitución Artículos III/IV/VII
+**Versión:** 1.3.0 · **Fecha:** 2026-09-14 · actualizado 2026-11-13 · **Autor:** Raúl González (validación) · **Relacionado:** spec maestro §5–6, constitución Artículos III/IV/VII
 **Evidencia APT:** "Plan de pruebas de validación" (informe §6) y soporte de la competencia "Realizar pruebas de certificación de productos y procesos".
 
 ## 1. Principio rector
@@ -74,12 +74,13 @@ verde.
 | FR-045/046/047 (Enmienda 005) | Excel consolidado (Resumen + hoja por formulario + Hallazgos + Evidencias, columnas unidas entre versiones, plantilla hecha a mano), PDF y Word (un archivo o ZIP), selección por `ids` con RLS, filtros de formulario/estado, tope 413, 404, 400, roles y auditoría | Unit + integración | `shared/src/exportar/consolidado.test.ts`, `backend/test/inspection-report.spec.ts`, `frontend/test/exportar-inspecciones.test.ts` | ✅ |
 | FR-047 + FR-051 | Import confirmado y export por lote registrados en el audit log (autor, timestamp, tenant) | Integración | `backend/test/import-wizard.spec.ts`, `inspection-export-lote.spec.ts` | 🟢 verde |
 | FR-062 | *(Enmienda 008)* Supervisión ve en pantalla la foto de una respuesta o de un hallazgo: mismos bytes que subió el dispositivo y tipo de imagen explícito; otra empresa → 404 (RLS), trabajador y plataforma → 403, sin sesión → 401; no sirve el original de un import; archivo ausente → 404 con motivo; el detalle nombra la foto de cada respuesta y hallazgo | Integración + Unit | `backend/test/attachments.spec.ts`; `frontend/test/fotos.test.ts` (caché: una descarga por foto, no recuerda fallos, descarta la menos usada) | 🟢 verde |
+| FR-063 | *(Enmienda 008)* El trabajador, la supervisión y la administración leen la bitácora de la empresa, más reciente primero, con autor y faena; filtros por faena y período, paginación; otra empresa no ve entradas (RLS), plataforma → 403, sin sesión → 401, filtro inválido → 400 | Integración | `backend/test/bitacora.spec.ts` | 🟢 verde |
 | FR-048 | *(Enmienda 006)* La IA (opcional, sólo backend) propone secciones e ítems desde PDF, Word o foto, y la propuesta nunca se publica sin la confirmación explícita del `tenant_admin`. *(TSK-FORM-022)* Un formulario creado desde cero sigue el mismo camino: borrador por `POST /templates` y publicación explícita, con las mismas validaciones de props; sin clave la función queda apagada | Integración + Unit | `backend/test/import-ia.spec.ts` (analizador falso), `import-wizard.spec.ts`, `templates.http.spec.ts`, `frontend/test/editor-formulario.test.ts` | 🟢 verde |
 | FR-049 | Revisión publicada inmutable: ítems ya inspeccionados no se modifican; el cambio exige revisión nueva | Integración | `backend/test/templates.http.spec.ts` (409 al editar publicado) | 🟢 verde |
 | FR-050 | `platform_admin` crea tenant, le asigna el `tenant_admin` inicial y lo suspende/reactiva; un rol distinto recibe 403 en toda la consola | Integración | `backend/test/admin.spec.ts` | 🟢 verde |
 | FR-051 (`admin`) | Cada mutación admin deja exactamente una fila en `audit_log` con `actor_id` y `tenant_id` correctos; `tc_app` no puede UPDATE/DELETE y la API no expone rutas de modificación | Integración | `backend/test/admin.spec.ts` | 🟢 verde |
 
-**Recuento (2026-11-13):** 48 filas · 🟢 44 (91,7%) · 🟡 3 (6,3%) · 🔴 0 · ⚪ 1 (2,1%). FR-056/057/061 está en revisión con una prueba unitaria verde y validación de integración/E2E/caos pendiente; FR-058/059/061 siguen por implementar. De lo ya validado, **44/45 (97,8%) está en verde**.
+**Recuento (2026-11-13):** 49 filas · 🟢 45 (91,8%) · 🟡 3 (6,1%) · 🔴 0 · ⚪ 1 (2,0%). FR-056/057/061 está en revisión con una prueba unitaria verde y validación de integración/E2E/caos pendiente; FR-058/059/061 siguen por implementar. De lo ya validado, **45/46 (97,8%) está en verde**.
 
 > La única fila con ⚪ es **FR-034**, y solo por la parte de geolocalización, que la
 > Enmienda 004 sacó de V1; su parte vigente (asociación a faena) está en 🟢. FR-048
@@ -89,11 +90,11 @@ verde.
 **Volumen de pruebas en la corrida de referencia:**
 ```
 E2E + caos (Playwright, manual)           23 tests
-Integración backend (Vitest + Testcontainers) 260 tests
+Integración backend (Vitest + Testcontainers) 264 tests
 Unidad frontend (Vitest)                     199 tests
 Unidad shared (Vitest)                        92 tests
                                            ───────────────
-                                           574 tests   (v1.4, TSK-OFF-010, 2026-11-13)
+                                           578 tests   (v1.4, TSK-REP-009, 2026-11-13)
 ```
 
 > El criterio de salida de Fase 2 (§8) pide "matriz §3 ≥ 90% verde": hoy está en
@@ -208,6 +209,7 @@ y nunca bloquea un PR. Informe por módulo en
 
 | Versión | Fecha | Cambio | Autor |
 | :--- | :--- | :--- | :--- |
+| 1.3.0 | 2026-11-13 | **TSK-REP-009 (Enmienda 008, FR-063):** fila nueva FR-063 con `bitacora.spec.ts` (4); recuento 49 filas (45 🟢); volumen 578 tests (backend 264, validados en CI) | Daniel Ávila (con IA) |
 | 1.2.9 | 2026-11-13 | **TSK-OFF-010:** `faena.test.ts` (7) en la fila FR-034; volumen 574 tests (frontend 199) | Daniel Ávila (con IA) |
 | 1.2.8 | 2026-11-13 | **TSK-REP-008 (Enmienda 008, FR-062):** fila nueva FR-062 con `attachments.spec.ts` (7) y `fotos.test.ts` (3); recuento 48 filas (44 🟢); volumen 567 tests (backend 260 = 253 documentados + 7 nuevos, validados en CI; frontend 192) | Daniel Ávila (con IA) |
 | 1.2.7 | 2026-11-13 | **TSK-OFF-007/008/009 (Fase 0 del plan de mejora):** `hallazgo.test.ts` (11) en la fila FR-009/032/036 y `navegacion.test.ts` (9) para el botón Atrás (FR-010/011); volumen 557 tests (frontend 189, contados en esta corrida; el backend no se re-ejecutó en local) | Daniel Ávila (con IA) |

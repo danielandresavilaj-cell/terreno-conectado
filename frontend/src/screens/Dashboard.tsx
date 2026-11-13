@@ -51,6 +51,7 @@ import { BloquesSupervision } from '../components/dashboard/BloquesSupervision'
 import { PanelExportar } from '../components/dashboard/PanelExportar'
 import { FirmaCierre } from '../components/FirmaCierre'
 import { FotoEvidencia } from '../components/FotoEvidencia'
+import { BitacoraFaena } from '../components/BitacoraFaena'
 import { PERIODOS, rangoPeriodo, type Periodo, type RangoFechas } from '../lib/periodos'
 import { EASE } from '../lib/motion'
 import type { DashboardSummary, DashboardSupervision, FindingDto, InspectionDetalle, InspectionListaItem } from '@terreno/shared'
@@ -225,6 +226,15 @@ export function Dashboard() {
   }, [cargar])
 
   const faenas = identidad?.faenas ?? []
+
+  /* TSK-REP-009: rango de la bitácora. La ventana móvil depende de la hora, así
+   * que se congela y sólo avanza cuando el panel se refresca (`datos`); si se
+   * recalculara en cada render, la bitácora se volvería a pedir sin parar. */
+  const rangoBitacora = useMemo(
+    () => filtrosDe(periodo, faena, rango),
+    // `datos` no se usa dentro: marca el refresco de 30 s.
+    [periodo, faena, rango, datos],
+  )
 
   /* Cómo se llama en pantalla el filtro de faena activo. Se calcula una vez y lo
    * usan el `Chip` del bloque y el `alcance` del lote, para que el rótulo del
@@ -740,6 +750,23 @@ export function Dashboard() {
               </section>
             </>
           )}
+
+          {/* TSK-REP-009: la bitácora del equipo, con el mismo período y faena del panel. */}
+          <section className="space-y-2.5">
+            <div className="flex items-center gap-3">
+              <h2 className="label-inst">Bitácora del equipo</h2>
+              <div className="flex-1 rule" />
+              <Chip>{nombreFaena}</Chip>
+            </div>
+            <BitacoraFaena
+              faenaId={faena === 'todas' ? null : faena}
+              desde={rangoBitacora.desde ?? undefined}
+              hasta={rangoBitacora.hasta ?? undefined}
+              online={online}
+              limite={20}
+              mostrarFaena={faena === 'todas'}
+            />
+          </section>
 
           <p className="text-[13px] text-ink-3 leading-relaxed border-t border-line-soft pt-4">
             Sólo {identidad?.tenantNombre ?? 'tu empresa'} puede ver estos datos. Se actualizan

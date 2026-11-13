@@ -1,8 +1,8 @@
 # TASKS — Módulo 005: Reportes y gerencia
 
-**Versión:** 0.5.0 · **Fecha:** 2026-11-13 · **Autor:** Daniel Ávila
+**Versión:** 0.6.0 · **Fecha:** 2026-11-13 · **Autor:** Daniel Ávila
 **Padre:** `plans/005-reportes-gerencia/plan.md` · **Spec:** `specs/005-reportes-gerencia/spec.md`
-**Issue:** #8 · **Requisitos:** FR-040…FR-047, FR-062, NFR-03
+**Issue:** #8 · **Requisitos:** FR-040…FR-047, FR-062, FR-063, NFR-03
 
 > **Regla (Artículo II):** cada task referencia al menos un ID de requisito; cada commit referencia al menos un task.
 
@@ -22,6 +22,7 @@ La auditoría del 2026-10-13 sobre `main` muestra **FR-040/042 implementados** y
 | TSK-REP-006 | Dashboard de supervisión v1.1: hallazgos, revisión, actividad y sincronización con métricas de un solo reloj | FR-040, FR-043, NFR-03 | TSK-AUTH-011 | `backend/test/dashboard-supervision.spec.ts` (incluye reloj de dispositivo desfasado y RLS) y `frontend/test/supervision-titulares.test.ts` verdes; migración 016 | ✅ Hecho (0.3.0) |
 | TSK-REP-007 | Exportar inspecciones: Excel consolidado, PDF y Word, con filtros de formulario/estado/autor, meses calendario, rango libre y selección | FR-045, FR-046, FR-047 | TSK-REP-006, TSK-FORM-020 | `consolidado.test.ts`, `inspection-report.spec.ts` y `exportar-inspecciones.test.ts` verdes; suites de export existentes sin regresión | ✅ Hecho (0.4.0) |
 | TSK-REP-008 | Evidencia fotográfica visible en supervisión | FR-062 | TSK-REP-006 | `GET /dashboard/attachments/:id` entrega los bytes de la foto con RLS y roles del dashboard (otra empresa → 404, trabajador → 403); el detalle trae `foto_id` por respuesta y `hallazgos`; el listado de hallazgos y el detalle muestran miniatura con visor. `backend/test/attachments.spec.ts` y `frontend/test/fotos.test.ts` verdes | ✅ Hecho (0.5.0) |
+| TSK-REP-009 | Bitácora legible por el equipo y la supervisión | FR-033, FR-063 | TSK-REP-008 | `GET /dashboard/bitacora` filtra por faena y período, pagina y respeta RLS (otra empresa no ve nada, plataforma → 403); la pantalla Bitácora muestra "De la faena" y Gerencia "Bitácora del equipo". `backend/test/bitacora.spec.ts` verde | ✅ Hecho (0.6.0) |
 
 ## Criterios de salida del módulo
 
@@ -34,6 +35,7 @@ La auditoría del 2026-10-13 sobre `main` muestra **FR-040/042 implementados** y
 
 | Versión | Fecha | Cambio | Autor |
 | :--- | :--- | :--- | :--- |
+| 0.6.0 | 2026-11-13 | Se agrega TSK-REP-009 (bitácora legible, FR-063) | Daniel Ávila (con IA) |
 | 0.5.0 | 2026-11-13 | Se agrega TSK-REP-008 (evidencia fotográfica visible, FR-062, Enmienda 008) | Daniel Ávila (con IA) |
 | 0.4.0 | 2026-11-11 | Se agrega TSK-REP-007 (exportación consolidada, PDF y Word) | Daniel Ávila |
 | 0.3.0 | 2026-11-11 | Se agrega TSK-REP-006 (dashboard de supervisión v1.1) | Daniel Ávila |
