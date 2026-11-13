@@ -23,22 +23,21 @@ export function Formularios() {
   return (
     <div className="space-y-5">
       <header>
-        <p className="label-inst">Formularios asignados</p>
+        <p className="label-inst">Formularios</p>
         <h1 className="mt-1.5 text-[26px] sm:text-[30px] font-semibold tracking-[-0.03em] leading-[1.1] text-pretty">
           Elige qué vas a inspeccionar
         </h1>
-        <p className="mt-2 text-[13px] text-ink-2 max-w-[62ch] leading-relaxed">
-          Sólo aparecen los formularios habilitados para tu faena y tu rol. Tu selección se conserva
-          en este dispositivo hasta que elijas otro formulario.
+        <p className="mt-2 text-[14px] text-ink-2 max-w-[62ch] leading-relaxed">
+          Estos son los formularios habilitados para tu faena.
         </p>
       </header>
 
       {hayBorrador && plantilla && (
         <section className="panel p-4 border-beam/35 bg-beam/[0.05] flex flex-wrap items-center justify-between gap-3">
           <div className="min-w-0">
-            <p className="label-inst">Borrador en curso</p>
+            <p className="label-inst">Inspección en curso</p>
             <p className="mt-1 text-[14px] font-semibold truncate">{plantilla.nombre}</p>
-            <p className="mt-1 text-[12px] text-ink-2">Termina o descarta este borrador antes de cambiar de formulario.</p>
+            <p className="mt-1 text-[13px] text-ink-2">Tienes una inspección sin enviar. Termínala antes de empezar otra.</p>
           </div>
           <Boton tamano="sm" variante="primaria" onClick={() => ir('captura')} data-testid="continue-draft">
             Continuar
@@ -52,7 +51,7 @@ export function Formularios() {
         <section className="panel p-8 text-center">
           <h2 className="text-[15px] font-semibold">Todavía no tienes formularios asignados</h2>
           <p className="mt-2 text-[13px] text-ink-2 max-w-[48ch] mx-auto leading-relaxed">
-            Pídele al administrador que publique el formulario y lo asigne a tu faena y rol desde Plantillas.
+            Pídele a tu administrador que publique un formulario y lo asigne a tu faena.
           </p>
         </section>
       ) : (
@@ -64,8 +63,8 @@ export function Formularios() {
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <h2 className="text-[16px] font-semibold tracking-[-0.015em] break-words">{formulario.name}</h2>
-                    <p className="mt-1 text-[12px] text-ink-3">
-                      {itemsDe(formulario.definition).length} ítems · versión {formulario.version}
+                    <p className="mt-1 text-[13px] text-ink-2">
+                      {itemsDe(formulario.definition).length} preguntas · versión {formulario.version}
                     </p>
                   </div>
                   {activa && <Chip color="var(--color-beam)">Seleccionado</Chip>}

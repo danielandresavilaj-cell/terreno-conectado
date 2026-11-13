@@ -199,7 +199,7 @@ export function Login() {
                     type="button"
                     onClick={() => setOculto((v) => !v)}
                     aria-label={oculto ? 'Mostrar contraseña' : 'Ocultar contraseña'}
-                    className="absolute right-1 top-1 h-9 w-9 grid place-items-center rounded-lg text-ink-3 hover:text-ink hover:bg-s3 transition-colors duration-150 cursor-pointer"
+                    className="absolute right-0 top-0 h-11 w-11 grid place-items-center rounded-lg text-ink-2 hover:text-ink hover:bg-s3 transition-colors duration-150 cursor-pointer"
                   >
                     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
                       <path
@@ -250,7 +250,7 @@ export function Login() {
                     role="alert"
                   >
                     <span className="mt-[3px] h-1.5 w-1.5 rounded-full bg-sev-alta shrink-0" />
-                    <p className="text-[12px] leading-relaxed text-sev-alta">{error}</p>
+                    <p className="text-[14px] leading-relaxed text-sev-alta">{error}</p>
                   </motion.div>
                 )}
               </AnimatePresence>

@@ -1,12 +1,9 @@
 /* Shell de la app + Barra de sincronización.
  *
  * La barra es el corazón del producto (Artículo I: offline-first es la promesa).
- * En el mockup debe poder encenderse y apagarse la señal para que el docente
- * vea el ciclo pending → syncing → synced sin real red.
+ * El estado de señal es el de la red real (`navigator.onLine`).
  *
  * MOVIMIENTO (decisiones):
- * · El toggle de señal hace pop de escala al cambiar — acción manual, rara,
- *   y su resultado (offline/online) es el mensaje central. Confirma el clic.
  * · El contador de pendientes ANIMA SU VALOR (count-up) cuando cambia. Antes
  *   se usaba solo latido; el latido solo dice "hay algo pendiente" pero no
  *   CUÁNTO, y el número es lo que el usuario vigila durante el turno. El
@@ -150,8 +147,19 @@ const NAV: Array<{ id: Pantalla; label: string; roles: Rol[]; icono: ReactNode }
 ]
 
 export function Shell({ children }: { children: ReactNode }) {
-  const { usuario, salir, pantalla, ir, online, enviosPendientes, cuotaAviso, cuota, sincronizarAhora, sesionExpirada } =
-    useEstado()
+  const {
+    usuario,
+    salir,
+    pantalla,
+    ir,
+    online,
+    enviosPendientes,
+    cuotaAviso,
+    cuota,
+    sincronizarAhora,
+    sesionExpirada,
+    avisoSalir,
+  } = useEstado()
   const reducir = useReducedMotion()
   const [verAviso, setVerAviso] = useState(false)
 
@@ -183,11 +191,14 @@ export function Shell({ children }: { children: ReactNode }) {
             <div className="h-7 w-7 rounded-[8px] bg-beam grid place-items-center shrink-0">
               <span className="text-on-beam font-bold text-[12px] leading-none">TC</span>
             </div>
-            <div className="min-w-0 hidden sm:block">
+            {/* En el teléfono también se ve quién está capturando y en qué
+                faena: es lo primero que alguien revisa al tomar un equipo
+                compartido (TSK-OFF-009). */}
+            <div className="min-w-0">
               <p className="text-[13px] font-semibold tracking-[-0.02em] leading-tight truncate">
                 {usuario.nombre}
               </p>
-              <p className="label-inst truncate">{usuario.faena}</p>
+              <p className="text-[12px] text-ink-3 leading-tight truncate">{usuario.faena}</p>
             </div>
 
             <div className="flex-1" />
@@ -219,9 +230,9 @@ export function Shell({ children }: { children: ReactNode }) {
                   onClick={() => ir(n.id)}
                   aria-current={activa ? 'page' : undefined}
                   className={[
-                    'relative shrink-0 flex items-center gap-1.5 px-3 py-2.5 text-[13px] font-medium',
+                    'relative shrink-0 flex items-center gap-1.5 px-3 min-h-11 text-[14px] font-medium',
                     'transition-colors duration-150 ease-out cursor-pointer',
-                    activa ? 'text-ink' : 'text-ink-3 hover:text-ink-2',
+                    activa ? 'text-ink' : 'text-ink-2 hover:text-ink',
                   ].join(' ')}
                 >
                   {n.icono}
@@ -296,6 +307,19 @@ export function Shell({ children }: { children: ReactNode }) {
         </div>
       </div>
 
+      {/* ── Aviso de salida (TSK-OFF-008) ─────────────────────────────────
+          Se pulsó Atrás en la primera pantalla: se avisa antes de cerrar. */}
+      {avisoSalir && (
+        <div
+          role="status"
+          className="fixed z-40 inset-x-0 bottom-20 sm:bottom-6 mb-safe flex justify-center px-4 pointer-events-none"
+        >
+          <p className="rounded-full bg-ink text-s0 px-4 py-2.5 text-[14px] font-medium shadow-2xl">
+            Pulsa Atrás otra vez para salir
+          </p>
+        </div>
+      )}
+
       {/* ── Aviso de cuota de almacenamiento (FR-017) ─────────────────────── */}
       <AnimatePresence>
         {verAviso && (
@@ -311,11 +335,11 @@ export function Shell({ children }: { children: ReactNode }) {
               <span className="h-2 w-2 rounded-full bg-sev-media mt-1.5 shrink-0" />
               <div className="min-w-0 flex-1">
                 <p className="text-[13px] font-semibold tracking-[-0.01em]">
-                  Almacenamiento local al {cuota.usadaPct ?? 0}%
+                  Espacio del teléfono al {cuota.usadaPct ?? 0}%
                 </p>
-                <p className="mt-1 text-[12px] text-ink-2 leading-relaxed">
-                  {cuota.fotosPendientes} fotos en cola. Se priorizarán las que ya pueden
-                  subirse.
+                <p className="mt-1 text-[13px] text-ink-2 leading-relaxed">
+                  Queda poco espacio en este teléfono y hay {cuota.fotosPendientes}{' '}
+                  {cuota.fotosPendientes === 1 ? 'foto' : 'fotos'} por enviar. Conéctate para liberarlo.
                 </p>
                 <div className="meter mt-3 h-1.5 rounded-full bg-s3 overflow-hidden">
                   <span
@@ -347,14 +371,6 @@ export function Shell({ children }: { children: ReactNode }) {
   )
 }
 
-/* ── Toggle de señal ─────────────────────────────────────────────────────
- * Control de demostración: en el producto real la señal depende del
- * dispositivo (evento `online`). Acá es un interruptor para poder mostrar el
- * ciclo completo en vivo ante el docente.
- *
- * Pop al alternar: es acción manual del usuario y su efecto es el mensaje
- * central del producto. Sin él el clic parece no haber hecho nada.
- */
 /** Estado real de la red (navigator.onLine): ya no es un interruptor manual. */
 function IndicadorSenal({ on }: { on: boolean }) {
   return (

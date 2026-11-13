@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
+import { useCapaAtras } from '../lib/useCapaAtras'
 
 type EstadoCamara = 'iniciando' | 'lista' | 'error'
 
@@ -58,6 +59,9 @@ export function CamaraCaptura({
     detener()
     alCerrar()
   }
+
+  // TSK-OFF-008: el botón Atrás del teléfono cierra la cámara.
+  useCapaAtras(abierta, cerrar)
 
   const iniciar = async () => {
     detener()
@@ -157,9 +161,9 @@ export function CamaraCaptura({
         <div className="mb-3 flex items-center justify-between gap-3">
           <div>
             <p className="text-[15px] font-semibold">Tomar foto</p>
-            <p className="text-[12px] text-ink-3">La imagen se guarda en este dispositivo y se comprime antes de enviarse.</p>
+            <p className="text-[13px] text-ink-2">La foto queda guardada en este teléfono.</p>
           </div>
-          <button ref={cancelar} type="button" onClick={cerrar} className="h-10 px-3 text-[13px] text-ink-2 hover:text-ink-1">Cancelar</button>
+          <button ref={cancelar} type="button" onClick={cerrar} className="h-11 px-3 text-[14px] text-ink-2 hover:text-ink">Cancelar</button>
         </div>
         <div className="relative aspect-[4/3] overflow-hidden rounded-xl bg-black">
           <video ref={video} autoPlay playsInline muted className="h-full w-full object-cover" />
@@ -179,9 +183,9 @@ export function CamaraCaptura({
           alCerrar()
         }} />
         <div className="mt-4 flex flex-wrap justify-end gap-2">
-          <button type="button" onClick={() => archivo.current?.click()} className="h-11 rounded-[10px] border border-line-soft px-4 text-[13px] font-medium hover:border-line">Seleccionar archivo</button>
-          {estado === 'error' && <button type="button" onClick={() => void iniciar()} className="h-11 rounded-[10px] border border-line-soft px-4 text-[13px] font-medium hover:border-beam">Reintentar cámara</button>}
-          <button type="button" disabled={estado !== 'lista'} onClick={tomar} className="h-11 rounded-[10px] bg-beam px-4 text-[13px] font-semibold text-on-beam disabled:cursor-not-allowed disabled:opacity-45">Capturar foto</button>
+          <button type="button" onClick={() => archivo.current?.click()} className="h-11 rounded-[10px] border border-campo px-4 text-[14px] font-medium hover:border-line-strong">Seleccionar archivo</button>
+          {estado === 'error' && <button type="button" onClick={() => void iniciar()} className="h-11 rounded-[10px] border border-campo px-4 text-[14px] font-medium hover:border-beam">Reintentar cámara</button>}
+          <button type="button" disabled={estado !== 'lista'} onClick={tomar} className="h-11 rounded-[10px] bg-beam px-4 text-[14px] font-semibold text-on-beam disabled:cursor-not-allowed disabled:opacity-45">Capturar foto</button>
         </div>
       </section>
     </div>

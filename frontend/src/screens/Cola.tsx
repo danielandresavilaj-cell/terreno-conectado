@@ -245,7 +245,7 @@ export function Cola() {
         )}
       </div>
 
-      {/* ── Detalles técnicos (soporte / demo): la lista por registro ──────── */}
+      {/* ── Detalles técnicos (soporte): la lista por registro ─────────────── */}
       {verTecnico && cola.length > 0 && (
         <details className="group">
           <summary className="flex items-center gap-3 px-0.5 cursor-pointer list-none [&::-webkit-details-marker]:hidden">
@@ -254,10 +254,10 @@ export function Cola() {
             <span className="label-inst group-open:rotate-180 transition-transform duration-150">▾</span>
           </summary>
           <div className="mt-2 space-y-3">
-            <p className="text-[12px] text-ink-3 leading-relaxed max-w-[70ch]">
-              Orden de dependencia del lote: faena → inspección → respuestas → hallazgos → fotos (FR-020).
-              Reintentos con backoff exponencial de 1 s a 5 min (FR-022); reenviar es idempotente por UUID
-              de cliente (FR-021).
+            <p className="text-[13px] text-ink-3 leading-relaxed max-w-[70ch]">
+              Para soporte. Cada envío sube por partes y en orden: inspección, respuestas, hallazgos y
+              fotos. Si una parte falla se reintenta sola, cada vez con más espera (hasta 5 minutos), y
+              reenviar nunca duplica.
             </p>
             {Object.entries(ORDEN_TIPO).map(([tipo, etiqueta]) => {
               const items = cola.filter((r) => r.tipo === tipo).sort((a, b) => a.orden - b.orden)

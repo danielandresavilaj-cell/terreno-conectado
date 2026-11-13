@@ -901,7 +901,61 @@ export async function migrarFotosLegacy(): Promise<void> {
   await db.meta.put({ key: 'fotosLegacyMigradas', value: '1' })
 }
 
-export async function addFinding(params: {
+/** Hallazgos locales de una inspección (para saber qué ítems ya tienen el suyo). */
+export async function hallazgosDeInspeccion(inspectionId: string): Promise<FindingRow[]> {
+  return db.findings.where('inspectionId').equals(inspectionId).toArray()
+}
+
+/** Hallazgo ligado a una respuesta, con su foto más reciente (o `null`). */
+export async function hallazgoDeRespuesta(
+  inspectionId: string,
+  responseId: string,
+): Promise<{ hallazgo: FindingRow; foto: AttachmentRow | null } | null> {
+  const hallazgo = (await hallazgosDeInspeccion(inspectionId)).find((f) => f.responseId === responseId)
+  if (!hallazgo) return null
+  const fotos = (await db.attachments.where('ownerId').equals(hallazgo.id).toArray())
+    .filter((a) => a.ownerType === 'finding')
+    .sort((x, y) => (x.capturedAt < y.capturedAt ? 1 : -1))
+  return { hallazgo, foto: fotos[0] ?? null }
+}
+
+/**
+ * Deja una fila viva en el outbox para un registro que cambió.
+ *
+ * El payload se arma al enviar, leyendo la tabla: si la fila todavía no salió
+ * (`pending`/`failed`) basta con dejarla, y llevará la versión nueva. Sólo si
+ * ya salió (o está saliendo) hace falta otra fila para que el cambio viaje.
+ */
+async function reencolar(
+  entityType: OutboxRow['entityType'],
+  entityId: string,
+  titulo: string,
+  detalle: string,
+  tenantId: string,
+): Promise<void> {
+  const filas = await db.outbox.where('[entityType+entityId]').equals([entityType, entityId]).toArray()
+  const viva = filas.find((f) => f.status === 'pending' || f.status === 'failed')
+  if (viva) {
+    await db.outbox.update(viva.id as number, { titulo, detalle, updatedAt: ahoraIso() })
+    return
+  }
+  await encolar(entityType, entityId, titulo, detalle, tenantId)
+}
+
+/**
+ * Crea el hallazgo de una respuesta o actualiza el que ya tenía (TSK-OFF-007).
+ *
+ * Una respuesta NOK tiene UN hallazgo. Antes cada "guardar" insertaba una fila
+ * nueva con otro UUID, así que corregir la severidad o la descripción dejaba
+ * dos hallazgos para el mismo ítem y el supervisor los veía duplicados. Ahora
+ * la corrección conserva el UUID y sube `clientVersion`: el servidor recibe una
+ * versión nueva del mismo registro (Art. III), no un registro más.
+ *
+ * `foto: null` significa "sin foto nueva": la que hubiera se conserva. Una foto
+ * nueva reemplaza a la anterior sólo si ésta aún no salió del dispositivo; una
+ * ya enviada se deja, porque la cola no borra en el servidor.
+ */
+export async function guardarHallazgo(params: {
   inspectionId: string
   responseId: string | null
   tenantId: string
@@ -910,36 +964,57 @@ export async function addFinding(params: {
   detalle: string
   /** FR-012: blob ya comprimido (≤1280 px, q0.7) por `comprimirImagen`. */
   foto: { blob: Blob; ancho: number; alto: number; mime: string } | null
-}): Promise<void> {
+}): Promise<{ id: string; creado: boolean }> {
   const ts = ahoraIso()
-  const findingId = uuidv7()
-  const finding: FindingRow = {
-    id: findingId,
-    inspectionId: params.inspectionId,
-    responseId: params.responseId,
-    tenantId: params.tenantId,
-    severity: params.severity,
-    description: params.description,
-    status: 'open',
-    capturedAt: ts,
-    clientVersion: 0,
-  }
-  await db.transaction('rw', db.findings, db.attachments, db.outbox, async () => {
-    await db.findings.add(finding)
-    await encolar(
-      'finding',
-      findingId,
-      `Hallazgo · Severidad ${SEVERIDAD_ES[params.severity]}`,
-      params.detalle,
-      params.tenantId,
-    )
+  const titulo = `Hallazgo · Severidad ${SEVERIDAD_ES[params.severity]}`
+  return db.transaction('rw', db.findings, db.attachments, db.outbox, async () => {
+    const previo = params.responseId
+      ? (await db.findings.where('inspectionId').equals(params.inspectionId).toArray()).find(
+          (f) => f.responseId === params.responseId,
+        )
+      : undefined
+    const id = previo?.id ?? uuidv7()
+    if (previo) {
+      await db.findings.update(id, {
+        severity: params.severity,
+        description: params.description,
+        capturedAt: ts,
+        clientVersion: previo.clientVersion + 1,
+      })
+      await reencolar('finding', id, titulo, params.detalle, params.tenantId)
+    } else {
+      const finding: FindingRow = {
+        id,
+        inspectionId: params.inspectionId,
+        responseId: params.responseId,
+        tenantId: params.tenantId,
+        severity: params.severity,
+        description: params.description,
+        status: 'open',
+        capturedAt: ts,
+        clientVersion: 0,
+      }
+      await db.findings.add(finding)
+      await encolar('finding', id, titulo, params.detalle, params.tenantId)
+    }
     if (params.foto) {
+      if (previo) {
+        const anteriores = (await db.attachments.where('ownerId').equals(id).toArray()).filter(
+          (a) => a.ownerType === 'finding',
+        )
+        for (const a of anteriores) {
+          const filas = await db.outbox.where('[entityType+entityId]').equals(['attachment', a.id]).toArray()
+          if (filas.some((f) => f.status === 'synced' || f.status === 'syncing')) continue
+          await db.outbox.bulkDelete(filas.map((f) => f.id as number))
+          await db.attachments.delete(a.id)
+        }
+      }
       const attachmentId = uuidv7()
       await db.attachments.add({
         id: attachmentId,
         tenantId: params.tenantId,
         ownerType: 'finding',
-        ownerId: findingId,
+        ownerId: id,
         mime: params.foto.mime,
         bytes: params.foto.blob.size,
         blob: params.foto.blob,
@@ -956,6 +1031,7 @@ export async function addFinding(params: {
         params.tenantId,
       )
     }
+    return { id, creado: !previo }
   })
 }
 

@@ -3,7 +3,7 @@
  * MOVIMIENTO — decisiones (find-animation-opportunities: justificar antes):
  * · La presión de botón SÍ anima (scale 0.97, 160ms ease-out). Ocurre cientos
  *   de veces al día y es retroalimentación pura: el usuario debe sentir que la
- *   interfaz escuchó. Sin esto el mockup se siente muerto.
+ *   interfaz escuchó.
  * · El hover NO usa transform. En pantallas táctiles con guantes el hover se
  *   dispara en el tap y produce falsos positivos; por eso va detrás de
  *   `@media (hover: hover) and (pointer: fine)` y solo cambia color.

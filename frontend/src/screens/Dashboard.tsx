@@ -327,14 +327,14 @@ export function Dashboard() {
     <div className="space-y-6">
       <header className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <p className="label-inst">Dashboard por tenant</p>
+          <p className="label-inst">Gerencia</p>
           <h1 className="mt-1.5 text-[26px] sm:text-[30px] font-semibold tracking-[-0.03em] leading-[1.1]">
             {esPlataforma ? 'Operación Plataforma' : identidad?.tenantNombre ?? '—'}
           </h1>
           <p className="mt-1.5 text-[13px] text-ink-2">
             {esPlataforma
-              ? 'Vista agregada · todos los tenants'
-              : 'Consolidado desde la cola de sincronización'}
+              ? 'Todas las empresas'
+              : 'Lo que tu equipo ha enviado desde terreno'}
           </p>
         </div>
 
@@ -405,11 +405,11 @@ export function Dashboard() {
 
       {esPlataforma ? (
         <div className="panel p-8 text-center max-w-[56ch] mx-auto">
-          <p className="text-[14px] font-semibold tracking-[-0.01em]">Panel por tenant no disponible</p>
+          <p className="text-[14px] font-semibold tracking-[-0.01em]">Este panel es de cada empresa</p>
           <p className="mt-2 text-[13px] text-ink-2 leading-relaxed">
-            Esta sesión es de plataforma y NO pertenece a ningún tenant ({'\u201C'}Todos los
-            tenants{'\u201D'}). El panel ejecutivo se entrega con una cuenta de supervisor o{' '}
-            admin de empresa, que sí puede leer su faena (NFR-05, RLS).
+            Tu cuenta administra la plataforma y no pertenece a ninguna empresa, así que no hay
+            datos de terreno que mostrar. Ingresa con una cuenta de supervisión o de administración
+            de una empresa para ver su panel.
           </p>
         </div>
       ) : (
@@ -425,7 +425,7 @@ export function Dashboard() {
               >
                 <span className="mt-[3px] h-1.5 w-1.5 rounded-full bg-sev-alta shrink-0" />
                 <p className="text-[12px] leading-relaxed text-sev-alta">
-                  No se pudo leer el registro: {errorCarga}
+                  No se pudieron actualizar los datos: {errorCarga}
                 </p>
               </motion.div>
             )}
@@ -740,11 +740,10 @@ export function Dashboard() {
             </>
           )}
 
-          <p className="text-[11px] text-ink-3 leading-relaxed border-t border-line-soft pt-4">
-            Datos visibles para {identidad?.tenantNombre ?? 'tu tenant'} únicamente. El otro tenant
-            no puede leer estas filas: el aislamiento es una regla de la base de datos, no un
-            filtro de la interfaz. Auto-refresh cada 30 s.
-            {!online && ' · Sin señal: se muestra la última lectura; los pendientes están en la cola.'}
+          <p className="text-[13px] text-ink-3 leading-relaxed border-t border-line-soft pt-4">
+            Sólo {identidad?.tenantNombre ?? 'tu empresa'} puede ver estos datos. Se actualizan
+            solos cada 30 segundos.
+            {!online && ' Sin señal: estás viendo la última lectura.'}
           </p>
         </>
       )}
@@ -904,8 +903,8 @@ function FilaInspeccion({
 
       {sinPlantilla && (
         <p id={`inspeccion-${i.id}-sin-plantilla`} className="mt-2 text-[11px] text-ink-3 leading-relaxed">
-          La plantilla ya no existe en el tenant, por lo que no hay documento original que
-          reconstruir. El registro de la inspección sigue siendo válido para auditoría.
+          El formulario de esta inspección ya no existe, así que no hay planilla original que
+          rellenar. La inspección se conserva y se puede exportar desde el panel de exportación.
         </p>
       )}
       {error && (

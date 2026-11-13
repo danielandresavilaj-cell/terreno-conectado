@@ -2,8 +2,8 @@
  *
  * Cada componente dibuja UN `response_type` y emite el valor ya "crudo" — la
  * validación contra `props` (FR-039) la hace el store antes de persistir, así
- * el control nunca escribe solo. Los estilos son los del mockup de captura:
- * targets grandes (≥44 px), alto contraste, pensados para guantes y sol.
+ * el control nunca escribe solo. Targets grandes (≥44 px) y alto contraste:
+ * pensados para guantes y sol.
  */
 
 import { useEffect, useRef, useState } from 'react'
@@ -18,7 +18,7 @@ import {
 } from '../lib/campo-numerico'
 
 const INPUT =
-  'h-11 w-full sm:w-auto sm:max-w-[190px] px-3 rounded-[10px] bg-s0 border border-line-soft text-[14px] placeholder:text-ink-3 focus:border-beam transition-colors duration-150 shrink-0'
+  'h-11 w-full sm:w-auto sm:max-w-[190px] px-3 rounded-[10px] bg-s0 border border-campo text-[14px] placeholder:text-ink-3 focus:border-beam transition-colors duration-150 shrink-0'
 
 const CHIP_BASE =
   'min-h-[46px] px-3.5 rounded-xl border text-[13px] font-medium tracking-[-0.01em] transition-colors duration-150 cursor-pointer'
@@ -59,7 +59,7 @@ export function CampoOkNokNa({ valor, onCambio, item, error }: PropsCampo) {
       aria-label={`Respuesta para: ${item.prompt}`}
       aria-invalid={error ? true : undefined}
       aria-describedby={error ? `respuesta-error-${item.id}` : undefined}
-      className="relative shrink-0 flex p-1 rounded-xl bg-s0 border border-line-soft w-full sm:w-auto"
+      className="relative shrink-0 flex p-1 rounded-xl bg-s0 border border-campo w-full sm:w-auto"
     >
       {/* Knob activo: `x` en % del ancho del track (transform puro, GPU,
           interruptible si corrige la respuesta rápido). */}
@@ -91,9 +91,9 @@ export function CampoOkNokNa({ valor, onCambio, item, error }: PropsCampo) {
             className="relative z-10 h-12 min-w-[46px] flex-1 grid place-items-center rounded-lg cursor-pointer"
           >
             <motion.span
-              animate={{ color: sel ? o.color : 'var(--color-ink-3)' }}
+              animate={{ color: sel ? o.color : 'var(--color-ink-2)' }}
               transition={{ duration: 0.18, ease: EASE.out }}
-              className="num-inst text-[13px] font-semibold tracking-[0.04em]"
+              className="num-inst text-[14px] font-semibold tracking-[0.04em]"
             >
               {o.label}
             </motion.span>
@@ -225,7 +225,7 @@ function ChipOpcion({
       transition={{ duration: 0.14, ease: EASE.out }}
       className={[
         CHIP_BASE,
-        activo ? 'border-beam/50 bg-beam/10 text-ink' : 'border-line-soft bg-s0 text-ink-2',
+        activo ? 'border-beam bg-beam/10 text-ink' : 'border-campo bg-s0 text-ink-2',
       ].join(' ')}
     >
       {multiple && (
@@ -233,7 +233,7 @@ function ChipOpcion({
           aria-hidden
           className={[
             'inline-block h-3.5 w-3.5 mr-1.5 rounded-[4px] border align-[-2px]',
-            activo ? 'bg-beam border-beam' : 'border-ink-3',
+            activo ? 'bg-beam border-beam' : 'border-campo',
           ].join(' ')}
         />
       )}
@@ -328,7 +328,7 @@ export function CampoFoto({ valor, onCambio, onFoto, error, item }: PropsCampo &
         <button
           type="button"
           onClick={() => setCamaraAbierta(true)}
-          className="h-11 px-4 rounded-[10px] border border-line-soft bg-s0 text-[13px] font-medium cursor-pointer hover:border-beam transition-colors duration-150"
+          className="h-11 px-4 rounded-[10px] border border-campo bg-s0 text-[14px] font-medium cursor-pointer hover:border-beam transition-colors duration-150"
         >
           Tomar foto
         </button>

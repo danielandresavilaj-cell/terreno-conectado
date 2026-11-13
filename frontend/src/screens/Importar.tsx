@@ -63,7 +63,7 @@ import { FIELD_PROPS_SCHEMA, RESPONSE_TYPES } from '@terreno/shared'
 import type { CapacidadesImport, FieldProps, MotorImport, ResponseType, TemplateImport, TemplateRevisionDetailDto } from '@terreno/shared'
 import type { ProposedItem, TemplateImportProposal } from '@terreno/shared/xlsx'
 
-const PASOS = ['Subir', 'Preview', 'Editar', 'Borrador', 'Publicar'] as const
+const PASOS = ['Subir', 'Revisar', 'Editar', 'Borrador', 'Publicar'] as const
 
 /** Etiquetas en español de los 8 tipos (FR-036). */
 const TIPO_LABEL: Record<ResponseType, string> = {
