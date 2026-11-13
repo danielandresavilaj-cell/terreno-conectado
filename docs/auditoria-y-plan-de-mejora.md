@@ -158,7 +158,7 @@ La 0.8 son cambios de tokens en `index.css`: afectan toda la app de una vez, hay
 | 1.2 | **Fotos** — 🟡 parcial (TSK-OFF-011): miniatura con Repetir/Quitar en el ítem y en el hallazgo. Pendiente: varias fotos por hallazgo | U4, U5 | M | Aclaración FR-012/037 |
 | 1.3 | **Navegación inferior en móvil** — ✅ hecha para el trabajador (TSK-OFF-011); los roles con más de 5 secciones siguen con pestañas | U10, V4 | M | No |
 | 1.4 | **Cierre de inspección**: botón grande fijo al pie, resumen antes de firmar (respondidos, NOK, hallazgos) y nombre del firmante en el diálogo | U8, U9 | M | No |
-| 1.5 | **Hallazgo opcional en cualquier NOK** y hallazgo directo sin ítem | D5 | M | Aclaración FR-032 |
+| 1.5 | **Hallazgo opcional en cualquier NOK** — ✅ hecho (TSK-OFF-012). Pendiente: hallazgo directo sin ítem | D5 | M | Aclaración FR-032 |
 | 1.6 | **Varios borradores** en paralelo (lista "En curso" en Formularios) | U3 | L | Sí (spec 002) |
 | 1.7 | **Mis inspecciones**: historial local de lo enviado (30 días) con reexportación | U6 | M | Aclaración spec 002 |
 | 1.8 | Tema según el sistema — ✅ hecho (TSK-OFF-011) | V3 | S | No |
