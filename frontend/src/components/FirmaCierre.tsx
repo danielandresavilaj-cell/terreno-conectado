@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react'
 import type { SignatureStroke } from '@terreno/shared'
 import { Boton } from './ui'
+import { useCapaAtras } from '../lib/useCapaAtras'
 
 const ESCALA = 1000
 
@@ -26,10 +27,16 @@ export function FirmaCierre({
   onCancelar,
   onConfirmar,
   modo = 'inspector',
+  firmante,
+  resumen,
 }: {
   onCancelar: () => void
   onConfirmar: (strokes: SignatureStroke[]) => void
   modo?: 'inspector' | 'supervisor'
+  /** Nombre de quien firma: la declaración es de una persona, no anónima. */
+  firmante?: string
+  /** Qué se está firmando (formulario y respuestas), en una línea. */
+  resumen?: string
 }) {
   const pad = useRef<SVGSVGElement>(null)
   const dialogo = useRef<HTMLElement>(null)
@@ -60,6 +67,9 @@ export function FirmaCierre({
   }
   const terminar = () => setDibujando(false)
 
+  // TSK-OFF-008: el botón Atrás del teléfono cancela la firma, no cambia de pantalla.
+  useCapaAtras(true, onCancelar)
+
   // Como el diálogo de cámara (TSK-OFF-003): toma el foco al abrir y lo
   // devuelve al botón que lo abrió al cerrar; Escape cancela.
   useEffect(() => {
@@ -89,17 +99,23 @@ export function FirmaCierre({
       <div className="w-full max-w-xl rounded-2xl border border-line bg-s1 p-5 shadow-2xl">
         <p className="label-inst">{esCofirma ? 'Cofirma de supervisión' : 'Cierre de inspección'}</p>
         <h2 id="firma-cierre-titulo" className="mt-1 text-[20px] font-semibold">{esCofirma ? 'Cofirma con tu dedo' : 'Firma con tu dedo'}</h2>
-        <p className="mt-2 text-[13px] leading-relaxed text-ink-2">
+        {(firmante || resumen) && (
+          <div className="mt-3 rounded-xl bg-s2 px-3.5 py-2.5">
+            {firmante && <p className="text-[14px] font-semibold">{firmante}</p>}
+            {resumen && <p className="mt-0.5 text-[13px] text-ink-2 leading-relaxed">{resumen}</p>}
+          </div>
+        )}
+        <p className="mt-3 text-[13px] leading-relaxed text-ink-2">
           {esCofirma
-            ? 'Confirmas la revisión de esta inspección. La firma se guarda como trazo vinculado a este cierre.'
-            : 'Declaro que completé esta inspección. La firma se guarda como trazo en este dispositivo y se sincroniza cuando vuelva la señal.'}
+            ? 'Confirmo que revisé esta inspección. La firma queda vinculada a este cierre.'
+            : 'Declaro que completé esta inspección. Si no hay señal, la firma queda en este teléfono y se envía sola al volver la conexión.'}
         </p>
         <svg
           ref={pad}
           viewBox="0 0 250 125"
           role="img"
           aria-label="Área para dibujar la firma"
-          className="mt-4 h-48 w-full touch-none rounded-xl border-2 border-dashed border-line-strong bg-s0"
+          className="mt-4 h-48 w-full touch-none rounded-xl border-2 border-dashed border-campo bg-s0"
           onPointerDown={iniciar}
           onPointerMove={mover}
           onPointerUp={terminar}
@@ -118,7 +134,7 @@ export function FirmaCierre({
             />
           ))}
         </svg>
-        {!firmaTieneTrazo(strokes) && <p className="mt-2 text-[12px] text-ink-3">Dibuja al menos un trazo para continuar.</p>}
+        {!firmaTieneTrazo(strokes) && <p className="mt-2 text-[13px] text-ink-2">Dibuja tu firma en el recuadro para continuar.</p>}
         <div className="mt-4 flex flex-wrap justify-end gap-2">
           <Boton tamano="sm" variante="fantasma" onClick={() => setStrokes([])}>Limpiar</Boton>
           <Boton tamano="sm" variante="secundaria" onClick={onCancelar}>Cancelar</Boton>

@@ -27,9 +27,8 @@ const Plantillas = lazy(() => import('./screens/Plantillas').then((m) => ({ defa
 /* Permisos por rol (FR-003: permisos crecientes).
  * Esta tabla es la traducción visual de la matriz rol→recurso del spec 001.
  * El campo de terreno no ve el dashboard ejecutivo; el admin de plataforma no
- * ve la captura. Esa diferencia ya comunica el modelo de permisos sin una
- * línea de lógica de autorización real — que es justamente lo que este mockup
- * NO implementa. */
+ * ve la captura. Esto sólo decide qué pantallas se ofrecen: la autorización
+ * real la hacen el backend y la RLS (Art. IV). */
 const POR_ROL: Record<string, Pantalla[]> = {
   field_worker: ['formularios', 'captura', 'bitacora', 'cola', 'cuenta'],
   supervisor: ['formularios', 'captura', 'bitacora', 'cola', 'dashboard', 'conflictos', 'cuenta'],
@@ -54,7 +53,8 @@ function Raiz() {
   useEffect(() => {
     if (!usuario) return
     const permitidas = POR_ROL[usuario.rol] ?? ['dashboard']
-    if (!permitidas.includes(pantalla)) ir(permitidas[0])
+    // `reemplazar`: una redirección no deja a dónde volver con Atrás (TSK-OFF-008).
+    if (!permitidas.includes(pantalla)) ir(permitidas[0], { reemplazar: true })
   }, [usuario, pantalla, ir])
 
   /* TSK-WS-011: mientras se restaura la sesión (perfil + identidad + outbox)

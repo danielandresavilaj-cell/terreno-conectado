@@ -23,7 +23,7 @@ export function erroresDeEnvio(
       continue
     }
     if (item.require_finding_on_nok && respuesta?.campo === 'nok' && !respuesta.hallazgoId) {
-      errores[item.id] = 'Debés registrar el hallazgo requerido para una respuesta NOK'
+      errores[item.id] = 'Registra el hallazgo: esta respuesta NOK lo exige.'
     }
   }
   return errores

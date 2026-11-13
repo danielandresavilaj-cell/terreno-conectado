@@ -52,7 +52,7 @@ export function BadgeSync({ estado, compacto }: { estado: SyncEstado; compacto?:
       transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
       className={[
         'inline-flex items-center gap-1.5 rounded-full font-mono uppercase tracking-[0.1em] whitespace-nowrap',
-        compacto ? 'px-1.5 py-0.5 text-[9px]' : 'px-2 py-1 text-[10px]',
+        compacto ? 'px-1.5 py-0.5 text-[10px]' : 'px-2 py-1 text-[11px]',
       ].join(' ')}
     >
       <span className="relative inline-flex h-1.5 w-1.5 shrink-0">
@@ -91,7 +91,7 @@ export function BadgeSev({
     <span
       className={[
         'inline-flex items-center gap-1.5 rounded-md font-mono uppercase tracking-[0.1em]',
-        'px-2 py-1 text-[10px] font-semibold whitespace-nowrap',
+        'px-2 py-1 text-[11px] font-semibold whitespace-nowrap',
         destacado ? 'ring-1 ring-current' : '',
       ].join(' ')}
       style={{ color: m.color, backgroundColor: m.bg }}
@@ -115,7 +115,7 @@ export function Chip({
   icono?: ReactNode
 }) {
   return (
-    <span className="inline-flex items-center gap-1.5 rounded-md bg-s3 px-2 py-1 font-mono text-[10px] uppercase tracking-[0.1em] text-ink-2">
+    <span className="inline-flex items-center gap-1.5 rounded-md bg-s3 px-2 py-1 font-mono text-[11px] uppercase tracking-[0.08em] text-ink-2">
       {icono}
       <span style={color ? { color } : undefined}>{children}</span>
     </span>

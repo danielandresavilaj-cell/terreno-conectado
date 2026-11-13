@@ -3,7 +3,7 @@
 | | |
 | :--- | :--- |
 | **Estado** | COMPLETO (ciclo del módulo, F2 · 2026-10-13) |
-| **Versión** | 0.3.5 |
+| **Versión** | 0.3.6 |
 | **Autor** | Daniel Ávila |
 | **Padre** | specs/000-master/spec.md |
 | **Depende de** | 001 (sesión/tenant), 004 (plantillas a renderizar offline) |
@@ -62,6 +62,12 @@ Targets táctiles amplios, alto contraste para luz solar, y **autoguardado de bo
 
 **Cola legible** (TSK-OFF-006, FR-013/022): la pantalla Cola muestra una **tarjeta por lo que capturó la persona** (inspección o bitácora), no una fila por registro técnico. Cada tarjeta trae un estado agregado (el peor de sus partes: con problema > enviando > esperando señal > enviado), el avance ("12 de 26 partes enviadas"), el resumen (respuestas, hallazgos y graves, fotos y peso), el motivo del fallo en lenguaje claro y sin identificadores internos, con el próximo reintento estimado, y las acciones Reintentar y Descartar (con la confirmación dentro de la tarjeta). "Ver detalle" lista cada pregunta con su respuesta, los hallazgos con la severidad en español y las fotos con miniatura. Hay tres secciones: Con problemas, Esperando envío y Enviado en las últimas 24 h (plegada). La barra inferior y el título de la pestaña cuentan **envíos**, no partes. La lista técnica por registro (orden de dependencia, reintentos, latencia FR-024) queda en "Detalles técnicos", solo para supervisión y administración. La cola en sí (orden FR-020, idempotencia FR-021, backoff FR-022) no cambia: la vista se arma en `lib/cola-vista.ts`.
 
+**Navegación con el botón Atrás** (TSK-OFF-008): cada cambio de pantalla deja una entrada en el historial del navegador, identificada por el fragmento de la URL (`#captura`, `#cola`…), así que el botón Atrás del teléfono vuelve a la pantalla anterior en vez de sacar a la persona de la app. Si hay un panel abierto (hallazgo, cámara, firma), Atrás lo cierra y la pantalla no cambia. En la primera pantalla de la sesión, el primer Atrás avisa ("Pulsa Atrás otra vez para salir") y sólo el segundo cierra la app. No depende de la red ni de rutas del servidor (`frontend/src/lib/navegacion.ts`).
+
+**Cierre y confirmación** (TSK-OFF-007): "Firmar y enviar" es el botón principal al final del formulario; el diálogo de firma muestra quién firma y qué (formulario, respuestas y NOK). Tras enviar, la pantalla confirma el resultado —"Inspección enviada" con señal, "Inspección guardada" sin ella— con el resumen y un acceso a los envíos; la confirmación se retira al cerrarla o al empezar la inspección siguiente. El encabezado muestra la faena y la fecha real; no existe el concepto de turno en V1, así que ninguna pantalla lo nombra.
+
+**Lenguaje y legibilidad** (TSK-OFF-009): las pantallas hablan de formularios, preguntas, envíos y "este teléfono", no de plantillas dinámicas, caché, cola de sincronización ni identificadores internos. El texto secundario mide al menos 12 px y mantiene contraste ≥ 4,5:1 sobre todas las superficies en ambos temas; el borde de los campos y controles alcanza 3:1 (WCAG 1.4.11) con un token propio (`--color-campo`); los objetivos táctiles de captura, bitácora y navegación miden al menos 44 px; y el encabezado muestra el nombre y la faena de la sesión también en el teléfono.
+
 ## 5. Cache del service worker (Workbox)
 
 `vite-plugin-pwa` con `registerType: 'autoUpdate'`:
@@ -101,6 +107,7 @@ La toma usa `getUserMedia` y prefiere la cámara trasera. El stream se detiene a
 
 | Versión | Fecha | Cambio | Autor |
 | :--- | :--- | :--- | :--- |
+| 0.3.6 | 2026-11-13 | TSK-OFF-007/008/009: botón Atrás con historial, cierre con confirmación de envío y sin turno fijo, lenguaje claro y legibilidad (texto ≥ 12 px, contraste AA, borde de campos 3:1) | Daniel Ávila (con IA) |
 | 0.3.5 | 2026-11-13 | TSK-OFF-006: cola legible por unidad de trabajo | Daniel Ávila (con IA) |
 | 0.3.4 | 2026-11-13 | TSK-OFF-005: modo claro y oscuro con botón, tokens por tema y fijado antes del primer pintado | Daniel Ávila (con IA) |
 | 0.3.3 | 2026-11-12 | TSK-OFF-004 (#184): acción visible de instalación PWA, ayuda por plataforma y formularios sin autofoco móvil | Raúl González (con IA) |

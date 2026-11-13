@@ -20,11 +20,17 @@
   --color-s3: #272b31;
   --color-line: #31363d;
   --color-line-soft: #23272d;
+  /* Borde de los controles (campos, segmentados, chips): a diferencia de las
+     líneas de panel, que son decorativas, éste delimita algo que se toca y
+     necesita ≥ 3:1 contra el fondo (WCAG 1.4.11). */
+  --color-campo: #6a727d;
 
-  /* Texto */
+  /* Texto. `ink-3` es el nivel más tenue y aun así se usa para leer (rótulos,
+     ayudas): mantiene ≥ 4,5:1 sobre todas las superficies, s3 incluida
+     (TSK-OFF-009). Antes era #6d7681 y daba 3,1–4,2:1. */
   --color-ink: #f2f3f5;
   --color-ink-2: #a8b0ba;
-  --color-ink-3: #6d7681;
+  --color-ink-3: #8f98a3;
 
   /* Acento primario — ámbar sodio (focos de faena) */
   --color-beam: #f0a828;
@@ -44,7 +50,7 @@
   --color-copper: #c07a4a;
 
   /* Señales de estado de sincronización */
-  --color-pending: #7d8792;
+  --color-pending: #8a939e;
   --color-syncing: #58a6ff;
   --color-synced: #3ecf8e;
   --color-failed: #ef4444;
@@ -83,6 +89,7 @@
   --color-line-soft: #e4dfd7;
   --color-s3-hover: #ddd8cf;
   --color-line-strong: #bfb8ac;
+  --color-campo: #857f74;
 
   --color-ink: #17191c;
   --color-ink-2: #48505a;
@@ -104,7 +111,7 @@
   --color-failed: #c81e1e;
 
   --color-sev-baja: #66707b;
-  --color-sev-media: #a16207;
+  --color-sev-media: #955b06;
   --color-sev-alta: #c2410c;
   --color-sev-critica: #c81e1e;
 }
@@ -137,12 +144,13 @@
     overscroll-behavior-y: none;
   }
 
-  /* Etiquetas de instrumento: versalitas monoespaciadas, nunca texto suelto */
+  /* Etiquetas de instrumento: versalitas monoespaciadas, nunca texto suelto.
+     12 px: a 10 px no se leían a pleno sol (TSK-OFF-009). */
   .label-inst {
     font-family: var(--font-mono);
-    font-size: 10px;
+    font-size: 12px;
     font-weight: 500;
-    letter-spacing: 0.14em;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
     color: var(--color-ink-3);
   }
@@ -156,6 +164,18 @@
   button {
     font-family: inherit;
     color: inherit;
+  }
+
+  /* Sin esto el navegador espera un posible doble toque (zoom) antes de
+     entregar el clic: con guantes cada respuesta se siente lenta. */
+  button,
+  a,
+  input,
+  select,
+  textarea,
+  summary,
+  label {
+    touch-action: manipulation;
   }
 
   input,
@@ -181,6 +201,28 @@
     outline-offset: 2px;
     border-radius: 4px;
   }
+}
+
+/* Borde de los campos — TSK-OFF-009.
+   Fuera de capas a propósito: así gana a las utilidades `border-line-soft` que
+   llevan los campos de toda la app y el contraste se corrige en un solo lugar.
+   Los campos sin borde (ancho 0) no cambian. */
+input:not([type='checkbox']):not([type='radio']):not([type='file']):not([type='range']),
+textarea,
+select {
+  border-color: var(--color-campo);
+}
+
+input:not([type='checkbox']):not([type='radio']):not([type='file']):not([type='range']):focus,
+textarea:focus,
+select:focus {
+  border-color: var(--color-beam);
+}
+
+input[aria-invalid='true'],
+textarea[aria-invalid='true'],
+select[aria-invalid='true'] {
+  border-color: var(--color-failed);
 }
 
 @layer components {

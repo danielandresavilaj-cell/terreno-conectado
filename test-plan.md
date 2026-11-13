@@ -1,6 +1,6 @@
 # TEST PLAN — Plan de pruebas de validación
 
-**Versión:** 1.2.6 · **Fecha:** 2026-09-14 · actualizado 2026-11-12 · **Autor:** Raúl González (validación) · **Relacionado:** spec maestro §5–6, constitución Artículos III/IV/VII
+**Versión:** 1.2.7 · **Fecha:** 2026-09-14 · actualizado 2026-11-13 · **Autor:** Raúl González (validación) · **Relacionado:** spec maestro §5–6, constitución Artículos III/IV/VII
 **Evidencia APT:** "Plan de pruebas de validación" (informe §6) y soporte de la competencia "Realizar pruebas de certificación de productos y procesos".
 
 ## 1. Principio rector
@@ -64,7 +64,7 @@ verde.
 | FR-008/009 | Asignación faena+rol: el worker solo ve revisiones publicadas asignadas a su faena y rol | Integración | `backend/test/templates.delta.spec.ts` | 🟢 verde |
 | FR-018 | Plantillas en caché local → captura de formulario 100% sin red (Artículo I) | E2E | `e2e-captura-offline.spec.ts` → "con la red apagada tras un arranque con señal, la plantilla se renderiza" | 🟢 verde |
 | FR-027/028 | Delta `since=<template_version>` trae solo cambios; inspección en curso conserva su versión congelada | Integración | `backend/test/templates.delta.spec.ts` | 🟢 verde |
-| FR-009, FR-032, FR-036/039 | Sesión sin asignación no recibe formulario; inspección con obligatorios vacíos, valor inválido o NOK sin hallazgo no se encola | Unit + E2E | `frontend/test/validar-envio-inspeccion.test.ts`, `frontend/test/plantillas.resolucion.test.ts` y `shared/src/templates.test.ts`; protocolo E2E de captura | 🟢 verde (unit) · E2E a ejecutar en CI |
+| FR-009, FR-032, FR-036/039 | Sesión sin asignación no recibe formulario; inspección con obligatorios vacíos, valor inválido o NOK sin hallazgo no se encola | Unit + E2E | `frontend/test/validar-envio-inspeccion.test.ts`, `frontend/test/plantillas.resolucion.test.ts` y `shared/src/templates.test.ts`; *(TSK-OFF-007)* `frontend/test/hallazgo.test.ts`: corregir un hallazgo conserva su UUID y deja una sola fila por enviar, la foto se conserva o reemplaza sin huérfanos, la severidad es obligatoria y alta/crítica exigen descripción; protocolo E2E de captura | 🟢 verde (unit) · E2E a ejecutar en CI |
 | FR-037 + FR-012 | Foto de ítem comprimida y asociada a la respuesta (`ATTACHMENT`) | Unit + E2E | `backend/test/sync.spec.ts` + E2E de FR-012 | 🟢 verde |
 | FR-029 | *(Enmienda 003: el import es una acción en línea del `tenant_admin`, no viaja por el batch)* Reintentar la subida del mismo archivo no publica nada: cada subida crea una propuesta nueva que exige revisión humana antes de confirmar | Integración | `backend/test/templates-caos-007.spec.ts` (reintento → propuesta nueva, sin publicar), `import-wizard.spec.ts` | 🟢 verde |
 | FR-029/048 (IA) | Con IA, una foto o un PDF escaneado producen una propuesta revisable; reintento con IA sobre un import fallido; salida inválida o error de la API → `failed` sin guardar; tope diario → 429; sin clave → 503 y el asistente sin IA; foto sin IA → 415; auditoría con modelo y tokens (Enmienda 006). La CI usa un analizador falso | Unit + integración | `shared/src/importar/ia.test.ts`, `backend/test/import-ia.spec.ts`, `frontend/test/importar-ia.test.ts` | ✅ |
@@ -89,10 +89,10 @@ verde.
 ```
 E2E + caos (Playwright, manual)           23 tests
 Integración backend (Vitest + Testcontainers) 253 tests
-Unidad frontend (Vitest)                     164 tests
+Unidad frontend (Vitest)                     189 tests
 Unidad shared (Vitest)                        92 tests
                                            ───────────────
-                                           532 tests   (v1.3, TSK-FORM-022, 2026-11-13)
+                                           557 tests   (v1.3, TSK-OFF-007/008/009, 2026-11-13)
 ```
 
 > El criterio de salida de Fase 2 (§8) pide "matriz §3 ≥ 90% verde": hoy está en
@@ -207,6 +207,7 @@ y nunca bloquea un PR. Informe por módulo en
 
 | Versión | Fecha | Cambio | Autor |
 | :--- | :--- | :--- | :--- |
+| 1.2.7 | 2026-11-13 | **TSK-OFF-007/008/009 (Fase 0 del plan de mejora):** `hallazgo.test.ts` (11) en la fila FR-009/032/036 y `navegacion.test.ts` (9) para el botón Atrás (FR-010/011); volumen 557 tests (frontend 189, contados en esta corrida; el backend no se re-ejecutó en local) | Daniel Ávila (con IA) |
 | 1.2.6 | 2026-11-13 | **TSK-OPS-003-B (#191, PR #193)**, revisado e integrado por Daniel Ávila: firma de inspector offline y cofirma; `signature_required` sólo lo declara el cliente que firma (las colas de la app anterior quedan revisables); la firma no retrocede una inspección ya revisada; firma agrupada en la cola legible; E2E firman con el pad (`firmarYEnviar`); diálogo de firma con foco y Escape | Raúl González / Daniel Ávila (con IA) |
 | 1.2.5 | 2026-11-13 | **TSK-FORM-022:** crear formulario desde cero con el mismo editor (agregar, reordenar y quitar preguntas y secciones); evidencia en la fila FR-048 (`editor-formulario.test.ts`); volumen 532 tests (frontend 164) | Daniel Ávila (con IA) |
 | 1.2.4 | 2026-11-13 | **TSK-OFF-005/006:** modo claro y oscuro (`tema.test.ts`) y cola legible por unidad de trabajo (`cola-vista.test.ts`, evidencia en la fila FR-013/020/026); volumen 528 tests (frontend 160) | Daniel Ávila (con IA) |

@@ -1,5 +1,5 @@
 /* Tipos del dominio — espejo de `data-model.md` y de los FR del spec maestro.
- * Solo las formas; el mockup no implementa persistencia ni API. */
+ * Solo las formas de la UI; la persistencia vive en `db.ts` y la API en `api.ts`. */
 
 export type Rol = 'field_worker' | 'supervisor' | 'tenant_admin' | 'platform_admin'
 

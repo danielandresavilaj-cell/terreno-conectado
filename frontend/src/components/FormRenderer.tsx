@@ -49,7 +49,7 @@ export function FormRenderer({ section, delayBase = 0, onAbrirHallazgo }: PropsS
       className="space-y-2.5"
     >
       <div className="flex items-center gap-3 px-0.5">
-        <h2 className="text-[13px] font-semibold tracking-[-0.01em]">{section.title}</h2>
+        <h2 className="text-[15px] font-semibold tracking-[-0.01em]">{section.title}</h2>
         <div className="flex-1 rule" />
         <span className="label-inst">
           {contestados}/{items.length}
@@ -161,15 +161,15 @@ function FilaCampo({
     >
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
         <div className="min-w-0 sm:pt-0.5">
-          <p className="text-[14px] leading-snug">{item.prompt}</p>
-          {item.help && <p className="mt-1 text-[12px] text-ink-3">{item.help}</p>}
+          <p className="text-[15px] leading-snug">{item.prompt}</p>
+          {item.help && <p className="mt-1 text-[13px] text-ink-2">{item.help}</p>}
           {rangoNumerico && <p className="label-inst mt-1.5">{rangoNumerico}</p>}
           {props.required && item.response_type !== 'ok_nok_na' && (
             <p className="label-inst mt-1.5">Obligatorio</p>
           )}
           {item.require_finding_on_nok && (
             <p className="label-inst mt-1.5" style={{ color: 'var(--color-sev-alta)' }}>
-              Hallazgo obligatorio si es NOK
+              Si es NOK, registra el hallazgo
             </p>
           )}
         </div>
@@ -179,7 +179,7 @@ function FilaCampo({
       </div>
 
       {error && (
-        <p id={`respuesta-error-${item.id}`} role="alert" className="mt-2.5 text-[12px] font-medium text-failed">
+        <p id={`respuesta-error-${item.id}`} role="alert" className="mt-2.5 text-[13px] font-medium text-failed">
           {error}
         </p>
       )}
@@ -197,12 +197,12 @@ function FilaCampo({
               {conHallazgo ? (
                 <button
                   onClick={() => onAbrirHallazgo(item, seccion)}
-                  className="w-full flex items-center justify-between gap-3 text-left cursor-pointer group"
+                  className="w-full min-h-11 flex items-center justify-between gap-3 text-left cursor-pointer group"
                 >
                   <div className="flex items-center gap-2.5 min-w-0">
                     <span className="h-1.5 w-1.5 rounded-full bg-failed shrink-0" />
-                    <span className="text-[13px] text-ink-2 truncate">
-                      Hallazgo registrado · ver y editar
+                    <span className="text-[14px] text-ink-2 truncate">
+                      Hallazgo registrado · ver o corregir
                     </span>
                   </div>
                   <svg

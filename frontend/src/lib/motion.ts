@@ -1,8 +1,7 @@
 /* Tokens de movimiento compartidos.
  *
- * Contrato de este mockup: los botones SÍ reaccionan (el usuario lo pide
- * explícitamente), pero no hay lógica de negocio detrás. Cada interacción
- * visible es un cambio de estado visual local.
+ * Cada interacción visible confirma una acción real de la persona; el
+ * movimiento nunca reemplaza al estado.
  *
  * Valores derivados de emil-design-eng:
  *  · entradas   → ease-out fuerte, 180–260 ms

@@ -11,8 +11,8 @@
  * el arranque restaura la sesión desde esa caché (FR-006): el trabajador puede
  * seguir capturando aunque el token no se haya refrescado todavía.
  *
- * `online` sigue siendo el toggle del mockup: el disparo real por el evento
- * `online` del navegador llega con el worker de cola (FR-016, TSK-WS-008).
+ * `online` es el estado real de la red (`navigator.onLine` y sus eventos):
+ * al volver la señal, el worker de cola drena solo (FR-016, TSK-WS-008).
  */
 
 import {
@@ -28,7 +28,9 @@ import type { Identidad, RegistroCola, Rol, Severidad, Usuario } from './types'
 import { armarVistaCola } from './cola-vista'
 import {
   datosVistaCola,
-  addFinding,
+  guardarHallazgo as guardarHallazgoDb,
+  hallazgoDeRespuesta,
+  hallazgosDeInspeccion,
   addLogEntry,
   aplicarPurgaOriginales,
   borrarSesionCaché,
@@ -94,23 +96,12 @@ import {
   type TemplateDefinition,
   type TemplatePublicadaDto,
 } from '@terreno/shared'
-import { columnasDesdeValor, esOkNokNa, itemsDe, valorDesdeColumnas } from './valores'
+import { columnasDesdeValor, contestado, esOkNokNa, itemsDe, valorDesdeColumnas } from './valores'
 import { erroresDeEnvio } from './validar-envio-inspeccion'
+import { detalleDeHallazgo } from './hallazgo'
+import { anotarPantalla, iniciarHistorial, resolverRetroceso, type Pantalla } from './navegacion'
 
-export type Pantalla =
-  | 'cuenta'
-  | 'administracion'
-  | 'plataforma'
-  | 'formularios'
-  | 'captura'
-  | 'bitacora'
-  | 'cola'
-  | 'dashboard'
-  | 'conflictos'
-  | 'importar'
-  /** TSK-FORM-022: el mismo asistente, empezando en el editor sin archivo. */
-  | 'crear-formulario'
-  | 'plantillas'
+export type { Pantalla }
 
 export interface RespuestaItem {
   itemId: string
@@ -152,7 +143,7 @@ interface Ctx {
    *  no expone la Storage API (no se inventa un porcentaje). */
   cuota: { usadaPct: number | null; fotosPendientes: number }
   respuestas: Record<string, RespuestaItem>
-  entradasBitacora: Array<{ id: string; hora: string; autor: string; texto: string; tags: string[]; geo: string }>
+  entradasBitacora: Array<{ id: string; capturadaEn: string; hora: string; autor: string; texto: string; tags: string[] }>
 
   /** Plantilla activa (FR-036); null sólo durante la hidratación inicial. */
   plantilla: PlantillaActual | null
@@ -175,7 +166,11 @@ interface Ctx {
   avisoSalida: MotivoSalida | null
   /** Cierra la sesión en el servidor y en el dispositivo (la cola local queda). */
   salir: () => void
-  ir: (p: Pantalla) => void
+  /** Cambia de pantalla y deja la anterior en el historial (TSK-OFF-008).
+   *  `reemplazar` es para redirecciones: no deja a dónde volver con Atrás. */
+  ir: (p: Pantalla, opciones?: { reemplazar?: boolean }) => void
+  /** TSK-OFF-008: se pulsó Atrás en la primera pantalla; otro Atrás cierra la app. */
+  avisoSalir: boolean
   sincronizarAhora: () => void
   sincronizando: boolean
   enviandoInspeccion: boolean
@@ -194,11 +189,34 @@ interface Ctx {
   /** Única vía de escritura de la captura: valida contra `props` (FR-039)
    *  y persiste el valor en las columnas naturales del borrador. */
   responderCampo: (itemId: string, valor: CampoValor, adjunto?: { foto: File }) => void
-  crearHallazgo: (itemId: string, sev: Severidad, descripcion: string, foto: File | null) => void
+  /** Crea el hallazgo del ítem o corrige el que ya tenía (TSK-OFF-007). */
+  guardarHallazgo: (itemId: string, sev: Severidad, descripcion: string, foto: File | null) => void
+  /** Hallazgo ya registrado para un ítem del borrador, para poder corregirlo. */
+  leerHallazgo: (itemId: string) => Promise<HallazgoGuardado | null>
+  /** Resultado del último envío, para confirmarlo en pantalla (TSK-OFF-007). */
+  ultimoEnvio: EnvioConfirmado | null
+  descartarAvisoEnvio: () => void
   /** Revalida antes de abrir el pad de firma; mantiene la firma fuera si faltan datos. */
   prepararCierre: () => boolean
   enviarInspeccion: (strokes: SignatureStroke[]) => void
   agregarBitacora: (texto: string, tags: string[], faenaId: string) => void
+}
+
+/** Hallazgo guardado en el dispositivo, en los términos del panel que lo edita. */
+export interface HallazgoGuardado {
+  severidad: Severidad
+  descripcion: string
+  foto: Blob | null
+}
+
+/** Lo que se le confirma a la persona después de firmar y enviar. */
+export interface EnvioConfirmado {
+  formulario: string
+  respondidos: number
+  total: number
+  hallazgos: number
+  /** Había señal al enviar: sale ahora. Sin señal: queda guardado y sale solo. */
+  conSenal: boolean
 }
 
 const StoreCtx = createContext<Ctx | null>(null)
@@ -223,6 +241,13 @@ const SEV_TO_EN: Record<Severidad, 'low' | 'medium' | 'high' | 'critical'> = {
   media: 'medium',
   alta: 'high',
   critica: 'critical',
+}
+
+const SEV_TO_ES: Record<'low' | 'medium' | 'high' | 'critical', Severidad> = {
+  low: 'baja',
+  medium: 'media',
+  high: 'alta',
+  critical: 'critica',
 }
 
 /** Una sesión sin asignaciones no recibe una plantilla de demostración. */
@@ -254,11 +279,11 @@ function usuarioDe(perfil: { id: string; full_name: string; email: string; role:
 function mapEntradas(rows: Array<{ id: string; capturedAt: string; authorId: string; entryText: string; tags: string[] }>, autor: string) {
   return rows.map((e) => ({
     id: e.id,
+    capturadaEn: e.capturedAt,
     hora: new Date(e.capturedAt).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' }),
     autor,
     texto: e.entryText,
     tags: e.tags,
-    geo: 'guardada en el dispositivo',
   }))
 }
 
@@ -300,6 +325,9 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
   // interruptor manual.
   const online = conConexion
   const [pantalla, setPantalla] = useState<Pantalla>('captura')
+  const pantallaRef = useRef(pantalla)
+  pantallaRef.current = pantalla
+  const [avisoSalir, setAvisoSalir] = useState(false)
   const [cola, setCola] = useState<RegistroCola[]>([])
   const [respuestas, setRespuestas] = useState<Record<string, RespuestaItem>>({})
   const [pendientes, setPendientes] = useState(0)
@@ -321,6 +349,7 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
     purgados: 0,
   })
   const [erroresCampo, setErroresCampo] = useState<Record<string, string>>({})
+  const [ultimoEnvio, setUltimoEnvio] = useState<EnvioConfirmado | null>(null)
 
   const refrescar = useCallback(async () => {
     setCola((await listOutbox()).map(mapaCola))
@@ -562,6 +591,7 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
       await guardarPlantillaSeleccionada(usuario.tenantId, usuario.faenaId, revisionId)
       setPlantilla(plantillaDesdeRevision(revision, 'caché'))
       setErroresCampo({})
+      setUltimoEnvio(null)
       if (!borrador) setRespuestas({})
       setHayBorrador(!!borrador)
       return { ok: true }
@@ -569,6 +599,44 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
     [usuario, formularios],
   )
 
+
+  /* TSK-OFF-008: navegar deja la pantalla anterior en el historial para que el
+   * botón Atrás del teléfono vuelva a ella. */
+  const ir = useCallback((p: Pantalla, opciones?: { reemplazar?: boolean }) => {
+    if (p === pantallaRef.current) return
+    anotarPantalla(window.history, p, opciones?.reemplazar ? 'reemplazar' : 'agregar')
+    setPantalla(p)
+  }, [])
+
+  const haySesion = usuario !== null
+  useEffect(() => {
+    if (!haySesion) return
+    let rearmar: number | undefined
+    const alRetroceder = () => {
+      window.clearTimeout(rearmar)
+      const r = resolverRetroceso(window.history, window.location.hash, pantallaRef.current)
+      if (r.tipo === 'pantalla') {
+        setAvisoSalir(false)
+        setPantalla(r.pantalla)
+      } else if (r.tipo === 'salida') {
+        /* Se llegó a la entrada de guarda: un Atrás más cierra la app. Si la
+         * persona no insiste, se vuelve a dejar la pantalla encima de la guarda
+         * para que el próximo Atrás avise de nuevo en vez de salir sin más. */
+        setAvisoSalir(true)
+        rearmar = window.setTimeout(() => {
+          anotarPantalla(window.history, pantallaRef.current, 'agregar')
+          setAvisoSalir(false)
+        }, 2500)
+      } else {
+        setAvisoSalir(false)
+      }
+    }
+    window.addEventListener('popstate', alRetroceder)
+    return () => {
+      window.clearTimeout(rearmar)
+      window.removeEventListener('popstate', alRetroceder)
+    }
+  }, [haySesion])
 
   const descartarRegistroCola = useCallback(async (outboxId: number) => {
     if (!usuario) return
@@ -596,6 +664,14 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
         const ins = draftId ? await getInspection(draftId) : undefined
         const draftRespuestas: Record<string, RespuestaItem> = {}
         if (ins) {
+          /* Un ítem "tiene hallazgo" sólo si el hallazgo existe. Antes bastaba
+           * con que la respuesta fuera NOK: tras recargar, un NOK sin hallazgo
+           * pasaba la validación de cierre como si lo tuviera. */
+          const conHallazgo = new Map(
+            (await hallazgosDeInspeccion(ins.id))
+              .filter((h) => h.responseId !== null)
+              .map((h) => [h.responseId as string, h.id]),
+          )
           for (const item of itemsDe(activa.definition)) {
             const r = await respuestaDelItem(ins.id, item.id)
             if (!r) continue
@@ -612,7 +688,7 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
               itemId: item.id,
               campo,
               valor: esOkNokNa(campo) ? campo : null,
-              hallazgoId: r.valueOk === 'nok' ? r.id : undefined,
+              hallazgoId: conHallazgo.get(r.id),
             }
           }
         }
@@ -629,6 +705,8 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
           : u.rol === 'platform_admin'
             ? 'plataforma'
             : 'dashboard'
+      // TSK-OFF-008: la primera pantalla de la sesión abre el historial.
+      iniciarHistorial(window.history, destino)
       setPantalla(destino)
       setUsuario(u)
       setIdentidad(i)
@@ -754,6 +832,8 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
     setErroresCampo({})
     setEntradasBitacora([])
     setDebeCambiarClave(false)
+    setUltimoEnvio(null)
+    setAvisoSalir(false)
     setPantalla('captura')
   }, [])
 
@@ -858,6 +938,8 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
         return resto
       })
       const campo = v.valor
+      // Empezar la inspección siguiente retira la confirmación de la anterior.
+      setUltimoEnvio(null)
       setRespuestas((r) => ({
         ...r,
         [itemId]: { ...r[itemId], itemId, campo, valor: esOkNokNa(campo) ? campo : null },
@@ -917,12 +999,22 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
     [usuario, plantilla, refrescar, resolverDraft],
   )
 
-  const crearHallazgo = useCallback(
+  const guardarHallazgo = useCallback(
     (itemId: string, sev: Severidad, descripcion: string, foto: File | null) => {
       if (!usuario) return
       void (async () => {
         const draft = await resolverDraft(usuario)
-        const respuesta = await respuestaDelItem(draft.id, itemId)
+        /* El hallazgo cuelga de la respuesta NOK. Si su escritura aún no
+         * terminó, se asegura aquí: sin `responseId` no habría cómo encontrar
+         * este hallazgo después para corregirlo. */
+        const responseId =
+          (await respuestaDelItem(draft.id, itemId))?.id ??
+          (await upsertResponse({
+            inspectionId: draft.id,
+            templateItemId: itemId,
+            tenantId: usuario.tenantId,
+            valueOk: 'nok',
+          }))
         // FR-012: la foto se comprime ANTES de encolarse (canvas ≤1280 px, q0.7).
         // Si la compresión falla, el hallazgo se guarda igual sin foto: la
         // captura nunca depende de la evidencia fotográfica.
@@ -940,13 +1032,13 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
             fotoComprimida = null
           }
         }
-        await addFinding({
+        const { id } = await guardarHallazgoDb({
           inspectionId: draft.id,
-          responseId: respuesta?.id ?? null,
+          responseId,
           tenantId: usuario.tenantId,
           severity: SEV_TO_EN[sev],
           description: descripcion.trim() || 'Sin descripción',
-          detalle: descripcion.trim().slice(0, 42) || 'Sin descripción',
+          detalle: detalleDeHallazgo(descripcion),
           foto: fotoComprimida,
         })
         setRespuestas((r) => ({
@@ -956,14 +1048,34 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
             itemId,
             campo: 'nok',
             valor: 'nok',
-            hallazgoId: respuesta?.id,
+            hallazgoId: id,
           },
         }))
+        setErroresCampo((e) => {
+          if (!(itemId in e)) return e
+          const resto = { ...e }
+          delete resto[itemId]
+          return resto
+        })
         await refrescar()
       })()
     },
     [usuario, refrescar, resolverDraft],
   )
+
+  const leerHallazgo = useCallback(async (itemId: string): Promise<HallazgoGuardado | null> => {
+    const draftId = await getDraftInspectionId()
+    if (!draftId) return null
+    const respuesta = await respuestaDelItem(draftId, itemId)
+    if (!respuesta) return null
+    const guardado = await hallazgoDeRespuesta(draftId, respuesta.id)
+    if (!guardado) return null
+    return {
+      severidad: SEV_TO_ES[guardado.hallazgo.severity],
+      descripcion: guardado.hallazgo.description === 'Sin descripción' ? '' : guardado.hallazgo.description,
+      foto: guardado.foto?.blob ?? null,
+    }
+  }, [])
 
   const prepararCierre = useCallback((): boolean => {
     if (!usuario || !plantilla || plantilla.estado !== 'ok' || envioInspeccionEnCurso.current) return false
@@ -986,7 +1098,18 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
         if (!draftId) return
         // Enmienda 004 (TSK-DOM-006): la ubicación ya no se registra. Se pedía
         // en cada envío sin explicar para qué y ningún reporte la usaba.
-        await submitInspection(draftId, { strokes, declarationVersion: 'v1' }, null)
+        const hallazgos = (await hallazgosDeInspeccion(draftId)).length
+        const enviada = await submitInspection(draftId, { strokes, declarationVersion: 'v1' }, null)
+        if (enviada && plantilla) {
+          const items = itemsDe(plantilla.definition)
+          setUltimoEnvio({
+            formulario: plantilla.nombre,
+            respondidos: items.filter((i) => contestado(respuestas[i.id]?.campo)).length,
+            total: items.length,
+            hallazgos,
+            conSenal: online,
+          })
+        }
         setRespuestas({})
         setHayBorrador(false)
         await refrescar()
@@ -998,7 +1121,9 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
         setEnviandoInspeccion(false)
       }
     })()
-  }, [prepararCierre, refrescar, sincronizarAhora])
+  }, [prepararCierre, refrescar, sincronizarAhora, plantilla, respuestas, online])
+
+  const descartarAvisoEnvio = useCallback(() => setUltimoEnvio(null), [])
 
   const agregarBitacora = useCallback(
     (texto: string, tags: string[], faenaId: string) => {
@@ -1044,7 +1169,8 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
     sesionExpirada,
     avisoSalida,
     salir,
-    ir: setPantalla,
+    ir,
+    avisoSalir,
     sincronizarAhora,
     sincronizando,
     enviandoInspeccion,
@@ -1056,7 +1182,10 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
     fallidos,
     enCola: cola,
     responderCampo,
-    crearHallazgo,
+    guardarHallazgo,
+    leerHallazgo,
+    ultimoEnvio,
+    descartarAvisoEnvio,
     prepararCierre,
     enviarInspeccion,
     agregarBitacora,

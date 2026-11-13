@@ -335,6 +335,8 @@ test.describe('FR-031/032 — ciclo de la inspección', () => {
     // panel de hallazgo y recién ahí aparece el botón para abrirlo.
     await expect(page.getByRole('button', { name: /hallazgo/i }).first()).toBeVisible()
     await page.getByRole('button', { name: /registrar hallazgo/i }).first().click()
+    // TSK-OFF-007: la severidad no viene preseleccionada; la elige la persona.
+    await page.getByRole('button', { name: 'Media', exact: true }).click()
     await page.locator('textarea').first().fill(DESCRIPCION_HALLAZGO)
     await page.getByRole('button', { name: 'Guardar hallazgo' }).click()
     // El hallazgo se persiste de forma asíncrona; sin esperarlo, el envío

@@ -1,5 +1,11 @@
 /* Sheet de hallazgo — FR-032 (severidad obligatoria al nok), FR-012 (foto).
  *
+ * TSK-OFF-007: el mismo panel registra y CORRIGE. Si el ítem ya tiene hallazgo
+ * se abre con lo guardado (severidad, descripción y foto) y guardar actualiza
+ * ese registro; antes se abría vacío y guardar creaba un duplicado. La
+ * severidad no viene preseleccionada y un hallazgo alta/crítica exige
+ * descripción (`lib/hallazgo.ts`).
+ *
  * MOVIMIENTO:
  * · Entrada con spring (420 ms, bounce 0.16) desde transform-origin en el
  *   botón que la abrió. Spring y no duración fija porque el usuario puede
@@ -7,8 +13,7 @@
  *   una transición de 300 ms se reinicia y se ve el tirón.
  * · El fondo entra con fade a 180 ms — más rápido que el panel, para que la
  *   lectura sea "el panel llega, el fondo solo se atenúa".
- * · El backdrop NO se puede arrastrar para cerrar en este mockup, pero el
- *   spring ya prepara la sensación. El `Escape` cierra sin animación (teclado).
+ * · El `Escape` y el botón Atrás del teléfono cierran sin animación.
  * · El selector de severidad hace pop al elegir, como el ok/nok/na. Spring
  *   corto: se elige una vez por hallazgo.
  * · SALE más rápido que entra (200 ms ease-out): la salida no debe hacer
@@ -21,6 +26,9 @@ import { Boton } from './ui'
 import { SEV_META } from './Badges'
 import { EASE } from '../lib/motion'
 import type { ItemPlantilla, Severidad } from '../lib/types'
+import type { HallazgoGuardado } from '../lib/store'
+import { erroresDeHallazgo, exigeDescripcion, type ErroresHallazgo } from '../lib/hallazgo'
+import { useCapaAtras } from '../lib/useCapaAtras'
 import { CamaraCaptura } from './CamaraCaptura'
 
 const SEVS: Severidad[] = ['baja', 'media', 'alta', 'critica']
@@ -29,28 +37,52 @@ export function SheetHallazgo({
   item,
   onClose,
   onGuardar,
+  cargar,
 }: {
   item: ItemPlantilla | null
   onClose: () => void
   onGuardar: (sev: Severidad, descripcion: string, foto: File | null) => void
+  /** Hallazgo ya guardado para el ítem (`null` si es nuevo). */
+  cargar: (itemId: string) => Promise<HallazgoGuardado | null>
 }) {
   const reducir = useReducedMotion()
-  const [sev, setSev] = useState<Severidad>('media')
+  const [sev, setSev] = useState<Severidad | null>(null)
   const [desc, setDesc] = useState('')
+  /** Foto tomada en esta apertura; `null` = no se tomó una nueva. */
   const [foto, setFoto] = useState<File | null>(null)
+  /** Foto que el hallazgo ya tenía guardada. */
+  const [fotoPrevia, setFotoPrevia] = useState<Blob | null>(null)
+  const [editando, setEditando] = useState(false)
+  const [errores, setErrores] = useState<ErroresHallazgo>({})
   const [camaraAbierta, setCamaraAbierta] = useState(false)
   const origen = useRef<HTMLElement | null>(null)
+  const itemId = item?.id ?? null
+
+  useCapaAtras(item !== null, onClose)
 
   useEffect(() => {
-    if (item) {
-      setSev('media')
-      setDesc('')
-      setFoto(null)
-      // Guardamos el disparador para fijar transform-origin: el panel debe
-      // crecer desde el botón que lo abrió, no desde el centro de la pantalla.
-      origen.current = document.activeElement as HTMLElement
+    if (!itemId) return
+    setSev(null)
+    setDesc('')
+    setFoto(null)
+    setFotoPrevia(null)
+    setEditando(false)
+    setErrores({})
+    // Guardamos el disparador para fijar transform-origin: el panel debe
+    // crecer desde el botón que lo abrió, no desde el centro de la pantalla.
+    origen.current = document.activeElement as HTMLElement
+    let vivo = true
+    void cargar(itemId).then((guardado) => {
+      if (!vivo || !guardado) return
+      setEditando(true)
+      setSev(guardado.severidad)
+      setDesc(guardado.descripcion)
+      setFotoPrevia(guardado.foto)
+    })
+    return () => {
+      vivo = false
     }
-  }, [item])
+  }, [itemId, cargar])
 
   useEffect(() => {
     if (!item) return
@@ -76,6 +108,27 @@ export function SheetHallazgo({
     setOrigin(`${x}px ${r.bottom}px`)
   }, [item])
 
+  /* Vista previa: la persona ve la foto que va a quedar como evidencia, no el
+   * nombre de un archivo. La URL se libera al cambiar de foto o cerrar. */
+  const visible = foto ?? fotoPrevia
+  const [urlFoto, setUrlFoto] = useState<string | null>(null)
+  useEffect(() => {
+    if (!visible) {
+      setUrlFoto(null)
+      return
+    }
+    const url = URL.createObjectURL(visible)
+    setUrlFoto(url)
+    return () => URL.revokeObjectURL(url)
+  }, [visible])
+
+  const guardar = () => {
+    const e = erroresDeHallazgo(sev, desc)
+    setErrores(e)
+    if (!sev || e.severidad || e.descripcion) return
+    onGuardar(sev, desc, foto)
+  }
+
   return (
     <AnimatePresence>
       {item && (
@@ -100,7 +153,7 @@ export function SheetHallazgo({
             <motion.div
               role="dialog"
               aria-modal="true"
-              aria-label="Registrar hallazgo"
+              aria-label={editando ? 'Editar hallazgo' : 'Registrar hallazgo'}
               initial={reducir ? { opacity: 0 } : { opacity: 0, y: 18, scale: 0.97 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={
@@ -110,20 +163,20 @@ export function SheetHallazgo({
               }
               transition={reducir ? { duration: 0.15 } : { type: 'spring', duration: 0.42, bounce: 0.16 }}
               style={{ transformOrigin: origin }}
-              className="pointer-events-auto w-[min(520px,100%)] max-h-[88dvh] overflow-y-auto panel p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom,0px))] sm:pb-5 rounded-b-none sm:rounded-b-[14px] shadow-2xl"
+              className="pointer-events-auto w-[min(520px,100%)] max-h-[88dvh] overflow-y-auto overscroll-contain panel p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom,0px))] sm:pb-5 rounded-b-none sm:rounded-b-[14px] shadow-2xl"
             >
             <div className="flex items-start justify-between gap-4">
               <div>
-                <p className="label-inst">Hallazgo obligatorio</p>
+                <p className="label-inst">{editando ? 'Editar hallazgo' : 'Nuevo hallazgo'}</p>
                 <h2 className="mt-1.5 text-[19px] font-semibold tracking-[-0.025em] leading-snug">
                   {item.texto}
                 </h2>
-                <p className="mt-1 text-[12px] text-ink-3">{item.seccion}</p>
+                <p className="mt-1 text-[13px] text-ink-2">{item.seccion}</p>
               </div>
               <button
                 onClick={onClose}
                 aria-label="Cerrar"
-                className="h-11 w-11 sm:h-8 sm:w-8 shrink-0 grid place-items-center rounded-lg text-ink-3 hover:text-ink hover:bg-s3 transition-colors duration-150 cursor-pointer"
+                className="h-11 w-11 shrink-0 grid place-items-center rounded-lg text-ink-2 hover:text-ink hover:bg-s3 transition-colors duration-150 cursor-pointer"
               >
                 <svg width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden>
                   <path d="m2 2 9 9M11 2l-9 9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
@@ -131,33 +184,47 @@ export function SheetHallazgo({
               </button>
             </div>
 
-            {/* Severidad — segmentado con pop */}
+            {/* Severidad — segmentado con pop. Sin valor por omisión: la elige
+                quien vio el problema. */}
             <div className="mt-5">
-              <p className="label-inst mb-2">Severidad</p>
-              <div className="grid grid-cols-4 gap-1.5 p-1 rounded-xl bg-s0 border border-line-soft">
+              <p className="label-inst mb-2" id="hallazgo-severidad">Severidad</p>
+              <div
+                role="group"
+                aria-labelledby="hallazgo-severidad"
+                aria-describedby={errores.severidad ? 'hallazgo-error-severidad' : undefined}
+                className={[
+                  'grid grid-cols-4 gap-1.5 p-1 rounded-xl bg-s0 border',
+                  errores.severidad ? 'border-failed' : 'border-campo',
+                ].join(' ')}
+              >
                 {SEVS.map((s) => {
                   const m = SEV_META[s]
                   const sel = sev === s
                   return (
                     <motion.button
                       key={s}
-                      onClick={() => setSev(s)}
+                      type="button"
+                      aria-pressed={sel}
+                      onClick={() => {
+                        setSev(s)
+                        setErrores((e) => ({ ...e, severidad: undefined }))
+                      }}
                       whileTap={reducir ? undefined : { scale: 0.94 }}
                       animate={{
                         backgroundColor: sel ? m.bg : 'transparent',
                         borderColor: sel ? `color-mix(in oklab, ${m.color} 50%, transparent)` : 'transparent',
                       }}
                       transition={{ duration: 0.2, ease: EASE.out }}
-                      className="h-11 rounded-lg border cursor-pointer grid place-items-center"
+                      className="h-12 rounded-lg border cursor-pointer grid place-items-center"
                     >
                       <motion.span
-                        animate={{ color: sel ? m.color : 'var(--color-ink-3)', scale: sel ? 1 : 0.94 }}
+                        animate={{ color: sel ? m.color : 'var(--color-ink-2)', scale: sel ? 1 : 0.94 }}
                         transition={
                           sel && !reducir
                             ? { type: 'spring', duration: 0.32, bounce: 0.3 }
                             : { duration: 0.18 }
                         }
-                        className="num-inst text-[11px] font-semibold uppercase tracking-[0.06em]"
+                        className="num-inst text-[12px] font-semibold uppercase tracking-[0.04em]"
                       >
                         {m.label}
                       </motion.span>
@@ -165,28 +232,50 @@ export function SheetHallazgo({
                   )
                 })}
               </div>
-              <p className="mt-2 text-[11px] text-ink-3 leading-relaxed">
-                {sev === 'alta' || sev === 'critica'
-                  ? 'Se destaca de inmediato en el dashboard del supervisor al sincronizar.'
-                  : 'Queda visible en el listado de hallazgos del turno.'}
-              </p>
+              {errores.severidad ? (
+                <p id="hallazgo-error-severidad" role="alert" className="mt-2 text-[13px] font-medium text-failed">
+                  {errores.severidad}
+                </p>
+              ) : (
+                sev && (
+                  <p className="mt-2 text-[13px] text-ink-2 leading-relaxed">
+                    {exigeDescripcion(sev)
+                      ? 'Supervisión lo verá destacado apenas se envíe.'
+                      : 'Queda en el listado de hallazgos de la inspección.'}
+                  </p>
+                )
+              )}
             </div>
 
             {/* Descripción */}
             <label className="block mt-5">
-              <span className="label-inst">Descripción del hallazgo</span>
+              <span className="label-inst">
+                Descripción{exigeDescripcion(sev) ? ' (obligatoria)' : ''}
+              </span>
               <textarea
                 value={desc}
-                onChange={(e) => setDesc(e.target.value)}
+                onChange={(e) => {
+                  setDesc(e.target.value)
+                  setErrores((x) => ({ ...x, descripcion: undefined }))
+                }}
                 rows={4}
-                placeholder="Qué se observó, dónde exactamente, y qué se recomienda…"
-                className="mt-1.5 w-full px-3 py-2.5 rounded-[10px] bg-s0 border border-line-soft text-[14px] leading-relaxed placeholder:text-ink-3 focus:border-beam transition-colors duration-150 resize-none"
+                name="hallazgo-descripcion"
+                aria-invalid={errores.descripcion ? true : undefined}
+                aria-describedby={errores.descripcion ? 'hallazgo-error-descripcion' : undefined}
+                placeholder="Qué observaste, dónde exactamente y qué recomiendas…"
+                className={[
+                  'mt-1.5 w-full px-3 py-2.5 rounded-[10px] bg-s0 border text-[14px] leading-relaxed placeholder:text-ink-3 transition-colors duration-150 resize-none',
+                  errores.descripcion ? 'border-failed' : 'border-campo',
+                ].join(' ')}
               />
             </label>
+            {errores.descripcion && (
+              <p id="hallazgo-error-descripcion" role="alert" className="mt-2 text-[13px] font-medium text-failed">
+                {errores.descripcion}
+              </p>
+            )}
 
-            {/* FR-011/012: evidencia fotográfica capturada en el dispositivo.
-                Se guarda el blob sin comprimir acá; la compresión (≤1280px q0.7)
-                llega con TSK-WS-006. */}
+            {/* FR-011/012: evidencia fotográfica capturada en el dispositivo. */}
             <CamaraCaptura abierta={camaraAbierta} alCerrar={() => setCamaraAbierta(false)} alCapturar={setFoto} />
             <button
               type="button"
@@ -194,56 +283,40 @@ export function SheetHallazgo({
               className={[
                 'mt-4 w-full flex items-center gap-3 rounded-[10px] border px-3.5 py-3 text-left cursor-pointer',
                 'transition-colors duration-200 ease-out',
-                foto
-                  ? 'border-beam/45 bg-beam/10'
-                  : 'border-line-soft bg-s1 hover:border-line',
+                visible ? 'border-beam/45 bg-beam/10' : 'border-campo bg-s1 hover:border-line-strong',
               ].join(' ')}
             >
-              <span
-                className={[
-                  'h-9 w-9 rounded-lg grid place-items-center shrink-0 transition-colors duration-200',
-                  foto ? 'bg-beam/20 text-beam' : 'bg-s3 text-ink-3',
-                ].join(' ')}
-              >
-                <svg width="17" height="17" viewBox="0 0 17 17" fill="none" aria-hidden>
-                  <path d="M2.5 4.5h3l1.2-1.6h3.6l1.2 1.6h3v9h-12v-9Z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" />
-                  <circle cx="8.5" cy="8.8" r="2.3" stroke="currentColor" strokeWidth="1.3" />
-                </svg>
-              </span>
+              {urlFoto ? (
+                <img
+                  src={urlFoto}
+                  alt="Foto del hallazgo"
+                  width={56}
+                  height={56}
+                  className="h-14 w-14 rounded-lg object-cover shrink-0 border border-line"
+                />
+              ) : (
+                <span className="h-14 w-14 rounded-lg grid place-items-center shrink-0 bg-s3 text-ink-2">
+                  <svg width="20" height="20" viewBox="0 0 17 17" fill="none" aria-hidden>
+                    <path d="M2.5 4.5h3l1.2-1.6h3.6l1.2 1.6h3v9h-12v-9Z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" />
+                    <circle cx="8.5" cy="8.8" r="2.3" stroke="currentColor" strokeWidth="1.3" />
+                  </svg>
+                </span>
+              )}
               <div className="min-w-0 flex-1">
-                <p className="text-[13px] font-medium">
-                  {foto ? foto.name : 'Adjuntar evidencia fotográfica'}
+                <p className="text-[14px] font-medium">
+                  {visible ? 'Foto adjunta · cambiar' : 'Agregar foto'}
                 </p>
-                <p className="text-[11px] text-ink-3 mt-0.5 truncate">
-                  {foto
-                    ? `${Math.round(foto.size / 1024)} KB original · se comprime en el dispositivo`
-                    : 'Captura con la cámara; se comprime a 1280 px · q0.7 antes de encolar'}
+                <p className="text-[13px] text-ink-2 mt-0.5">
+                  {visible ? 'Toca para tomar otra.' : 'Opcional. Queda guardada en este dispositivo.'}
                 </p>
               </div>
-              {/* Checkmark del archivo elegido */}
-              <motion.span
-                animate={{ scale: foto ? 1 : 0.6, opacity: foto ? 1 : 0 }}
-                transition={reducir ? { duration: 0 } : { type: 'spring', duration: 0.32, bounce: 0.32 }}
-                className="h-5 w-5 rounded-full bg-beam grid place-items-center shrink-0"
-              >
-                <svg width="11" height="11" viewBox="0 0 10 10" aria-hidden>
-                  <path
-                    d="M2 5.2 4 7.2 8 3"
-                    stroke="var(--color-s0)"
-                    strokeWidth="1.8"
-                    fill="none"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-              </motion.span>
             </button>
 
             <div className="mt-6 flex gap-2 justify-end">
               <Boton variante="fantasma" onClick={onClose}>
                 Cancelar
               </Boton>
-              <Boton variante="primaria" onClick={() => onGuardar(sev, desc, foto)}>
+              <Boton variante="primaria" onClick={guardar}>
                 Guardar hallazgo
               </Boton>
             </div>

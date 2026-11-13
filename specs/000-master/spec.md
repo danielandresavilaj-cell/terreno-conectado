@@ -3,7 +3,7 @@
 | | |
 | :--- | :--- |
 | **ID** | 000-master |
-| **Versión** | 1.6.1 · Enmienda 007 (operación certificada; TSK-OPS-003-B en revisión) |
+| **Versión** | 1.6.2 · Enmienda 007 (operación certificada; TSK-OPS-003-B en revisión) |
 | **Estado** | APROBADO — Raúl González (2026-09-24) y Daniel Ávila (2026-10-13) · Enmiendas 003–006 firmadas por Daniel Ávila, pendientes de ratificación de Raúl González · Enmienda 007 propuesta por Raúl González y aprobada por Daniel Ávila el 2026-11-12; B está en revisión y C–E se implementan por tareas |
 | **Autores** | Daniel Ávila (datos/negocio) · Raúl González (infra/plataforma) |
 | **Fuente** | Informe de Definición APT, Fase 1 (2026-09-04) |
@@ -120,6 +120,7 @@ Convención EARS en español: ubicuo (`EL SISTEMA DEBERÁ…`), evento (`CUANDO�
 - **FR-030** EL SISTEMA DEBERÁ permitir al `tenant_admin` definir plantillas de inspección: secciones e ítems con tipos de respuesta `ok/nok/na`, texto, numérico y foto obligatoria/opcional.
 - **FR-031** EL SISTEMA DEBERÁ gestionar el ciclo de vida de una inspección: `draft → in_progress → submitted → reviewed`.
 - **FR-032** CUANDO un ítem se responde `nok`, EL SISTEMA DEBERÁ exigir (configurable por plantilla) un hallazgo asociado con severidad (`baja/media/alta/crítica`), descripción y evidencia fotográfica opcional.
+  > **Nota de implementación (TSK-OFF-007, 2026-11-13):** la respuesta `nok` de un ítem tiene **un** hallazgo; corregirlo en el dispositivo actualiza ese registro (mismo UUID, `client_version` mayor) en vez de crear otro. La severidad la elige la persona (sin valor por omisión) y la descripción es obligatoria para `alta` y `crítica`. No cambia el texto ni el alcance del requisito. Detalle en `specs/004-dominio-inspecciones/spec.md` §5.
 - **FR-033** EL SISTEMA DEBERÁ permitir registrar bitácoras de turno: entradas cronológicas con autor, texto, tags y faena asociada.
 - **FR-034** EL SISTEMA DEBERÁ asociar cada captura (inspección/bitácora/hallazgo) a una faena u obra del tenant, con geolocalización opcional si el dispositivo la provee. *(Enmienda 004: la geolocalización sale de V1; la asociación a faena/obra se mantiene.)*
 - **FR-035** CUANDO un hallazgo de severidad `alta` o `crítica` se sincroniza, EL SISTEMA DEBERÁ destacarlo inmediatamente en el dashboard del supervisor (sin notificaciones push en V1 — fuera de alcance).
@@ -318,6 +319,7 @@ La demo se considera exitosa si, en vivo ante el docente:
 | 1.0.1 | 2026-10-06 | Firmado por Daniel Ávila — firma delegada con autorización explícita del titular, registrada por el agente del equipo | Daniel Ávila |
 | 1.6.0 | 2026-11-12 | **Enmienda 007** — firma de cierre, cofirma opcional, outbox de avisos por correo, programación e identificador QR de activo/lugar (FR-056…061). Propuesta por Raúl González y aprobada por Daniel Ávila el 2026-11-12; por implementar (TSK-OPS-003-B…E) | Raúl González (con IA) · aprobación Daniel Ávila |
 | 1.6.1 | 2026-11-12 | **TSK-OPS-003-B (#191, en revisión):** firma offline de inspector y cofirma opcional implementadas con validación estática y unitaria; integración/E2E/caos pendientes de Docker/CI | Raúl González (con IA) |
+| 1.6.2 | 2026-11-13 | **Nota de implementación bajo FR-032** (no es Enmienda): un hallazgo por respuesta, corregible; severidad elegida y descripción obligatoria en alta/crítica (TSK-OFF-007) | Daniel Ávila (con IA) |
 | 1.5.0 | 2026-11-11 | **Enmienda 006** — importar con IA (fotos, PDF escaneados; FR-029/048), opcional y auditado; OCR deja de estar en V2. Pendiente ratificación de Raúl González | Daniel Ávila (con IA) |
 | 1.4.0 | 2026-11-11 | **Enmienda 005** — importar Word/PDF (FR-029), exportación consolidada, PDF y Word (FR-045); OCR sigue en V2. Pendiente ratificación de Raúl González | Daniel Ávila (con IA) |
 | 1.3.0 | 2026-11-11 | **Enmienda 004** — FR-034 sin geolocalización; NFR-03 se mide como procesamiento del lote y la espera sin señal se informa aparte. Pendiente ratificación de Raúl González | Daniel Ávila (con IA) |

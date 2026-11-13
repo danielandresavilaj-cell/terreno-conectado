@@ -22,7 +22,7 @@ import { Boton } from '../components/ui'
 import { FormRenderer } from '../components/FormRenderer'
 import { SheetHallazgo } from '../components/SheetHallazgo'
 import { FirmaCierre } from '../components/FirmaCierre'
-import { useEstado, type PlantillaActual } from '../lib/store'
+import { useEstado } from '../lib/store'
 import {
   descargarLibro,
   exportarDocumento,
@@ -35,8 +35,8 @@ import { fechaHoraLocal } from '../lib/fecha-hora-actual'
 import type { TemplateItem } from '@terreno/shared'
 import type { ItemPlantilla } from '../lib/types'
 
-/** Chip de cabecera cuando el turno quedó congelado en una revisión ausente (FR-028). */
-const CHIP_SIN_REVISION = 'Revisión congelada ausente'
+/** Fecha de hoy como la dice una persona: "jueves 13 de noviembre". */
+const FECHA_LARGA = new Intl.DateTimeFormat('es-CL', { weekday: 'long', day: 'numeric', month: 'long' })
 
 /** Estado del export offline (FR-019). El texto vive en el panel, no en alertas. */
 type EstadoExport =
@@ -54,7 +54,10 @@ export function Captura() {
     enviarInspeccion,
     enviandoInspeccion,
     erroresCampo,
-    crearHallazgo,
+    guardarHallazgo,
+    leerHallazgo,
+    ultimoEnvio,
+    descartarAvisoEnvio,
     online,
     usuario,
     originales,
@@ -68,6 +71,13 @@ export function Captura() {
   const [hayOriginal, setHayOriginal] = useState(false)
   const [firmando, setFirmando] = useState(false)
   const revisionId = plantilla?.revisionId ?? null
+
+  /* TSK-OFF-007: al enviar, la pantalla sube para que la confirmación se vea.
+   * El botón de firma está al final del formulario; sin esto la persona queda
+   * mirando un formulario vacío sin saber si el envío funcionó. */
+  useEffect(() => {
+    if (ultimoEnvio) window.scrollTo({ top: 0 })
+  }, [ultimoEnvio])
 
   /* Al abrir un formulario, fecha y hora representan el momento de inicio del
    * recorrido. Se escriben al faltar en el borrador y no se reescriben si el
@@ -126,8 +136,8 @@ export function Captura() {
       setEstadoExport({
         fase: 'ok',
         resumen:
-          `${r.fileName} · ${r.celdasEscritas} respuesta(s) escritas` +
-          (r.omitidas.length > 0 ? ` · ${r.omitidas.length} ítem(s) no se pudieron escribir` : ''),
+          `${r.fileName} · ${r.celdasEscritas} ${r.celdasEscritas === 1 ? 'respuesta' : 'respuestas'}` +
+          (r.omitidas.length > 0 ? ` · ${r.omitidas.length} sin escribir` : ''),
       })
     } catch (err) {
       /* El módulo no lanza por datos, pero un fallo de lectura del caché sí
@@ -153,6 +163,9 @@ export function Captura() {
   const congeladaAusente = plantilla.estado === 'no-disponible'
   const sinFormularios = plantilla.estado === 'sin-plantillas'
   const exportando = estadoExport.fase === 'trabajando'
+  /* La descarga en Excel existe sólo para formularios importados desde una
+   * planilla: sus ítems recuerdan la celda de origen (TSK-FORM-019). */
+  const vieneDeExcel = items.some((i) => i.origen !== undefined)
 
   /* El sheet de hallazgo trabaja sobre el item legacy: se adapta desde el
    * TemplateItem del renderer (FR-032 sobre definición dinámica). */
@@ -170,34 +183,75 @@ export function Captura() {
       {/* ── Encabezado de la inspección ───────────────────────────────────── */}
       <header>
         <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <p className="label-inst">Captura con plantilla dinámica</p>
-            <h1 className="mt-1.5 text-[26px] sm:text-[30px] font-semibold tracking-[-0.03em] leading-[1.1]">
+          <div className="min-w-0">
+            <p className="label-inst">Inspección</p>
+            <h1 className="mt-1.5 text-[26px] sm:text-[30px] font-semibold tracking-[-0.03em] leading-[1.1] text-pretty break-words">
               {plantilla.nombre}
             </h1>
-            <p className="mt-1.5 text-[13px] text-ink-2">
-              {usuario?.faena} · Turno B ·{' '}
-              {plantilla.version !== null ? `v${plantilla.version} de la plantilla` : 'plantilla local'}
+            <p className="mt-1.5 text-[14px] text-ink-2">
+              {usuario?.faena} · {FECHA_LARGA.format(new Date())}
+              {plantilla.version !== null ? ` · versión ${plantilla.version}` : ''}
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Boton tamano="sm" variante="secundaria" onClick={() => ir('formularios')}>
               Ver formularios
             </Boton>
-            <Chip color={online ? 'var(--color-synced)' : 'var(--color-pending)'}>
-              {online ? 'Guardado en cola · online' : 'Guardado en dispositivo'}
-            </Chip>
-            <Chip color={congeladaAusente ? 'var(--color-failed)' : 'var(--color-beam)'}>
-              {congeladaAusente ? CHIP_SIN_REVISION : origenDe(plantilla.origen)}
-            </Chip>
+            {congeladaAusente ? (
+              <Chip color="var(--color-failed)">Formulario no disponible</Chip>
+            ) : (
+              <Chip color={online ? 'var(--color-synced)' : 'var(--color-pending)'}>
+                {online ? 'Guardado automático' : 'Guardado en este teléfono'}
+              </Chip>
+            )}
           </div>
         </div>
+
+        {/* TSK-OFF-007: confirmación del envío. Queda hasta que la persona la
+            cierra o empieza a responder la inspección siguiente. */}
+        {ultimoEnvio && (
+          <div
+            role="status"
+            data-testid="envio-confirmado"
+            className="mt-5 panel p-4 border-synced/40 bg-synced/[0.07]"
+          >
+            <div className="flex items-start gap-3">
+              <span className="mt-0.5 h-6 w-6 rounded-full bg-synced grid place-items-center shrink-0" aria-hidden>
+                <svg width="13" height="13" viewBox="0 0 10 10">
+                  <path d="M2 5.2 4 7.2 8 3" stroke="var(--color-s0)" strokeWidth="1.8" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-[16px] font-semibold tracking-[-0.015em]">
+                  {ultimoEnvio.conSenal ? 'Inspección enviada' : 'Inspección guardada'}
+                </p>
+                <p className="mt-1 text-[14px] text-ink-2 leading-relaxed">
+                  {ultimoEnvio.formulario} · {ultimoEnvio.respondidos} de {ultimoEnvio.total} respuestas
+                  {ultimoEnvio.hallazgos > 0 &&
+                    ` · ${ultimoEnvio.hallazgos} ${ultimoEnvio.hallazgos === 1 ? 'hallazgo' : 'hallazgos'}`}
+                  .{' '}
+                  {ultimoEnvio.conSenal
+                    ? 'Quedó firmada y va camino a supervisión.'
+                    : 'Quedó firmada en este teléfono y se enviará sola cuando vuelva la señal.'}
+                </p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <Boton tamano="sm" variante="secundaria" onClick={() => ir('cola')}>
+                    Ver envíos
+                  </Boton>
+                  <Boton tamano="sm" variante="fantasma" onClick={descartarAvisoEnvio}>
+                    Entendido
+                  </Boton>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {itemsDe(plantilla.definition).some(
           (item) => item.response_type === 'date' || item.response_type === 'time',
         ) && (
-          <p className="mt-3 text-[12px] text-ink-2">
-            La fecha y la hora se registran automáticamente al abrir el formulario.
+          <p className="mt-3 text-[13px] text-ink-2">
+            La fecha y la hora se registran solas al abrir el formulario.
           </p>
         )}
 
@@ -208,15 +262,15 @@ export function Captura() {
           <div className="mt-5 panel p-4">
             <div className="flex items-end justify-between gap-4 mb-3">
               <div>
-                <p className="label-inst">Progreso de la inspección</p>
-                <p className="mt-1 num-inst text-[15px]">
-                  {contestados} <span className="text-ink-3">de {items.length} ítems</span>
+                <p className="label-inst">Avance</p>
+                <p className="mt-1 num-inst text-[16px]">
+                  {contestados} <span className="text-ink-2">de {items.length} preguntas</span>
                 </p>
               </div>
               <div className="text-right">
                 <p className="num-inst text-[22px] font-semibold text-beam">{pct}%</p>
                 {noks > 0 && (
-                  <p className="text-[11px] text-failed font-medium">{noks} con hallazgo</p>
+                  <p className="text-[13px] text-failed font-medium">{noks} NOK</p>
                 )}
               </div>
             </div>
@@ -229,9 +283,8 @@ export function Captura() {
                 style={{ transformOrigin: 'left center' }}
               />
             </div>
-            <p className="mt-3 text-[11px] text-ink-3 leading-relaxed">
-              El borrador se guarda solo en cada cambio. Puedes cerrar la app y seguir
-              después: el dato no se pierde.
+            <p className="mt-3 text-[13px] text-ink-2 leading-relaxed">
+              Cada respuesta se guarda sola. Puedes cerrar la app y seguir después.
             </p>
           </div>
         )}
@@ -241,23 +294,20 @@ export function Captura() {
       {congeladaAusente ? (
         /* Sin la revisión congelada no hay formulario que mostrar (FR-028). */
         <div className="panel p-5">
-          <p className="label-inst">Revisión congelada no disponible</p>
+          <p className="label-inst">Formulario no disponible</p>
           <p className="mt-2 text-[14px] text-ink leading-relaxed">
-            Este turno quedó congelado en una revisión de la plantilla que no está en este
-            dispositivo
-            {plantilla.revisionPendiente ? ` (${plantilla.revisionPendiente})` : ''}. Lo que ya
-            respondiste sigue guardado en el borrador.
+            Empezaste esta inspección con una versión del formulario que ya no está en este
+            teléfono. Lo que respondiste sigue guardado.
           </p>
-          <p className="mt-2 text-[12px] text-ink-3 leading-relaxed">
-            No se cambia a otra plantilla a propósito: eso invalidaría lo ya respondido. Volverá
-            sola si la asignación sigue vigente; si tu supervisor la retiró, no volverá y el turno
-            queda bloqueado.
+          <p className="mt-2 text-[13px] text-ink-2 leading-relaxed">
+            Si el formulario sigue asignado a tu faena, volverá solo cuando haya señal. Si tu
+            administrador lo retiró, no volverá: descarta el borrador para empezar otra inspección.
           </p>
           <div className="mt-4 flex flex-wrap items-center gap-2">
             {confirmarDescarte ? (
               <>
-                <span className="text-[12px] text-ink-2">
-                  Se borrará el borrador y lo que llevas respondido. ¿Continuar?
+                <span className="text-[13px] text-ink-2">
+                  Se borrará lo que llevas respondido. ¿Continuar?
                 </span>
                 <Boton
                   tamano="sm"
@@ -284,8 +334,8 @@ export function Captura() {
         <div className="panel p-5">
           <p className="label-inst">Formularios asignados</p>
           <h2 className="mt-2 text-[17px] font-semibold">No tienes formularios asignados</h2>
-          <p className="mt-2 text-[13px] text-ink-2 leading-relaxed">
-            Tu rol y faena no tienen una plantilla disponible. Pídele a un administrador que te asigne un formulario antes de iniciar una inspección.
+          <p className="mt-2 text-[14px] text-ink-2 leading-relaxed">
+            Pídele a tu administrador que asigne un formulario a tu faena para poder inspeccionar.
           </p>
           <Boton tamano="sm" variante="secundaria" className="mt-4" onClick={() => ir('formularios')}>
             Ver formularios asignados
@@ -302,57 +352,46 @@ export function Captura() {
         ))
       )}
 
-      {/* ── Pie ───────────────────────────────────────────────────────────── */}
-      <div className="panel p-4 flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-2.5">
-          <span
-            className={[
-              'h-2 w-2 rounded-full shrink-0',
-              pendientes > 0 ? 'bg-pending' : 'bg-synced',
-            ].join(' ')}
-          />
-          <p className="text-[12px] text-ink-2">
-            {pendientes > 0 ? (
-              <>
-                <span className="num-inst text-ink">{pendientes}</span> registro
-                {pendientes > 1 ? 's' : ''} en la cola local
-              </>
-            ) : (
-              'Todo sincronizado'
-            )}
+      {/* ── Cierre ────────────────────────────────────────────────────────
+       *  TSK-OFF-007: firmar es LA acción de esta pantalla, así que es el botón
+       *  grande y ocupa el ancho en el teléfono. FR-014 guarda cada respuesta al
+       *  instante: no se ofrece un "Guardar" que no tendría nada que hacer. */}
+      {!congeladaAusente && !sinFormularios && (
+        <div className="panel p-4 space-y-3">
+          {Object.keys(erroresCampo).length > 0 && (
+            <p role="alert" className="text-[14px] font-medium text-failed">
+              Faltan respuestas obligatorias: revisa las preguntas marcadas en rojo.
+            </p>
+          )}
+          <Boton
+            tamano="lg"
+            variante="primaria"
+            bloqueCompleto
+            disabled={enviandoInspeccion}
+            onClick={() => {
+              if (prepararCierre()) setFirmando(true)
+            }}
+          >
+            {enviandoInspeccion ? 'Enviando…' : 'Firmar y enviar'}
+          </Boton>
+          <p className="flex items-center gap-2.5 text-[13px] text-ink-2">
+            <span
+              className={['h-2 w-2 rounded-full shrink-0', pendientes > 0 ? 'bg-pending' : 'bg-synced'].join(' ')}
+              aria-hidden
+            />
+            {pendientes > 0
+              ? online
+                ? 'Hay envíos anteriores en camino.'
+                : 'Sin señal: lo que envíes queda guardado y sale solo al volver la conexión.'
+              : 'No hay envíos pendientes.'}
           </p>
         </div>
-        {/* Sin la revisión congelada no se envía nada: el lote iría contra una
-            plantilla que no es la del turno (FR-028). */}
-        {!congeladaAusente && !sinFormularios && (
-          <div className="flex gap-2">
-            {/* FR-014 guarda cada respuesta inmediatamente en el dispositivo.
-                No se ofrece un segundo "Guardar" sin trabajo que hacer: en
-                terreno un control que no cambia nada parece una falla. El
-                estado de autoguardado queda visible en la cabecera y junto a
-                la cola local de este mismo pie. */}
-            <Boton
-              tamano="sm"
-              variante="primaria"
-              disabled={enviandoInspeccion}
-              onClick={() => {
-                if (prepararCierre()) setFirmando(true)
-              }}
-            >
-              {enviandoInspeccion ? 'Enviando…' : 'Firmar y enviar'}
-            </Boton>
-          </div>
-        )}
-      </div>
-
-      {!congeladaAusente && !sinFormularios && Object.keys(erroresCampo).length > 0 && (
-        <p role="alert" className="-mt-3 text-[12px] font-medium text-failed">
-          Completa los campos obligatorios marcados antes de enviar la inspección.
-        </p>
       )}
 
       {firmando && (
         <FirmaCierre
+          firmante={usuario?.nombre}
+          resumen={`${plantilla.nombre} · ${contestados} de ${items.length} respuestas${noks > 0 ? ` · ${noks} NOK` : ''}`}
           onCancelar={() => setFirmando(false)}
           onConfirmar={(strokes) => {
             setFirmando(false)
@@ -365,71 +404,61 @@ export function Captura() {
        *  Se genera entero en el dispositivo a partir del `.xlsx` cacheado con la
        *  plantilla: respuestas en sus celdas + hoja "Evidencias". No hay red en
        *  esta ruta (Art. I), y el botón se deshabilita —lo dice, no falla— cuando
-       *  el original no está: bajarlo en el momento rompería la promesa offline. */}
-      {!sinFormularios && <div className="panel p-4">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div className="min-w-0">
-            <p className="label-inst">Documento original rellenado</p>
-            <p className="mt-1.5 text-[13px] text-ink-2 leading-relaxed">
-              {hayOriginal
-                ? 'Se arma en el dispositivo con el .xlsx que se descargó de esta plantilla: tus respuestas en sus columnas y una hoja de evidencias con las fotos. Funciona sin señal.'
-                : `${revisionId
-                    ? 'El documento original de esta plantilla todavía no está en el dispositivo.'
-                    : 'Esta plantilla no viene de una revisión publicada, así que no hay documento original que rellenar.'} Vuelve la señal y se descarga con la plantilla; la exportación no baja nada por su cuenta. Lo que ya respondiste queda guardado.`}
-            </p>
+       *  el original no está: bajarlo en el momento rompería la promesa offline.
+       *  Sólo se ofrece a formularios que nacieron de un Excel (Enmienda 005). */}
+      {!sinFormularios && (hayOriginal || (revisionId && vieneDeExcel)) && (
+        <div className="panel p-4">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div className="min-w-0 flex-1">
+              <p className="label-inst">Descargar en Excel</p>
+              <p className="mt-1.5 text-[13px] text-ink-2 leading-relaxed">
+                {hayOriginal
+                  ? 'Baja la planilla original con tus respuestas y las fotos. Funciona sin señal.'
+                  : 'Estará disponible cuando este teléfono descargue la planilla del formulario; necesita señal una vez.'}
+              </p>
+            </div>
+            <Boton
+              tamano="sm"
+              variante="secundaria"
+              disabled={!hayOriginal || exportando}
+              aria-busy={exportando}
+              onClick={() => void exportar()}
+            >
+              {exportando ? 'Generando…' : 'Descargar Excel'}
+            </Boton>
           </div>
-          <Boton
-            tamano="sm"
-            variante="secundaria"
-            disabled={!hayOriginal || exportando}
-            aria-busy={exportando}
-            onClick={() => void exportar()}
-          >
-            {exportando ? 'Generando…' : 'Exportar .xlsx'}
-          </Boton>
+
+          {estadoExport.fase === 'error' && (
+            <p role="alert" className="mt-3 text-[13px] font-medium text-failed leading-relaxed">
+              {estadoExport.mensaje}
+            </p>
+          )}
+          {estadoExport.fase === 'ok' && (
+            <p role="status" className="mt-3 text-[13px] font-medium text-synced leading-relaxed">
+              Descargado · {estadoExport.resumen}
+            </p>
+          )}
+          {/* FR-018: las planillas viven en el dispositivo con un tope. Si se
+           *  liberó espacio, la persona tiene que saberlo antes de necesitarla. */}
+          {originales.purgados > 0 && (
+            <p className="mt-3 text-[13px] text-ink-2 leading-relaxed">
+              Se liberó espacio en el teléfono: {originales.purgados}{' '}
+              {originales.purgados === 1 ? 'planilla se volverá' : 'planillas se volverán'} a descargar
+              cuando haya señal.
+            </p>
+          )}
         </div>
-
-        {estadoExport.fase === 'error' && (
-          <p role="alert" className="mt-3 text-[12px] font-medium text-failed leading-relaxed">
-            {estadoExport.mensaje}
-          </p>
-        )}
-        {estadoExport.fase === 'ok' && (
-          <p role="status" className="mt-3 text-[12px] font-medium text-synced leading-relaxed">
-            Documento exportado · {estadoExport.resumen}
-          </p>
-        )}
-      </div>}
-
-      {/* FR-018: los originales `.xlsx` viven en el dispositivo con un tope de
-       * 25 MB. Si una pasada los truncó, el trabajador tiene que saberlo: un
-       *  original que no está sólo se ve al exportar, y no al capturar. */}
-      <p className="text-[11px] text-ink-3 leading-relaxed">
-        {originales.cacheados === 0
-          ? `Documento original sin cachear: la exportación offline se habilita cuando se descargue (tope ${formatMb(originales.presupuestoBytes)}).`
-          : `${originales.cacheados} documentos originales en el dispositivo para exportar sin conexión (tope ${formatMb(originales.presupuestoBytes)}).`}
-        {originales.purgados > 0 &&
-          ` ${originales.purgados} se liberaron en esta pasada por ese tope.`}
-      </p>
+      )}
 
       <SheetHallazgo
         item={sheetItem}
         onClose={() => setSheetItem(null)}
+        cargar={leerHallazgo}
         onGuardar={(sev, desc, foto) => {
-          if (sheetItem) crearHallazgo(sheetItem.id, sev, desc, foto)
+          if (sheetItem) guardarHallazgo(sheetItem.id, sev, desc, foto)
           setSheetItem(null)
         }}
       />
     </div>
   )
-}
-
-/** Etiqueta del chip de origen de la plantilla (FR-036). */
-function origenDe(origen: PlantillaActual['origen']): string {
-  return origen === 'servidor' ? 'Plantilla del servidor' : 'Plantilla en caché'
-}
-
-/** Presupuesto de originales en MB (FR-018): el tope se muestra, no se esconde. */
-function formatMb(bytes: number): string {
-  return `${Math.round(bytes / (1024 * 1024))} MB`
 }
