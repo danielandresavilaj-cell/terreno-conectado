@@ -3,7 +3,7 @@
 | | |
 | :--- | :--- |
 | **Estado** | COMPLETO (ciclo del módulo, F2 · 2026-10-13) |
-| **Versión** | 0.4.0 |
+| **Versión** | 0.6.0 |
 | **Autor** | Daniel Ávila |
 | **Padre** | specs/000-master/spec.md |
 | **Depende de** | 003 (datos sincronizados + `SYNC_LOG`), 004 (dominio) |
@@ -54,6 +54,8 @@ Todos bajo `/api/v1`, con Bearer JWT y roles `supervisor`/`tenant_admin` (`field
 | `sites` | GET | Faenas del tenant + nombre del tenant (bootstrapea el filtro y la captura offline) |
 | `dashboard/inspections/:id/export` | GET | FR-042/FR-044: `.xlsx` rellenado + hoja de evidencias |
 | `dashboard/inspections/export-lote` | POST | FR-045/FR-046: ZIP del período + manifiesto (filtro en el body) |
+| `dashboard/inspections/:id` | GET | Detalle para revisión: respuestas con la definición congelada, firmas y, desde TSK-REP-008, `foto_id` por respuesta y la lista `hallazgos` (severidad, estado, ítem de origen y `foto_id`) |
+| `dashboard/attachments/:id` | GET | FR-062: bytes de una foto de respuesta o de hallazgo (`image/jpeg`, `image/png` o `image/webp`), con `nosniff` y caché privada de 1 h. Otra empresa o id inexistente → 404; archivo ausente en el volumen → 404 con el motivo |
 | `conflicts` | GET | Registro LWW visible al `supervisor` y `tenant_admin` de su tenant (FR-023 consume aquí; RLS limita el tenant) |
 
 ### 3.1 Validación de filtros
@@ -84,6 +86,14 @@ La métrica anterior `synced_at − captured_at` se **retira**: mezclaba el tiem
 | | Equipos inactivos | último `sync_log` por `device_id` (30 días) con ≥ 24 h sin sincronizar |
 
 Sin muestras se informa "sin datos suficientes". La espera sin señal solo existe para inspecciones enviadas por clientes v1.1 (`SyncRecord.queued_at`, `SyncBatchRequest.sent_at`, migración 016).
+
+### 4.1 Evidencia visible (TSK-REP-008, FR-062, Enmienda 008)
+
+El listado de hallazgos muestra la **miniatura** de la foto en vez de su tamaño en KB, y el detalle de una inspección muestra la foto de cada respuesta y cada hallazgo junto al ítem que lo originó (los hallazgos sin ítem van en "Otros hallazgos"). Tocar la miniatura abre la foto a tamaño completo; se cierra con el botón, Escape o el botón Atrás del teléfono.
+
+- **Carga:** la miniatura se baja sólo cuando entra en pantalla y queda en una caché en memoria (40 fotos, se descarta la menos usada), para que el refresco de 30 s no vuelva a pedirlas. Un fallo no se recuerda: se ofrece reintentar.
+- **Seguridad:** la sesión viaja en la cabecera `Authorization`, así que la imagen no es un enlace que se pueda compartir; el servidor responde con el tipo de imagen explícito y `X-Content-Type-Options: nosniff`.
+- **Límite conocido:** se muestra la foto más reciente de cada respuesta o hallazgo. El dispositivo sólo captura una por elemento; varias fotos por hallazgo es una mejora posterior del plan.
 
 ## 5. Export (FR-042)
 
@@ -131,6 +141,7 @@ El alcance V1 del **resumen ejecutivo** es **read-only** y se apoya en las métr
 
 | Versión | Fecha | Cambio | Autor |
 | :--- | :--- | :--- | :--- |
+| 0.6.0 | 2026-11-13 | **TSK-REP-008 (Enmienda 008, FR-062):** la evidencia fotográfica se ve en el listado de hallazgos y en el detalle de la inspección; contratos `dashboard/attachments/:id` y detalle con `foto_id`/`hallazgos` | Daniel Ávila (con IA) |
 | 0.5.0 | 2026-11-11 | **TSK-REP-007:** exportación en Excel consolidado, PDF y Word con filtros ampliados y selección (§5, Enmienda 005) | Daniel Ávila (con IA) |
 | 0.4.0 | 2026-11-11 | **TSK-REP-006:** dashboard de supervisión en 4 bloques (§4); se retira la latencia captura→disponible y NFR-03 pasa a medir el procesamiento del lote (Enmienda 004) | Daniel Ávila (con IA) |
 | 0.3.2 | 2026-10-14 | Precisa el contrato de `GET /conflicts`: supervisor y `tenant_admin` del tenant, con aislamiento RLS (TSK-AUTH-008, issue #128) | Daniel Ávila |
