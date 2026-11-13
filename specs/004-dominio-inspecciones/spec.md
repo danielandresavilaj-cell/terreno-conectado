@@ -3,7 +3,7 @@
 | | |
 | :--- | :--- |
 | **Estado** | COMPLETO (base F2) · TSK-OPS-003-B en revisión (#191); Enmienda 007 continúa por tareas |
-| **Versión** | 0.5.1 |
+| **Versión** | 0.5.2 |
 | **Autor** | Daniel Ávila |
 | **Padre** | specs/000-master/spec.md |
 | **Depende de** | 001 (roles/tenant), 003 (ingesta idempotente) |
@@ -84,6 +84,8 @@ Estados `draft → in_progress → submitted → reviewed`. Lleva `site_id` (fae
 ## 5. Reglas de negocio
 
 - **Hallazgo obligatorio en `nok`:** un ítem `ok_nok_na` marcado `NOK` exige hallazgo (`props`/regla de captura, FR-032/036).
+- **Un hallazgo por respuesta, corregible (TSK-OFF-007):** la respuesta `NOK` de un ítem tiene un solo hallazgo. Corregirlo en el dispositivo conserva su UUID y sube `client_version`; nunca crea un segundo registro. Un ítem cuenta como "con hallazgo" sólo si ese registro existe (no basta con que la respuesta sea `NOK`).
+- **Severidad elegida y descripción (TSK-OFF-007):** la severidad no viene preseleccionada; un hallazgo `alta` o `crítica` exige descripción (mínimo 5 caracteres) antes de guardarse. La regla es del dispositivo (`frontend/src/lib/hallazgo.ts`); el servidor sigue aceptando cualquier descripción no vacía.
 - **Destacado inmediato (FR-035):** al consolidar un lote, los hallazgos `high`/`critical` no resueltos se cuentan en `hallazgos_urgentes` del resumen, visibles de inmediato para el supervisor.
 - **Inmutabilidad de lo publicado (FR-036/049):** no hay edición de revisiones `published`; un cambio es una **nueva** versión. Las inspecciones en vuelo conservan la suya (FR-038).
 
@@ -108,6 +110,7 @@ Estados `draft → in_progress → submitted → reviewed`. Lleva `site_id` (fae
 
 | Versión | Fecha | Cambio | Autor |
 | :--- | :--- | :--- | :--- |
+| 0.5.2 | 2026-11-13 | **TSK-OFF-007:** un hallazgo por respuesta, corregible sin duplicar; severidad sin valor por omisión y descripción obligatoria en alta/crítica | Daniel Ávila (con IA) |
 | 0.5.1 | 2026-11-12 | **TSK-OPS-003-B (#191, en revisión):** firma vectorial offline del inspector, cofirma opcional, inmutabilidad y evidencia de firmas en el detalle; validación de integración/E2E pendiente de Docker/CI | Raúl González (con IA) |
 | 0.5.0 | 2026-11-12 | **Enmienda 007** (aprobada por Daniel Ávila el 2026-11-12): incorpora FR-056…061 y remite al plan de operación certificada; no declara funcionalidad implementada hasta cerrar sus tareas | Raúl González (con IA) |
 | 0.3.1 | 2026-10-14 | **FR-034 geolocalización implementada realmente** (antes estaba documentada como GEOGRAPHY(Point) que no existía en la migración): columnas `location_lat`/`location_lon` NUMERIC, validación server-side, captura opcional con `navigator.geolocation` al enviar inspección, tests de integración. Actualiza evidencia §2 y `data-model.md` §2.2 | Daniel Ávila |
