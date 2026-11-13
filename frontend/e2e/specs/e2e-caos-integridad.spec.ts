@@ -18,6 +18,7 @@ import { uuidv7 } from '@terreno/shared'
 import { expect, test, type Browser, type Page } from '@playwright/test'
 
 import {
+  firmarYEnviar,
   autenticar,
   CUENTAS,
   ITEMS_FIXTURE_A,
@@ -119,9 +120,7 @@ async function abrirDispositivo(browser: Browser, correo = CUENTAS.trabajadorA) 
 async function enviarUna(page: Page): Promise<void> {
   await responderOkNokNa(page, ITEMS_FIXTURE_A.barriers, 'OK')
   await responderTemperaturaValida(page)
-  const boton = page.getByRole('button', { name: 'Enviar inspección' })
-  await boton.scrollIntoViewIfNeeded()
-  await boton.click()
+  await firmarYEnviar(page)
 }
 
 /* ------------------------------------------------------------------------

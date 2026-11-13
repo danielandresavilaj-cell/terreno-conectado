@@ -46,7 +46,7 @@
 
 ## 5. De la pauta en papel al dato consolidado
 
-1. **Importar:** Excel, Word, PDF o **una foto de la pauta en papel**.
+1. **Crear o importar:** desde cero en el editor, o desde Excel, Word, PDF o **una foto de la pauta en papel**.
 2. **Revisar:** la propuesta muestra secciones, preguntas, tipos y advertencias; se edita y se publica.
 3. **Asignar** por faena y rol.
 4. **Capturar** en terreno, con o sin señal, con fotos y hallazgos.
@@ -67,7 +67,7 @@
 
 ## 7. Validación
 
-- **521 pruebas automatizadas:** 253 de integración backend con Postgres real, 153 del frontend, 92 de shared y 23 E2E/caos.
+- **532 pruebas automatizadas:** 253 de integración backend con Postgres real, 164 del frontend, 92 de shared y 23 E2E/caos.
 - **Caos 1–7:** 0 pérdidas, 0 duplicados, 0 fugas entre empresas.
 - **Matriz de requisitos:** **97,7% verde** en lo implementado (43/44).
 - La IA se prueba en CI con un analizador simulado y se validó en producción con una foto real.

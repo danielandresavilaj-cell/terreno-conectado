@@ -190,7 +190,32 @@ export async function responderTemperaturaValida(page: Page): Promise<void> {
 }
 
 /**
- * Pulsa "Enviar inspección" y espera a que el outbox reciba el lote.
+ * TSK-OPS-003-B (FR-056): cerrar una inspección exige la firma del inspector.
+ * Pulsa "Firmar y enviar" en la captura, dibuja un trazo en el pad del diálogo
+ * y confirma. El botón de la página y el del diálogo se llaman igual, así que
+ * el segundo se busca DENTRO del diálogo.
+ */
+export async function firmarYEnviar(page: Page): Promise<void> {
+  const boton = page.getByRole('button', { name: 'Firmar y enviar' }).first()
+  await boton.scrollIntoViewIfNeeded()
+  await boton.click()
+  const dialogo = page.getByRole('dialog', { name: /firma con tu dedo/i })
+  await dialogo.waitFor({ state: 'visible' })
+  const pad = dialogo.getByRole('img', { name: 'Área para dibujar la firma' })
+  const caja = await pad.boundingBox()
+  if (!caja) throw new Error('el pad de firma no tiene tamaño')
+  await page.mouse.move(caja.x + caja.width * 0.2, caja.y + caja.height * 0.6)
+  await page.mouse.down()
+  for (const [fx, fy] of [[0.35, 0.3], [0.5, 0.7], [0.65, 0.35], [0.8, 0.6]]) {
+    await page.mouse.move(caja.x + caja.width * fx, caja.y + caja.height * fy, { steps: 4 })
+  }
+  await page.mouse.up()
+  await dialogo.getByRole('button', { name: 'Firmar y enviar' }).click()
+  await dialogo.waitFor({ state: 'hidden' })
+}
+
+/**
+ * Firma, envía y espera a que el outbox reciba el lote.
  *
  * El botón vive al final del formulario largo y `motion/react` anima el
  * bloque, así que sin `scrollIntoViewIfNeeded` el click falla por inestabilidad.
@@ -198,13 +223,11 @@ export async function responderTemperaturaValida(page: Page): Promise<void> {
  * asíncrono y sin esta espera el assert siguiente corre contra un outbox vacío.
  */
 export async function enviarInspeccion(page: Page): Promise<void> {
-  const boton = page.getByRole('button', { name: 'Enviar inspección' })
-  await boton.scrollIntoViewIfNeeded()
-  await boton.click()
+  await firmarYEnviar(page)
   await expect
     .poll(async () => (await leerCola(page)).total, {
       timeout: 15_000,
-      message: 'el click en "Enviar inspección" no encoló nada',
+      message: 'firmar y enviar la inspección no encoló nada',
     })
     .toBeGreaterThan(0)
 }
@@ -302,7 +325,7 @@ export async function loginEnApp(page: Page, email: string): Promise<void> {
 
 /** Recorre la selección explícita de un formulario antes de capturarlo. */
 async function abrirFormularioAsignado(page: Page): Promise<void> {
-  const enviar = page.getByRole('button', { name: 'Enviar inspección' })
+  const enviar = page.getByRole('button', { name: 'Firmar y enviar' })
   const elegir = page.getByRole('heading', { name: 'Elige qué vas a inspeccionar' })
   /* Tras el login la app va a Captura si hay un borrador, o a Formularios si
    * no: se espera la que llegue primero en vez de adivinar con un sondeo corto. */

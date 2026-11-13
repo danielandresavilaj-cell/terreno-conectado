@@ -3,7 +3,7 @@
 | | |
 | :--- | :--- |
 | **Estado** | COMPLETO (ciclo del módulo, F2 · 2026-10-13) |
-| **Versión** | 0.3.4 |
+| **Versión** | 0.3.5 |
 | **Autor** | Daniel Ávila |
 | **Padre** | specs/000-master/spec.md |
 | **Depende de** | 001 (sesión/tenant), 004 (plantillas a renderizar offline) |
@@ -60,6 +60,8 @@ Evolución por versiones (`frontend/src/lib/db.ts`), alineada con `data-model.md
 
 Targets táctiles amplios, alto contraste para luz solar, y **autoguardado de borrador** por ítem: una captura a medias sobrevive cerrar/reabrir (FR-014). Los errores de validación de tipo (FR-039) se muestran **antes de encolar**, en el dispositivo. Cada control expone la pregunta y el error asociado a tecnologías asistivas; el diálogo de cámara contiene el foco, se cierra con Escape y lo devuelve al activador para que la captura siga siendo operable también con teclado. Cuando el navegador permite instalar la PWA, la app ofrece una acción explícita; si no, indica el camino manual sin impedir el uso web (FR-010). **Modo claro y oscuro** (TSK-OFF-005): un botón en la barra superior y en las pantallas de ingreso alterna el tema, que se recuerda por dispositivo (oscuro por defecto). El tema sale de tokens CSS (`index.css`, `:root[data-theme='light']`), con contraste AA en ambos, y se fija antes del primer pintado con `public/tema-inicial.js` (sin destello, compatible con la CSP y precacheado para uso offline).
 
+**Cola legible** (TSK-OFF-006, FR-013/022): la pantalla Cola muestra una **tarjeta por lo que capturó la persona** (inspección o bitácora), no una fila por registro técnico. Cada tarjeta trae un estado agregado (el peor de sus partes: con problema > enviando > esperando señal > enviado), el avance ("12 de 26 partes enviadas"), el resumen (respuestas, hallazgos y graves, fotos y peso), el motivo del fallo en lenguaje claro y sin identificadores internos, con el próximo reintento estimado, y las acciones Reintentar y Descartar (con la confirmación dentro de la tarjeta). "Ver detalle" lista cada pregunta con su respuesta, los hallazgos con la severidad en español y las fotos con miniatura. Hay tres secciones: Con problemas, Esperando envío y Enviado en las últimas 24 h (plegada). La barra inferior y el título de la pestaña cuentan **envíos**, no partes. La lista técnica por registro (orden de dependencia, reintentos, latencia FR-024) queda en "Detalles técnicos", solo para supervisión y administración. La cola en sí (orden FR-020, idempotencia FR-021, backoff FR-022) no cambia: la vista se arma en `lib/cola-vista.ts`.
+
 ## 5. Cache del service worker (Workbox)
 
 `vite-plugin-pwa` con `registerType: 'autoUpdate'`:
@@ -99,6 +101,7 @@ La toma usa `getUserMedia` y prefiere la cámara trasera. El stream se detiene a
 
 | Versión | Fecha | Cambio | Autor |
 | :--- | :--- | :--- | :--- |
+| 0.3.5 | 2026-11-13 | TSK-OFF-006: cola legible por unidad de trabajo | Daniel Ávila (con IA) |
 | 0.3.4 | 2026-11-13 | TSK-OFF-005: modo claro y oscuro con botón, tokens por tema y fijado antes del primer pintado | Daniel Ávila (con IA) |
 | 0.3.3 | 2026-11-12 | TSK-OFF-004 (#184): acción visible de instalación PWA, ayuda por plataforma y formularios sin autofoco móvil | Raúl González (con IA) |
 | 0.3.2 | 2026-11-12 | TSK-OFF-003 (#181): controles de captura identificables por tecnologías asistivas, diálogo de cámara con foco/Escape/retorno y salto al contenido principal | Raúl González (con IA) |

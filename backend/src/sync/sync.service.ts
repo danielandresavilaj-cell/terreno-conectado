@@ -315,6 +315,9 @@ export class SyncService {
         if (x.requires_supervisor_signature !== undefined && typeof x.requires_supervisor_signature !== 'boolean') {
           throw new BadRequestException(`${at}.payload.requires_supervisor_signature inválido`)
         }
+        if (x.signature_required !== undefined && typeof x.signature_required !== 'boolean') {
+          throw new BadRequestException(`${at}.payload.signature_required inválido`)
+        }
         this.assertLocation(x.location, `${at}.payload.location`)
         break
       }
@@ -573,7 +576,9 @@ export class SyncService {
               tiempos.queuedAt,
               tiempos.sentAt,
               p.requires_supervisor_signature ?? false,
-              true,
+              // Sólo el cliente que firma lo declara: una cola de la app anterior
+              // no trae firma y su inspección queda exenta (revisable).
+              p.signature_required === true,
             ],
             insertSql: `INSERT INTO inspection
               (id, tenant_id, site_id, template_id, template_version, executed_by,
@@ -889,8 +894,9 @@ export class SyncService {
             [rec.id, tenantId, p.inspection_id, p.signer_id, p.signer_role, JSON.stringify(p.strokes), p.content_hash, p.declaration_version, p.signed_at, rec.client_version],
           )
           if (p.signer_role === 'inspector') {
+            // Nunca retrocede una inspección ya revisada: sólo cierra un borrador.
             await run(
-              "UPDATE inspection SET status = 'submitted', updated_at = now(), synced_at = now() WHERE id = $1",
+              "UPDATE inspection SET status = 'submitted', updated_at = now(), synced_at = now() WHERE id = $1 AND status IN ('draft', 'in_progress')",
               [p.inspection_id],
             )
           }

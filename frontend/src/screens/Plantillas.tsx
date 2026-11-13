@@ -31,6 +31,7 @@ import {
   getSites,
 } from '../lib/api'
 import { EASE } from '../lib/motion'
+import { useEstado } from '../lib/store'
 import type { SiteDto } from '@terreno/shared'
 import type {
   TemplateAssignmentDto,
@@ -52,6 +53,7 @@ function clave(revisionId: string, siteId: string | null, role: TemplateAssignme
 }
 
 export function Plantillas() {
+  const { ir } = useEstado()
   const [plantillas, setPlantillas] = useState<TemplatePublicadaDto[]>([])
   const [asignaciones, setAsignaciones] = useState<TemplateAssignmentDto[]>([])
   const [faenas, setFaenas] = useState<SiteDto[]>([])
@@ -126,11 +128,22 @@ export function Plantillas() {
 
   return (
     <div className="space-y-4">
-      <header>
-        <h1 className="text-[20px] font-semibold tracking-[-0.02em]">Plantillas</h1>
-        <p className="label-inst mt-1">
-          Asigna cada plantilla publicada a las faenas y roles que deben verla en su captura.
-        </p>
+      <header className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-[20px] font-semibold tracking-[-0.02em]">Plantillas</h1>
+          <p className="label-inst mt-1">
+            Asigna cada plantilla publicada a las faenas y roles que deben verla en su captura.
+          </p>
+        </div>
+        {/* TSK-FORM-022: crear desde cero; importar sigue en su pestaña. */}
+        <div className="flex flex-wrap gap-2">
+          <Boton tamano="sm" variante="secundaria" onClick={() => ir('importar')}>
+            Importar archivo
+          </Boton>
+          <Boton tamano="sm" variante="primaria" onClick={() => ir('crear-formulario')}>
+            Crear formulario
+          </Boton>
+        </div>
       </header>
 
       <div className="flex flex-col sm:flex-row sm:items-center gap-2">
@@ -168,7 +181,7 @@ export function Plantillas() {
         <p className="label-inst">Cargando plantillas…</p>
       ) : visibles.length === 0 ? (
         <p className="label-inst">
-          Sin plantillas publicadas que coincidan. Publica una desde Importar para poder asignarla.
+          Sin plantillas publicadas que coincidan. Crea un formulario o impórtalo desde un archivo, publícalo y podrás asignarlo aquí.
         </p>
       ) : (
         <div className="space-y-3">

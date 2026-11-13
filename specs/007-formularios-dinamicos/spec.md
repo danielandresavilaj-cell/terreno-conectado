@@ -65,6 +65,7 @@ Requisitos que este spec detallará: **FR-007–009, 018–019, 027–029, 036�
 
 | Versión | Fecha | Cambio | Autor |
 | :--- | :--- | :--- | :--- |
+| 0.5.0 | 2026-11-13 | TSK-FORM-022: crear formulario desde cero con el mismo editor | Daniel Ávila (con IA) |
 | 0.4.0 | 2026-11-11 | Enmienda 006: importar con IA (TSK-FORM-021) | Daniel Ávila (con IA) |
 | 0.3.0 | 2026-11-11 | Enmienda 005: importar Word y PDF (TSK-FORM-020) | Daniel Ávila (con IA) |
 | 0.2.4 | 2026-10-12 | Checklist: TSK-FORM-011 completado (PR #100) — pruebas de caos 8–11 (delta resumible FR-027/028; doble import sin duplicar FR-029; edición concurrente = una sola versión FR-049; versión en vuelo congelada FR-028/038) y matriz de libros `.xlsx` reales, incluido el ciclo import→publish→captura→export rellenado (FR-019/044). V1 completa (TSK-FORM-001→011); solo queda V2 (#45) | Daniel Ávila |
@@ -85,6 +86,12 @@ Requisitos que este spec detallará: **FR-007–009, 018–019, 027–029, 036�
 ### Enmienda 003 — Catálogo asignado offline (TSK-FORM-014, #149)
 
 FR-009/018/027: el catálogo visible se persiste por tenant, usuario, rol y faena. La caché legada por tenant no acredita asignaciones y no se muestra hasta obtener un catálogo del servidor para ese ámbito. Al iniciar o recuperar señal se consulta el catálogo completo sin cursor: los cambios de asignación no incrementan published_seq. El snapshot reemplaza la lista visible de forma atómica, incluyendo una lista vacía; sin red se usa exclusivamente el último snapshot del ámbito. Se conservan las definiciones históricas y las capturas; un borrador desasignado queda no disponible conforme a FR-028.
+
+### Crear desde cero (TSK-FORM-022)
+
+- **Entrada:** botón "Crear formulario" en Plantillas y tarjeta "Crear desde cero" en el paso Subir del asistente. Se usa el **mismo asistente** (`screens/Importar.tsx`, `inicio="cero"`): arranca en **Editar** con una sección y una pregunta en blanco, y los pasos son Editar → Borrador → Publicar.
+- **Editor (en ambos modos):** título de sección editable; agregar, subir/bajar y quitar preguntas y secciones (nunca queda sin secciones; quitar una sección con preguntas pide confirmación). Las operaciones son puras (`lib/editor-formulario.ts`). La validación es la misma (`FIELD_PROPS_SCHEMA`, FR-036/039), con mensajes accionables ("Agrega al menos una opción"), y bloquea Continuar mientras falte algo, incluido el título de una sección.
+- **Guardado:** el primer borrador se crea con `POST /templates` (`createTemplateWithDraft`, sin archivo de origen) y las ediciones siguientes con `PATCH revisions/:id`. Se publica sólo con confirmación explícita (FR-048). Sin archivo original no hay "Excel original rellenado": se exporta con el Excel consolidado, PDF o Word (FR-045). Si el nombre ya existe se avisa; crear una nueva versión de un formulario existente sigue disponible por la vía de importar.
 
 ### Enmienda 006 — Importar con IA (TSK-FORM-021)
 

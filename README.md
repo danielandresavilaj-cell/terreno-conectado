@@ -114,7 +114,7 @@ terreno-conectado/
 La v1 es un **producto con cuentas reales**, sin modo demo (Enmienda 003 del spec maestro), y desde
 entonces sumó (Enmiendas 004–006):
 
-- **Formularios desde cualquier documento**: el administrador importa una pauta desde **Excel,
+- **Formularios desde cero o desde cualquier documento**: el administrador crea un formulario desde cero en el editor (secciones, preguntas y tipo de respuesta) o importa una pauta desde **Excel,
   Word o PDF**. Con la **IA opcional** (Claude Haiku, solo en el servidor; ADR-005) también desde un
   **PDF escaneado o una foto de una pauta en papel**. Una persona siempre revisa la propuesta antes
   de publicarla. Si el nombre ya existe, se guarda como versión nueva.
@@ -138,7 +138,7 @@ Lo que ya tenía la v1:
   ([`infra/OPERACION.md`](infra/OPERACION.md)).
 - **Supervisión**: marcar inspecciones como revisadas, mover hallazgos (abierto → en curso →
   resuelto) y revisar conflictos, todo persistente y auditado.
-- **Pruebas**: 521 automatizadas: 253 de integración del backend, 153 unitarias del frontend, 92 de
+- **Pruebas**: 532 automatizadas: 253 de integración del backend, 164 unitarias del frontend, 92 de
   shared y 23 E2E/caos. La matriz de requisitos está en 97,7% verde en lo implementado ([`test-plan.md`](test-plan.md)). La Enmienda 007 (firma, QR, programación y avisos por correo) está aprobada y por implementar ([`plans/008-operacion-certificada/`](plans/008-operacion-certificada/plan.md)).
 - **Producción**: https://terrenoconectado.cl (Oracle Always Free, US$0/mes; dominio en NIC Chile con DNS en Cloudflare). La dirección anterior, `terreno-conectado-demo.duckdns.org`, sigue funcionando durante la transición.
 

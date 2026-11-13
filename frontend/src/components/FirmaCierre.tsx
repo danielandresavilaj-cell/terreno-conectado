@@ -1,4 +1,4 @@
-import { useRef, useState, type PointerEvent } from 'react'
+import { useEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react'
 import type { SignatureStroke } from '@terreno/shared'
 import { Boton } from './ui'
 
@@ -32,6 +32,7 @@ export function FirmaCierre({
   modo?: 'inspector' | 'supervisor'
 }) {
   const pad = useRef<SVGSVGElement>(null)
+  const dialogo = useRef<HTMLElement>(null)
   const [strokes, setStrokes] = useState<SignatureStroke[]>([])
   const [dibujando, setDibujando] = useState(false)
   const esCofirma = modo === 'supervisor'
@@ -59,12 +60,31 @@ export function FirmaCierre({
   }
   const terminar = () => setDibujando(false)
 
+  // Como el diálogo de cámara (TSK-OFF-003): toma el foco al abrir y lo
+  // devuelve al botón que lo abrió al cerrar; Escape cancela.
+  useEffect(() => {
+    const previo = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    dialogo.current?.focus()
+    return () => {
+      if (previo?.isConnected) previo.focus()
+    }
+  }, [])
+  const alTeclado = (ev: KeyboardEvent<HTMLElement>) => {
+    if (ev.key === 'Escape') {
+      ev.preventDefault()
+      onCancelar()
+    }
+  }
+
   return (
     <section
       role="dialog"
       aria-modal="true"
       aria-labelledby="firma-cierre-titulo"
-      className="fixed inset-0 z-50 flex items-end bg-black/60 p-3 sm:items-center sm:justify-center"
+      ref={dialogo}
+      tabIndex={-1}
+      onKeyDown={alTeclado}
+      className="fixed inset-0 z-50 flex items-end bg-black/60 p-3 sm:items-center sm:justify-center outline-none"
     >
       <div className="w-full max-w-xl rounded-2xl border border-line bg-s1 p-5 shadow-2xl">
         <p className="label-inst">{esCofirma ? 'Cofirma de supervisión' : 'Cierre de inspección'}</p>

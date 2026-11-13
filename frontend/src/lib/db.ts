@@ -20,6 +20,7 @@ import {
 } from '@terreno/shared'
 import { type PlanPurga } from './plantillas'
 import type { Identidad } from './types'
+import { SEVERIDAD_ES, type EntradaVistaCola } from './cola-vista'
 
 export type SyncEstado = 'pending' | 'syncing' | 'synced' | 'failed'
 export type OutboxTipo = 'inspeccion' | 'respuesta' | 'hallazgo' | 'foto' | 'bitacora' | 'firma'
@@ -928,7 +929,7 @@ export async function addFinding(params: {
     await encolar(
       'finding',
       findingId,
-      `Hallazgo · Severidad ${params.severity}`,
+      `Hallazgo · Severidad ${SEVERIDAD_ES[params.severity]}`,
       params.detalle,
       params.tenantId,
     )
@@ -988,6 +989,60 @@ export async function addLogEntry(params: {
 
 export async function listOutbox(): Promise<OutboxRow[]> {
   return (await db.outbox.orderBy('id').reverse().toArray()).filter(esDelDueño)
+}
+
+/**
+ * TSK-OFF-006: lo que necesita la cola legible (`lib/cola-vista.ts`) en una
+ * sola lectura. Sólo filas propias (dispositivo compartido) y los registros que
+ * ellas referencian; los adjuntos van SIN blob (la miniatura se pide aparte).
+ */
+export async function datosVistaCola(): Promise<EntradaVistaCola> {
+  return db.transaction(
+    'r',
+    [db.outbox, db.inspections, db.responses, db.findings, db.attachments, db.logEntries, db.signatures, db.plantillas],
+    async () => {
+      const outbox = (await db.outbox.toArray()).filter(esDelDueño)
+      const firmas = (await db.signatures.bulkGet(outbox.filter((f) => f.entityType === 'inspection_signature').map((f) => f.entityId)))
+        .filter((x): x is InspectionSignatureRow => !!x)
+        .map(({ id, inspectionId, signerRole }) => ({ id, inspectionId, signerRole }))
+      const ids = (t: OutboxRow['entityType']) => outbox.filter((f) => f.entityType === t).map((f) => f.entityId)
+      const adjuntos = (await db.attachments.bulkGet(ids('attachment'))).filter((a): a is AttachmentRow => !!a)
+      const hallazgos = (await db.findings.bulkGet([...ids('finding'), ...adjuntos.filter((a) => a.ownerType === 'finding').map((a) => a.ownerId)]))
+        .filter((h): h is FindingRow => !!h)
+      const respuestas = (await db.responses.bulkGet([...ids('response'), ...adjuntos.filter((a) => a.ownerType === 'response').map((a) => a.ownerId)]))
+        .filter((r): r is ResponseRow => !!r)
+      const idsInspeccion = new Set([
+        ...ids('inspection'),
+        ...firmas.map((f) => f.inspectionId),
+        ...respuestas.map((r) => r.inspectionId),
+        ...hallazgos.map((h) => h.inspectionId).filter((x): x is string => !!x),
+      ])
+      const inspecciones = (await db.inspections.bulkGet([...idsInspeccion])).filter((i): i is InspectionRow => !!i)
+      const bitacoras = (await db.logEntries.bulkGet([...ids('log_entry'), ...adjuntos.filter((a) => a.ownerType === 'log_entry').map((a) => a.ownerId)]))
+        .filter((b): b is LogEntryRow => !!b)
+      const revisiones = [...new Set(inspecciones.map((i) => i.templateRevisionId).filter((x): x is string => !!x))]
+      const plantillas = (await db.plantillas.bulkGet(revisiones)).filter((p): p is PlantillaCacheRow => !!p)
+      return {
+        outbox,
+        inspecciones,
+        respuestas: dedupe(respuestas),
+        hallazgos: dedupe(hallazgos),
+        adjuntos: adjuntos.map(({ blob: _blob, ...meta }) => meta),
+        bitacoras: dedupe(bitacoras),
+        firmas,
+        definiciones: Object.fromEntries(plantillas.map((p) => [p.revision_id, p.definition])),
+      }
+    },
+  )
+}
+
+function dedupe<T extends { id: string }>(xs: T[]): T[] {
+  return [...new Map(xs.map((x) => [x.id, x])).values()]
+}
+
+/** TSK-OFF-006: blob de una foto para la miniatura del detalle de la cola. */
+export async function fotoDeAdjunto(id: string): Promise<Blob | null> {
+  return (await db.attachments.get(id))?.blob ?? null
 }
 
 export async function listLogEntries(siteId: string | null): Promise<LogEntryRow[]> {
@@ -1075,6 +1130,7 @@ async function payloadDe(o: OutboxRow): Promise<{
     case 'inspection': {
       const r = await db.inspections.get(o.entityId)
       if (!r) throw new Error(`inspection ${o.entityId} no existe`)
+      const firmada = (await db.signatures.where('[inspectionId+signerRole]').equals([r.id, 'inspector']).count()) > 0
       return {
         client_version: r.clientVersion,
         captured_at: r.capturedAt,
@@ -1085,6 +1141,10 @@ async function payloadDe(o: OutboxRow): Promise<{
           executed_by: r.executedBy,
           status: r.status,
           requires_supervisor_signature: r.requiresSupervisorSignature,
+          // FR-056: sólo se exige firma si esta inspección se cerró firmando. Una
+          // inspección encolada por la versión anterior de la app no la tiene y
+          // debe seguir siendo revisable.
+          signature_required: firmada,
           location: r.location ?? null,
         },
       }

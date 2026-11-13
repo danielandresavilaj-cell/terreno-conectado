@@ -38,6 +38,12 @@ export interface SyncInspectionPayload {
   status: SyncInspectionStatus
   /** Regla congelada desde la revisión de plantilla (FR-057). */
   requires_supervisor_signature?: boolean
+  /**
+   * FR-056: la inspección se cierra con firma del inspector. Lo declara el
+   * cliente que ya firma; las colas de versiones anteriores de la app no lo
+   * envían y esas inspecciones quedan exentas (si no, nunca podrían revisarse).
+   */
+  signature_required?: boolean
   /** FR-034: georreferencia opcional de la inspección (captura en terreno). */
   location?: { lat: number; lon: number } | null
 }

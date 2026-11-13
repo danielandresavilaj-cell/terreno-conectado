@@ -17,6 +17,7 @@
 import { expect, test, type Page } from '@playwright/test'
 
 import {
+  firmarYEnviar,
   autenticar,
   CUENTAS,
   ITEMS_FIXTURE_A,
@@ -73,9 +74,7 @@ async function enviarUna(page: Page): Promise<void> {
   await responderOkNokNa(page, ITEMS_FIXTURE_A.barriers, 'OK')
   await responderOkNokNa(page, ITEMS_FIXTURE_A.senalizacion, 'OK')
   await responderTemperaturaValida(page)
-  const boton = page.getByRole('button', { name: 'Enviar inspección' })
-  await boton.scrollIntoViewIfNeeded()
-  await boton.click()
+  await firmarYEnviar(page)
 }
 
 /* ------------------------------------------------------------------------

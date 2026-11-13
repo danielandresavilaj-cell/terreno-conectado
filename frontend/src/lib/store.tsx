@@ -25,7 +25,9 @@ import {
   type ReactNode,
 } from 'react'
 import type { Identidad, RegistroCola, Rol, Severidad, Usuario } from './types'
+import { armarVistaCola } from './cola-vista'
 import {
+  datosVistaCola,
   addFinding,
   addLogEntry,
   aplicarPurgaOriginales,
@@ -106,6 +108,8 @@ export type Pantalla =
   | 'dashboard'
   | 'conflictos'
   | 'importar'
+  /** TSK-FORM-022: el mismo asistente, empezando en el editor sin archivo. */
+  | 'crear-formulario'
   | 'plantillas'
 
 export interface RespuestaItem {
@@ -183,6 +187,8 @@ interface Ctx {
   descartarRegistroCola: (outboxId: number) => Promise<void>
 
   pendientes: number
+  /** TSK-OFF-006: envíos por enviar (inspecciones/bitácoras), no filas técnicas. Es lo que ve la persona. */
+  enviosPendientes: number
   fallidos: number
   enCola: RegistroCola[]
   /** Única vía de escritura de la captura: valida contra `props` (FR-039)
@@ -297,6 +303,7 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
   const [cola, setCola] = useState<RegistroCola[]>([])
   const [respuestas, setRespuestas] = useState<Record<string, RespuestaItem>>({})
   const [pendientes, setPendientes] = useState(0)
+  const [enviosPendientes, setEnviosPendientes] = useState(0)
   const [fallidos, setFallidos] = useState(0)
   const [entradasBitacora, setEntradasBitacora] = useState<Ctx['entradasBitacora']>([])
   const [recienSincronizado, setRecienSincronizado] = useState<string | null>(null)
@@ -318,6 +325,7 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
   const refrescar = useCallback(async () => {
     setCola((await listOutbox()).map(mapaCola))
     setPendientes(await contadorPendientes())
+    setEnviosPendientes(armarVistaCola(await datosVistaCola()).enviosPendientes)
     setFallidos(await contadorFallidos())
     // FR-017: la cuota se relee en cada refresco (tras capturar o sincronizar).
     // `estimarCuota` no lanza y degrada a null si el navegador no la expone.
@@ -704,8 +712,8 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
   }, [])
 
   useEffect(() => {
-    document.title = `Terreno Conectado · ${pendientes} pendientes`
-  }, [pendientes])
+    document.title = `Terreno Conectado · ${enviosPendientes} por enviar`
+  }, [enviosPendientes])
 
   const loginInApp = useCallback(
     async (email: string, password: string, tenant?: string) => {
@@ -1044,6 +1052,7 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
     seleccionarFormulario,
     descartarRegistroCola,
     pendientes,
+    enviosPendientes,
     fallidos,
     enCola: cola,
     responderCampo,
