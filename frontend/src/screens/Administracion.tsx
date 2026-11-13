@@ -21,6 +21,8 @@ import {
   type UsuarioEmpresa,
 } from '../lib/api'
 import { generarClaveTemporal } from '../lib/clave'
+import { csvDeClaves, leerPlanilla, type FilaAlta } from '../lib/alta-masiva'
+import { descargarTexto } from '../lib/descarga'
 import { ROL_LABEL, ROLES_DE_EMPRESA } from '../lib/roles'
 import { useEstado } from '../lib/store'
 
@@ -182,6 +184,8 @@ function Equipo() {
         </form>
       </Panel>
 
+      <AltaMasiva correosExistentes={usuarios.map((u) => u.email)} alTerminar={() => void cargar()} />
+
       <Panel className="divide-y divide-line-soft">
         {usuarios.length === 0 && !error && <p className="p-5 text-[14px] text-ink-2">Cargando cuentas…</p>}
         {usuarios.map((u) => {
@@ -229,6 +233,160 @@ function Equipo() {
         })}
       </Panel>
     </div>
+  )
+}
+
+/**
+ * TSK-ADM-002 (FR-053): alta de varias cuentas desde una planilla. Se revisa
+ * antes de crear, se crean una por una con la misma API que el alta individual
+ * y al final se descarga la lista de claves temporales para entregarlas.
+ */
+function AltaMasiva({ correosExistentes, alTerminar }: { correosExistentes: string[]; alTerminar: () => void }) {
+  const [abierta, setAbierta] = useState(false)
+  const [texto, setTexto] = useState('')
+  const [creando, setCreando] = useState(false)
+  const [resultado, setResultado] = useState<{
+    creadas: Array<{ nombre: string; email: string; clave: string }>
+    fallidas: Array<{ fila: FilaAlta; motivo: string }>
+  } | null>(null)
+  const { filas, errores } = leerPlanilla(texto, correosExistentes)
+
+  const leerArchivo = async (archivo: File | undefined) => {
+    if (!archivo) return
+    setTexto(await archivo.text())
+    setResultado(null)
+  }
+
+  const crearTodas = async () => {
+    setCreando(true)
+    const creadas: Array<{ nombre: string; email: string; clave: string }> = []
+    const fallidas: Array<{ fila: FilaAlta; motivo: string }> = []
+    for (const fila of filas) {
+      const clave = generarClaveTemporal()
+      try {
+        await crearUsuario({ email: fila.email, full_name: fila.nombre, role: fila.rol, password: clave })
+        creadas.push({ nombre: fila.nombre, email: fila.email, clave })
+      } catch (err) {
+        fallidas.push({ fila, motivo: mensajeDe(err) })
+        // Sin señal no tiene sentido seguir: el resto fallaría igual.
+        if (err instanceof ApiError && err.status === 0) break
+      }
+    }
+    setResultado({ creadas, fallidas })
+    setCreando(false)
+    if (creadas.length > 0) {
+      setTexto('')
+      alTerminar()
+    }
+  }
+
+  const descargarClaves = () => {
+    if (!resultado) return
+    // BOM: Excel abre el CSV con tildes bien.
+    descargarTexto('\uFEFF' + csvDeClaves(resultado.creadas), `claves-temporales-${new Date().toISOString().slice(0, 10)}.csv`)
+  }
+
+  return (
+    <Panel className="p-5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="text-[16px] font-semibold">Agregar varias cuentas</h2>
+          <p className="mt-1 text-[13px] text-ink-2">Desde una planilla: una persona por fila con nombre, correo y rol.</p>
+        </div>
+        <Boton tamano="sm" variante={abierta ? 'fantasma' : 'secundaria'} onClick={() => setAbierta((v) => !v)}>
+          {abierta ? 'Cerrar' : 'Agregar varias'}
+        </Boton>
+      </div>
+
+      {abierta && (
+        <div className="mt-4 space-y-3">
+          <label className="block">
+            <span className="label-inst">Pega las filas (puedes copiarlas desde Excel)</span>
+            <textarea
+              value={texto}
+              onChange={(e) => {
+                setTexto(e.target.value)
+                setResultado(null)
+              }}
+              rows={6}
+              spellCheck={false}
+              placeholder={'Ana Pérez; ana@empresa.cl; supervisor\nLuis Soto; luis@empresa.cl; trabajador'}
+              className="mt-1.5 w-full px-3 py-2.5 rounded-[10px] bg-s0 border border-line-soft text-[14px] font-mono leading-relaxed"
+            />
+          </label>
+          <label className="inline-flex items-center gap-2 text-[13px] text-ink-2">
+            o sube un archivo .csv
+            <input type="file" accept=".csv,.txt,text/csv,text/plain" onChange={(e) => void leerArchivo(e.target.files?.[0])} className="text-[13px]" />
+          </label>
+          <p className="text-[13px] text-ink-3">
+            El rol puede ser trabajador, supervisor o administrador; si falta, queda como trabajador.
+          </p>
+
+          {texto.trim() && (
+            <div className="rounded-xl border border-line-soft bg-s0 p-3.5 space-y-2" aria-live="polite">
+              <p className="text-[14px]">
+                <strong>{filas.length}</strong> {filas.length === 1 ? 'cuenta lista' : 'cuentas listas'} para crear
+                {errores.length > 0 && (
+                  <>
+                    {' · '}
+                    <span className="text-failed">
+                      {errores.length} {errores.length === 1 ? 'fila con problema' : 'filas con problemas'}
+                    </span>
+                  </>
+                )}
+              </p>
+              {errores.length > 0 && (
+                <ul className="text-[13px] text-failed space-y-0.5">
+                  {errores.slice(0, 8).map((e) => (
+                    <li key={e.linea}>
+                      Fila {e.linea}: {e.motivo}
+                    </li>
+                  ))}
+                  {errores.length > 8 && <li>… y {errores.length - 8} más.</li>}
+                </ul>
+              )}
+              {filas.length > 0 && (
+                <ul className="text-[13px] text-ink-2 max-h-40 overflow-y-auto">
+                  {filas.map((f) => (
+                    <li key={f.linea} className="truncate">
+                      {f.nombre} · {f.email} · {ROL_LABEL[f.rol]}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
+
+          <Boton variante="primaria" disabled={creando || filas.length === 0} onClick={() => void crearTodas()}>
+            {creando ? 'Creando…' : `Crear ${filas.length} ${filas.length === 1 ? 'cuenta' : 'cuentas'}`}
+          </Boton>
+        </div>
+      )}
+
+      {resultado && (
+        <div role="alert" className="mt-4 rounded-xl border border-beam/40 bg-beam/10 p-4 space-y-2">
+          <p className="text-[14px]">
+            Se {resultado.creadas.length === 1 ? 'creó 1 cuenta' : `crearon ${resultado.creadas.length} cuentas`}
+            {resultado.fallidas.length > 0 && ` y ${resultado.fallidas.length} no se pudieron crear`}. Descarga las
+            claves temporales ahora: no se volverán a mostrar.
+          </p>
+          {resultado.fallidas.length > 0 && (
+            <ul className="text-[13px] text-failed">
+              {resultado.fallidas.map((f) => (
+                <li key={f.fila.linea}>
+                  {f.fila.email}: {f.motivo}
+                </li>
+              ))}
+            </ul>
+          )}
+          {resultado.creadas.length > 0 && (
+            <Boton tamano="sm" variante="primaria" onClick={descargarClaves}>
+              Descargar claves (.csv)
+            </Boton>
+          )}
+        </div>
+      )}
+    </Panel>
   )
 }
 
