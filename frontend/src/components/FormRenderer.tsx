@@ -92,8 +92,10 @@ function FilaCampo({
           typeof props.max === 'number' ? props.max : '—'
         }`
       : null
-  // FR-032: un nok en ítem con hallazgo obligatorio muestra la acción.
-  const requiereHallazgo = campo === 'nok' && (item.require_finding_on_nok ?? false)
+  // FR-032: todo NOK ofrece registrar un hallazgo (TSK-OFF-012); sólo es
+  // obligatorio si la plantilla lo exige, y sólo entonces se marca en rojo.
+  const esNok = campo === 'nok' && item.response_type === 'ok_nok_na'
+  const requiereHallazgo = esNok && (item.require_finding_on_nok ?? false)
   const conHallazgo = !!r?.hallazgoId
 
   const control: Record<TemplateItem['response_type'], ReactNode> = {
@@ -186,7 +188,7 @@ function FilaCampo({
       )}
 
       <AnimatePresence>
-        {requiereHallazgo && (
+        {esNok && (
           <motion.div
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
@@ -220,7 +222,7 @@ function FilaCampo({
               ) : (
                 <Boton
                   tamano="sm"
-                  variante="peligro"
+                  variante={requiereHallazgo ? 'peligro' : 'secundaria'}
                   icono={
                     <svg width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden>
                       <path d="M6.5 1.6 12 11.4H1L6.5 1.6Z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" />
@@ -230,7 +232,7 @@ function FilaCampo({
                   }
                   onClick={() => onAbrirHallazgo(item, seccion)}
                 >
-                  Registrar hallazgo
+                  {requiereHallazgo ? 'Registrar hallazgo' : 'Registrar hallazgo (opcional)'}
                 </Boton>
               )}
             </div>

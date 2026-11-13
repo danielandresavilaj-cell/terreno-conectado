@@ -167,7 +167,9 @@ export function SheetHallazgo({
             >
             <div className="flex items-start justify-between gap-4">
               <div>
-                <p className="label-inst">{editando ? 'Editar hallazgo' : 'Nuevo hallazgo'}</p>
+                <p className="label-inst">
+                  {editando ? 'Editar hallazgo' : item.hallazgoObligatorio ? 'Hallazgo obligatorio' : 'Nuevo hallazgo'}
+                </p>
                 <h2 className="mt-1.5 text-[19px] font-semibold tracking-[-0.025em] leading-snug">
                   {item.texto}
                 </h2>
