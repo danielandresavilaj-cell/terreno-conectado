@@ -1,6 +1,6 @@
 # TASKS — Módulo 002: Captura offline (PWA)
 
-**Versión:** 0.1.6 · **Fecha:** 2026-11-13 · **Autor:** Raúl González (con IA)
+**Versión:** 0.1.7 · **Fecha:** 2026-11-13 · **Autor:** Raúl González (con IA)
 **Padre:** `plans/002-captura-offline/plan.md` · **Spec:** `specs/002-captura-offline/spec.md`
 **Issue:** #5 · **Requisitos:** FR-010…FR-019, NFR-01, NFR-02, NFR-07
 
@@ -23,6 +23,7 @@ La auditoría del 2026-10-14 sobre `main` encontró que **FR-017 estaba simulado
 | TSK-OFF-007 | Correcciones de captura (Fase 0 del plan de mejora) | FR-011, FR-013, FR-032, FR-033 | 002, 006 | Un hallazgo se **corrige** conservando su UUID (no se duplica) y un ítem sólo "tiene hallazgo" si el hallazgo existe; la severidad se elige (sin valor por omisión) y alta/crítica exigen descripción; enviar muestra una **confirmación** con el resumen; sin turno escrito a mano en captura ni bitácora, y la bitácora muestra el estado real de envío. `frontend/test/hallazgo.test.ts` verde. | ✅ Hecho |
 | TSK-OFF-008 | Botón Atrás del teléfono | FR-010, FR-011 | 004 | Cada cambio de pantalla deja una entrada en el historial (`#pantalla`); Atrás vuelve a la anterior, cierra el panel abierto (hallazgo, cámara, firma) sin cambiar de pantalla y en la primera pantalla avisa antes de salir. Sin dependencias nuevas; funciona sin red. `frontend/test/navegacion.test.ts` verde. | ✅ Hecho |
 | TSK-OFF-009 | Lenguaje y legibilidad en terreno | FR-010, FR-011, NFR-07, NFR-10 | 005 | Sin jerga interna en las pantallas de terreno y gerencia; texto secundario ≥ 12 px con contraste ≥ 4,5:1 en ambos temas; borde de campos ≥ 3:1; objetivos táctiles ≥ 44 px en captura, bitácora y navegación; nombre y faena visibles en el teléfono. | ✅ Hecho |
+| TSK-OFF-010 | Elegir la faena al inspeccionar | FR-034, FR-009, FR-018 | 007 | Con más de una faena en la empresa, la persona elige en cuál está: la sesión arranca en la faena de la inspección en curso, o en la última elegida en ese equipo, o en la primera (y entonces pide elegir). Cambiar de faena cambia los formularios disponibles y la faena de la próxima inspección; no se puede con una inspección sin enviar. Los formularios de las otras faenas se guardan en el equipo mientras hay señal, para poder cambiar sin conexión. `frontend/test/faena.test.ts` verde. | ✅ Hecho |
 
 ## Criterios de salida del módulo
 
@@ -34,6 +35,7 @@ La auditoría del 2026-10-14 sobre `main` encontró que **FR-017 estaba simulado
 
 | Versión | Fecha | Cambio | Autor |
 | :--- | :--- | :--- | :--- |
+| 0.1.7 | 2026-11-13 | TSK-OFF-010: elegir la faena al inspeccionar (antes siempre la primera de la empresa) | Daniel Ávila (con IA) |
 | 0.1.6 | 2026-11-13 | TSK-OFF-007/008/009: Fase 0 de `docs/auditoria-y-plan-de-mejora.md` (correcciones de captura, botón Atrás, lenguaje y legibilidad) | Daniel Ávila (con IA) |
 | 0.1.5 | 2026-11-13 | TSK-OFF-006: cola legible | Daniel Ávila (con IA) |
 | 0.1.4 | 2026-11-13 | TSK-OFF-005: modo claro y oscuro | Daniel Ávila (con IA) |

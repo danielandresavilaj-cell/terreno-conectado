@@ -446,6 +446,22 @@ export async function guardarPlantillaSeleccionada(
   await db.meta.put({ key: claveSeleccionPlantilla(tenantId, siteId), value: revisionId })
 }
 
+/* ------------------------------------------- faena de la sesión (TSK-OFF-010) */
+
+function claveFaena(tenantId: string, userId: string): string {
+  return `tc_faena:${tenantId}:${userId}`
+}
+
+/** Última faena que esta persona eligió en este equipo (`null` si nunca eligió). */
+export async function leerFaenaSeleccionada(tenantId: string, userId: string): Promise<string | null> {
+  const row = await db.meta.get(claveFaena(tenantId, userId))
+  return typeof row?.value === 'string' ? row.value : null
+}
+
+export async function guardarFaenaSeleccionada(tenantId: string, userId: string, siteId: string): Promise<void> {
+  await db.meta.put({ key: claveFaena(tenantId, userId), value: siteId })
+}
+
 /* ------------------------------------- originales .xlsx (FR-018, TSK-FORM-009) */
 
 /**

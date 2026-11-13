@@ -7,8 +7,21 @@ import { itemsDe } from '../lib/valores'
 /** Punto de entrada de terreno: sólo muestra formularios que el servidor ya
  * filtró por la faena y rol del usuario autenticado. */
 export function Formularios() {
-  const { formularios, plantilla, hayBorrador, seleccionarFormulario, ir } = useEstado()
+  const { formularios, plantilla, hayBorrador, seleccionarFormulario, ir, usuario, identidad, faenaPorElegir, cambiarFaena } =
+    useEstado()
   const [error, setError] = useState<string | null>(null)
+  const [cambiando, setCambiando] = useState<string | null>(null)
+  const faenas = identidad?.faenas ?? []
+
+  /* TSK-OFF-010 (FR-034): con más de una faena, la persona dice en cuál está. */
+  const elegirFaena = async (faenaId: string) => {
+    if (faenaId === usuario?.faenaId && !faenaPorElegir) return
+    setError(null)
+    setCambiando(faenaId)
+    const r = await cambiarFaena(faenaId)
+    setCambiando(null)
+    if (!r.ok) setError(r.error ?? 'No se pudo cambiar de faena.')
+  }
 
   const abrir = async (revisionId: string) => {
     setError(null)
@@ -28,9 +41,46 @@ export function Formularios() {
           Elige qué vas a inspeccionar
         </h1>
         <p className="mt-2 text-[14px] text-ink-2 max-w-[62ch] leading-relaxed">
-          Estos son los formularios habilitados para tu faena.
+          Estos son los formularios habilitados para {usuario?.faena && usuario.faena !== '—' ? usuario.faena : 'tu faena'}.
         </p>
       </header>
+
+      {faenas.length > 1 && (
+        <section
+          className={['panel p-4', faenaPorElegir ? 'border-beam/45 bg-beam/[0.06]' : ''].join(' ')}
+          aria-labelledby="titulo-faena"
+        >
+          <p id="titulo-faena" className={faenaPorElegir ? 'text-[16px] font-semibold' : 'label-inst'}>
+            {faenaPorElegir ? '¿En qué faena estás hoy?' : 'Faena'}
+          </p>
+          {faenaPorElegir && (
+            <p className="mt-1 text-[13px] text-ink-2">
+              Tu empresa tiene varias. Los formularios y tus inspecciones quedan asociados a la que elijas.
+            </p>
+          )}
+          <div className="mt-3 flex flex-wrap gap-2" role="group" aria-labelledby="titulo-faena">
+            {faenas.map((f) => {
+              const activa = f.id === usuario?.faenaId && !faenaPorElegir
+              return (
+                <button
+                  key={f.id}
+                  type="button"
+                  aria-pressed={activa}
+                  disabled={cambiando !== null}
+                  onClick={() => void elegirFaena(f.id)}
+                  className={[
+                    'min-h-11 px-4 rounded-xl border text-[14px] font-medium cursor-pointer transition-colors duration-150',
+                    'disabled:opacity-50',
+                    activa ? 'border-beam bg-beam/10 text-ink' : 'border-campo bg-s0 text-ink-2',
+                  ].join(' ')}
+                >
+                  {cambiando === f.id ? 'Cambiando…' : f.nombre}
+                </button>
+              )
+            })}
+          </div>
+        </section>
+      )}
 
       {hayBorrador && plantilla && (
         <section className="panel p-4 border-beam/35 bg-beam/[0.05] flex flex-wrap items-center justify-between gap-3">

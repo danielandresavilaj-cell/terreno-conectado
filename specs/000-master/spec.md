@@ -3,7 +3,7 @@
 | | |
 | :--- | :--- |
 | **ID** | 000-master |
-| **Versión** | 1.7.0 · Enmienda 008 (evidencia visible en supervisión) |
+| **Versión** | 1.7.1 · Enmienda 008 (evidencia visible en supervisión) |
 | **Estado** | APROBADO — Raúl González (2026-09-24) y Daniel Ávila (2026-10-13) · Enmiendas 003–006 firmadas por Daniel Ávila, pendientes de ratificación de Raúl González · Enmienda 007 propuesta por Raúl González y aprobada por Daniel Ávila el 2026-11-12; B está en revisión y C–E se implementan por tareas · Enmienda 008 firmada por Daniel Ávila el 2026-11-13, pendiente de ratificación de Raúl González |
 | **Autores** | Daniel Ávila (datos/negocio) · Raúl González (infra/plataforma) |
 | **Fuente** | Informe de Definición APT, Fase 1 (2026-09-04) |
@@ -123,6 +123,7 @@ Convención EARS en español: ubicuo (`EL SISTEMA DEBERÁ…`), evento (`CUANDO�
   > **Nota de implementación (TSK-OFF-007, 2026-11-13):** la respuesta `nok` de un ítem tiene **un** hallazgo; corregirlo en el dispositivo actualiza ese registro (mismo UUID, `client_version` mayor) en vez de crear otro. La severidad la elige la persona (sin valor por omisión) y la descripción es obligatoria para `alta` y `crítica`. No cambia el texto ni el alcance del requisito. Detalle en `specs/004-dominio-inspecciones/spec.md` §5.
 - **FR-033** EL SISTEMA DEBERÁ permitir registrar bitácoras de turno: entradas cronológicas con autor, texto, tags y faena asociada.
 - **FR-034** EL SISTEMA DEBERÁ asociar cada captura (inspección/bitácora/hallazgo) a una faena u obra del tenant, con geolocalización opcional si el dispositivo la provee. *(Enmienda 004: la geolocalización sale de V1; la asociación a faena/obra se mantiene.)*
+  > **Nota de implementación (TSK-OFF-010, 2026-11-13):** la faena de cada inspección es la que la persona eligió para su sesión. Hasta esta tarea la app usaba siempre la primera faena de la empresa, así que con más de una el requisito se cumplía sólo en apariencia. No hay asignación cuenta ↔ faena en el modelo: cualquier cuenta de la empresa puede capturar en cualquiera de sus faenas. Detalle en `specs/002-captura-offline/spec.md` §4.
 - **FR-035** CUANDO un hallazgo de severidad `alta` o `crítica` se sincroniza, EL SISTEMA DEBERÁ destacarlo inmediatamente en el dashboard del supervisor (sin notificaciones push en V1 — fuera de alcance).
 - **FR-036** EL SISTEMA DEBERÁ soportar respuestas dinámicas por ítem mediante `value_json` en `INSPECTION_RESPONSE` para los 8 tipos de campo de V1: `texto`, `numérico`, `fecha`, `hora`, `selección única`, `selección múltiple`, `ok/nok/na` y `foto`.
 - **FR-037** CUANDO un ítem de tipo foto se responde, EL SISTEMA DEBERÁ comprimir el adjunto (FR-012) y asociarlo a la respuesta (`ATTACHMENT` referenciando `INSPECTION_RESPONSE`).
@@ -329,6 +330,7 @@ La demo se considera exitosa si, en vivo ante el docente:
 | 1.6.0 | 2026-11-12 | **Enmienda 007** — firma de cierre, cofirma opcional, outbox de avisos por correo, programación e identificador QR de activo/lugar (FR-056…061). Propuesta por Raúl González y aprobada por Daniel Ávila el 2026-11-12; por implementar (TSK-OPS-003-B…E) | Raúl González (con IA) · aprobación Daniel Ávila |
 | 1.6.1 | 2026-11-12 | **TSK-OPS-003-B (#191, en revisión):** firma offline de inspector y cofirma opcional implementadas con validación estática y unitaria; integración/E2E/caos pendientes de Docker/CI | Raúl González (con IA) |
 | 1.6.2 | 2026-11-13 | **Nota de implementación bajo FR-032** (no es Enmienda): un hallazgo por respuesta, corregible; severidad elegida y descripción obligatoria en alta/crítica (TSK-OFF-007) | Daniel Ávila (con IA) |
+| 1.7.1 | 2026-11-13 | **Nota de implementación bajo FR-034** (no es Enmienda): la faena de la inspección es la elegida en la sesión, ya no la primera de la empresa (TSK-OFF-010) | Daniel Ávila (con IA) |
 | 1.7.0 | 2026-11-13 | **Enmienda 008** — FR-062: la evidencia fotográfica se ve en supervisión (TSK-REP-008). Abre el bloque FR-062–069 para el plan de mejora. Pendiente de ratificación de Raúl González | Daniel Ávila (con IA) |
 | 1.5.0 | 2026-11-11 | **Enmienda 006** — importar con IA (fotos, PDF escaneados; FR-029/048), opcional y auditado; OCR deja de estar en V2. Pendiente ratificación de Raúl González | Daniel Ávila (con IA) |
 | 1.4.0 | 2026-11-11 | **Enmienda 005** — importar Word/PDF (FR-029), exportación consolidada, PDF y Word (FR-045); OCR sigue en V2. Pendiente ratificación de Raúl González | Daniel Ávila (con IA) |
