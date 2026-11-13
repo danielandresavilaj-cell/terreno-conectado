@@ -698,8 +698,8 @@ export function Dashboard() {
                   <div className="space-y-2">
                     {/* Cabecera y filas comparten `GRID_INSPECCION`: si divergieran,
                         los rótulos dejarían de calzar con las columnas. */}
-                    <div className="overflow-x-auto">
-                      <div className={GRID_INSPECCION}>
+                    <div>
+                      <div className={`hidden px-4 ${COLUMNAS_INSPECCION}`}>
                         <input
                           type="checkbox"
                           aria-label="Elegir todas las de la lista"
@@ -834,16 +834,19 @@ function tiempoRelativo(iso: string): string {
  * plantilla. Es una sola línea declarativa justamente para que no puedan
  * desalinearse — el rótulo "Resp." tiene que caer sobre el número.
  *
- * El `min-w` con scroll horizontal es a propósito: es una vista de supervisor
- * (pantalla ancha, uso de escritorio) y apilar la fila en móvil convertiría
- * seis datos en una pared de etiquetas repetidas.
+ * TSK-REP-010: en pantallas angostas la fila se apila como tarjeta (casilla a
+ * la izquierda, datos en una columna) y la cabecera se oculta. Antes la tabla
+ * tenía 870 px mínimos y en el teléfono se desbordaba: el supervisor revisa
+ * también desde terreno.
  */
 const SELECT_FILTRO = 'h-9 px-2 rounded-lg bg-s1 border border-line-soft text-[12px] max-w-[220px]'
 
-const GRID_INSPECCION = [
-  'grid items-center gap-3 min-w-[870px]',
-  'grid-cols-[1.25rem_minmax(0,1fr)_minmax(0,1.5fr)_minmax(0,1fr)_7rem_4.5rem_6rem_auto]',
+const COLUMNAS_INSPECCION = [
+  'lg:grid lg:items-center lg:gap-3',
+  'lg:grid-cols-[1.25rem_minmax(0,1fr)_minmax(0,1.5fr)_minmax(0,1fr)_7rem_4.5rem_6rem_auto]',
 ].join(' ')
+
+const GRID_INSPECCION = `grid grid-cols-[1.25rem_minmax(0,1fr)] items-start gap-x-3 gap-y-1.5 ${COLUMNAS_INSPECCION}`
 
 /**
  * Fila de una inspección con su acción de descarga.
@@ -883,9 +886,9 @@ function FilaInspeccion({
   return (
     <div className="panel px-4 py-3">
       <div className={GRID_INSPECCION}>
-        <input type="checkbox" aria-label={`Elegir inspección de ${i.faena_nombre}`} checked={seleccionada} onChange={onSeleccionar} />
-        <span className="text-[13px] truncate">{i.faena_nombre}</span>
-        <div className="min-w-0">
+        <input type="checkbox" className="mt-1 h-5 w-5 lg:mt-0 lg:h-auto lg:w-auto" aria-label={`Elegir inspección de ${i.faena_nombre}`} checked={seleccionada} onChange={onSeleccionar} />
+        <span className="text-[13px] text-ink-2 lg:text-ink truncate">{i.faena_nombre}</span>
+        <div className="min-w-0 col-start-2 lg:col-start-auto">
           <p className="text-[13px] font-medium truncate">
             {i.template_nombre ?? 'Plantilla no disponible'}
           </p>
@@ -894,13 +897,19 @@ function FilaInspeccion({
             {i.respuestas === 0 && ' · sin respuestas'}
           </p>
         </div>
-        <span className="text-[13px] truncate">{i.ejecutado_por}</span>
-        <span>
+        <span className="text-[13px] truncate col-start-2 lg:col-start-auto">
+          <span className="lg:hidden text-ink-3">Por </span>
+          {i.ejecutado_por}
+        </span>
+        <span className="col-start-2 lg:col-start-auto">
           <Chip color={meta.color}>{meta.label}</Chip>
         </span>
-        <span className="num-inst text-[13px]">{i.respuestas}</span>
-        <span className="num-inst text-[13px] text-ink-2">{fechaCorta(i.captured_at)}</span>
-        <div className="flex items-center justify-end gap-2">
+        <span className="num-inst text-[13px] col-start-2 lg:col-start-auto">
+          {i.respuestas}
+          <span className="lg:hidden text-ink-3"> respuestas</span>
+        </span>
+        <span className="num-inst text-[13px] text-ink-2 col-start-2 lg:col-start-auto">{fechaCorta(i.captured_at)}</span>
+        <div className="flex flex-wrap items-center gap-2 mt-1 lg:mt-0 lg:justify-end col-start-2 lg:col-start-auto">
           <Boton tamano="sm" variante="fantasma" disabled={revisando} aria-busy={revisando} onClick={() => onRevisar(i)}>
             {revisando ? 'Abriendo…' : 'Revisar'}
           </Boton>
