@@ -30,6 +30,7 @@
 3. TSK-FORM-011 verde con libros reales y escenarios de caos; idempotencia sin duplicar (Artículo III).
 4. Cada commit referencia su TSK (Artículo II).
 | TSK-FORM-022 | Crear formulario desde cero con el mismo editor; agregar, reordenar y quitar preguntas y secciones | FR-029, FR-036, FR-039, FR-048 | 006, 007 | Botón en Plantillas y tarjeta en el asistente; borrador vía `POST /templates` y publicación explícita; validación con mensajes accionables; `editor-formulario.test.ts` verde | ✅ Hecho (0.5.0) |
+| TSK-FORM-023 | Vista previa del formulario publicado | FR-008, FR-036 | TSK-FORM-008 | En Plantillas, "Vista previa" muestra secciones y preguntas como las verá el trabajador (tipo, opciones, obligatoria, hallazgo si NOK, cofirma), sin crear inspecciones; se cierra con Escape y con Atrás. | ✅ Hecho |
 | TSK-FORM-021 | Importar con IA opcional: fotos de pautas en papel, PDF escaneados y reintento con IA; tope diario y auditoría | FR-029, FR-047, FR-048 | 020 | `ia.test.ts` e `import-ia.spec.ts` verdes (analizador falso, sin llamar a la API); migración 018; sin clave el asistente queda como antes | ✅ Hecho (0.4.0) |
 | TSK-FORM-020 | Importar plantillas desde Word (`.docx`) y PDF (texto y rellenable), con advertencias y nueva versión de plantilla existente | FR-029, FR-047 | 005, 006, 007 | `docx.test.ts`, `importar-pdf.spec.ts` e `import-word-pdf.spec.ts` verdes; migración 017; wizard acepta los 3 formatos | ✅ Hecho (0.3.0) |
 
@@ -37,6 +38,7 @@
 
 | Versión | Fecha | Cambio | Autor |
 | :--- | :--- | :--- | :--- |
+| 0.5.1 | 2026-11-13 | TSK-FORM-023: vista previa del formulario publicado | Daniel Ávila (con IA) |
 | 0.5.0 | 2026-11-13 | TSK-FORM-022: crear formulario desde cero | Daniel Ávila (con IA) |
 | 0.4.0 | 2026-11-11 | TSK-FORM-021: importar con IA (Enmienda 006) | Daniel Ávila (con IA) |
 | 0.3.0 | 2026-11-11 | TSK-FORM-020: importar Word y PDF (Enmienda 005) | Daniel Ávila (con IA) |

@@ -22,6 +22,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { Chip } from '../components/Badges'
 import { Boton } from '../components/ui'
+import { VistaPreviaFormulario } from '../components/VistaPreviaFormulario'
 import {
   ApiError,
   crearAsignacion,
@@ -62,6 +63,8 @@ export function Plantillas() {
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [pendiente, setPendiente] = useState<string | null>(null)
+  /* TSK-FORM-023: formulario abierto en vista previa. */
+  const [previa, setPrevia] = useState<TemplatePublicadaDto | null>(null)
 
   const cargar = useCallback(async () => {
     setCargando(true)
@@ -188,8 +191,13 @@ export function Plantillas() {
           {visibles.map((p) => (
             <article key={p.revision_id} className="panel p-4 space-y-3">
               <div className="flex items-center justify-between gap-2">
-                <h2 className="text-[15px] font-semibold tracking-[-0.01em]">{p.name}</h2>
-                <Chip>v{p.version}</Chip>
+                <h2 className="text-[15px] font-semibold tracking-[-0.01em] min-w-0 break-words">{p.name}</h2>
+                <div className="flex items-center gap-2 shrink-0">
+                  <Chip>v{p.version}</Chip>
+                  <Boton tamano="sm" variante="fantasma" onClick={() => setPrevia(p)}>
+                    Vista previa
+                  </Boton>
+                </div>
               </div>
               {ROLES.map((rol) => {
                 const targets: Array<{ siteId: string | null; label: string }> = [
@@ -229,6 +237,15 @@ export function Plantillas() {
             </article>
           ))}
         </div>
+      )}
+
+      {previa && (
+        <VistaPreviaFormulario
+          nombre={previa.name}
+          version={previa.version}
+          definition={previa.definition}
+          alCerrar={() => setPrevia(null)}
+        />
       )}
 
       {!cargando && visibles.length > 0 && (

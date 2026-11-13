@@ -191,7 +191,7 @@ tiene sentido ordenarla después de esa tarea.
 | 3.2 | **Biblioteca de formularios listos** (camioneta, extintores, andamios, orden y aseo…) que una empresa nueva copia y edita | A4 | M | Reactivar TSK-FORM-012 |
 | 3.3 | **Alta masiva de usuarios** — ✅ hecha (TSK-ADM-002): planilla pegada o `.csv`, vista previa y descarga de claves | A1 | M | Aclaración FR-053 |
 | 3.4 | **Recuperación de clave por correo** (hoy fuera de V1 por decisión explícita; reutiliza la outbox de la Enmienda 007) | A1 | M | Sí (§10) |
-| 3.5 | Ciclo de vida de plantillas: archivar, duplicar, vista previa de trabajador | A2 | M | Aclaración spec 007 |
+| 3.5 | Ciclo de vida de plantillas — 🟡 parcial: vista previa como trabajador (TSK-FORM-023). Pendiente: archivar y duplicar (requieren API) | A2 | M | Aclaración spec 007 |
 | 3.6 | Formularios con lógica: preguntas condicionales y puntaje de cumplimiento | — | L | Sí |
 
 ### Orden recomendado
