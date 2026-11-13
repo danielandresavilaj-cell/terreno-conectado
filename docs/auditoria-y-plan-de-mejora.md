@@ -155,13 +155,13 @@ La 0.8 son cambios de tokens en `index.css`: afectan toda la app de una vez, hay
 | # | Acción | Resuelve | Tam. | Enmienda |
 | :--- | :--- | :--- | :---: | :---: |
 | 1.1 | **Faena por usuario** — ✅ selector hecho (TSK-OFF-010): la persona elige su faena y la app la recuerda; ya no queda todo en la primera. **Pendiente:** asignación cuenta ↔ faena(s) en el modelo, para que el administrador limite qué faenas ve cada cuenta | D2 | L | Sí, sólo la parte pendiente (modelo) |
-| 1.2 | **Fotos**: cámara nativa como opción principal, miniatura con "ver / repetir / quitar", varias fotos por hallazgo | U4, U5 | M | Aclaración FR-012/037 |
-| 1.3 | **Navegación inferior en móvil** con las 3–4 secciones del rol + estado de sync; nombre y faena visibles | U10, V4 | M | No |
+| 1.2 | **Fotos** — 🟡 parcial (TSK-OFF-011): miniatura con Repetir/Quitar en el ítem y en el hallazgo. Pendiente: varias fotos por hallazgo | U4, U5 | M | Aclaración FR-012/037 |
+| 1.3 | **Navegación inferior en móvil** — ✅ hecha para el trabajador (TSK-OFF-011); los roles con más de 5 secciones siguen con pestañas | U10, V4 | M | No |
 | 1.4 | **Cierre de inspección**: botón grande fijo al pie, resumen antes de firmar (respondidos, NOK, hallazgos) y nombre del firmante en el diálogo | U8, U9 | M | No |
 | 1.5 | **Hallazgo opcional en cualquier NOK** y hallazgo directo sin ítem | D5 | M | Aclaración FR-032 |
 | 1.6 | **Varios borradores** en paralelo (lista "En curso" en Formularios) | U3 | L | Sí (spec 002) |
 | 1.7 | **Mis inspecciones**: historial local de lo enviado (30 días) con reexportación | U6 | M | Aclaración spec 002 |
-| 1.8 | Tema según el sistema, claro por defecto en roles de terreno | V3 | S | No |
+| 1.8 | Tema según el sistema — ✅ hecho (TSK-OFF-011) | V3 | S | No |
 
 1.1 es la más importante de la fase: sin ella el producto no sirve a una empresa con más de una faena.
 1.6 toca el supuesto "un borrador" que atraviesa store, Dexie y los tests de caos; conviene hacerla
