@@ -1,6 +1,6 @@
 # TEST PLAN — Plan de pruebas de validación
 
-**Versión:** 1.2.5 · **Fecha:** 2026-09-14 · actualizado 2026-11-12 · **Autor:** Raúl González (validación) · **Relacionado:** spec maestro §5–6, constitución Artículos III/IV/VII
+**Versión:** 1.2.6 · **Fecha:** 2026-09-14 · actualizado 2026-11-12 · **Autor:** Raúl González (validación) · **Relacionado:** spec maestro §5–6, constitución Artículos III/IV/VII
 **Evidencia APT:** "Plan de pruebas de validación" (informe §6) y soporte de la competencia "Realizar pruebas de certificación de productos y procesos".
 
 ## 1. Principio rector
@@ -47,7 +47,7 @@ verde.
 | FR-004 | Access token vencido con cola pendiente → la cola NO se pierde y drena al reingresar; el refresh rota `rt` y detecta reuso | Integración + **caos 6** | `backend/test/auth.spec.ts` (rotación/reuso y CSRF) + `e2e-caos-sync.spec.ts` → "caos 6 — token expirado en cola" | 🟢 verde |
 | FR-006 | Tenant demo sembrado (A: minera + faena + 3 roles; B: constructora) y login de cada rol | Integración | `backend/db/seed.ts` + `backend/test/auth.spec.ts` (`login (FR-001, FR-006)`) | 🟢 verde |
 | FR-031/032 | Ciclo draft→submitted→reviewed; ítem `nok` exige hallazgo; sólo supervisión revisa (un `field_worker` no puede declarar `reviewed` por sync); estado del hallazgo open/in_progress/resolved auditado | Unit + Integración + E2E | `e2e-captura-offline.spec.ts` (submitted, hallazgo desde NOK) + `backend/test/supervision.spec.ts` (revisión, RLS, auditoría) | 🟢 verde |
-| FR-056/057/061 | Inspector firma sin red → recarga → sync; reintento del lote deja una firma por rol; cofirma sólo por supervisor/admin del mismo tenant y `reviewed` se rechaza si falta | Unit + Integración + E2E + caos | Plan: `plans/008-operacion-certificada/plan.md` §4; se crearán pruebas de PWA, batch y RLS | 🟡 por implementar (Enmienda 007) |
+| FR-056/057/061 | Inspector firma sin red → recarga → sync; reintento del lote deja una firma por rol; cofirma sólo por supervisor/admin del mismo tenant y `reviewed` se rechaza si falta | Unit + Integración + E2E + caos | `frontend/test/firma-cierre.test.ts` y `firma-offline.test.ts` 🟢; `backend/test/supervision.spec.ts` (cofirma, pendiente de ejecución con Docker); E2E de recarga y caos de reintento pendientes | 🟡 en revisión (#191: cobertura parcial) |
 | FR-059/061 | Crear programación puntual/diaria/semanal/mensual con zona IANA; ejecutar worker dos veces y comprobar una sola ocurrencia; completar una ocurrencia ya sincronizada sin red | Unit + Integración + E2E + caos | Plan: `plans/008-operacion-certificada/plan.md` §2.3/§4 | 🟡 por implementar (Enmienda 007) |
 | FR-058/061 | Evento crítico/cierre/programación crea una outbox única; fallo del proveedor reintenta sin cambiar la inspección ni duplicar correo lógico; destinatario cross-tenant no es visible | Unit + Integración + caos | Plan: `plans/008-operacion-certificada/plan.md` §2.3/§4 | 🟡 por implementar (Enmienda 007) |
 | FR-034 | *(Enmienda 004: sin geolocalización)* Cada captura queda asociada a una faena del tenant; el envío ya no pide ubicación y el sync sigue aceptando `location` nulo de colas antiguas | Integración | `backend/test/sync.spec.ts` (location opcional) | ⚪ geolocalización fuera de V1 · 🟢 asociación a faena |
@@ -78,7 +78,7 @@ verde.
 | FR-050 | `platform_admin` crea tenant, le asigna el `tenant_admin` inicial y lo suspende/reactiva; un rol distinto recibe 403 en toda la consola | Integración | `backend/test/admin.spec.ts` | 🟢 verde |
 | FR-051 (`admin`) | Cada mutación admin deja exactamente una fila en `audit_log` con `actor_id` y `tenant_id` correctos; `tc_app` no puede UPDATE/DELETE y la API no expone rutas de modificación | Integración | `backend/test/admin.spec.ts` | 🟢 verde |
 
-**Recuento (2026-11-12):** 47 filas · 🟢 43 (91,5%) · 🟡 3 (6,4%) · 🔴 0 · ⚪ 1 (2,1%). Las tres 🟡 son los requisitos de la Enmienda 007 (aprobada, **por implementar**), que no se declaran cubiertos antes de tener sus pruebas. De lo ya implementado, **43/44 (97,7%) está en verde**.
+**Recuento (2026-11-12):** 47 filas · 🟢 43 (91,5%) · 🟡 3 (6,4%) · 🔴 0 · ⚪ 1 (2,1%). FR-056/057/061 está en revisión con una prueba unitaria verde y validación de integración/E2E/caos pendiente; FR-058/059/061 siguen por implementar. De lo ya validado, **43/44 (97,7%) está en verde**.
 
 > La única fila con ⚪ es **FR-034**, y solo por la parte de geolocalización, que la
 > Enmienda 004 sacó de V1; su parte vigente (asociación a faena) está en 🟢. FR-048
@@ -207,6 +207,7 @@ y nunca bloquea un PR. Informe por módulo en
 
 | Versión | Fecha | Cambio | Autor |
 | :--- | :--- | :--- | :--- |
+| 1.2.6 | 2026-11-13 | **TSK-OPS-003-B (#191, PR #193)**, revisado e integrado por Daniel Ávila: firma de inspector offline y cofirma; `signature_required` sólo lo declara el cliente que firma (las colas de la app anterior quedan revisables); la firma no retrocede una inspección ya revisada; firma agrupada en la cola legible; E2E firman con el pad (`firmarYEnviar`); diálogo de firma con foco y Escape | Raúl González / Daniel Ávila (con IA) |
 | 1.2.5 | 2026-11-13 | **TSK-FORM-022:** crear formulario desde cero con el mismo editor (agregar, reordenar y quitar preguntas y secciones); evidencia en la fila FR-048 (`editor-formulario.test.ts`); volumen 532 tests (frontend 164) | Daniel Ávila (con IA) |
 | 1.2.4 | 2026-11-13 | **TSK-OFF-005/006:** modo claro y oscuro (`tema.test.ts`) y cola legible por unidad de trabajo (`cola-vista.test.ts`, evidencia en la fila FR-013/020/026); volumen 528 tests (frontend 160) | Daniel Ávila (con IA) |
 | 1.2.3 | 2026-11-12 | **Enmienda 007 aprobada** (#187, Daniel Ávila): las tres filas FR-056…061 pasan a 🟡 "por implementar"; recuento 47 filas (43 🟢 · 3 🟡 · 1 ⚪), 97,7% de lo implementado | Daniel Ávila (con IA) |

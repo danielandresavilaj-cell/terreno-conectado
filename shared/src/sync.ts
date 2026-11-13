@@ -6,14 +6,14 @@
  * el mismo vocabulario (snake_case, espejo del data-model §2.2).
  *
  * Orden de dependencias del lote (FR-020): site → inspection → responses →
- * findings → log_entries → attachments. El cliente los envía en cualquier
+ * findings → log_entries → attachments → firmas. El cliente los envía en cualquier
  * orden: el servidor los procesa agrupados por este orden.
  *
  * Idempotencia (FR-021): `id` es el UUIDv7 de cliente; el servidor hace
  * `ON CONFLICT (id) DO UPDATE ... WHERE excluded.client_version > tabla`.
  */
 
-export type SyncEntityType = 'inspection' | 'response' | 'finding' | 'log_entry' | 'attachment'
+export type SyncEntityType = 'inspection' | 'response' | 'finding' | 'log_entry' | 'attachment' | 'inspection_signature'
 
 export type SyncInspectionStatus = 'draft' | 'in_progress' | 'submitted' | 'reviewed'
 export type SyncOkNokNa = 'ok' | 'nok' | 'na'
@@ -36,8 +36,32 @@ export interface SyncInspectionPayload {
   template_version: number
   executed_by: string
   status: SyncInspectionStatus
+  /** Regla congelada desde la revisión de plantilla (FR-057). */
+  requires_supervisor_signature?: boolean
+  /**
+   * FR-056: la inspección se cierra con firma del inspector. Lo declara el
+   * cliente que ya firma; las colas de versiones anteriores de la app no lo
+   * envían y esas inspecciones quedan exentas (si no, nunca podrían revisarse).
+   */
+  signature_required?: boolean
   /** FR-034: georreferencia opcional de la inspección (captura en terreno). */
   location?: { lat: number; lon: number } | null
+}
+
+/** Trazo normalizado (0…1000) de una firma manuscrita; no es biometría. */
+export interface SignatureStroke {
+  points: Array<{ x: number; y: number }>
+}
+
+export interface SyncInspectionSignaturePayload {
+  inspection_id: string
+  signer_id: string
+  signer_role: 'inspector' | 'supervisor'
+  strokes: SignatureStroke[]
+  /** SHA-256 del contenido congelado que se declara haber revisado. */
+  content_hash: string
+  declaration_version: string
+  signed_at: string
 }
 
 export interface SyncResponsePayload {
@@ -84,6 +108,7 @@ type SyncPayload =
   | SyncFindingPayload
   | SyncLogEntryPayload
   | SyncAttachmentPayload
+  | SyncInspectionSignaturePayload
 
 /** Cada registro del lote, mínimo y plano: identidad + payload separado. */
 export interface SyncRecord {

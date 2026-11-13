@@ -2,8 +2,8 @@
 
 | | |
 | :--- | :--- |
-| **Estado** | COMPLETO (base F2) · Enmienda 007 aprobada (2026-11-12), por implementar |
-| **Versión** | 0.5.0 |
+| **Estado** | COMPLETO (base F2) · TSK-OPS-003-B en revisión (#191); Enmienda 007 continúa por tareas |
+| **Versión** | 0.5.1 |
 | **Autor** | Daniel Ávila |
 | **Padre** | specs/000-master/spec.md |
 | **Depende de** | 001 (roles/tenant), 003 (ingesta idempotente) |
@@ -12,7 +12,7 @@
 
 ## 1. Alcance
 
-Requisitos que este spec detalla: **FR-030 → FR-039** y, por Enmienda 007 (aprobada, por implementar), **FR-056 → FR-061**; entidades de dominio de `data-model.md` §2.2.
+Requisitos que este spec detalla: **FR-030 → FR-039** y, por Enmienda 007 (aprobada), **FR-056 → FR-061**; entidades de dominio de `data-model.md` §2.2. La entrega vertical de firma (FR-056/057) está en revisión como TSK-OPS-003-B; QR, programación y correo siguen pendientes.
 
 - **FR-030** Plantillas de inspección como `TEMPLATE` + `TEMPLATE_REVISION` (secciones, ítems).
 - **FR-031** Ciclo de vida de la inspección: `draft → in_progress → submitted → reviewed`.
@@ -108,6 +108,7 @@ Estados `draft → in_progress → submitted → reviewed`. Lleva `site_id` (fae
 
 | Versión | Fecha | Cambio | Autor |
 | :--- | :--- | :--- | :--- |
+| 0.5.1 | 2026-11-12 | **TSK-OPS-003-B (#191, en revisión):** firma vectorial offline del inspector, cofirma opcional, inmutabilidad y evidencia de firmas en el detalle; validación de integración/E2E pendiente de Docker/CI | Raúl González (con IA) |
 | 0.5.0 | 2026-11-12 | **Enmienda 007** (aprobada por Daniel Ávila el 2026-11-12): incorpora FR-056…061 y remite al plan de operación certificada; no declara funcionalidad implementada hasta cerrar sus tareas | Raúl González (con IA) |
 | 0.3.1 | 2026-10-14 | **FR-034 geolocalización implementada realmente** (antes estaba documentada como GEOGRAPHY(Point) que no existía en la migración): columnas `location_lat`/`location_lon` NUMERIC, validación server-side, captura opcional con `navigator.geolocation` al enviar inspección, tests de integración. Actualiza evidencia §2 y `data-model.md` §2.2 | Daniel Ávila |
 | 0.3.0 | 2026-10-13 | **Spec completado (F2).** Documenta el estado real de FR-030…039 (todos implementados), el modelo de dominio (plantilla/revisión, inspección, hallazgo, bitácora, adjunto) y la validación de `value_json`. Apunta al plan técnico y a `tasks/004` | Daniel Ávila |

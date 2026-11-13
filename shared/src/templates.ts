@@ -70,6 +70,8 @@ export interface TemplateSection {
 
 export interface TemplateDefinition {
   sections: TemplateSection[]
+  /** Reglas congeladas del cierre de una inspección (FR-057). */
+  closing?: { require_supervisor_signature?: boolean }
 }
 
 /** Validación de `props` por tipo. `strict()`: props desconocidas = error. */
@@ -174,6 +176,7 @@ export const templateSectionSchema = z.object({
 
 export const templateDefinitionSchema = z.object({
   sections: z.array(templateSectionSchema).default([]),
+  closing: z.object({ require_supervisor_signature: z.boolean().optional() }).strict().optional(),
 })
 
 /** Valida y normaliza una definición completa (lanza ZodError si no cumple). */

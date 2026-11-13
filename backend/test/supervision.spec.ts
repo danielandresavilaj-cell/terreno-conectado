@@ -66,6 +66,26 @@ function inspeccionWire(executedBy: string, status = 'submitted') {
       executed_by: executedBy,
       status,
       location: null,
+      requires_supervisor_signature: false,
+    },
+  }
+}
+
+function firmaWire(inspectionId: string, signerId: string, signerRole: 'inspector' | 'supervisor' = 'inspector') {
+  return {
+    entity_type: 'inspection_signature',
+    id: randomUUID(),
+    tenant_id: TENANT_A_ID,
+    client_version: 0,
+    captured_at: new Date().toISOString(),
+    payload: {
+      inspection_id: inspectionId,
+      signer_id: signerId,
+      signer_role: signerRole,
+      strokes: [{ points: [{ x: 100, y: 100 }, { x: 200, y: 200 }] }],
+      content_hash: 'a'.repeat(64),
+      declaration_version: 'v1',
+      signed_at: new Date().toISOString(),
     },
   }
 }
@@ -122,6 +142,39 @@ describe('autoría desde el JWT (TSK-DOM-005)', () => {
 })
 
 describe('ciclo de supervisión (FR-031/032)', () => {
+  it('exige firma del inspector y cofirma configurada antes de revisar', async () => {
+    const inspeccion = inspeccionWire(ids.workerA) as ReturnType<typeof inspeccionWire> & {
+      payload: { signature_required?: boolean }
+    }
+    inspeccion.payload.requires_supervisor_signature = true
+    // La app que firma lo declara (FR-056); sin esto la inspección es de la app anterior.
+    inspeccion.payload.signature_required = true
+    const firma = firmaWire(inspeccion.id, ids.workerA)
+    const ingreso = await server().post('/api/v1/sync/batch').set(como('workerA')).send(lote([inspeccion, firma]))
+    expect(ingreso.status).toBe(200)
+    expect(ingreso.body.records_ok).toBe(2)
+    expect((await server().patch(`/api/v1/inspections/${inspeccion.id}/review`).set(como('supA'))).status).toBe(409)
+
+    const cofirma = await server()
+      .post(`/api/v1/inspections/${inspeccion.id}/signature`)
+      .set(como('supA'))
+      .send({ strokes: [{ points: [{ x: 200, y: 100 }, { x: 500, y: 400 }] }] })
+    expect(cofirma.status).toBe(201)
+    expect((await server().patch(`/api/v1/inspections/${inspeccion.id}/review`).set(como('supA'))).status).toBe(200)
+    const firmas = await ownerPool.query(
+      'SELECT signer_role FROM inspection_signature WHERE inspection_id = $1 ORDER BY signer_role',
+      [inspeccion.id],
+    )
+    expect(firmas.rows.map((f) => f.signer_role)).toEqual(['inspector', 'supervisor'])
+  })
+
+  it('una inspección de la app anterior (sin firma declarada) sigue siendo revisable', async () => {
+    const inspeccion = inspeccionWire(ids.workerA)
+    const ingreso = await server().post('/api/v1/sync/batch').set(como('workerA')).send(lote([inspeccion]))
+    expect(ingreso.status).toBe(200)
+    expect((await server().patch(`/api/v1/inspections/${inspeccion.id}/review`).set(como('supA'))).status).toBe(200)
+  })
+
   it('revisa una inspección enviada; el trabajador no puede', async () => {
     const id = await insertarInspeccion('submitted')
     expect((await server().patch(`/api/v1/inspections/${id}/review`).set(como('workerA'))).status).toBe(403)

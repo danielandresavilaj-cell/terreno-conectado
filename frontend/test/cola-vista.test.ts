@@ -162,6 +162,21 @@ describe('cola legible', () => {
     expect(v.ultimoEnvioAt).toBe(iso(2))
   })
 
+  it('la firma de cierre (TSK-OPS-003-B) va dentro de la tarjeta de su inspección', () => {
+    const v = armarVistaCola(
+      entrada({
+        outbox: [fila('inspection', 'insp-1', 'pending'), fila('inspection_signature', 'f-1', 'pending')],
+        firmas: [{ id: 'f-1', inspectionId: 'insp-1', signerRole: 'inspector' }],
+      }),
+      AHORA,
+    )
+    expect(v.enviosPendientes).toBe(1)
+    const g = v.pendientes[0]
+    expect(g.partes.total).toBe(2)
+    expect(g.resumen).toContain('firmada')
+    expect(g.detalle.at(-1)).toMatchObject({ tipo: 'firma', texto: 'Firma del inspector' })
+  })
+
   it('apoyos: estado agregado, errores, fechas y valores', () => {
     expect(estadoAgregado(['synced', 'pending', 'syncing'])).toBe('syncing')
     expect(estadoAgregado(['synced', 'failed', 'syncing'])).toBe('failed')

@@ -42,6 +42,7 @@ const ORDEN_TIPO: Record<string, string> = {
   hallazgo: 'Hallazgos',
   foto: 'Fotos',
   bitacora: 'Bitácora',
+  firma: 'Firmas',
 }
 
 export function Cola() {

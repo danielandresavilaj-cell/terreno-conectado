@@ -34,6 +34,7 @@ import {
   getFindings,
   getDetalleInspeccion,
   revisarInspeccion,
+  cofirmarInspeccion,
   cambiarEstadoHallazgo,
   getInspecciones,
   getSummary,
@@ -48,6 +49,7 @@ import { useEstado } from '../lib/store'
 import { duracion } from '../lib/supervision'
 import { BloquesSupervision } from '../components/dashboard/BloquesSupervision'
 import { PanelExportar } from '../components/dashboard/PanelExportar'
+import { FirmaCierre } from '../components/FirmaCierre'
 import { PERIODOS, rangoPeriodo, type Periodo, type RangoFechas } from '../lib/periodos'
 import { EASE } from '../lib/motion'
 import type { DashboardSummary, DashboardSupervision, FindingDto, InspectionDetalle, InspectionListaItem } from '@terreno/shared'
@@ -720,6 +722,7 @@ export function Dashboard() {
                 {detalleInspeccion.fase !== 'inactivo' && (
                   <PanelDetalleInspeccion
                     estado={detalleInspeccion}
+                    puedeCofirmar={usuario?.rol === 'supervisor' || usuario?.rol === 'tenant_admin'}
                     onCerrar={() => setDetalleInspeccion({ fase: 'inactivo' })}
                     onRevisada={() => {
                       if (detalleInspeccion.fase === 'ok') {
@@ -730,6 +733,7 @@ export function Dashboard() {
                       }
                       void cargar()
                     }}
+                    onCofirmada={() => void cargar()}
                   />
                 )}
               </section>
@@ -923,16 +927,22 @@ function textoRespuesta(valor: InspectionDetalle['secciones'][number]['respuesta
 
 function PanelDetalleInspeccion({
   estado,
+  puedeCofirmar,
   onCerrar,
   onRevisada,
+  onCofirmada,
 }: {
   estado: Exclude<DetalleInspeccion, { fase: 'inactivo' }>
+  puedeCofirmar: boolean
   onCerrar: () => void
   onRevisada: () => void
+  onCofirmada: () => void
 }) {
   const detalle = estado.fase === 'ok' ? estado.detalle : null
   const [revisando, setRevisando] = useState(false)
   const [errorRevision, setErrorRevision] = useState<string | null>(null)
+  const [firmando, setFirmando] = useState(false)
+  const [cofirmando, setCofirmando] = useState(false)
   /* FR-031 (TSK-DOM-005): la supervisión cierra el ciclo de la inspección. */
   const revisar = async () => {
     if (!detalle) return
@@ -947,6 +957,21 @@ function PanelDetalleInspeccion({
       setRevisando(false)
     }
   }
+  const cofirmar = async (strokes: Array<{ points: Array<{ x: number; y: number }> }>) => {
+    if (!detalle) return
+    setCofirmando(true)
+    setErrorRevision(null)
+    try {
+      await cofirmarInspeccion(detalle.id, strokes)
+      setFirmando(false)
+      onCofirmada()
+    } catch (err) {
+      setErrorRevision(motivoDe(err))
+    } finally {
+      setCofirmando(false)
+    }
+  }
+  const tieneFirma = (rol: 'inspector' | 'supervisor') => detalle?.signatures.some((firma) => firma.signer_role === rol) ?? false
   return (
     <section className="mt-4 panel p-5" aria-live="polite">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -962,6 +987,11 @@ function PanelDetalleInspeccion({
           )}
         </div>
         <div className="flex gap-2">
+          {detalle?.status === 'submitted' && detalle.requires_supervisor_signature && !tieneFirma('supervisor') && puedeCofirmar && (
+            <Boton tamano="sm" variante="secundaria" disabled={cofirmando} onClick={() => setFirmando(true)}>
+              {cofirmando ? 'Guardando…' : 'Cofirmar'}
+            </Boton>
+          )}
           {detalle?.status === 'submitted' && (
             <Boton tamano="sm" variante="primaria" disabled={revisando} onClick={() => void revisar()}>
               {revisando ? 'Guardando…' : 'Marcar como revisada'}
@@ -972,6 +1002,24 @@ function PanelDetalleInspeccion({
         </div>
       </div>
       {errorRevision && <p role="alert" className="mt-3 text-[13px] text-failed">{errorRevision}</p>}
+
+      {detalle && (
+        <div className="mt-4 rounded-xl border border-line-soft bg-s0 px-3.5 py-3">
+          <p className="label-inst">Firmas de cierre</p>
+          {detalle.signatures.length === 0 ? (
+            <p className="mt-1 text-[12px] text-ink-3">Aún no hay firmas sincronizadas.</p>
+          ) : (
+            <div className="mt-2 space-y-1.5">
+              {detalle.signatures.map((firma) => (
+                <p key={firma.signer_role} className="text-[12px] text-ink-2">
+                  <span className="font-medium text-ink">{firma.signer_role === 'inspector' ? 'Inspector' : 'Supervisor'}:</span>{' '}
+                  {firma.signer_name} · {fechaCorta(firma.signed_at)} · hash {firma.content_hash.slice(0, 12)}…
+                </p>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {estado.fase === 'cargando' && <p className="mt-4 text-[13px] text-ink-2">Cargando respuestas…</p>}
       {estado.fase === 'error' && <p role="alert" className="mt-4 text-[13px] text-failed">No se pudo abrir: {estado.mensaje}</p>}
@@ -993,6 +1041,13 @@ function PanelDetalleInspeccion({
             </div>
           ))}
         </div>
+      )}
+      {firmando && (
+        <FirmaCierre
+          modo="supervisor"
+          onCancelar={() => setFirmando(false)}
+          onConfirmar={(strokes) => void cofirmar(strokes)}
+        />
       )}
     </section>
   )

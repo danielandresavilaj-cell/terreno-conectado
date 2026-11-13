@@ -14,6 +14,7 @@ import {
   templateOriginalMetaSchema,
   uuidv7,
   type SyncRecord,
+  type SignatureStroke,
   type TemplateOriginalMeta,
   type TemplatePublicadaDto,
 } from '@terreno/shared'
@@ -22,13 +23,13 @@ import type { Identidad } from './types'
 import { SEVERIDAD_ES, type EntradaVistaCola } from './cola-vista'
 
 export type SyncEstado = 'pending' | 'syncing' | 'synced' | 'failed'
-export type OutboxTipo = 'inspeccion' | 'respuesta' | 'hallazgo' | 'foto' | 'bitacora'
+export type OutboxTipo = 'inspeccion' | 'respuesta' | 'hallazgo' | 'foto' | 'bitacora' | 'firma'
 export type Severity = 'low' | 'medium' | 'high' | 'critical'
 export type ResponseValor = 'ok' | 'nok' | 'na'
 
 export interface OutboxRow {
   id?: number
-  entityType: 'inspection' | 'response' | 'finding' | 'attachment' | 'log_entry'
+  entityType: 'inspection' | 'response' | 'finding' | 'attachment' | 'log_entry' | 'inspection_signature'
   entityId: string
   tipo: OutboxTipo
   titulo: string
@@ -69,6 +70,8 @@ export interface InspectionRow {
   totalItems: number
   /** FR-034 (en desuso desde la Enmienda 004): siempre null en capturas nuevas. */
   location?: { lat: number; lon: number } | null
+  /** Regla de cofirma congelada cuando se creó el borrador (FR-057). */
+  requiresSupervisorSignature?: boolean
 }
 
 export interface ResponseRow {
@@ -129,6 +132,21 @@ export interface AttachmentRow {
   clientVersion: number
 }
 
+/** Firma de cierre local, guardada como trazo vectorial y nunca como biometría. */
+export interface InspectionSignatureRow {
+  id: string
+  tenantId: string
+  inspectionId: string
+  signerId: string
+  signerRole: 'inspector' | 'supervisor'
+  strokes: SignatureStroke[]
+  contentHash: string
+  declarationVersion: string
+  signedAt: string
+  capturedAt: string
+  clientVersion: number
+}
+
 export type MetaValue = string | number | null
 
 /** Revisión publicada cacheada en el dispositivo (FR-018, TSK-FORM-001/009).
@@ -150,6 +168,7 @@ export const ORDEN_BATCH: Record<OutboxRow['entityType'], number> = {
   finding: 3,
   attachment: 4,
   log_entry: 5,
+  inspection_signature: 6,
 }
 
 export const TIPO_ENTIDAD: Record<OutboxRow['entityType'], OutboxTipo> = {
@@ -158,6 +177,7 @@ export const TIPO_ENTIDAD: Record<OutboxRow['entityType'], OutboxTipo> = {
   finding: 'hallazgo',
   attachment: 'foto',
   log_entry: 'bitacora',
+  inspection_signature: 'firma',
 }
 
 export const db = new Dexie('terreno-conectado') as Dexie & {
@@ -167,6 +187,7 @@ export const db = new Dexie('terreno-conectado') as Dexie & {
   findings: EntityTable<FindingRow, 'id'>
   logEntries: EntityTable<LogEntryRow, 'id'>
   attachments: EntityTable<AttachmentRow, 'id'>
+  signatures: EntityTable<InspectionSignatureRow, 'id'>
   plantillas: EntityTable<PlantillaCacheRow, 'revision_id'>
   plantillaOriginales: EntityTable<PlantillaOriginalRow, 'revision_id'>
   meta: EntityTable<{ key: string; value: MetaValue }, 'key'>
@@ -194,6 +215,12 @@ db.version(2).stores({
 // saltarle another's revisiones (ni al revés).
 db.version(3).stores({
   plantillaOriginales: 'revision_id, tenant_id, cached_at',
+})
+
+// v4 (TSK-OPS-003-B): firma manuscrita offline, separada de la inspección para
+// que su inmutabilidad e idempotencia no dependan de actualizar el borrador.
+db.version(4).stores({
+  signatures: 'id, inspectionId, tenantId, [inspectionId+signerRole]',
 })
 
 /* ------------------------------------------------- dueño de la cola (010) */
@@ -243,6 +270,36 @@ function claveBorrador(): string {
 
 function ahoraIso(): string {
   return new Date().toISOString()
+}
+
+/** Una firma exige al menos un trazo con dos puntos; un toque no declara nada. */
+export function tieneTrazos(strokes: readonly SignatureStroke[]): boolean {
+  return strokes.some((stroke) => stroke.points.length >= 2)
+}
+
+/** Hash estable de la inspección congelada y sus respuestas, previo a firmar. */
+async function hashContenidoCierre(ins: InspectionRow, respuestas: readonly ResponseRow[]): Promise<string> {
+  const contenido = JSON.stringify({
+    inspection: {
+      id: ins.id,
+      templateId: ins.templateId,
+      templateVersion: ins.templateVersion,
+      executedBy: ins.executedBy,
+      requiresSupervisorSignature: ins.requiresSupervisorSignature,
+    },
+    responses: [...respuestas]
+      .sort((a, b) => a.templateItemId.localeCompare(b.templateItemId))
+      .map(({ templateItemId, valueOk, valueText, valueNumber, valueJson }) => ({
+        templateItemId,
+        valueOk,
+        valueText,
+        valueNumber,
+        valueJson: valueJson ?? null,
+      })),
+  })
+  const bytes = new TextEncoder().encode(contenido)
+  const digest = await crypto.subtle.digest('SHA-256', bytes)
+  return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, '0')).join('')
 }
 
 function encolar(
@@ -450,6 +507,7 @@ export async function ensureDraftInspection(params: {
    *  reencuadrar a otra revisión del mismo template al resolver la plantilla
    *  activa; los borradores previos arrives sin ella. */
   templateRevisionId?: string | null
+  requiresSupervisorSignature?: boolean
 }): Promise<{ id: string; answeredCount: number }> {
   const existing = await getDraftInspectionId()
   if (existing) {
@@ -484,6 +542,7 @@ export async function ensureDraftInspection(params: {
     siteName: params.siteName,
     answeredCount: 0,
     totalItems: params.totalItems,
+    requiresSupervisorSignature: params.requiresSupervisorSignature ?? false,
   }
   await db.inspections.add(model)
   await setDraftInspectionId(id)
@@ -563,11 +622,12 @@ export async function descartarBorrador(): Promise<void> {
 
   await db.transaction(
     'rw',
-    [db.inspections, db.responses, db.findings, db.attachments, db.meta],
+    [db.inspections, db.responses, db.findings, db.attachments, db.signatures, db.meta],
     async () => {
       await db.attachments.where('ownerId').anyOf(duenos).delete()
       await db.responses.where('inspectionId').equals(id).delete()
       await db.findings.where('inspectionId').equals(id).delete()
+      await db.signatures.where('inspectionId').equals(id).delete()
       await db.inspections.delete(id)
       await setDraftInspectionId(null)
     },
@@ -587,7 +647,7 @@ export async function descartarBorrador(): Promise<void> {
 export async function descartarRegistroCola(outboxId: number, tenantId: string): Promise<void> {
   await db.transaction(
     'rw',
-    [db.outbox, db.inspections, db.responses, db.findings, db.logEntries, db.attachments, db.meta],
+    [db.outbox, db.inspections, db.responses, db.findings, db.logEntries, db.attachments, db.signatures, db.meta],
     async () => {
       const fila = await db.outbox.get(outboxId)
       if (!fila || fila.tenantId !== tenantId) throw new Error('El registro de cola ya no está disponible.')
@@ -611,6 +671,7 @@ export async function descartarRegistroCola(outboxId: number, tenantId: string):
       }
       const respuestas = await db.responses.where('inspectionId').equals(inspeccion.id).toArray()
       const hallazgos = await db.findings.where('inspectionId').equals(inspeccion.id).toArray()
+      const firmas = await db.signatures.where('inspectionId').equals(inspeccion.id).toArray()
       const duenos = [inspeccion.id, ...respuestas.map((r) => r.id), ...hallazgos.map((h) => h.id)]
       const adjuntos = await db.attachments.where('ownerId').anyOf(duenos).toArray()
       const claves = new Set([
@@ -618,12 +679,14 @@ export async function descartarRegistroCola(outboxId: number, tenantId: string):
         ...respuestas.map((r) => `response:${r.id}`),
         ...hallazgos.map((h) => `finding:${h.id}`),
         ...adjuntos.map((a) => `attachment:${a.id}`),
+        ...firmas.map((f) => `inspection_signature:${f.id}`),
       ])
 
       await db.outbox.filter((r) => r.tenantId === tenantId && claves.has(`${r.entityType}:${r.entityId}`)).delete()
       await db.attachments.bulkDelete(adjuntos.map((a) => a.id))
       await db.responses.bulkDelete(respuestas.map((r) => r.id))
       await db.findings.bulkDelete(hallazgos.map((h) => h.id))
+      await db.signatures.bulkDelete(firmas.map((f) => f.id))
       await db.inspections.delete(inspeccion.id)
       if ((await getDraftInspectionId()) === inspeccion.id) await setDraftInspectionId(null)
     },
@@ -632,15 +695,17 @@ export async function descartarRegistroCola(outboxId: number, tenantId: string):
 
 export async function submitInspection(
   inspectionId: string,
+  signature: { strokes: SignatureStroke[]; declarationVersion: string },
   location?: { lat: number; lon: number } | null,
 ): Promise<boolean> {
   /* El check y el encolado viven en LA MISMA transacción. Dos pulsaciones muy
    * rápidas pueden leer el borrador antes de que la primera lo cierre; sin
    * esta barrera ambas agregaban las mismas respuestas al outbox. */
-  return db.transaction('rw', [db.inspections, db.outbox, db.responses, db.attachments, db.meta], async () => {
+  return db.transaction('rw', [db.inspections, db.outbox, db.responses, db.attachments, db.signatures, db.meta], async () => {
     const ins = await db.inspections.get(inspectionId)
     if (!ins) throw new Error('Borrador de inspección no encontrado')
     if (ins.status === 'submitted' || ins.status === 'reviewed') return false
+    if (!tieneTrazos(signature.strokes)) throw new Error('Debes dibujar tu firma antes de enviar la inspección')
 
     await db.inspections.update(inspectionId, {
       status: 'submitted',
@@ -680,6 +745,31 @@ export async function submitInspection(
         ins.tenantId,
       )
     }
+    const signedAt = ahoraIso()
+    const firma: InspectionSignatureRow = {
+      id: uuidv7(),
+      tenantId: ins.tenantId,
+      inspectionId: ins.id,
+      signerId: ins.executedBy,
+      signerRole: 'inspector',
+      strokes: signature.strokes,
+      // Web Crypto no usa IndexedDB y puede cerrar una transacción si queda
+      // pendiente entre dos operaciones. Dexie.waitFor mantiene el scope vivo:
+      // inspección, firma y outbox se confirman o revierten juntos.
+      contentHash: await Dexie.waitFor(hashContenidoCierre(ins, respuestas)),
+      declarationVersion: signature.declarationVersion,
+      signedAt,
+      capturedAt: signedAt,
+      clientVersion: 0,
+    }
+    await db.signatures.add(firma)
+    await encolar(
+      'inspection_signature',
+      firma.id,
+      'Firma de cierre',
+      `${ins.templateName} · inspector`,
+      ins.tenantId,
+    )
     await setDraftInspectionId(null)
     return true
   })
@@ -909,9 +999,12 @@ export async function listOutbox(): Promise<OutboxRow[]> {
 export async function datosVistaCola(): Promise<EntradaVistaCola> {
   return db.transaction(
     'r',
-    [db.outbox, db.inspections, db.responses, db.findings, db.attachments, db.logEntries, db.plantillas],
+    [db.outbox, db.inspections, db.responses, db.findings, db.attachments, db.logEntries, db.signatures, db.plantillas],
     async () => {
       const outbox = (await db.outbox.toArray()).filter(esDelDueño)
+      const firmas = (await db.signatures.bulkGet(outbox.filter((f) => f.entityType === 'inspection_signature').map((f) => f.entityId)))
+        .filter((x): x is InspectionSignatureRow => !!x)
+        .map(({ id, inspectionId, signerRole }) => ({ id, inspectionId, signerRole }))
       const ids = (t: OutboxRow['entityType']) => outbox.filter((f) => f.entityType === t).map((f) => f.entityId)
       const adjuntos = (await db.attachments.bulkGet(ids('attachment'))).filter((a): a is AttachmentRow => !!a)
       const hallazgos = (await db.findings.bulkGet([...ids('finding'), ...adjuntos.filter((a) => a.ownerType === 'finding').map((a) => a.ownerId)]))
@@ -920,6 +1013,7 @@ export async function datosVistaCola(): Promise<EntradaVistaCola> {
         .filter((r): r is ResponseRow => !!r)
       const idsInspeccion = new Set([
         ...ids('inspection'),
+        ...firmas.map((f) => f.inspectionId),
         ...respuestas.map((r) => r.inspectionId),
         ...hallazgos.map((h) => h.inspectionId).filter((x): x is string => !!x),
       ])
@@ -935,6 +1029,7 @@ export async function datosVistaCola(): Promise<EntradaVistaCola> {
         hallazgos: dedupe(hallazgos),
         adjuntos: adjuntos.map(({ blob: _blob, ...meta }) => meta),
         bitacoras: dedupe(bitacoras),
+        firmas,
         definiciones: Object.fromEntries(plantillas.map((p) => [p.revision_id, p.definition])),
       }
     },
@@ -1035,6 +1130,7 @@ async function payloadDe(o: OutboxRow): Promise<{
     case 'inspection': {
       const r = await db.inspections.get(o.entityId)
       if (!r) throw new Error(`inspection ${o.entityId} no existe`)
+      const firmada = (await db.signatures.where('[inspectionId+signerRole]').equals([r.id, 'inspector']).count()) > 0
       return {
         client_version: r.clientVersion,
         captured_at: r.capturedAt,
@@ -1044,7 +1140,29 @@ async function payloadDe(o: OutboxRow): Promise<{
           template_version: r.templateVersion,
           executed_by: r.executedBy,
           status: r.status,
+          requires_supervisor_signature: r.requiresSupervisorSignature,
+          // FR-056: sólo se exige firma si esta inspección se cerró firmando. Una
+          // inspección encolada por la versión anterior de la app no la tiene y
+          // debe seguir siendo revisable.
+          signature_required: firmada,
           location: r.location ?? null,
+        },
+      }
+    }
+    case 'inspection_signature': {
+      const r = await db.signatures.get(o.entityId)
+      if (!r) throw new Error(`firma ${o.entityId} no existe`)
+      return {
+        client_version: r.clientVersion,
+        captured_at: r.capturedAt,
+        body: {
+          inspection_id: r.inspectionId,
+          signer_id: r.signerId,
+          signer_role: r.signerRole,
+          strokes: r.strokes,
+          content_hash: r.contentHash,
+          declaration_version: r.declarationVersion,
+          signed_at: r.signedAt,
         },
       }
     }

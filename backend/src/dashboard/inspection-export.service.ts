@@ -300,13 +300,15 @@ export class InspectionExportService {
       template_version: number
       ejecutado_por: string
       status: 'draft' | 'in_progress' | 'submitted' | 'reviewed'
+      requires_supervisor_signature: boolean
       captured_ms: number
     }>(
       tenantId,
       `SELECT i.id, s.name AS faena_nombre, i.template_id,
               t.name AS template_nombre, i.template_version,
               COALESCE(a.full_name, 'Usuario no disponible') AS ejecutado_por,
-              i.status, (extract(epoch FROM i.captured_at) * 1000)::float8 AS captured_ms
+              i.status, i.requires_supervisor_signature,
+              (extract(epoch FROM i.captured_at) * 1000)::float8 AS captured_ms
          FROM inspection i
          JOIN site s ON s.id = i.site_id
          LEFT JOIN template t ON t.id = i.template_id
@@ -328,6 +330,19 @@ export class InspectionExportService {
       inspeccion.id,
       definition.sections.flatMap((seccion) => seccion.items),
     )
+    const signatures = await this.db.queryAsTenant<{
+      signer_role: 'inspector' | 'supervisor'
+      signer_name: string
+      signed_ms: number
+      content_hash: string
+    }>(
+      tenantId,
+      `SELECT s.signer_role, COALESCE(u.full_name, 'Usuario no disponible') AS signer_name,
+              (extract(epoch FROM s.signed_at) * 1000)::float8 AS signed_ms, s.content_hash
+         FROM inspection_signature s JOIN app_user u ON u.id = s.signer_id
+        WHERE s.inspection_id = $1 ORDER BY s.signed_at ASC`,
+      [inspectionId],
+    )
 
     return {
       id: inspeccion.id,
@@ -337,6 +352,13 @@ export class InspectionExportService {
       ejecutado_por: inspeccion.ejecutado_por,
       status: inspeccion.status,
       captured_at: new Date(inspeccion.captured_ms).toISOString(),
+      requires_supervisor_signature: inspeccion.requires_supervisor_signature,
+      signatures: signatures.map((signature) => ({
+        signer_role: signature.signer_role,
+        signer_name: signature.signer_name,
+        signed_at: new Date(signature.signed_ms).toISOString(),
+        content_hash: signature.content_hash,
+      })),
       secciones: definition.sections.map((seccion) => ({
         title: seccion.title,
         respuestas: seccion.items.map((item) => ({

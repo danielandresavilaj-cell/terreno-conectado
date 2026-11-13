@@ -37,6 +37,7 @@ const ENTIDAD_LABEL: Record<ConflictRecordDto['entity_type'], string> = {
   finding: 'hallazgo',
   log_entry: 'bitácora',
   attachment: 'evidencia',
+  inspection_signature: 'firma de cierre',
 }
 
 /** Nombres legibles de los campos del contrato de sync. */

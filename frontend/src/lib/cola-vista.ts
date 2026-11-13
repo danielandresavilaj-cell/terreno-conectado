@@ -33,6 +33,8 @@ export interface EntradaVistaCola {
   hallazgos: FindingRow[]
   adjuntos: AdjuntoMeta[]
   bitacoras: LogEntryRow[]
+  /** TSK-OPS-003-B: firmas de cierre (sólo lo necesario para agrupar y rotular). */
+  firmas?: Array<{ id: string; inspectionId: string; signerRole: 'inspector' | 'supervisor' }>
   /** Definición congelada por `revision_id` (caché de plantillas del dispositivo). */
   definiciones: Record<string, TemplateDefinition>
 }
@@ -41,7 +43,7 @@ export type TipoGrupo = 'inspeccion' | 'bitacora' | 'hallazgo' | 'foto'
 
 export interface LineaDetalle {
   clave: string
-  tipo: 'respuesta' | 'hallazgo' | 'foto' | 'bitacora'
+  tipo: 'respuesta' | 'hallazgo' | 'foto' | 'bitacora' | 'firma'
   texto: string
   valor: string
   estado: SyncEstado
@@ -182,6 +184,7 @@ export function armarVistaCola(e: EntradaVistaCola, ahora: Date = new Date()): V
   const hall = new Map(e.hallazgos.map((x) => [x.id, x]))
   const adj = new Map(e.adjuntos.map((x) => [x.id, x]))
   const bit = new Map(e.bitacoras.map((x) => [x.id, x]))
+  const fir = new Map((e.firmas ?? []).map((x) => [x.id, x]))
 
   // Pregunta y tipo por ítem, desde la definición congelada de cada inspección.
   const itemDe = (i: InspectionRow | undefined, itemId: string) => {
@@ -205,6 +208,10 @@ export function armarVistaCola(e: EntradaVistaCola, ahora: Date = new Date()): V
       }
       case 'log_entry':
         return { clave: `bitacora:${f.entityId}`, tipo: 'bitacora' }
+      case 'inspection_signature': {
+        const fi = fir.get(f.entityId)
+        return fi ? { clave: `inspeccion:${fi.inspectionId}`, tipo: 'inspeccion' } : { clave: `firma:${f.entityId}`, tipo: 'inspeccion' }
+      }
       case 'attachment': {
         const a = adj.get(f.entityId)
         if (a?.ownerType === 'response') {
@@ -277,6 +284,15 @@ export function armarVistaCola(e: EntradaVistaCola, ahora: Date = new Date()): V
         estado: f.status,
         adjuntoId: f.entityId,
       })
+    } else if (f.entityType === 'inspection_signature') {
+      const fi = fir.get(f.entityId)
+      g.detalle.push({
+        clave: `inspection_signature:${f.entityId}`,
+        tipo: 'firma',
+        texto: fi?.signerRole === 'supervisor' ? 'Cofirma de supervisión' : 'Firma del inspector',
+        valor: 'Firmada en este dispositivo',
+        estado: f.status,
+      })
     } else if (f.entityType === 'log_entry') {
       const b = bit.get(f.entityId)
       g.detalle.push({
@@ -324,6 +340,7 @@ export function armarVistaCola(e: EntradaVistaCola, ahora: Date = new Date()): V
       if (respuestas) resumen.push(plural(respuestas, 'respuesta', 'respuestas'))
       if (hallazgos.length)
         resumen.push(`${plural(hallazgos.length, 'hallazgo', 'hallazgos')}${criticos ? ` (${criticos} ${criticos === 1 ? 'grave' : 'graves'})` : ''}`)
+      if (g.detalle.some((d) => d.tipo === 'firma')) resumen.push('firmada')
     } else if (g.tipo === 'bitacora') {
       titulo = 'Bitácora de turno'
       const b = g.bitacora
@@ -371,4 +388,4 @@ export function armarVistaCola(e: EntradaVistaCola, ahora: Date = new Date()): V
   }
 }
 
-const ORDEN_LINEA: Record<LineaDetalle['tipo'], number> = { bitacora: 0, respuesta: 1, hallazgo: 2, foto: 3 }
+const ORDEN_LINEA: Record<LineaDetalle['tipo'], number> = { bitacora: 0, respuesta: 1, hallazgo: 2, foto: 3, firma: 4 }

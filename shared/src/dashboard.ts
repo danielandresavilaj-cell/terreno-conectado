@@ -128,6 +128,13 @@ export const inspectionDetalleSchema = z.object({
   ejecutado_por: z.string(),
   status: z.enum(['draft', 'in_progress', 'submitted', 'reviewed']),
   captured_at: z.string().datetime(),
+  requires_supervisor_signature: z.boolean(),
+  signatures: z.array(z.object({
+    signer_role: z.enum(['inspector', 'supervisor']),
+    signer_name: z.string(),
+    signed_at: z.string().datetime(),
+    content_hash: z.string(),
+  })),
   secciones: z.array(
     z.object({
       title: z.string(),
