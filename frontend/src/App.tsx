@@ -33,7 +33,7 @@ const Plantillas = lazy(() => import('./screens/Plantillas').then((m) => ({ defa
 const POR_ROL: Record<string, Pantalla[]> = {
   field_worker: ['formularios', 'captura', 'bitacora', 'cola', 'cuenta'],
   supervisor: ['formularios', 'captura', 'bitacora', 'cola', 'dashboard', 'conflictos', 'cuenta'],
-  tenant_admin: ['dashboard', 'administracion', 'conflictos', 'plantillas', 'importar', 'cola', 'cuenta'],
+  tenant_admin: ['dashboard', 'administracion', 'conflictos', 'plantillas', 'importar', 'crear-formulario', 'cola', 'cuenta'],
   platform_admin: ['plataforma', 'cuenta'],
 }
 
@@ -101,7 +101,8 @@ function Raiz() {
         {pantalla === 'cola' && <Cola />}
         {pantalla === 'dashboard' && <Dashboard />}
         {pantalla === 'conflictos' && <Conflictos />}
-        {pantalla === 'importar' && <Importar />}
+        {pantalla === 'importar' && <Importar key="importar" />}
+        {pantalla === 'crear-formulario' && <Importar key="cero" inicio="cero" />}
         {pantalla === 'plantillas' && <Plantillas />}
         {pantalla === 'administracion' && <Administracion />}
         {pantalla === 'plataforma' && <Plataforma />}

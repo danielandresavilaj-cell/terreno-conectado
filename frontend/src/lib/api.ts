@@ -585,6 +585,19 @@ export function subirImportOriginal(file: File, motor: MotorImport = 'reglas'): 
   return apiFetch<TemplateImport>('/templates/imports', { method: 'POST', body: fd })
 }
 
+/**
+ * TSK-FORM-022: crea un formulario desde cero (`POST /templates`): plantilla +
+ * borrador con la definición armada en el editor. Igual que un import, queda
+ * como borrador hasta que se publica explícitamente (FR-048).
+ */
+export function crearPlantilla(body: {
+  name: string
+  description?: string
+  definition: TemplateDefinition
+}): Promise<TemplateRevisionDetailDto> {
+  return apiFetch<TemplateRevisionDetailDto>('/templates', { method: 'POST', body })
+}
+
 /** TSK-FORM-021: ¿hay IA en el servidor y cuántos análisis quedan hoy? */
 export function getCapacidadesImport(): Promise<CapacidadesImport> {
   return apiFetch<CapacidadesImport>('/templates/imports/capacidades')

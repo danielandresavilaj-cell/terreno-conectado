@@ -107,6 +107,8 @@ export type Pantalla =
   | 'dashboard'
   | 'conflictos'
   | 'importar'
+  /** TSK-FORM-022: el mismo asistente, empezando en el editor sin archivo. */
+  | 'crear-formulario'
   | 'plantillas'
 
 export interface RespuestaItem {
