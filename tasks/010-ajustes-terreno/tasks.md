@@ -1,7 +1,7 @@
 # TASKS — Ajustes desde terreno
 
-**Versión:** 1.3.1 · **Fecha:** 2026-11-15 · **Autor:** Daniel Ávila (con IA)
-**Origen:** prueba en terreno con el teléfono (inspección trabada en la cola) · **Requisitos:** FR-005, FR-012, FR-024, FR-056, FR-064, FR-067, NFR-05, NFR-12
+**Versión:** 1.4.0 · **Fecha:** 2026-11-15 · **Autor:** Daniel Ávila (con IA)
+**Origen:** prueba en terreno con el teléfono (inspección trabada en la cola) · **Requisitos:** FR-005, FR-010, FR-012, FR-024, FR-056, FR-064, FR-067, NFR-05, NFR-12
 
 > **Regla (Artículo II):** cada task referencia al menos un ID de requisito; cada commit referencia al menos un task.
 
@@ -11,6 +11,7 @@
 | TSK-AUTH-012 | Un bloqueo cumplido reinicia la racha de fallos; el login dice los minutos que faltan | FR-005 | — | Al vencer el bloqueo, un fallo deja el contador en 1 y no vuelve a bloquear; el `423` trae `minutos` y el teléfono los muestra. `backend/test/auth.spec.ts` y `frontend/test/bloqueo.test.ts` verdes | ✅ Hecho (#248) |
 | TSK-DOM-008 | "Hallazgos": el responsable ve sus hallazgos, los empieza y reporta lo que hizo; supervisión cierra | FR-067, FR-064 | — | Migración 023; `GET /findings/asignados` (sólo los propios, RLS) y `PATCH /findings/:id/avance` (iniciar o reportar con nota; ajeno o resuelto → 404; auditado); pestaña con aviso de nuevos y aviso en Formularios; lista legible sin señal y borrador del reporte; Gerencia muestra "Listo para revisar". `backend/test/hallazgos-asignados.spec.ts`, `frontend/test/hallazgos-asignados.test.ts` y E2E verdes | ✅ Hecho (#254) |
 | TSK-E2E-003 | Pools de las pruebas de backend que no fallan al apagar el contenedor (H7) | NFR-05, NFR-12 | — | `poolDePrueba` ignora sólo el `57P01` del apagado y relanza cualquier otro error; los 30 specs que abrían `new Pool` lo usan; `backend/test/pool-prueba.spec.ts` verde y CI sin "Unhandled Errors" | ✅ Hecho (#257) |
+| TSK-OFF-021 | Identidad visual: marca de arcos de señal, curvas de nivel de fondo y landing pública (#261) | FR-010 | — | Ninguna pantalla muestra el cuadrado "TC": la marca (`Marca`) va en la barra superior, el login, el cambio de clave y las pantallas de carga, en ambos temas; las curvas de nivel (`Topografia`) están en el login, el cambio de clave y, tenues, en la parte alta del shell, sin recibir eventos ni restar contraste a paneles y formularios; los íconos PWA muestran la marca y el maskable cabe en el área segura del 80 %; `landing/index.html` usa la paleta de la app y funciona en 375 px. Lint, typecheck, tests del frontend y build verdes; sin cambios de colores, tipografía ni comportamiento | 🔄 En revisión |
 
 ## Control de cambios
 
@@ -23,3 +24,4 @@
 | 1.2.1 | 2026-11-15 | TSK-DOM-008 hecha: PR #254 mergeado con CI y E2E verdes (24/24); despliegue pendiente, conjunto con los cambios de Raúl | Daniel Ávila (con IA) |
 | 1.3.0 | 2026-11-15 | Se agrega TSK-E2E-003 (falso rojo del CI por el apagado del contenedor de pruebas) | Daniel Ávila (con IA) |
 | 1.3.1 | 2026-11-15 | TSK-E2E-003 hecha: PR #257 mergeado con CI verde y sin "Unhandled Errors" | Daniel Ávila (con IA) |
+| 1.4.0 | 2026-11-15 | Se agrega TSK-OFF-021 (identidad visual: marca, curvas de nivel y landing) | Daniel Ávila (con IA) |
