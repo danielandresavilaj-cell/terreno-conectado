@@ -1,6 +1,6 @@
 # TEST PLAN — Plan de pruebas de validación
 
-**Versión:** 1.3.5 · **Fecha:** 2026-09-14 · actualizado 2026-11-13 · **Autor:** Raúl González (validación) · **Relacionado:** spec maestro §5–6, constitución Artículos III/IV/VII
+**Versión:** 1.3.6 · **Fecha:** 2026-09-14 · actualizado 2026-11-13 · **Autor:** Raúl González (validación) · **Relacionado:** spec maestro §5–6, constitución Artículos III/IV/VII
 **Evidencia APT:** "Plan de pruebas de validación" (informe §6) y soporte de la competencia "Realizar pruebas de certificación de productos y procesos".
 
 ## 1. Principio rector
@@ -73,7 +73,7 @@ verde.
 | FR-045/046 | Lote del período con formato de su plantilla + hoja "Evidencias" (adjuntos referenciados/embebidos) | Integración | `backend/test/inspection-export-lote.spec.ts` | 🟢 verde |
 | FR-045/046/047 (Enmienda 005) | Excel consolidado (Resumen + hoja por formulario + Hallazgos + Evidencias, columnas unidas entre versiones, plantilla hecha a mano), PDF y Word (un archivo o ZIP), selección por `ids` con RLS, filtros de formulario/estado, tope 413, 404, 400, roles y auditoría | Unit + integración | `shared/src/exportar/consolidado.test.ts`, `backend/test/inspection-report.spec.ts`, `frontend/test/exportar-inspecciones.test.ts` | ✅ |
 | FR-047 + FR-051 | Import confirmado y export por lote registrados en el audit log (autor, timestamp, tenant) | Integración | `backend/test/import-wizard.spec.ts`, `inspection-export-lote.spec.ts` | 🟢 verde |
-| FR-062 | *(Enmienda 008)* Supervisión ve en pantalla la foto de una respuesta o de un hallazgo: mismos bytes que subió el dispositivo y tipo de imagen explícito; otra empresa → 404 (RLS), trabajador y plataforma → 403, sin sesión → 401; no sirve el original de un import; archivo ausente → 404 con motivo; el detalle nombra la foto de cada respuesta y hallazgo | Integración + Unit | `backend/test/attachments.spec.ts`; `frontend/test/fotos.test.ts` (caché: una descarga por foto, no recuerda fallos, descarta la menos usada) | 🟢 verde |
+| FR-062 | *(Enmienda 008)* Supervisión ve en pantalla la foto de una respuesta o de un hallazgo: mismos bytes que subió el dispositivo y tipo de imagen explícito; otra empresa → 404 (RLS), trabajador y plataforma → 403, sin sesión → 401; no sirve el original de un import; archivo ausente → 404 con motivo; el detalle nombra la foto de cada respuesta y hallazgo | Integración + Unit | `backend/test/attachments.spec.ts`; `frontend/test/fotos.test.ts` (caché: una descarga por foto, no recuerda fallos, descarta la menos usada); *(TSK-OFF-016)* `fotos_ids` en el detalle (`attachments.spec.ts`) y varias fotos por hallazgo en el dispositivo (`frontend/test/hallazgo.test.ts`) | 🟢 verde |
 | FR-063 | *(Enmienda 008)* El trabajador, la supervisión y la administración leen la bitácora de la empresa, más reciente primero, con autor y faena; filtros por faena y período, paginación; otra empresa no ve entradas (RLS), plataforma → 403, sin sesión → 401, filtro inválido → 400 | Integración | `backend/test/bitacora.spec.ts` | 🟢 verde |
 | FR-064 | *(Enmienda 008)* Supervisión asigna responsable y plazo y cierra con nota; auditoría antes→después; responsable de otra empresa → 400; otra empresa → 404 (RLS), trabajador → 403; una corrección por sync no borra la asignación; el dashboard muestra responsable y plazo; plazo vencido / vence hoy / cerrado | Integración + Unit | `backend/test/accion-correctiva.spec.ts`; `frontend/test/plazo.test.ts` | 🟢 verde |
 | FR-065 | *(Enmienda 008)* `GET /sites` devuelve a cada cuenta sólo sus faenas asignadas (sin asignación: todas); el admin las asigna con `PUT /users/:id/faenas`; otra empresa → 404, faena ajena → 400, auditoría | Integración | `backend/test/users-faenas.spec.ts` (TSK-ADM-003) | 🟡 por implementar |
@@ -212,6 +212,7 @@ y nunca bloquea un PR. Informe por módulo en
 
 | Versión | Fecha | Cambio | Autor |
 | :--- | :--- | :--- | :--- |
+| 1.3.6 | 2026-11-14 | **TSK-OFF-016:** varias fotos por hallazgo; evidencia en las filas FR-062 (`attachments.spec.ts`, `hallazgo.test.ts`) | Daniel Ávila (con IA) |
 | 1.3.5 | 2026-11-14 | Filas FR-065 y FR-066 (Enmienda 008, ampliación) en 🟡 por implementar; recuento 52 filas | Daniel Ávila (con IA) |
 | 1.3.4 | 2026-11-14 | Encabezado y volumen al día tras TSK-OFF-014: frontend 208, total 596 | Daniel Ávila (con IA) |
 | 1.3.3 | 2026-11-13 | **TSK-OFF-014 (#221):** `cola-accesibilidad.test.ts` asegura que los tres desplegables de Cola mantienen objetivo táctil de 44 px y control nativo; suite frontend 39 archivos, 208 pruebas verdes | Raúl González (con IA) |

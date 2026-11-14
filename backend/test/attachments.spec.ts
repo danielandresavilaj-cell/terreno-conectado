@@ -247,6 +247,7 @@ describe('GET /api/v1/dashboard/inspections/:id — el detalle nombra la evidenc
         description: 'Barrera dura desplazada en el acceso norte',
         status: 'open',
         foto_id: fotoHallazgoId,
+        fotos_ids: [fotoHallazgoId],
       },
     ])
   })

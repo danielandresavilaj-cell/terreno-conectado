@@ -454,8 +454,8 @@ export function Captura() {
         item={sheetItem}
         onClose={() => setSheetItem(null)}
         cargar={leerHallazgo}
-        onGuardar={(sev, desc, foto) => {
-          if (sheetItem) guardarHallazgo(sheetItem.id, sev, desc, foto)
+        onGuardar={(sev, desc, fotosNuevas, fotosQuitar) => {
+          if (sheetItem) guardarHallazgo(sheetItem.id, sev, desc, fotosNuevas, fotosQuitar)
           setSheetItem(null)
         }}
       />

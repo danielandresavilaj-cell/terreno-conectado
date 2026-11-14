@@ -932,17 +932,34 @@ export async function hallazgosDeInspeccion(inspectionId: string): Promise<Findi
   return db.findings.where('inspectionId').equals(inspectionId).toArray()
 }
 
-/** Hallazgo ligado a una respuesta, con su foto más reciente (o `null`). */
+/** Foto guardada de un hallazgo. `enviada` = ya salió del teléfono y no se puede quitar. */
+export interface FotoHallazgo {
+  id: string
+  blob: Blob
+  enviada: boolean
+}
+
+/** Fotos de un hallazgo, de la más antigua a la más reciente (TSK-OFF-016). */
+export async function fotosDeHallazgo(findingId: string): Promise<FotoHallazgo[]> {
+  const adjuntos = (await db.attachments.where('ownerId').equals(findingId).toArray())
+    .filter((a) => a.ownerType === 'finding')
+    .sort((x, y) => (x.capturedAt === y.capturedAt ? x.id.localeCompare(y.id) : x.capturedAt < y.capturedAt ? -1 : 1))
+  const fotos: FotoHallazgo[] = []
+  for (const a of adjuntos) {
+    const filas = await db.outbox.where('[entityType+entityId]').equals(['attachment', a.id]).toArray()
+    fotos.push({ id: a.id, blob: a.blob, enviada: filas.some((f) => f.status === 'synced' || f.status === 'syncing') })
+  }
+  return fotos
+}
+
+/** Hallazgo ligado a una respuesta, con todas sus fotos (o `null`). */
 export async function hallazgoDeRespuesta(
   inspectionId: string,
   responseId: string,
-): Promise<{ hallazgo: FindingRow; foto: AttachmentRow | null } | null> {
+): Promise<{ hallazgo: FindingRow; fotos: FotoHallazgo[] } | null> {
   const hallazgo = (await hallazgosDeInspeccion(inspectionId)).find((f) => f.responseId === responseId)
   if (!hallazgo) return null
-  const fotos = (await db.attachments.where('ownerId').equals(hallazgo.id).toArray())
-    .filter((a) => a.ownerType === 'finding')
-    .sort((x, y) => (x.capturedAt < y.capturedAt ? 1 : -1))
-  return { hallazgo, foto: fotos[0] ?? null }
+  return { hallazgo, fotos: await fotosDeHallazgo(hallazgo.id) }
 }
 
 /**
@@ -977,9 +994,9 @@ async function reencolar(
  * la corrección conserva el UUID y sube `clientVersion`: el servidor recibe una
  * versión nueva del mismo registro (Art. III), no un registro más.
  *
- * `foto: null` significa "sin foto nueva": la que hubiera se conserva. Una foto
- * nueva reemplaza a la anterior sólo si ésta aún no salió del dispositivo; una
- * ya enviada se deja, porque la cola no borra en el servidor.
+ * Fotos (TSK-OFF-016): `fotosNuevas` se agregan a las que ya tenía y
+ * `fotosQuitar` (ids de adjunto) se borran sólo si todavía no salieron del
+ * teléfono; una ya enviada se conserva, porque la cola no borra en el servidor.
  */
 export async function guardarHallazgo(params: {
   inspectionId: string
@@ -988,8 +1005,10 @@ export async function guardarHallazgo(params: {
   severity: Severity
   description: string
   detalle: string
-  /** FR-012: blob ya comprimido (≤1280 px, q0.7) por `comprimirImagen`. */
-  foto: { blob: Blob; ancho: number; alto: number; mime: string } | null
+  /** FR-012: blobs ya comprimidos (≤1280 px, q0.7) por `comprimirImagen`. */
+  fotosNuevas: Array<{ blob: Blob; ancho: number; alto: number; mime: string }>
+  /** Ids de adjunto a quitar; los ya enviados se ignoran. */
+  fotosQuitar: string[]
 }): Promise<{ id: string; creado: boolean }> {
   const ts = ahoraIso()
   const titulo = `Hallazgo · Severidad ${SEVERIDAD_ES[params.severity]}`
@@ -1023,37 +1042,41 @@ export async function guardarHallazgo(params: {
       await db.findings.add(finding)
       await encolar('finding', id, titulo, params.detalle, params.tenantId)
     }
-    if (params.foto) {
-      if (previo) {
-        const anteriores = (await db.attachments.where('ownerId').equals(id).toArray()).filter(
-          (a) => a.ownerType === 'finding',
-        )
-        for (const a of anteriores) {
-          const filas = await db.outbox.where('[entityType+entityId]').equals(['attachment', a.id]).toArray()
-          if (filas.some((f) => f.status === 'synced' || f.status === 'syncing')) continue
-          await db.outbox.bulkDelete(filas.map((f) => f.id as number))
-          await db.attachments.delete(a.id)
-        }
-      }
+    for (const attachmentId of params.fotosQuitar) {
+      const a = await db.attachments.get(attachmentId)
+      if (!a || a.ownerType !== 'finding' || a.ownerId !== id) continue
+      const filas = await db.outbox.where('[entityType+entityId]').equals(['attachment', a.id]).toArray()
+      if (filas.some((f) => f.status === 'synced' || f.status === 'syncing')) continue
+      await db.outbox.bulkDelete(filas.map((f) => f.id as number))
+      await db.attachments.delete(a.id)
+    }
+    // Cada foto recibe un instante estrictamente mayor que el de la anterior:
+    // así su orden se conserva aunque varias se guarden en el mismo milisegundo.
+    const previas = (await db.attachments.where('ownerId').equals(id).toArray())
+      .filter((a) => a.ownerType === 'finding')
+      .map((a) => Date.parse(a.capturedAt) + 1)
+    let instante = Math.max(Date.parse(ts), ...previas)
+    for (const foto of params.fotosNuevas) {
       const attachmentId = uuidv7()
+      const capturedAt = new Date(instante++).toISOString()
       await db.attachments.add({
         id: attachmentId,
         tenantId: params.tenantId,
         ownerType: 'finding',
         ownerId: id,
-        mime: params.foto.mime,
-        bytes: params.foto.blob.size,
-        blob: params.foto.blob,
-        ancho: params.foto.ancho,
-        alto: params.foto.alto,
-        capturedAt: ts,
+        mime: foto.mime,
+        bytes: foto.blob.size,
+        blob: foto.blob,
+        ancho: foto.ancho,
+        alto: foto.alto,
+        capturedAt,
         clientVersion: 0,
       })
       await encolar(
         'attachment',
         attachmentId,
         'Evidencia fotográfica',
-        `${params.foto.ancho}×${params.foto.alto} · ${Math.round(params.foto.blob.size / 1024)} KB comprimida (FR-012)`,
+        `${foto.ancho}×${foto.alto} · ${Math.round(foto.blob.size / 1024)} KB comprimida (FR-012)`,
         params.tenantId,
       )
     }

@@ -367,12 +367,15 @@ export class InspectionExportService {
       description: string
       status: 'open' | 'in_progress' | 'resolved'
       foto_id: string | null
+      fotos_ids: string[]
     }>(
       tenantId,
       `SELECT f.id, r.template_item_id AS item_id, f.severity, f.description, f.status,
               (SELECT a.id FROM attachment a
                 WHERE a.owner_type = 'finding' AND a.owner_id = f.id
-                ORDER BY a.captured_at DESC, a.id DESC LIMIT 1) AS foto_id
+                ORDER BY a.captured_at DESC, a.id DESC LIMIT 1) AS foto_id,
+              COALESCE((SELECT array_agg(a.id ORDER BY a.captured_at, a.id) FROM attachment a
+                         WHERE a.owner_type = 'finding' AND a.owner_id = f.id), '{}') AS fotos_ids
          FROM finding f
          LEFT JOIN inspection_response r ON r.id = f.response_id
         WHERE f.inspection_id = $1
@@ -405,7 +408,7 @@ export class InspectionExportService {
           foto_id: fotoDeItem.get(item.id) ?? null,
         })),
       })),
-      hallazgos,
+      hallazgos: hallazgos.map((h) => ({ ...h, fotos_ids: h.fotos_ids ?? [] })),
     }
   }
 

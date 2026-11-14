@@ -275,6 +275,7 @@ export class DashboardService {
       foto_bytes: number | null
       foto_ancho: number | null
       foto_alto: number | null
+      fotos_ids: string[]
       assignee_id: string | null
       responsable: string | null
       due_date: string | null
@@ -311,6 +312,8 @@ export class DashboardService {
                 (extract(epoch FROM i.synced_at) * 1000)::float8 AS synced_ms,
                 a.id AS foto_id, a.mime AS foto_mime, a.bytes AS foto_bytes,
                 a.width AS foto_ancho, a.height AS foto_alto,
+                COALESCE((SELECT array_agg(a3.id ORDER BY a3.captured_at, a3.id) FROM attachment a3
+                           WHERE a3.owner_type = 'finding' AND a3.owner_id = f.id), '{}') AS fotos_ids,
                 f.assignee_id, r.full_name AS responsable,
                 to_char(f.due_date, 'YYYY-MM-DD') AS due_date, f.resolution_note
          ${base}
@@ -342,6 +345,7 @@ export class DashboardService {
       foto_bytes: r.foto_bytes,
       foto_ancho: r.foto_ancho,
       foto_alto: r.foto_alto,
+      fotos_ids: r.fotos_ids ?? [],
       assignee_id: r.assignee_id,
       responsable: r.responsable,
       due_date: r.due_date,
