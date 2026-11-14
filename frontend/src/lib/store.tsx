@@ -198,7 +198,7 @@ interface Ctx {
    *  y persiste el valor en las columnas naturales del borrador. */
   responderCampo: (itemId: string, valor: CampoValor, adjunto?: { foto: File }) => void
   /** Crea el hallazgo del ítem o corrige el que ya tenía (TSK-OFF-007). */
-  guardarHallazgo: (itemId: string, sev: Severidad, descripcion: string, foto: File | null) => void
+  guardarHallazgo: (itemId: string, sev: Severidad, descripcion: string, fotosNuevas: File[], fotosQuitar: string[]) => void
   /** TSK-OFF-011: foto guardada de un ítem del borrador (`null` si no hay). */
   leerFotoItem: (itemId: string) => Promise<Blob | null>
   /** Hallazgo ya registrado para un ítem del borrador, para poder corregirlo. */
@@ -216,7 +216,8 @@ interface Ctx {
 export interface HallazgoGuardado {
   severidad: Severidad
   descripcion: string
-  foto: Blob | null
+  /** TSK-OFF-016: todas las fotos, de la más antigua a la más reciente. */
+  fotos: Array<{ id: string; blob: Blob; enviada: boolean }>
 }
 
 /** Lo que se le confirma a la persona después de firmar y enviar. */
@@ -230,6 +231,26 @@ export interface EnvioConfirmado {
 }
 
 const StoreCtx = createContext<Ctx | null>(null)
+
+/**
+ * FR-012: cada foto se comprime ANTES de encolarse (canvas ≤1280 px, q0.7).
+ * Una que no se pueda comprimir se omite: la captura nunca depende de la
+ * evidencia fotográfica.
+ */
+async function comprimirFotos(
+  fotos: File[],
+): Promise<Array<{ blob: Blob; ancho: number; alto: number; mime: string }>> {
+  const listas: Array<{ blob: Blob; ancho: number; alto: number; mime: string }> = []
+  for (const foto of fotos) {
+    try {
+      const comp = await comprimirImagen(foto)
+      listas.push({ blob: comp.blob, ancho: comp.ancho, alto: comp.alto, mime: comp.blob.type || 'image/jpeg' })
+    } catch {
+      // Se omite esta foto; el hallazgo se guarda igual.
+    }
+  }
+  return listas
+}
 
 function mapaCola(o: OutboxRow): RegistroCola {
   return {
@@ -1058,7 +1079,7 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
   )
 
   const guardarHallazgo = useCallback(
-    (itemId: string, sev: Severidad, descripcion: string, foto: File | null) => {
+    (itemId: string, sev: Severidad, descripcion: string, fotosNuevas: File[], fotosQuitar: string[]) => {
       if (!usuario) return
       void (async () => {
         const draft = await resolverDraft(usuario)
@@ -1073,23 +1094,6 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
             tenantId: usuario.tenantId,
             valueOk: 'nok',
           }))
-        // FR-012: la foto se comprime ANTES de encolarse (canvas ≤1280 px, q0.7).
-        // Si la compresión falla, el hallazgo se guarda igual sin foto: la
-        // captura nunca depende de la evidencia fotográfica.
-        let fotoComprimida: { blob: Blob; ancho: number; alto: number; mime: string } | null = null
-        if (foto) {
-          try {
-            const comp = await comprimirImagen(foto)
-            fotoComprimida = {
-              blob: comp.blob,
-              ancho: comp.ancho,
-              alto: comp.alto,
-              mime: comp.blob.type || 'image/jpeg',
-            }
-          } catch {
-            fotoComprimida = null
-          }
-        }
         const { id } = await guardarHallazgoDb({
           inspectionId: draft.id,
           responseId,
@@ -1097,7 +1101,8 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
           severity: SEV_TO_EN[sev],
           description: descripcion.trim() || 'Sin descripción',
           detalle: detalleDeHallazgo(descripcion),
-          foto: fotoComprimida,
+          fotosNuevas: await comprimirFotos(fotosNuevas),
+          fotosQuitar,
         })
         setRespuestas((r) => ({
           ...r,
@@ -1136,7 +1141,7 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
     return {
       severidad: SEV_TO_ES[guardado.hallazgo.severity],
       descripcion: guardado.hallazgo.description === 'Sin descripción' ? '' : guardado.hallazgo.description,
-      foto: guardado.foto?.blob ?? null,
+      fotos: guardado.fotos,
     }
   }, [])
 

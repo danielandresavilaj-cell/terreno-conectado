@@ -18,6 +18,7 @@ const base: Omit<FindingDto, 'severity' | 'status' | 'description'> = {
   foto_bytes: null,
   foto_ancho: null,
   foto_alto: null,
+  fotos_ids: [],
   assignee_id: null,
   responsable: null,
   due_date: null,

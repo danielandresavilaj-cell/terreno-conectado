@@ -7,6 +7,9 @@ import type { Severidad } from './types'
 /** Largo mínimo para que una descripción diga algo ("ok", "." no sirven). */
 export const DESCRIPCION_MINIMA = 5
 
+/** TSK-OFF-016: máximo de fotos por hallazgo (se impone en la interfaz). */
+export const MAX_FOTOS_HALLAZGO = 5
+
 export interface ErroresHallazgo {
   severidad?: string
   descripcion?: string

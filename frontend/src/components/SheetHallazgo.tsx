@@ -6,6 +6,9 @@
  * severidad no viene preseleccionada y un hallazgo alta/crítica exige
  * descripción (`lib/hallazgo.ts`).
  *
+ * TSK-OFF-016: hasta MAX_FOTOS_HALLAZGO fotos. Las que ya salieron del teléfono
+ * se muestran pero no se pueden quitar (la cola no borra en el servidor).
+ *
  * MOVIMIENTO:
  * · Entrada con spring (420 ms, bounce 0.16) desde transform-origin en el
  *   botón que la abrió. Spring y no duración fija porque el usuario puede
@@ -27,7 +30,7 @@ import { SEV_META } from './Badges'
 import { EASE } from '../lib/motion'
 import type { ItemPlantilla, Severidad } from '../lib/types'
 import type { HallazgoGuardado } from '../lib/store'
-import { erroresDeHallazgo, exigeDescripcion, type ErroresHallazgo } from '../lib/hallazgo'
+import { MAX_FOTOS_HALLAZGO, erroresDeHallazgo, exigeDescripcion, type ErroresHallazgo } from '../lib/hallazgo'
 import { useCapaAtras } from '../lib/useCapaAtras'
 import { CamaraCaptura } from './CamaraCaptura'
 
@@ -41,17 +44,20 @@ export function SheetHallazgo({
 }: {
   item: ItemPlantilla | null
   onClose: () => void
-  onGuardar: (sev: Severidad, descripcion: string, foto: File | null) => void
+  /** `fotosNuevas`: tomadas en esta apertura; `fotosQuitar`: ids de fotos guardadas que se quitan. */
+  onGuardar: (sev: Severidad, descripcion: string, fotosNuevas: File[], fotosQuitar: string[]) => void
   /** Hallazgo ya guardado para el ítem (`null` si es nuevo). */
   cargar: (itemId: string) => Promise<HallazgoGuardado | null>
 }) {
   const reducir = useReducedMotion()
   const [sev, setSev] = useState<Severidad | null>(null)
   const [desc, setDesc] = useState('')
-  /** Foto tomada en esta apertura; `null` = no se tomó una nueva. */
-  const [foto, setFoto] = useState<File | null>(null)
-  /** Foto que el hallazgo ya tenía guardada. */
-  const [fotoPrevia, setFotoPrevia] = useState<Blob | null>(null)
+  /** Fotos tomadas en esta apertura. */
+  const [nuevas, setNuevas] = useState<File[]>([])
+  /** Fotos que el hallazgo ya tenía guardadas. */
+  const [previas, setPrevias] = useState<HallazgoGuardado['fotos']>([])
+  /** Ids de fotos guardadas que la persona quitó en esta apertura. */
+  const [quitar, setQuitar] = useState<string[]>([])
   const [editando, setEditando] = useState(false)
   const [errores, setErrores] = useState<ErroresHallazgo>({})
   const [camaraAbierta, setCamaraAbierta] = useState(false)
@@ -64,8 +70,9 @@ export function SheetHallazgo({
     if (!itemId) return
     setSev(null)
     setDesc('')
-    setFoto(null)
-    setFotoPrevia(null)
+    setNuevas([])
+    setPrevias([])
+    setQuitar([])
     setEditando(false)
     setErrores({})
     // Guardamos el disparador para fijar transform-origin: el panel debe
@@ -77,7 +84,7 @@ export function SheetHallazgo({
       setEditando(true)
       setSev(guardado.severidad)
       setDesc(guardado.descripcion)
-      setFotoPrevia(guardado.foto)
+      setPrevias(guardado.fotos)
     })
     return () => {
       vivo = false
@@ -108,25 +115,15 @@ export function SheetHallazgo({
     setOrigin(`${x}px ${r.bottom}px`)
   }, [item])
 
-  /* Vista previa: la persona ve la foto que va a quedar como evidencia, no el
-   * nombre de un archivo. La URL se libera al cambiar de foto o cerrar. */
-  const visible = foto ?? fotoPrevia
-  const [urlFoto, setUrlFoto] = useState<string | null>(null)
-  useEffect(() => {
-    if (!visible) {
-      setUrlFoto(null)
-      return
-    }
-    const url = URL.createObjectURL(visible)
-    setUrlFoto(url)
-    return () => URL.revokeObjectURL(url)
-  }, [visible])
+  const conservadas = previas.filter((f) => !quitar.includes(f.id))
+  const total = conservadas.length + nuevas.length
+  const lleno = total >= MAX_FOTOS_HALLAZGO
 
   const guardar = () => {
     const e = erroresDeHallazgo(sev, desc)
     setErrores(e)
     if (!sev || e.severidad || e.descripcion) return
-    onGuardar(sev, desc, foto)
+    onGuardar(sev, desc, nuevas, quitar)
   }
 
   return (
@@ -277,42 +274,53 @@ export function SheetHallazgo({
               </p>
             )}
 
-            {/* FR-011/012: evidencia fotográfica capturada en el dispositivo. */}
-            <CamaraCaptura abierta={camaraAbierta} alCerrar={() => setCamaraAbierta(false)} alCapturar={setFoto} />
-            <button
-              type="button"
-              onClick={() => setCamaraAbierta(true)}
-              className={[
-                'mt-4 w-full flex items-center gap-3 rounded-[10px] border px-3.5 py-3 text-left cursor-pointer',
-                'transition-colors duration-200 ease-out',
-                visible ? 'border-beam/45 bg-beam/10' : 'border-campo bg-s1 hover:border-line-strong',
-              ].join(' ')}
-            >
-              {urlFoto ? (
-                <img
-                  src={urlFoto}
-                  alt="Foto del hallazgo"
-                  width={56}
-                  height={56}
-                  className="h-14 w-14 rounded-lg object-cover shrink-0 border border-line"
-                />
-              ) : (
-                <span className="h-14 w-14 rounded-lg grid place-items-center shrink-0 bg-s3 text-ink-2">
-                  <svg width="20" height="20" viewBox="0 0 17 17" fill="none" aria-hidden>
-                    <path d="M2.5 4.5h3l1.2-1.6h3.6l1.2 1.6h3v9h-12v-9Z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" />
-                    <circle cx="8.5" cy="8.8" r="2.3" stroke="currentColor" strokeWidth="1.3" />
-                  </svg>
-                </span>
+            {/* FR-011/012 + TSK-OFF-016: evidencia fotográfica, varias fotos. */}
+            <CamaraCaptura
+              abierta={camaraAbierta}
+              alCerrar={() => setCamaraAbierta(false)}
+              alCapturar={(f) => setNuevas((n) => [...n, f])}
+            />
+            <div className="mt-5">
+              <p className="label-inst mb-2">
+                Fotos ({total} de {MAX_FOTOS_HALLAZGO})
+              </p>
+              {total > 0 && (
+                <ul className="mb-3 flex flex-wrap gap-2">
+                  {conservadas.map((f, i) => (
+                    <li key={f.id}>
+                      <MiniaturaFoto
+                        blob={f.blob}
+                        etiqueta={`Foto ${i + 1}`}
+                        enviada={f.enviada}
+                        onQuitar={f.enviada ? undefined : () => setQuitar((q) => [...q, f.id])}
+                      />
+                    </li>
+                  ))}
+                  {nuevas.map((f, i) => (
+                    <li key={`nueva-${i}`}>
+                      <MiniaturaFoto
+                        blob={f}
+                        etiqueta={`Foto ${conservadas.length + i + 1}`}
+                        enviada={false}
+                        onQuitar={() => setNuevas((n) => n.filter((_, k) => k !== i))}
+                      />
+                    </li>
+                  ))}
+                </ul>
               )}
-              <div className="min-w-0 flex-1">
-                <p className="text-[14px] font-medium">
-                  {visible ? 'Foto adjunta · cambiar' : 'Agregar foto'}
-                </p>
-                <p className="text-[13px] text-ink-2 mt-0.5">
-                  {visible ? 'Toca para tomar otra.' : 'Opcional. Queda guardada en este dispositivo.'}
-                </p>
-              </div>
-            </button>
+              <button
+                type="button"
+                disabled={lleno}
+                onClick={() => setCamaraAbierta(true)}
+                className="w-full min-h-11 flex items-center justify-center gap-2 rounded-[10px] border border-campo bg-s1 px-3.5 text-[14px] font-medium cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <svg width="18" height="18" viewBox="0 0 17 17" fill="none" aria-hidden>
+                  <path d="M2.5 4.5h3l1.2-1.6h3.6l1.2 1.6h3v9h-12v-9Z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" />
+                  <circle cx="8.5" cy="8.8" r="2.3" stroke="currentColor" strokeWidth="1.3" />
+                </svg>
+                {lleno ? 'Máximo de fotos alcanzado' : total === 0 ? 'Agregar foto (opcional)' : 'Agregar otra foto'}
+              </button>
+            </div>
 
             <div className="mt-6 flex gap-2 justify-end">
               <Boton variante="fantasma" onClick={onClose}>
@@ -327,5 +335,46 @@ export function SheetHallazgo({
         </>
       )}
     </AnimatePresence>
+  )
+}
+
+/** Miniatura de una foto del hallazgo, con su botón para quitarla si aún no salió del teléfono. */
+function MiniaturaFoto({
+  blob,
+  etiqueta,
+  enviada,
+  onQuitar,
+}: {
+  blob: Blob
+  etiqueta: string
+  enviada: boolean
+  onQuitar?: () => void
+}) {
+  const [url, setUrl] = useState<string | null>(null)
+  useEffect(() => {
+    const u = URL.createObjectURL(blob)
+    setUrl(u)
+    return () => URL.revokeObjectURL(u)
+  }, [blob])
+  return (
+    <div className="flex flex-col items-center gap-1">
+      {url ? (
+        <img src={url} alt={etiqueta} width={64} height={64} className="h-16 w-16 rounded-lg object-cover border border-line" />
+      ) : (
+        <span className="h-16 w-16 rounded-lg bg-s3" aria-hidden />
+      )}
+      {onQuitar ? (
+        <button
+          type="button"
+          onClick={onQuitar}
+          aria-label={`Quitar ${etiqueta.toLowerCase()}`}
+          className="min-h-11 px-2 text-[13px] text-ink-2 underline underline-offset-2 cursor-pointer"
+        >
+          Quitar
+        </button>
+      ) : (
+        <span className="min-h-11 grid place-items-center text-[12px] text-ink-3">{enviada ? 'Enviada' : ''}</span>
+      )}
+    </div>
   )
 }

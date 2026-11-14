@@ -1143,12 +1143,30 @@ const ESTADO_HALLAZGO: Record<InspectionDetalle['hallazgos'][number]['status'], 
   resolved: 'Resuelto',
 }
 
+/** TSK-OFF-016: hasta 3 miniaturas por hallazgo y un contador del resto. */
+function FotosHallazgo({ ids, descripcion }: { ids: string[]; descripcion: string }) {
+  if (ids.length === 0) return null
+  const visibles = ids.slice(0, 3)
+  return (
+    <div className="flex items-center gap-1.5 shrink-0">
+      {visibles.map((id, i) => (
+        <FotoEvidencia key={id} id={id} etiqueta={`Foto ${i + 1} de ${ids.length} del hallazgo: ${descripcion}`} />
+      ))}
+      {ids.length > visibles.length && (
+        <span className="text-[13px] text-ink-2" aria-label={`${ids.length - visibles.length} fotos más`}>
+          +{ids.length - visibles.length}
+        </span>
+      )}
+    </div>
+  )
+}
+
 /** Hallazgo dentro del detalle de una inspección: severidad, texto y evidencia. */
 function HallazgoEnDetalle({ h }: { h: InspectionDetalle['hallazgos'][number] }) {
   const sev = SEV_WIRE_A_UI[h.severity]
   return (
     <div className="mt-2.5 flex items-start gap-3 rounded-lg bg-s2 px-3 py-2.5">
-      {h.foto_id && <FotoEvidencia id={h.foto_id} etiqueta={`Foto del hallazgo: ${h.description}`} />}
+      <FotosHallazgo ids={h.fotos_ids} descripcion={h.description} />
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
           <BadgeSev sev={sev} destacado={sev === 'alta' || sev === 'critica'} />
@@ -1262,7 +1280,7 @@ function FilaHallazgo({
     >
       <div className="flex items-start gap-4 flex-wrap sm:flex-nowrap">
         {/* TSK-REP-008: la evidencia se ve, no se describe por su tamaño. */}
-        {h.foto_id && <FotoEvidencia id={h.foto_id} etiqueta={`Foto del hallazgo: ${h.description}`} />}
+        <FotosHallazgo ids={h.fotos_ids} descripcion={h.description} />
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2.5 flex-wrap">
             <BadgeSev sev={sev} destacado={urgente} />
@@ -1272,7 +1290,7 @@ function FilaHallazgo({
             <span>{h.faena_nombre ?? 'Sin faena'}</span>
             <span>· {h.autor ?? 'Sin autor'}</span>
             <span>· {tiempoRelativo(h.captured_at)}</span>
-            {!h.foto_id && <span className="text-ink-3">· sin foto</span>}
+            {h.fotos_ids.length === 0 && <span className="text-ink-3">· sin foto</span>}
           </div>
           <div className="mt-1.5 flex items-center gap-x-3 gap-y-1 flex-wrap text-[13px]">
             <span className={h.responsable ? 'text-ink' : 'text-ink-3'}>
