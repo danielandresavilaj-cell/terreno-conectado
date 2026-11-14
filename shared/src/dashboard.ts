@@ -73,6 +73,8 @@ export interface DashboardSummary {
   hallazgos_urgentes: number
   /** TSK-REP-011 (FR-064): abiertos con plazo vencido (sin recorte de período). */
   hallazgos_vencidos: number
+  /** TSK-REP-012 (FR-040): últimas 8 semanas (lunes, AAAA-MM-DD), de la más antigua a la actual. */
+  tendencia_semanal: Array<{ semana: string; inspecciones: number; hallazgos: number }>
   hallazgos_total: number
   conflictos_pendientes: number
   sincronizaciones: number

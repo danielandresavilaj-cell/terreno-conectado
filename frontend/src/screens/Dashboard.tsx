@@ -29,7 +29,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { BadgeSev, Chip, SEV_META } from '../components/Badges'
 import { Barra, CountUp } from '../components/CountUp'
-import { Boton, Tarjeta } from '../components/ui'
+import { Boton } from '../components/ui'
 import {
   getFindings,
   getDetalleInspeccion,
@@ -53,6 +53,7 @@ import { PanelExportar } from '../components/dashboard/PanelExportar'
 import { FirmaCierre } from '../components/FirmaCierre'
 import { FotoEvidencia } from '../components/FotoEvidencia'
 import { BitacoraFaena } from '../components/BitacoraFaena'
+import { TendenciaSemanal } from '../components/dashboard/TendenciaSemanal'
 import { estadoPlazo, hoyLocal, plazoSugerido, type EstadoPlazo } from '../lib/plazo'
 import { PERIODOS, rangoPeriodo, type Periodo, type RangoFechas } from '../lib/periodos'
 import { EASE } from '../lib/motion'
@@ -140,7 +141,6 @@ export function Dashboard() {
   const [rango, setRango] = useState<RangoFechas>({ desde: '', hasta: '' })
   const [formularioFiltro, setFormularioFiltro] = useState('')
   const [estadoFiltro, setEstadoFiltro] = useState('')
-  const [autorInsp, setAutorInsp] = useState('')
   const [seleccion, setSeleccion] = useState<Set<string>>(new Set())
   const [formularios, setFormularios] = useState<Map<string, string>>(new Map())
   const [datos, setDatos] = useState<{ summary: DashboardSummary; hallazgos: FindingDto[] } | null>(null)
@@ -184,7 +184,7 @@ export function Dashboard() {
     const lista = getInspecciones(f, {
       template_id: formularioFiltro || undefined,
       status: estadoFiltro || undefined,
-      autor_id: autorInsp || undefined,
+      autor_id: autor === 'todos' ? undefined : autor,
     }).then(
       (r) => {
         setInspecciones(r.items)
@@ -218,7 +218,7 @@ export function Dashboard() {
     } finally {
       setCargando(false)
     }
-  }, [usuario, esPlataforma, periodo, faena, sevFiltro, autor, rango, formularioFiltro, estadoFiltro, autorInsp])
+  }, [usuario, esPlataforma, periodo, faena, sevFiltro, autor, rango, formularioFiltro, estadoFiltro])
 
   /* FR-043: auto-refresh cada 30 s + al recobrar foco/señal. */
   useEffect(() => {
@@ -329,7 +329,7 @@ export function Dashboard() {
    * cosa exportaría inspecciones que ya no están en pantalla. */
   useEffect(() => {
     setSeleccion(new Set())
-  }, [periodo, faena, rango, formularioFiltro, estadoFiltro, autorInsp])
+  }, [periodo, faena, rango, formularioFiltro, estadoFiltro, autor])
 
   const alternar = (id: string) =>
     setSeleccion((prev) => {
@@ -343,7 +343,7 @@ export function Dashboard() {
     ...filtrosDe(periodo, faena, rango),
     template_id: formularioFiltro || undefined,
     status: (estadoFiltro || undefined) as 'submitted' | 'reviewed' | 'in_progress' | 'draft' | undefined,
-    autor_id: autorInsp || undefined,
+    autor_id: autor === 'todos' ? undefined : autor,
   }
 
   return (
@@ -454,6 +454,47 @@ export function Dashboard() {
             )}
           </AnimatePresence>
 
+          {/* ── Filtros (FR-041, TSK-REP-012): una sola barra para todo el panel ── */}
+          <div className="flex flex-wrap items-end gap-3" role="group" aria-label="Filtros del panel">
+            <label className="block">
+              <span className="label-inst">Faena</span>
+              <select value={faena} onChange={(e) => setFaena(e.target.value)} className={`mt-1 block ${SELECT_BARRA}`}>
+                <option value="todas">Todas las faenas</option>
+                {faenas.map((f) => (
+                  <option key={f.id} value={f.id}>
+                    {f.nombre}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="block">
+              <span className="label-inst">Severidad</span>
+              <select
+                value={sevFiltro}
+                onChange={(e) => setSevFiltro(e.target.value as Severidad | 'todas')}
+                className={`mt-1 block ${SELECT_BARRA}`}
+              >
+                <option value="todas">Todas</option>
+                {(['critica', 'alta', 'media', 'baja'] as Severidad[]).map((s) => (
+                  <option key={s} value={s}>
+                    {SEV_META[s].label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="block">
+              <span className="label-inst">Autor</span>
+              <select value={autor} onChange={(e) => setAutor(e.target.value)} className={`mt-1 block ${SELECT_BARRA}`}>
+                <option value="todos">Todos los autores</option>
+                {autores.map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {a.nombre}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+
           {/* ── Fila de métricas ──────────────────────────────────────────── */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
             <Metrica
@@ -482,6 +523,8 @@ export function Dashboard() {
             />
             <Metrica etiqueta="Inspecciones" valor={totalInsp} pie={`${enCurso} en curso ahora`} />
           </div>
+
+          {summary && summary.tendencia_semanal.length > 0 && <TendenciaSemanal semanas={summary.tendencia_semanal} />}
 
           {supervision && (
             <BloquesSupervision datos={supervision} onRevisar={(id) => void revisar({ id })} />
@@ -559,56 +602,6 @@ export function Dashboard() {
                 </section>
               </div>
 
-              {/* ── Filtros (FR-041) ─────────────────────────────────────── */}
-              <section className="space-y-3">
-                <div className="flex items-center gap-3">
-                  <h2 className="label-inst">Filtros</h2>
-                  <div className="flex-1 rule" />
-                </div>
-
-                <div className="grid sm:grid-cols-3 gap-3">
-                  <div className="space-y-2">
-                    <p className="label-inst">Faena</p>
-                    {[{ id: 'todas', nombre: 'Todas las faenas', tipo: 'mina' as const }, ...faenas].map(
-                      (f) => (
-                        <Tarjeta key={f.id} activa={faena === f.id} onClick={() => setFaena(f.id)}>
-                          <div className="flex items-center justify-between gap-3">
-                            <span className="text-[13px] font-medium truncate">{f.nombre}</span>
-                          </div>
-                        </Tarjeta>
-                      ),
-                    )}
-                  </div>
-
-                  <div className="space-y-2">
-                    <p className="label-inst">Severidad</p>
-                    <Tarjeta activa={sevFiltro === 'todas'} onClick={() => setSevFiltro('todas')}>
-                      <span className="text-[13px] font-medium">Todas las severidades</span>
-                    </Tarjeta>
-                    {(['critica', 'alta', 'media', 'baja'] as Severidad[]).map((s) => (
-                      <Tarjeta key={s} activa={sevFiltro === s} onClick={() => setSevFiltro(s)}>
-                        <BadgeSev sev={s} />
-                      </Tarjeta>
-                    ))}
-                  </div>
-
-                  {/* FR-041: filtro por autor. Sólo se ofrecen los autores con
-                      actividad en el período filtrado: una lista con todos los
-                      usuarios del tenant llenaría de opciones que no traen nada. */}
-                  <div className="space-y-2">
-                    <p className="label-inst">Autor</p>
-                    <Tarjeta activa={autor === 'todos'} onClick={() => setAutor('todos')}>
-                      <span className="text-[13px] font-medium">Todos los autores</span>
-                    </Tarjeta>
-                    {autores.map((a) => (
-                      <Tarjeta key={a.id} activa={autor === a.id} onClick={() => setAutor(a.id)}>
-                        <span className="text-[13px] font-medium truncate">{a.nombre}</span>
-                      </Tarjeta>
-                    ))}
-                  </div>
-                </div>
-              </section>
-
               {/* ── Listado de hallazgos: crossfade, sin stagger ──────────── */}
               <section className="space-y-2.5">
                 <div className="flex items-center gap-3">
@@ -683,12 +676,6 @@ export function Dashboard() {
                     <option value="submitted">Enviadas</option>
                     <option value="reviewed">Revisadas</option>
                     <option value="in_progress">En curso</option>
-                  </select>
-                  <select aria-label="Autor" value={autorInsp} onChange={(e) => setAutorInsp(e.target.value)} className={SELECT_FILTRO}>
-                    <option value="">Todos los autores</option>
-                    {autores.map((a) => (
-                      <option key={a.id} value={a.id}>{a.nombre}</option>
-                    ))}
                   </select>
                 </div>
 
@@ -862,7 +849,9 @@ function tiempoRelativo(iso: string): string {
  * tenía 870 px mínimos y en el teléfono se desbordaba: el supervisor revisa
  * también desde terreno.
  */
-const SELECT_FILTRO = 'h-9 px-2 rounded-lg bg-s1 border border-line-soft text-[12px] max-w-[220px]'
+const SELECT_FILTRO = 'h-11 px-2 rounded-lg bg-s1 border border-line-soft text-[13px] max-w-[220px]'
+/** TSK-REP-012: selectores de la barra de filtros del panel. */
+const SELECT_BARRA = 'h-11 px-2 rounded-[10px] bg-s1 border border-line-soft text-[14px] min-w-[160px] max-w-[240px]'
 
 const COLUMNAS_INSPECCION = [
   'lg:grid lg:items-center lg:gap-3',
