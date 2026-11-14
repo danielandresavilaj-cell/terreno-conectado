@@ -1,5 +1,13 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { db, fotosDeHallazgo, guardarHallazgo, hallazgoDeRespuesta, hallazgosDeInspeccion } from '../src/lib/db'
+import {
+  db,
+  fotosDeHallazgo,
+  guardarHallazgo,
+  hallazgoDeRespuesta,
+  hallazgoPorId,
+  hallazgosDeInspeccion,
+  hallazgosDirectos,
+} from '../src/lib/db'
 import { detalleDeHallazgo, erroresDeHallazgo, exigeDescripcion } from '../src/lib/hallazgo'
 import { TENANT_A } from './fixtures'
 
@@ -177,5 +185,50 @@ describe('guardarHallazgo: una respuesta NOK tiene un solo hallazgo', () => {
     expect(b.id).not.toBe(a.id)
     expect((await hallazgoDeRespuesta('ins-1', 'resp-2'))?.hallazgo.id).toBe(b.id)
     expect(await hallazgoDeRespuesta('ins-1', 'resp-3')).toBeNull()
+  })
+})
+
+describe('hallazgo directo, sin pregunta (TSK-OFF-015)', () => {
+  const directo = { inspectionId: 'ins-1', responseId: null, tenantId: TENANT_A, detalle: 'resumen' }
+
+  it('cada hallazgo directo nuevo es un registro aparte', async () => {
+    const a = await guardarHallazgo({ ...directo, severity: 'low', description: 'Polvo', fotosNuevas: [], fotosQuitar: [] })
+    const b = await guardarHallazgo({ ...directo, severity: 'high', description: 'Cable suelto', fotosNuevas: [], fotosQuitar: [] })
+
+    expect(a.creado && b.creado).toBe(true)
+    expect((await hallazgosDirectos('ins-1')).map((h) => h.id)).toEqual([a.id, b.id])
+  })
+
+  it('corregirlo por su id actualiza el mismo registro', async () => {
+    const { id } = await guardarHallazgo({ ...directo, severity: 'low', description: 'Polvo', fotosNuevas: [], fotosQuitar: [] })
+    const r = await guardarHallazgo({
+      ...directo,
+      hallazgoId: id,
+      severity: 'medium',
+      description: 'Polvo en el tablero',
+      fotosNuevas: [],
+      fotosQuitar: [],
+    })
+
+    expect(r).toEqual({ id, creado: false })
+    const lista = await hallazgosDirectos('ins-1')
+    expect(lista).toHaveLength(1)
+    expect(lista[0]).toMatchObject({ severity: 'medium', description: 'Polvo en el tablero', clientVersion: 1 })
+    expect((await db.outbox.toArray()).filter((f) => f.entityType === 'finding')).toHaveLength(1)
+  })
+
+  it('no lista los hallazgos de una respuesta y devuelve sus fotos por id', async () => {
+    await guardarHallazgo({ ...directo, responseId: 'resp-1', severity: 'high', description: 'NOK', fotosNuevas: [], fotosQuitar: [] })
+    const { id } = await guardarHallazgo({
+      ...directo,
+      severity: 'low',
+      description: 'Polvo',
+      fotosNuevas: [{ blob: new Blob(['x'], { type: 'image/jpeg' }), ancho: 1, alto: 1, mime: 'image/jpeg' }],
+      fotosQuitar: [],
+    })
+
+    expect((await hallazgosDirectos('ins-1')).map((h) => h.id)).toEqual([id])
+    expect((await hallazgoPorId(id))?.fotos).toHaveLength(1)
+    expect(await hallazgoPorId('no-existe')).toBeNull()
   })
 })

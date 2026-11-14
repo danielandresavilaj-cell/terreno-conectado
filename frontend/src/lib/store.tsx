@@ -30,7 +30,10 @@ import {
   datosVistaCola,
   guardarHallazgo as guardarHallazgoDb,
   hallazgoDeRespuesta,
+  hallazgoPorId,
+  hallazgosDirectos,
   hallazgosDeInspeccion,
+  fotosDeHallazgo,
   addLogEntry,
   aplicarPurgaOriginales,
   borrarSesionCaché,
@@ -203,6 +206,18 @@ interface Ctx {
   leerFotoItem: (itemId: string) => Promise<Blob | null>
   /** Hallazgo ya registrado para un ítem del borrador, para poder corregirlo. */
   leerHallazgo: (itemId: string) => Promise<HallazgoGuardado | null>
+  /** TSK-OFF-015: crea (`hallazgoId` null) o corrige un hallazgo no ligado a una pregunta. */
+  guardarHallazgoDirecto: (
+    hallazgoId: string | null,
+    sev: Severidad,
+    descripcion: string,
+    fotosNuevas: File[],
+    fotosQuitar: string[],
+  ) => Promise<void>
+  /** Hallazgo directo guardado, para corregirlo. */
+  leerHallazgoDirecto: (hallazgoId: string) => Promise<HallazgoGuardado | null>
+  /** Hallazgos directos del borrador en curso. */
+  listarHallazgosDirectos: () => Promise<HallazgoDirectoResumen[]>
   /** Resultado del último envío, para confirmarlo en pantalla (TSK-OFF-007). */
   ultimoEnvio: EnvioConfirmado | null
   descartarAvisoEnvio: () => void
@@ -218,6 +233,14 @@ export interface HallazgoGuardado {
   descripcion: string
   /** TSK-OFF-016: todas las fotos, de la más antigua a la más reciente. */
   fotos: Array<{ id: string; blob: Blob; enviada: boolean }>
+}
+
+/** TSK-OFF-015: un hallazgo directo, tal como se lista en la inspección. */
+export interface HallazgoDirectoResumen {
+  id: string
+  severidad: Severidad
+  descripcion: string
+  fotos: number
 }
 
 /** Lo que se le confirma a la persona después de firmar y enviar. */
@@ -1145,6 +1168,53 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
     }
   }, [])
 
+  /* TSK-OFF-015: hallazgo directo. Va en el borrador en curso (lo crea si hace
+   * falta) y viaja con la inspección; corregirlo conserva su UUID. */
+  const guardarHallazgoDirecto = useCallback(
+    async (hallazgoId: string | null, sev: Severidad, descripcion: string, fotosNuevas: File[], fotosQuitar: string[]) => {
+      if (!usuario) return
+      const draft = await resolverDraft(usuario)
+      await guardarHallazgoDb({
+        inspectionId: draft.id,
+        responseId: null,
+        hallazgoId,
+        tenantId: usuario.tenantId,
+        severity: SEV_TO_EN[sev],
+        description: descripcion.trim() || 'Sin descripción',
+        detalle: detalleDeHallazgo(descripcion),
+        fotosNuevas: await comprimirFotos(fotosNuevas),
+        fotosQuitar,
+      })
+      setUltimoEnvio(null)
+      await refrescar()
+    },
+    [usuario, refrescar, resolverDraft],
+  )
+
+  const leerHallazgoDirecto = useCallback(async (hallazgoId: string): Promise<HallazgoGuardado | null> => {
+    const guardado = await hallazgoPorId(hallazgoId)
+    if (!guardado) return null
+    return {
+      severidad: SEV_TO_ES[guardado.hallazgo.severity],
+      descripcion: guardado.hallazgo.description === 'Sin descripción' ? '' : guardado.hallazgo.description,
+      fotos: guardado.fotos,
+    }
+  }, [])
+
+  const listarHallazgosDirectos = useCallback(async (): Promise<HallazgoDirectoResumen[]> => {
+    const draftId = await getDraftInspectionId()
+    if (!draftId) return []
+    const filas = await hallazgosDirectos(draftId)
+    return Promise.all(
+      filas.map(async (h) => ({
+        id: h.id,
+        severidad: SEV_TO_ES[h.severity],
+        descripcion: h.description,
+        fotos: (await fotosDeHallazgo(h.id)).length,
+      })),
+    )
+  }, [])
+
   const prepararCierre = useCallback((): boolean => {
     if (!usuario || !plantilla || plantilla.estado !== 'ok' || envioInspeccionEnCurso.current) return false
     const errores = erroresDeEnvio(plantilla.definition, respuestas, erroresCampo)
@@ -1255,6 +1325,9 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
     guardarHallazgo,
     leerHallazgo,
     leerFotoItem,
+    guardarHallazgoDirecto,
+    leerHallazgoDirecto,
+    listarHallazgosDirectos,
     ultimoEnvio,
     descartarAvisoEnvio,
     prepararCierre,

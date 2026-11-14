@@ -15,14 +15,14 @@
  * · NO anima: el focus de los campos de texto, el scroll, el hover de las filas.
  */
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { motion } from 'motion/react'
-import { Chip } from '../components/Badges'
+import { BadgeSev, Chip } from '../components/Badges'
 import { Boton } from '../components/ui'
 import { FormRenderer } from '../components/FormRenderer'
 import { SheetHallazgo } from '../components/SheetHallazgo'
 import { FirmaCierre } from '../components/FirmaCierre'
-import { useEstado } from '../lib/store'
+import { useEstado, type HallazgoDirectoResumen } from '../lib/store'
 import {
   descargarLibro,
   exportarDocumento,
@@ -34,6 +34,9 @@ import { EASE } from '../lib/motion'
 import { fechaHoraLocal } from '../lib/fecha-hora-actual'
 import type { TemplateItem } from '@terreno/shared'
 import type { ItemPlantilla } from '../lib/types'
+
+/** TSK-OFF-015: prefijo del id de ítem con que el panel identifica un hallazgo directo. */
+const PREFIJO_DIRECTO = 'directo:'
 
 /** Fecha de hoy como la dice una persona: "jueves 13 de noviembre". */
 const FECHA_LARGA = new Intl.DateTimeFormat('es-CL', { weekday: 'long', day: 'numeric', month: 'long' })
@@ -56,6 +59,9 @@ export function Captura() {
     erroresCampo,
     guardarHallazgo,
     leerHallazgo,
+    guardarHallazgoDirecto,
+    leerHallazgoDirecto,
+    listarHallazgosDirectos,
     ultimoEnvio,
     descartarAvisoEnvio,
     online,
@@ -149,6 +155,34 @@ export function Captura() {
       })
     }
   }
+
+  /* TSK-OFF-015: hallazgos directos (no ligados a una pregunta). El panel de
+   * hallazgo los distingue por el prefijo de su id. */
+  const [directos, setDirectos] = useState<HallazgoDirectoResumen[]>([])
+  const recargarDirectos = useCallback(() => {
+    void listarHallazgosDirectos().then(setDirectos)
+  }, [listarHallazgosDirectos])
+  useEffect(() => {
+    recargarDirectos()
+  }, [recargarDirectos, pendientes, ultimoEnvio, revisionId])
+
+  const abrirDirecto = (hallazgoId: string | null) =>
+    setSheetItem({
+      id: `${PREFIJO_DIRECTO}${hallazgoId ?? 'nuevo'}`,
+      texto: 'Hallazgo general',
+      seccion: 'No ligado a una pregunta del formulario',
+      hallazgoObligatorio: false,
+      tipo: 'ok_nok_na',
+    })
+
+  const cargarHallazgo = useCallback(
+    (itemId: string) => {
+      if (!itemId.startsWith(PREFIJO_DIRECTO)) return leerHallazgo(itemId)
+      const id = itemId.slice(PREFIJO_DIRECTO.length)
+      return id === 'nuevo' ? Promise.resolve(null) : leerHallazgoDirecto(id)
+    },
+    [leerHallazgo, leerHallazgoDirecto],
+  )
 
   if (!plantilla) return null
   const definition = plantilla.definition
@@ -352,6 +386,42 @@ export function Captura() {
         ))
       )}
 
+      {/* ── Otros hallazgos (TSK-OFF-015) ─────────────────────────────────
+       *  Algo que se vio en terreno y no corresponde a ninguna pregunta. */}
+      {!congeladaAusente && !sinFormularios && (
+        <section className="panel p-4 space-y-3" aria-labelledby="titulo-otros-hallazgos">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="min-w-0">
+              <h2 id="titulo-otros-hallazgos" className="text-[15px] font-semibold">
+                Otros hallazgos
+              </h2>
+              <p className="mt-0.5 text-[13px] text-ink-2">Algo que viste y no corresponde a ninguna pregunta.</p>
+            </div>
+            <Boton tamano="sm" variante="secundaria" onClick={() => abrirDirecto(null)}>
+              Registrar hallazgo general
+            </Boton>
+          </div>
+          {directos.length > 0 && (
+            <ul className="divide-y divide-line-soft rounded-xl border border-line-soft">
+              {directos.map((h) => (
+                <li key={h.id} className="flex flex-wrap items-center gap-3 px-3.5 py-2.5">
+                  <BadgeSev sev={h.severidad} />
+                  <span className="min-w-0 flex-1 text-[14px] break-words">{h.descripcion}</span>
+                  {h.fotos > 0 && (
+                    <span className="text-[13px] text-ink-2">
+                      {h.fotos} {h.fotos === 1 ? 'foto' : 'fotos'}
+                    </span>
+                  )}
+                  <Boton tamano="sm" variante="fantasma" onClick={() => abrirDirecto(h.id)}>
+                    Corregir
+                  </Boton>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      )}
+
       {/* ── Cierre ────────────────────────────────────────────────────────
        *  TSK-OFF-007: firmar es LA acción de esta pantalla, así que es el botón
        *  grande y ocupa el ancho en el teléfono. FR-014 guarda cada respuesta al
@@ -453,9 +523,14 @@ export function Captura() {
       <SheetHallazgo
         item={sheetItem}
         onClose={() => setSheetItem(null)}
-        cargar={leerHallazgo}
+        cargar={cargarHallazgo}
         onGuardar={(sev, desc, fotosNuevas, fotosQuitar) => {
-          if (sheetItem) guardarHallazgo(sheetItem.id, sev, desc, fotosNuevas, fotosQuitar)
+          if (sheetItem?.id.startsWith(PREFIJO_DIRECTO)) {
+            const id = sheetItem.id.slice(PREFIJO_DIRECTO.length)
+            void guardarHallazgoDirecto(id === 'nuevo' ? null : id, sev, desc, fotosNuevas, fotosQuitar).then(recargarDirectos)
+          } else if (sheetItem) {
+            guardarHallazgo(sheetItem.id, sev, desc, fotosNuevas, fotosQuitar)
+          }
           setSheetItem(null)
         }}
       />
