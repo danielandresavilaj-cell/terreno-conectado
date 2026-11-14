@@ -227,19 +227,25 @@ Todo lo siguiente está en `main`, con CI verde y desplegado en https://terrenoc
 | Ítem | Tarea | PR | Estado |
 | :--- | :--- | :--- | :--- |
 | Fase 0 completa (0.1–0.8) | TSK-OFF-007/008/009 | #196 | ✅ |
-| 1.1 Elegir faena | TSK-OFF-010 | #200 | ✅ selector · pendiente asignación cuenta↔faena en el modelo |
-| 1.2 Fotos | TSK-OFF-011 | #204 | 🟡 miniatura y repetir · pendiente varias fotos por hallazgo |
+| 1.1 Elegir faena | TSK-OFF-010 | #200 | ✅ selector y asignación cuenta↔faena (TSK-ADM-003) |
+| 1.2 Fotos | TSK-OFF-011 | #204 | ✅ miniatura, repetir y varias fotos por hallazgo (TSK-OFF-016) |
 | 1.3 Navegación inferior | TSK-OFF-011 | #204 | ✅ trabajador (≤ 5 secciones) |
-| 1.5 Hallazgo en cualquier NOK | TSK-OFF-012 | #208 | ✅ · pendiente hallazgo directo sin ítem |
-| 1.7 Historial propio | TSK-OFF-013 | #216 | 🟡 30 días en Cola · pendiente reexportar |
+| 1.5 Hallazgo en cualquier NOK | TSK-OFF-012 | #208 | ✅ hallazgo directo sin ítem (TSK-OFF-015) |
+| 1.7 Historial propio | TSK-OFF-013 | #216 | ✅ 30 días en Cola y reexportar (TSK-OFF-017) |
 | 1.8 Tema del sistema | TSK-OFF-011 | #204 | ✅ |
 | 2.1 Ver la evidencia | TSK-REP-008 (FR-062) | #198 | ✅ |
 | 2.2 Acción correctiva | TSK-DOM-007 (FR-064) | #210 | ✅ · pendiente aviso por correo |
 | 2.4 Bitácora legible | TSK-REP-009 (FR-063) | #202 | ✅ |
-| 2.5 Panel de decisiones | TSK-REP-010/011 | #206, #214 | 🟡 tabla móvil y vencidos · pendiente tendencia y filtros unificados |
+| 2.5 Panel de decisiones | TSK-REP-010/011/012 | #206, #214, #235 | ✅ tabla móvil, vencidos, tendencia y filtros en una barra |
 | 3.3 Alta masiva | TSK-ADM-002 | #212 | ✅ |
-| 3.5 Plantillas | TSK-FORM-023 | #218 | 🟡 vista previa · pendiente archivar y duplicar |
+| 3.5 Plantillas | TSK-FORM-023/024 | #218, #233 | ✅ vista previa, archivar y duplicar |
 | Desplegables de Cola a 44 px (seguimiento de 1.3) | TSK-OFF-014 (Raúl) | #222 | ✅ |
+| 1.2 Varias fotos por hallazgo | TSK-OFF-016 | #227 | ✅ |
+| 1.5 Hallazgo directo | TSK-OFF-015 | #229 | ✅ |
+| 1.7 Reexportar desde el teléfono | TSK-OFF-017 | #231 | ✅ |
+| 3.5 Archivar y duplicar formularios | TSK-FORM-024 (FR-066) | #233 | ✅ |
+| 2.5 Tendencia y filtros en una barra | TSK-REP-012 | #235 | ✅ |
+| 1.1 Faenas por cuenta | TSK-ADM-003 (FR-065) | #237 | ✅ |
 
 **Planificado (bloque 4):** los pendientes chicos de 1.1, 1.2, 1.5, 1.7, 2.5 y 3.5 tienen plan ejecutable y validado en `plans/009-plan-mejora-bloque-4/` (tareas en `tasks/009-plan-mejora-bloque-4/`; FR-065 y FR-066 en la Enmienda 008).
 

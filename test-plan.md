@@ -1,6 +1,6 @@
 # TEST PLAN — Plan de pruebas de validación
 
-**Versión:** 1.3.11 · **Fecha:** 2026-09-14 · actualizado 2026-11-13 · **Autor:** Raúl González (validación) · **Relacionado:** spec maestro §5–6, constitución Artículos III/IV/VII
+**Versión:** 1.3.12 · **Fecha:** 2026-09-14 · actualizado 2026-11-14 · **Autor:** Raúl González (validación) · **Relacionado:** spec maestro §5–6, constitución Artículos III/IV/VII
 **Evidencia APT:** "Plan de pruebas de validación" (informe §6) y soporte de la competencia "Realizar pruebas de certificación de productos y procesos".
 
 ## 1. Principio rector
@@ -93,11 +93,11 @@ verde.
 **Volumen de pruebas en la corrida de referencia:**
 ```
 E2E + caos (Playwright, manual)           23 tests
-Integración backend (Vitest + Testcontainers) 273 tests
-Unidad frontend (Vitest)                     208 tests
+Integración backend (Vitest + Testcontainers) 289 tests
+Unidad frontend (Vitest)                     223 tests
 Unidad shared (Vitest)                        92 tests
                                            ───────────────
-                                           596 tests   (v1.4, TSK-OFF-014, 2026-11-14)
+                                           627 tests   (v1.4, bloque 4 del plan de mejora, 2026-11-14)
 ```
 
 > El criterio de salida de Fase 2 (§8) pide "matriz §3 ≥ 90% verde": hoy está en
@@ -212,6 +212,7 @@ y nunca bloquea un PR. Informe por módulo en
 
 | Versión | Fecha | Cambio | Autor |
 | :--- | :--- | :--- | :--- |
+| 1.3.12 | 2026-11-14 | Volumen contado en CI tras el bloque 4 (plan 009): backend 289, frontend 223, shared 92 y 23 E2E = 627 | Daniel Ávila (con IA) |
 | 1.3.11 | 2026-11-14 | **TSK-ADM-003:** FR-065 a 🟢 (`users-faenas.spec.ts`, `faenas-cuenta.test.ts`); recuento 52 filas (48 🟢) | Daniel Ávila (con IA) |
 | 1.3.10 | 2026-11-14 | **TSK-REP-012:** tendencia semanal y filtros en una barra; evidencia en la fila FR-041 (`dashboard-tendencia.spec.ts`) | Daniel Ávila (con IA) |
 | 1.3.9 | 2026-11-14 | **TSK-FORM-024:** FR-066 a 🟢 (`templates-archivar.spec.ts`, `duplicar-formulario.test.ts`); recuento 52 filas (47 🟢) | Daniel Ávila (con IA) |
