@@ -239,6 +239,7 @@ Todo lo siguiente está en `main`, con CI verde y desplegado en https://terrenoc
 | 2.5 Panel de decisiones | TSK-REP-010/011 | #206, #214 | 🟡 tabla móvil y vencidos · pendiente tendencia y filtros unificados |
 | 3.3 Alta masiva | TSK-ADM-002 | #212 | ✅ |
 | 3.5 Plantillas | TSK-FORM-023 | #218 | 🟡 vista previa · pendiente archivar y duplicar |
+| Desplegables de Cola a 44 px (seguimiento de 1.3) | TSK-OFF-014 (Raúl) | #222 | ✅ |
 
 **No iniciado, y por qué:**
 

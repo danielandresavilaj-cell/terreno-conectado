@@ -18,7 +18,7 @@ export const CLAVE_TEMA = 'tc-tema'
 /** Color de la barra del navegador / PWA para cada tema (`<meta name="theme-color">`). */
 export const COLOR_BARRA: Record<Tema, string> = { oscuro: '#0e0f11', claro: '#f5f3ef' }
 
-/** Valor guardado → tema válido (cualquier otra cosa cae al oscuro por defecto). */
+/** Valor guardado → tema válido; un valor inválido cae al oscuro. Al abrir la app manda `temaInicial`. */
 export function temaGuardado(valor: string | null | undefined): Tema {
   return valor === 'claro' ? 'claro' : 'oscuro'
 }
