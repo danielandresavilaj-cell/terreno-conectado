@@ -196,7 +196,8 @@ describe('hallazgo directo, sin pregunta (TSK-OFF-015)', () => {
     const b = await guardarHallazgo({ ...directo, severity: 'high', description: 'Cable suelto', fotosNuevas: [], fotosQuitar: [] })
 
     expect(a.creado && b.creado).toBe(true)
-    expect((await hallazgosDirectos('ins-1')).map((h) => h.id)).toEqual([a.id, b.id])
+    // El orden entre dos registros con la misma `capturedAt` (mismo milisegundo) es por id aleatorio: no se compara el orden.
+    expect((await hallazgosDirectos('ins-1')).map((h) => h.id).sort()).toEqual([a.id, b.id].sort())
   })
 
   it('corregirlo por su id actualiza el mismo registro', async () => {
