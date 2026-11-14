@@ -1,6 +1,6 @@
 # DATA MODEL — Modelo conceptual de datos
 
-**Versión:** 1.8.0 (Enmienda 008) · **Fecha:** 2026-09-14 · actualizado 2026-11-13 · **Autor:** Daniel Ávila · **Relacionado:** spec maestro §5/§7, specs 001–007, ADR-003
+**Versión:** 1.8.1 (Enmienda 008) · **Fecha:** 2026-09-14 · actualizado 2026-11-15 · **Autor:** Daniel Ávila · **Relacionado:** spec maestro §5/§7, specs 001–007, ADR-003
 **Evidencia APT:** "Modelo conceptual de datos preliminar" (informe §6).
 **Reglas transversales:** toda tabla de dominio lleva `tenant_id UUID NOT NULL` + política RLS (Artículo IV); IDs `UUIDv7` generados en el cliente cuando el registro nace offline (FR-015); timestamps `created_at`, `updated_at` (servidor) y `captured_at` (cliente, autoridad para LWW — FR-023).
 
@@ -150,7 +150,7 @@ erDiagram
 
 > **Extensión de la Enmienda 007 (FR-056…061, aprobada por Daniel Ávila el 2026-11-12).** `INSPECTION_SIGNATURE` y los indicadores de cierre de `INSPECTION` están implementados en la migración 019 y en revisión dentro de TSK-OPS-003-B (#191). `ASSET`, `INSPECTION_SCHEDULE`, `SCHEDULED_INSPECTION` y `NOTIFICATION_OUTBOX` permanecen diseñados, sin migración, hasta sus tareas posteriores.
 
-**INSPECTION_SIGNATURE** — `id UUIDv7, tenant_id, inspection_id FK→INSPECTION, signer_id FK→USER, signer_role ENUM(inspector, supervisor), strokes_json JSONB, content_hash TEXT, declaration_version TEXT, signed_at TIMESTAMPTZ (cliente), client_version INT, created_at`. Un índice único `(inspection_id, signer_role)` evita duplicar la firma de cada rol. `strokes_json` lleva puntos vectoriales normalizados, no una imagen de una firma ni datos biométricos; `content_hash` fija el contenido/ciclo de cierre que la persona declaró. RLS por tenant y auditoría de creación; no se permite reemplazo ni borrado desde `tc_app`.
+**INSPECTION_SIGNATURE** — `id UUIDv7, tenant_id, inspection_id FK→INSPECTION, signer_id FK→USER, signer_role ENUM(inspector, supervisor), strokes_json JSONB, content_hash TEXT, declaration_version TEXT, signed_at TIMESTAMPTZ (cliente), client_version INT, created_at`. Un índice único `(inspection_id, signer_role)` evita duplicar la firma de cada rol. `strokes_json` lleva puntos vectoriales normalizados (enteros 0..1000 en un marco de 1000 × 500 con una sola escala, ≥2 puntos por trazo, ≤32 trazos, ≤1024 puntos; TSK-OFF-018), no una imagen de una firma ni datos biométricos; `content_hash` fija el contenido/ciclo de cierre que la persona declaró. RLS por tenant y auditoría de creación; no se permite reemplazo ni borrado desde `tc_app`.
 
 **ASSET (activo o lugar)** — `id UUID, tenant_id, site_id FK→SITE, template_id FK→TEMPLATE, name TEXT, kind ENUM(vehicle, equipment, location), qr_token_hash TEXT UNIQUE, status ENUM(active, revoked), created_by FK→USER, created_at, updated_at`. El QR muestra el token aleatorio en claro sólo al generarlo; la base conserva su hash. `template_id` es una referencia estable: al resolver el QR se elige la revisión publicada que corresponda y se aplica de todos modos `TEMPLATE_ASSIGNMENT` por faena+rol. Regenerar QR invalida el token anterior y deja audit log.
 
@@ -162,7 +162,7 @@ erDiagram
 
 ### 2.3 Sincronización y auditoría (spec 003 / 006)
 
-**SYNC_LOG** — `id, tenant_id, user_id, device_id UUID, batch_id UUID, records_total INT, records_ok INT, records_failed INT, started_at, finished_at, status ENUM(pending, ok, partial, failed)`. Se abre en dos fases (`pending` → `UPDATE` con totales y `finished_at`, TSK-WS-009) para que `conflict_record.sync_log_id` referencie el batch. Satisface FR-024 y alimenta el dashboard (latencia media).
+**SYNC_LOG** — `id, tenant_id, user_id, device_id UUID, batch_id UUID, records_total INT, records_ok INT, records_failed INT, started_at, finished_at, status ENUM(pending, ok, partial, failed), error_message TEXT NULL (≤500, motivo de un lote rechazado; TSK-OFF-018)`. Se abre en dos fases (`pending` → `UPDATE` con totales y `finished_at`, TSK-WS-009) para que `conflict_record.sync_log_id` referencie el batch. Satisface FR-024 y alimenta el dashboard (latencia media).
 
 **CONFLICT_RECORD** — `id, tenant_id, entity_type, entity_id, winner_payload JSONB, loser_payload JSONB, resolution ENUM(lww), resolved_at, sync_log_id, reviewed_at NULL, reviewed_by NULL`. Ambas versiones conservadas (FR-023, Artículo III); append-only en su contenido (REVOKE DELETE desde `tc_app`, TSK-WS-009); sólo se registra quién lo revisó y cuándo (TSK-DOM-005).
 
@@ -212,6 +212,7 @@ CREATE POLICY tenant_isolation ON inspection
 
 | Versión | Fecha | Cambio |
 | :--- | :--- | :--- |
+| 1.8.1 | 2026-11-15 | **TSK-OFF-018 (FR-024, FR-056):** migración 022 — `sync_log.error_message` guarda el motivo de un lote rechazado; marco y límites de `strokes_json` documentados |
 | 1.8.0 | 2026-11-14 | **Enmienda 008 (FR-065, TSK-ADM-003):** migración 021 — tabla `user_site` con RLS (faenas por cuenta) |
 | 1.7.1 | 2026-11-14 | **FR-066 (TSK-FORM-024):** uso de `template.status = archived` para archivar formularios; sin migración |
 | 1.0.0 | 2026-09-14 | Modelo base (specs 001–006) |
