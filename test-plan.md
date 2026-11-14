@@ -1,6 +1,6 @@
 # TEST PLAN — Plan de pruebas de validación
 
-**Versión:** 1.4.0 · **Fecha:** 2026-09-14 · actualizado 2026-11-15 · **Autor:** Raúl González (validación) · **Relacionado:** spec maestro §5–6, constitución Artículos III/IV/VII
+**Versión:** 1.4.1 · **Fecha:** 2026-09-14 · actualizado 2026-11-15 · **Autor:** Raúl González (validación) · **Relacionado:** spec maestro §5–6, constitución Artículos III/IV/VII
 **Evidencia APT:** "Plan de pruebas de validación" (informe §6) y soporte de la competencia "Realizar pruebas de certificación de productos y procesos".
 
 ## 1. Principio rector
@@ -71,7 +71,7 @@ verde.
 | FR-029 (Word/PDF) | Importar `.docx` y `.pdf` (texto y rellenable) propone secciones e ítems con su tipo; escaneado → error claro; firma de bytes falsa → 415; tope por formato → 413; confirmar como nueva versión no duplica la plantilla (Enmienda 005) | Unit + integración | `shared/src/importar/docx.test.ts`, `backend/test/importar-pdf.spec.ts`, `backend/test/import-word-pdf.spec.ts` | ✅ |
 | FR-019/044 | Export rellenado + hoja "Evidencias" idéntico en dispositivo y en servidor | E2E + Integración | `backend/test/inspection-export.spec.ts`, `shared/src/rellenar.test.ts`, `serializar.test.ts`; *(TSK-OFF-017)* reexportar desde el teléfono sin red: `frontend/test/reexportar.test.ts` | 🟢 verde |
 | FR-045/046 | Lote del período con formato de su plantilla + hoja "Evidencias" (adjuntos referenciados/embebidos) | Integración | `backend/test/inspection-export-lote.spec.ts` | 🟢 verde |
-| FR-045/046/047 (Enmienda 005) | Excel consolidado (Resumen + hoja por formulario + Hallazgos + Evidencias, columnas unidas entre versiones, plantilla hecha a mano), PDF y Word (un archivo o ZIP), selección por `ids` con RLS, filtros de formulario/estado, tope 413, 404, 400, roles y auditoría | Unit + integración | `shared/src/exportar/consolidado.test.ts`, `backend/test/inspection-report.spec.ts`, `frontend/test/exportar-inspecciones.test.ts` | ✅ |
+| FR-045/046/047 (Enmienda 005) | Excel consolidado (Resumen + hoja por formulario + Hallazgos + Evidencias, columnas unidas entre versiones, plantilla hecha a mano), PDF y Word (un archivo o ZIP), selección por `ids` con RLS, filtros de formulario/estado, tope 413, 404, 400, roles y auditoría. *(TSK-REP-013)* La acción individual manda un único `id` como PDF universal, también para una plantilla creada desde cero. | Unit + integración | `shared/src/exportar/consolidado.test.ts`, `backend/test/inspection-report.spec.ts`, `frontend/test/exportar-inspecciones.test.ts` | ✅ |
 | FR-047 + FR-051 | Import confirmado y export por lote registrados en el audit log (autor, timestamp, tenant) | Integración | `backend/test/import-wizard.spec.ts`, `inspection-export-lote.spec.ts` | 🟢 verde |
 | FR-062 | *(Enmienda 008)* Supervisión ve en pantalla la foto de una respuesta o de un hallazgo: mismos bytes que subió el dispositivo y tipo de imagen explícito; otra empresa → 404 (RLS), trabajador y plataforma → 403, sin sesión → 401; no sirve el original de un import; archivo ausente → 404 con motivo; el detalle nombra la foto de cada respuesta y hallazgo | Integración + Unit | `backend/test/attachments.spec.ts`; `frontend/test/fotos.test.ts` (caché: una descarga por foto, no recuerda fallos, descarta la menos usada); *(TSK-OFF-016)* `fotos_ids` en el detalle (`attachments.spec.ts`) y varias fotos por hallazgo en el dispositivo (`frontend/test/hallazgo.test.ts`) | 🟢 verde |
 | FR-063 | *(Enmienda 008)* El trabajador, la supervisión y la administración leen la bitácora de la empresa, más reciente primero, con autor y faena; filtros por faena y período, paginación; otra empresa no ve entradas (RLS), plataforma → 403, sin sesión → 401, filtro inválido → 400 | Integración | `backend/test/bitacora.spec.ts` | 🟢 verde |
@@ -213,6 +213,7 @@ y nunca bloquea un PR. Informe por módulo en
 
 | Versión | Fecha | Cambio | Autor |
 | :--- | :--- | :--- | :--- |
+| 1.4.1 | 2026-11-15 | **TSK-REP-013:** la fila FR-045/046/047 acredita el contrato de PDF individual universal en `exportar-inspecciones.test.ts` | Raúl González (con IA) |
 | 1.4.0 | 2026-11-15 | **TSK-DOM-008:** fila FR-067 (`hallazgos-asignados.spec.ts` backend, `hallazgos-asignados.test.ts` frontend y un E2E); recuento 53 filas (49 🟢) | Daniel Ávila (con IA) |
 | 1.3.14 | 2026-11-15 | **TSK-AUTH-012:** FR-005 suma el reinicio del contador tras un bloqueo y los minutos restantes (`auth.spec.ts` +2, `bloqueo.test.ts` 2); sin cambio de recuento de filas | Daniel Ávila (con IA) |
 | 1.3.13 | 2026-11-15 | **TSK-OFF-018 (#239):** evidencia de FR-024 (motivo del lote rechazado) y FR-056 (firma siempre válida, reparación de la cola); sin cambio de recuento | Daniel Ávila (con IA) |

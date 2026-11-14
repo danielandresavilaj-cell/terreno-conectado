@@ -2,7 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ApiError, exportarInspecciones, setToken } from '../src/lib/api'
 import { rangoPeriodo } from '../src/lib/periodos'
-import { cuerpoExportacion } from '../src/components/dashboard/PanelExportar'
+import { cuerpoExportacion, exportacionIndividualPdf } from '../src/components/dashboard/PanelExportar'
 
 const llamadas: { url: string; body: unknown }[] = []
 let respuesta: Response
@@ -43,6 +43,14 @@ describe('cuerpo de la exportación', () => {
   it('con selección manda sólo los ids; sin selección, el filtro', () => {
     expect(cuerpoExportacion(filtros, ['x', 'y'], 'xlsx_consolidado', 'zip')).toEqual({ ids: ['x', 'y'], formato: 'xlsx_consolidado' })
     expect(cuerpoExportacion(filtros, [], 'pdf', 'zip')).toEqual({ ...filtros, formato: 'pdf', agrupar: 'zip' })
+  })
+
+  it('la descarga individual siempre pide un PDF universal de una sola inspección', () => {
+    expect(exportacionIndividualPdf('inspeccion-1')).toEqual({
+      ids: ['inspeccion-1'],
+      formato: 'pdf',
+      agrupar: 'un_archivo',
+    })
   })
 })
 
