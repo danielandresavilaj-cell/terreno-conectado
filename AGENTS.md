@@ -203,6 +203,11 @@ Si algo que escribes rompería en Windows, **arreglalo en el mismo PR**.
 7. **`Fase 1/` está fuera** del alcance de lint/build.
 8. **Playwright usa perfil móvil (Pixel 5), un worker.** Los specs E2E asumen
    pantalla angosta; no los rompas con selectores de desktop.
+9. **En las pruebas de backend, abre los pools con `poolDePrueba`**
+   (`backend/test/helpers/pool.ts`), nunca con `new Pool(...)`. Al apagarse el
+   contenedor, PostgreSQL manda `57P01` a los clientes inactivos; sin listener,
+   vitest sale con código 1 aunque todo pase y frena el CI y `deploy.yml` (H7,
+   TSK-E2E-003). No tiene nada que ver con DNS ni con el dominio.
 
 ---
 

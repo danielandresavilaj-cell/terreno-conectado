@@ -1,7 +1,7 @@
 import { resolve } from 'node:path'
 import { PostgreSqlContainer } from '@testcontainers/postgresql'
 import type { StartedPostgreSqlContainer } from '@testcontainers/postgresql'
-import { Pool } from 'pg'
+import { poolDePrueba } from './helpers/pool'
 import { runner } from 'node-pg-migrate'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { SITE_A_ID, SITE_B_ID, TENANT_A_ID, TENANT_B_ID, seedDatabase } from '../db/seed'
@@ -33,7 +33,7 @@ beforeAll(async () => {
     migrationsTable: 'pgmigrations',
   })
 
-  const pool = new Pool({ connectionString: adminUrl })
+  const pool = poolDePrueba(adminUrl)
   try {
     await seedDatabase(pool)
   } finally {
@@ -53,7 +53,7 @@ async function queryAsTenant<T = Record<string, unknown>>(
   tenantId: string | null,
   sql: string,
 ): Promise<T[]> {
-  const pool = new Pool({ connectionString: adminUrl })
+  const pool = poolDePrueba(adminUrl)
   const client = await pool.connect()
   try {
     await client.query('SET ROLE tc_app')

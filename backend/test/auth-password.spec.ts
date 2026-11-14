@@ -2,7 +2,8 @@ import 'reflect-metadata'
 import { resolve } from 'node:path'
 import { PostgreSqlContainer } from '@testcontainers/postgresql'
 import type { StartedPostgreSqlContainer } from '@testcontainers/postgresql'
-import { Pool } from 'pg'
+import type { Pool } from 'pg'
+import { poolDePrueba } from './helpers/pool'
 import { runner } from 'node-pg-migrate'
 import type { INestApplication } from '@nestjs/common'
 import { Test } from '@nestjs/testing'
@@ -50,7 +51,7 @@ beforeAll(async () => {
   container = await new PostgreSqlContainer('postgres:16-alpine').withDatabase('terreno').start()
   const url = container.getConnectionUri()
   await runner({ databaseUrl: url, dir: MIGRATIONS_DIR, direction: 'up', migrationsTable: 'pgmigrations' })
-  ownerPool = new Pool({ connectionString: url })
+  ownerPool = poolDePrueba(url)
   await seedDatabase(ownerPool)
   await ownerPool.query("ALTER ROLE tc_app LOGIN PASSWORD 'test'")
 

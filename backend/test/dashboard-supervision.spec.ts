@@ -3,7 +3,8 @@ import { randomUUID } from 'node:crypto'
 import { resolve } from 'node:path'
 import { PostgreSqlContainer } from '@testcontainers/postgresql'
 import type { StartedPostgreSqlContainer } from '@testcontainers/postgresql'
-import { Pool } from 'pg'
+import type { Pool } from 'pg'
+import { poolDePrueba } from './helpers/pool'
 import { runner } from 'node-pg-migrate'
 import type { INestApplication } from '@nestjs/common'
 import { Test } from '@nestjs/testing'
@@ -64,7 +65,7 @@ beforeAll(async () => {
   container = await new PostgreSqlContainer('postgres:16-alpine').withDatabase('terreno').start()
   const url = container.getConnectionUri()
   await runner({ databaseUrl: url, dir: MIGRATIONS_DIR, direction: 'up', migrationsTable: 'pgmigrations', log: () => {} })
-  pool = new Pool({ connectionString: url })
+  pool = poolDePrueba(url)
   await seedDatabase(pool)
   await pool.query("ALTER ROLE tc_app LOGIN PASSWORD 'test'")
   process.env.DATABASE_URL = url
