@@ -22,6 +22,8 @@ import { BadgeSync } from './Badges'
 import { CountUp } from './CountUp'
 import { Boton } from './ui'
 import { BotonTema } from './BotonTema'
+import { Marca } from './Marca'
+import { Topografia } from './Topografia'
 import { useEstado, type Pantalla } from '../lib/store'
 import { EASE } from '../lib/motion'
 import { useMedia } from '../lib/useMedia'
@@ -196,7 +198,12 @@ export function Shell({ children }: { children: ReactNode }) {
   const navAbajo = esTelefono && nav.length <= 5
 
   return (
-    <div className="min-h-dvh flex flex-col bg-s0">
+    <div className="relative isolate min-h-dvh flex flex-col bg-s0">
+      {/* Curvas de nivel de la landing, tenues y sólo en la parte alta: dan
+          continuidad de marca sin restar contraste a los formularios. */}
+      <div className="fixed inset-0 -z-10 [mask-image:linear-gradient(to_bottom,black,transparent_70%)]" aria-hidden>
+        <Topografia semilla={4} tenue />
+      </div>
       <a
         href="#contenido-principal"
         className="sr-only fixed left-4 top-4 z-50 rounded-lg bg-beam px-4 py-2 text-[13px] font-semibold text-on-beam focus:not-sr-only"
@@ -209,9 +216,7 @@ export function Shell({ children }: { children: ReactNode }) {
             bajo la muesca en iPhone. En equipos sin recorte env() da 0. */}
         <div className="mx-auto max-w-[1180px] px-4 sm:px-6 pt-safe">
           <div className="h-14 flex items-center gap-3">
-            <div className="h-7 w-7 rounded-[8px] bg-beam grid place-items-center shrink-0">
-              <span className="text-on-beam font-bold text-[12px] leading-none">TC</span>
-            </div>
+            <Marca tamano={30} />
             {/* En el teléfono también se ve quién está capturando y en qué
                 faena: es lo primero que alguien revisa al tomar un equipo
                 compartido (TSK-OFF-009). */}

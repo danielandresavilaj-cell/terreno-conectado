@@ -7,18 +7,19 @@
 import { Boton } from '../components/ui'
 import { BotonTema } from '../components/BotonTema'
 import { FormCambioClave } from '../components/FormCambioClave'
+import { Marca } from '../components/Marca'
+import { Topografia } from '../components/Topografia'
 import { useEstado } from '../lib/store'
 
 export function CambioClaveObligatorio() {
   const { salir } = useEstado()
   return (
     <main className="relative min-h-dvh flex items-center justify-center p-6 sm:p-10">
+      <Topografia semilla={3} className="[mask-image:linear-gradient(to_bottom,black,transparent_55%)]" />
       <BotonTema className="absolute right-3 top-[calc(env(safe-area-inset-top)_+_0.75rem)] z-10" />
-      <div className="w-full max-w-[400px]">
+      <div className="relative w-full max-w-[400px]">
         <div className="flex items-center gap-3 mb-10">
-          <div className="h-9 w-9 rounded-[10px] bg-beam grid place-items-center">
-            <span className="text-on-beam font-bold text-[17px] leading-none">TC</span>
-          </div>
+          <Marca tamano={38} />
           <p className="text-[15px] font-semibold tracking-[-0.02em]">Terreno Conectado</p>
         </div>
         <h1 className="text-[24px] font-semibold tracking-[-0.03em]">Crea tu contraseña</h1>
