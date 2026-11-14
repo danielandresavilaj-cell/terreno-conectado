@@ -1,6 +1,6 @@
 # TEST PLAN — Plan de pruebas de validación
 
-**Versión:** 1.4.1 · **Fecha:** 2026-09-14 · actualizado 2026-11-15 · **Autor:** Raúl González (validación) · **Relacionado:** spec maestro §5–6, constitución Artículos III/IV/VII
+**Versión:** 1.4.2 · **Fecha:** 2026-09-14 · actualizado 2026-11-15 · **Autor:** Raúl González (validación) · **Relacionado:** spec maestro §5–6, constitución Artículos III/IV/VII
 **Evidencia APT:** "Plan de pruebas de validación" (informe §6) y soporte de la competencia "Realizar pruebas de certificación de productos y procesos".
 
 ## 1. Principio rector
@@ -29,6 +29,7 @@ verde.
 
 | Requisito | Prueba | Nivel | Evidencia | Estado |
 | :--- | :--- | :--- | :--- | :--- |
+| FR-010 | PWA instalada: buscar actualización consulta el service worker; una versión nueva sólo se activa tras confirmación y un navegador sin SW explica el límite | Unit + manual móvil | `frontend/test/actualizacion-pwa.test.ts`; protocolo manual: instalar, publicar una versión, Buscar actualización y confirmar sin perder un borrador/cola | 🟢 verde (unit) · protocolo manual pendiente por dispositivo |
 | FR-011/014, NFR-01 | Capturar en modo avión, cerrar/reabrir app, verificar persistencia IndexedDB | E2E | `e2e-captura-offline.spec.ts` → "captura sin red, recarga y el borrador conserva las respuestas" | 🟢 verde |
 | FR-012 | Foto de 8 MP → verificar dimensiones ≤1280 px y tamaño comprimido antes de encolar; abrir cámara, tomar foto, cancelar y denegar permiso | Unit + E2E + manual móvil | `shared` (`compresor`) + `e2e-captura-offline.spec.ts` → "la foto de un ítem queda ≤1280 px"; protocolo manual: `CamaraCaptura` abre el lente trasero, detiene el indicador al cerrar y ofrece archivo si no hay permiso | 🟢 verde (compresión) · protocolo manual pendiente por dispositivo |
 | FR-016 | Desactivar red → encolar → reactivar: sync inicia sola sin clic | E2E | `e2e-captura-offline.spec.ts` → "reactivar la red drena la cola sin tocar el botón de sincronizar" | 🟢 verde |
@@ -213,6 +214,7 @@ y nunca bloquea un PR. Informe por módulo en
 
 | Versión | Fecha | Cambio | Autor |
 | :--- | :--- | :--- | :--- |
+| 1.4.2 | 2026-11-15 | **TSK-OFF-019:** fila FR-010 para búsqueda manual, confirmación y fallback de actualización PWA; `actualizacion-pwa.test.ts` | Raúl González (con IA) |
 | 1.4.1 | 2026-11-15 | **TSK-REP-013:** la fila FR-045/046/047 acredita el contrato de PDF individual universal en `exportar-inspecciones.test.ts` | Raúl González (con IA) |
 | 1.4.0 | 2026-11-15 | **TSK-DOM-008:** fila FR-067 (`hallazgos-asignados.spec.ts` backend, `hallazgos-asignados.test.ts` frontend y un E2E); recuento 53 filas (49 🟢) | Daniel Ávila (con IA) |
 | 1.3.14 | 2026-11-15 | **TSK-AUTH-012:** FR-005 suma el reinicio del contador tras un bloqueo y los minutos restantes (`auth.spec.ts` +2, `bloqueo.test.ts` 2); sin cambio de recuento de filas | Daniel Ávila (con IA) |

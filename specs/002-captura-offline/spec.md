@@ -3,7 +3,7 @@
 | | |
 | :--- | :--- |
 | **Estado** | COMPLETO (ciclo del módulo, F2 · 2026-10-13) |
-| **Versión** | 0.3.12 |
+| **Versión** | 0.3.13 |
 | **Autor** | Daniel Ávila |
 | **Padre** | specs/000-master/spec.md |
 | **Depende de** | 001 (sesión/tenant), 004 (plantillas a renderizar offline) |
@@ -31,7 +31,7 @@ Verificado sobre `main` al 2026-10-13.
 
 | Requisito | Estado | Evidencia |
 | :--- | :--- | :--- |
-| FR-010 PWA instalable + SW | ✅ | `frontend/vite.config.ts` (`VitePWA`, `registerType: autoUpdate`, Workbox); `frontend/src/components/PwaInstalacion.tsx`; `frontend/scripts/check-pwa.mjs` |
+| FR-010 PWA instalable + SW | ✅ | `frontend/vite.config.ts` (`VitePWA`, `registerType: prompt`, Workbox); `PwaInstalacion.tsx`, `PwaActualizacion.tsx`; `frontend/scripts/check-pwa.mjs` |
 | FR-011 captura offline | ✅ | `frontend/src/lib/db.ts`, `frontend/src/screens/`; `e2e-captura-offline.spec.ts` |
 | FR-012 compresión de foto | ✅ | `frontend/src/lib/compresor.ts`; `shared` (unit) + E2E |
 | FR-013 estados + contador | ✅ | `db.ts` (`SyncEstado`), `store.tsx` (`pendientes`, `fallidos`) |
@@ -58,7 +58,7 @@ Evolución por versiones (`frontend/src/lib/db.ts`), alineada con `data-model.md
 
 ## 4. UX de captura en terreno
 
-Targets táctiles amplios, alto contraste para luz solar, y **autoguardado de borrador** por ítem: una captura a medias sobrevive cerrar/reabrir (FR-014). Los errores de validación de tipo (FR-039) se muestran **antes de encolar**, en el dispositivo. Cada control expone la pregunta y el error asociado a tecnologías asistivas; el diálogo de cámara contiene el foco, se cierra con Escape y lo devuelve al activador para que la captura siga siendo operable también con teclado. Cuando el navegador permite instalar la PWA, la app ofrece una acción explícita; si no, indica el camino manual sin impedir el uso web (FR-010). **Modo claro y oscuro** (TSK-OFF-005): un botón en la barra superior y en las pantallas de ingreso alterna el tema, que se recuerda por dispositivo; sin elección guardada sigue al tema del sistema (TSK-OFF-011). El tema sale de tokens CSS (`index.css`, `:root[data-theme='light']`), con contraste AA en ambos, y se fija antes del primer pintado con `public/tema-inicial.js` (sin destello, compatible con la CSP y precacheado para uso offline).
+Targets táctiles amplios, alto contraste para luz solar, y **autoguardado de borrador** por ítem: una captura a medias sobrevive cerrar/reabrir (FR-014). Los errores de validación de tipo (FR-039) se muestran **antes de encolar**, en el dispositivo. Cada control expone la pregunta y el error asociado a tecnologías asistivas; el diálogo de cámara contiene el foco, se cierra con Escape y lo devuelve al activador para que la captura siga siendo operable también con teclado. Cuando el navegador permite instalar la PWA, la app ofrece una acción explícita; si no, indica el camino manual sin impedir el uso web (FR-010). **Actualización manual (TSK-OFF-019):** Mi cuenta permite buscar una versión nueva desde la PWA instalada. Encontrarla no recarga la app; sólo “Instalar actualización”, tras confirmación explícita, activa el nuevo worker. Borradores y cola siguen en IndexedDB. **Modo claro y oscuro** (TSK-OFF-005): un botón en la barra superior y en las pantallas de ingreso alterna el tema, que se recuerda por dispositivo; sin elección guardada sigue al tema del sistema (TSK-OFF-011). El tema sale de tokens CSS (`index.css`, `:root[data-theme='light']`), con contraste AA en ambos, y se fija antes del primer pintado con `public/tema-inicial.js` (sin destello, compatible con la CSP y precacheado para uso offline).
 
 **Cola legible** (TSK-OFF-006, FR-013/022): la pantalla Cola muestra una **tarjeta por lo que capturó la persona** (inspección o bitácora), no una fila por registro técnico. Cada tarjeta trae un estado agregado (el peor de sus partes: con problema > enviando > esperando señal > enviado), el avance ("12 de 26 partes enviadas"), el resumen (respuestas, hallazgos y graves, fotos y peso), el motivo del fallo en lenguaje claro y sin identificadores internos, con el próximo reintento estimado, y las acciones Reintentar y Descartar (con la confirmación dentro de la tarjeta). "Ver detalle" lista cada pregunta con su respuesta, los hallazgos con la severidad en español y las fotos con miniatura. Hay cuatro secciones: Con problemas, Esperando envío, Enviado en las últimas 24 h (plegada) y Enviado los últimos 30 días (plegada, TSK-OFF-013). Sus desplegables usan `<details>/<summary>` nativo y un objetivo táctil mínimo de 44 px (TSK-OFF-014), incluso para los detalles técnicos de supervisión. La barra inferior y el título de la pestaña cuentan **envíos**, no partes. La lista técnica por registro (orden de dependencia, reintentos, latencia FR-024) queda en "Detalles técnicos", solo para supervisión y administración. La cola en sí (orden FR-020, idempotencia FR-021, backoff FR-022) no cambia: la vista se arma en `lib/cola-vista.ts`.
 
@@ -74,11 +74,12 @@ Targets táctiles amplios, alto contraste para luz solar, y **autoguardado de bo
 
 ## 5. Cache del service worker (Workbox)
 
-`vite-plugin-pwa` con `registerType: 'autoUpdate'`:
+`vite-plugin-pwa` con `registerType: 'prompt'`:
 
 - **Precache del shell**: `globPatterns` de `js/css/html/svg/png/woff2`; `navigateFallback` a `index.html`.
 - **Exclusión de la API**: `navigateFallbackDenylist` cubre `/api/**` — la navegación nunca se resuelve contra la API, que se consume por `fetch` autenticado.
 - **Fuentes**: `StaleWhileRevalidate` para Google Fonts.
+- **Actualización controlada**: `Mi cuenta → Buscar actualización` llama a `registration.update()`. Si llega un worker nuevo, espera hasta que la persona confirme “Instalar actualización”; así una recarga no interrumpe la captura. Un navegador sin service worker recibe una explicación, no un error.
 - **Verificación**: `frontend/scripts/check-pwa.mjs` (invocado desde CI) valida el artefacto.
 
 Las **plantillas** no dependen de la caché HTTP del SW: viven en Dexie (FR-018), cache-first a nivel de aplicación.
@@ -101,6 +102,7 @@ La toma usa `getUserMedia` y prefiere la cámara trasera. El stream se detiene a
 
 - **Caos asociados** (`test-plan.md` §4): FR-011/014/NFR-01 (captura en modo avión), FR-012 (dimensiones ≤1280 px), FR-016 (drenado automático al reconectar), FR-018 (render sin red), NFR-02 (72 h offline).
 - Matriz §3 de `test-plan.md`: filas FR-011…019 verdes (registradas).
+- `frontend/test/actualizacion-pwa.test.ts` comprueba búsqueda, confirmación antes de activar y fallback sin service worker.
 - NFR-07 (Lighthouse mobile ≥ 80): pendiente (herramienta externa) — track 006.
 
 ## 9. Referencias
@@ -113,6 +115,7 @@ La toma usa `getUserMedia` y prefiere la cámara trasera. El stream se detiene a
 
 | Versión | Fecha | Cambio | Autor |
 | :--- | :--- | :--- | :--- |
+| 0.3.13 | 2026-11-14 | TSK-OFF-019: búsqueda manual de actualización y activación confirmada desde Mi cuenta | Raúl González (con IA) |
 | 0.3.12 | 2026-11-14 | TSK-ADM-003 (FR-065): la lista de faenas del teléfono respeta las faenas asignadas a la cuenta | Daniel Ávila (con IA) |
 | 0.3.11 | 2026-11-14 | TSK-OFF-017: reexportar una inspección desde Cola, sin red | Daniel Ávila (con IA) |
 | 0.3.10 | 2026-11-14 | Corrige §4: Cola tiene cuatro secciones (TSK-OFF-013) y el tema sin elección guardada sigue al del sistema (TSK-OFF-011); el texto anterior había quedado desactualizado | Daniel Ávila (con IA) |

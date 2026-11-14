@@ -1,6 +1,6 @@
 # TASKS — Módulo 002: Captura offline (PWA)
 
-**Versión:** 0.1.12 · **Fecha:** 2026-11-13 · **Autor:** Raúl González (con IA)
+**Versión:** 0.1.13 · **Fecha:** 2026-11-14 · **Autor:** Raúl González (con IA)
 **Padre:** `plans/002-captura-offline/plan.md` · **Spec:** `specs/002-captura-offline/spec.md`
 **Issue:** #5 · **Requisitos:** FR-010…FR-019, NFR-01, NFR-02, NFR-07
 
@@ -28,6 +28,7 @@ La auditoría del 2026-10-14 sobre `main` encontró que **FR-017 estaba simulado
 | TSK-OFF-012 | Hallazgo opcional en cualquier NOK | FR-032 | 007 | Todo NOK ofrece "Registrar hallazgo (opcional)"; con `require_finding_on_nok` sigue siendo obligatorio y bloquea el envío. Sin cambios de sync ni de servidor. | ✅ Hecho |
 | TSK-OFF-013 | Historial propio de envíos (30 días) | FR-013, FR-014 | 006 | Cola muestra, además de lo enviado en 24 h, lo enviado hace 1 a 30 días desde este teléfono, con el mismo detalle por tarjeta. `cola-vista.test.ts` lo cubre. | ✅ Hecho |
 | TSK-OFF-014 | Objetivos táctiles consistentes en Cola | FR-013, NFR-07 | 006 | Cada desplegable de Cola conserva `<details>/<summary>` nativo y alcanza 44 px de alto táctil; teclado, estados y cola sin cambios. Issue #221, PR #222. | ✅ Hecho |
+| TSK-OFF-019 | Buscar actualización desde la PWA instalada | FR-010, FR-014 | 004 | Mi cuenta consulta el registro del service worker y comunica si está buscando, al día o hay una versión lista; activarla exige confirmación y no borra IndexedDB. Sin service worker explica el límite. `actualizacion-pwa.test.ts` cubre el flujo. Issue #246. | 🚧 En progreso |
 
 ## Criterios de salida del módulo
 
@@ -39,6 +40,7 @@ La auditoría del 2026-10-14 sobre `main` encontró que **FR-017 estaba simulado
 
 | Versión | Fecha | Cambio | Autor |
 | :--- | :--- | :--- | :--- |
+| 0.1.13 | 2026-11-14 | TSK-OFF-019: búsqueda y activación confirmada de actualización en PWA (issue #246) | Raúl González (con IA) |
 | 0.1.12 | 2026-11-14 | TSK-OFF-014 cerrada (#222 aprobado y mergeado) | Daniel Ávila (con IA) |
 | 0.1.11 | 2026-11-13 | TSK-OFF-014 (#221): objetivos táctiles de 44 px en los desplegables de Cola | Raúl González (con IA) |
 | 0.1.10 | 2026-11-13 | TSK-OFF-013: historial de envíos de 30 días en Cola | Daniel Ávila (con IA) |
