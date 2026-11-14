@@ -210,6 +210,7 @@ y nunca bloquea un PR. Informe por módulo en
 
 | Versión | Fecha | Cambio | Autor |
 | :--- | :--- | :--- | :--- |
+| 1.3.3 | 2026-11-13 | **TSK-OFF-014 (#221):** `cola-accesibilidad.test.ts` asegura que los tres desplegables de Cola mantienen objetivo táctil de 44 px y control nativo; suite frontend 39 archivos, 208 pruebas verdes | Raúl González (con IA) |
 | 1.3.2 | 2026-11-13 | Volumen contado en CI tras el plan de mejora (PR #218): backend 273, frontend 207, shared 92 y 23 E2E = 595. Corrige el total de backend estimado en 1.3.1 | Daniel Ávila (con IA) |
 | 1.3.1 | 2026-11-13 | **TSK-DOM-007 (Enmienda 008, FR-064):** fila FR-064 con `accion-correctiva.spec.ts` (7) y `plazo.test.ts` (3); recuento 50 filas (46 🟢); volumen 589 tests (backend 271 validados en CI, frontend 203 incluye TSK-OFF-011) | Daniel Ávila (con IA) |
 | 1.3.0 | 2026-11-13 | **TSK-REP-009 (Enmienda 008, FR-063):** fila nueva FR-063 con `bitacora.spec.ts` (4); recuento 49 filas (45 🟢); volumen 578 tests (backend 264, validados en CI) | Daniel Ávila (con IA) |
