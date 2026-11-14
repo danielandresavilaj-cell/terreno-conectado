@@ -644,6 +644,21 @@ export function actualizarBorrador(
   return apiFetch(`/templates/revisions/${revisionId}`, { method: 'PATCH', body: { definition } })
 }
 
+/** TSK-FORM-024 (FR-066): archiva o restaura un formulario. */
+export function cambiarEstadoPlantilla(
+  templateId: string,
+  status: 'archived' | 'active',
+): Promise<{ template_id: string; name: string; status: 'archived' | 'active' }> {
+  return apiFetch(`/templates/${encodeURIComponent(templateId)}/estado`, { method: 'PATCH', body: { status } })
+}
+
+/** TSK-FORM-024 (FR-066): formularios archivados del tenant. */
+export function getPlantillasArchivadas(): Promise<{
+  items: Array<{ template_id: string; name: string; archivada_at: string }>
+}> {
+  return apiFetch('/templates/archivadas')
+}
+
 /** Publica una revisión ya guardada: acción explícita del admin (FR-048). */
 export function publicarRevision(revisionId: string): Promise<TemplateRevisionDetailDto> {
   return apiFetch(`/templates/revisions/${revisionId}/publish`, { method: 'POST' })
