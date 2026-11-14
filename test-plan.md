@@ -1,6 +1,6 @@
 # TEST PLAN — Plan de pruebas de validación
 
-**Versión:** 1.4.3 · **Fecha:** 2026-09-14 · actualizado 2026-11-15 · **Autor:** Raúl González (validación) · **Relacionado:** spec maestro §5–6, constitución Artículos III/IV/VII
+**Versión:** 1.4.4 · **Fecha:** 2026-09-14 · actualizado 2026-11-15 · **Autor:** Raúl González (validación) · **Relacionado:** spec maestro §5–6, constitución Artículos III/IV/VII
 **Evidencia APT:** "Plan de pruebas de validación" (informe §6) y soporte de la competencia "Realizar pruebas de certificación de productos y procesos".
 
 ## 1. Principio rector
@@ -161,7 +161,7 @@ Extienden la sección 4 con los invariantes del módulo (spec 007): libros `.xls
 - **Salida esperada:** informe por módulo con hallazgos (severidad, repro, requisito vulnerado) → issues en `tasks/` con fix + test de regresión.
 - **Modelos sugeridos (opencode go):** implementa `kimi-k2.7-code` / `qwen3.8-flash` → ataca `qwen3.8-max` o `deepseek-v4-pro` (y viceversa).
 
-### 5.1 Ataque sin los modelos sugeridos: el harness encontró seis defectos
+### 5.1 Ataque sin los modelos sugeridos: el harness encontró seis defectos (más H7, del propio harness)
 
 El E2E atacó el sistema sin necesitar los modelos cross-model: al escribir
 las pruebas del protocolo §4 contra la app real aparecieron seis defectos.
@@ -177,6 +177,7 @@ esta sección.
 | H4 | **Alta** | La semilla demo creaba respuestas con `template_item_id = 'i-01'`, que **no es UUID**. El backend rechazaba el lote entero con 400: **el primer sync de todo usuario nuevo estaba roto.** | FR-021 | Arrancar sesión y dejar que la app sincronice sus datos de demo. | ✅ `ITEM_ID_FIJO` con los ids reales del catálogo publicado + caos 2 |
 | H5 | **Alta** | `validatePayload` corría **antes** del chequeo de cruce de tenant: un lote con datos de otro tenant moría con un 400 de forma y **no dejaba rastro en `audit_log`**, habilitando tantear el tenant ajeno con peticiones invisibles. | FR-025, NFR-05 | JWT del tenant A + `tenant_id` del B con un `site_id` ajeno. | ✅ `backend/src/sync/sync.service.ts`: el aislamiento se comprueba sobre el sobre, antes de opinar sobre el payload + caos 7 |
 | H6 | Media | Al reabrir la app, el outbox quedaba en un limbo observable: nada indicaba si la sesión se había restaurado o había que volver a entrar. | FR-006 | Cerrar la pestaña con cola a medio escribir y reabrirla. | ✅ cubierto por caos 4 (el harness verifica la cola antes de reingresar) |
+| H7 | Media | **Falso rojo del CI y de la compuerta de despliegue.** Los specs de backend abrían un `pg.Pool` propio sin listener de `'error'`. Si un cliente inactivo seguía conectado cuando `container.stop()` apagaba PostgreSQL, el `FATAL 57P01` (admin_shutdown) se volvía excepción no manejada y vitest salía con código 1 aunque todas las pruebas pasaran. Frenó al azar el CI de un PR y un `deploy.yml` (2026-11-14). No tenía relación con el retiro de DuckDNS (#250). | Harness (CI) | Intermitente; se reproduce emitiendo `'error'` con `code: '57P01'` en un pool sin listener. | ✅ corregido en TSK-E2E-003: `backend/test/helpers/pool.ts` (`poolDePrueba`) ignora sólo `57P01` y relanza el resto; los 30 specs lo usan; regresión `backend/test/pool-prueba.spec.ts` |
 
 **Conclusión del red-team:** el nivel de daño de H1 y H4 es que la aplicación
 **no arrancaba** para un usuario nuevo, y ninguno era visible leyendo el
@@ -215,6 +216,7 @@ y nunca bloquea un PR. Informe por módulo en
 
 | Versión | Fecha | Cambio | Autor |
 | :--- | :--- | :--- | :--- |
+| 1.4.4 | 2026-11-15 | **TSK-E2E-003:** H7 en §5.1 (falso rojo por `57P01` al apagar el contenedor de pruebas) y su regresión `pool-prueba.spec.ts`; sin cambio de recuento | Daniel Ávila (con IA) |
 | 1.4.3 | 2026-11-15 | **TSK-OFF-020:** fila FR-010/NFR-07 para escala fija Android y `viewport-pwa.test.ts` | Raúl González (con IA) |
 | 1.4.2 | 2026-11-15 | **TSK-OFF-019:** fila FR-010 para búsqueda manual, confirmación y fallback de actualización PWA; `actualizacion-pwa.test.ts` | Raúl González (con IA) |
 | 1.4.1 | 2026-11-15 | **TSK-REP-013:** la fila FR-045/046/047 acredita el contrato de PDF individual universal en `exportar-inspecciones.test.ts` | Raúl González (con IA) |

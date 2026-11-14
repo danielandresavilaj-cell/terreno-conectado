@@ -2,7 +2,7 @@ import 'reflect-metadata'
 import { resolve } from 'node:path'
 import { PostgreSqlContainer } from '@testcontainers/postgresql'
 import type { StartedPostgreSqlContainer } from '@testcontainers/postgresql'
-import { Pool } from 'pg'
+import { poolDePrueba } from './helpers/pool'
 import { runner } from 'node-pg-migrate'
 import type { INestApplication } from '@nestjs/common'
 import { ConflictException } from '@nestjs/common'
@@ -50,7 +50,7 @@ async function queryAsTenant<T = Record<string, unknown>>(
   tenantId: string | null,
   sql: string,
 ): Promise<T[]> {
-  const pool = new Pool({ connectionString: adminUrl })
+  const pool = poolDePrueba(adminUrl)
   const client = await pool.connect()
   try {
     await client.query('SET ROLE tc_app')
@@ -78,7 +78,7 @@ beforeAll(async () => {
     migrationsTable: 'pgmigrations',
   })
 
-  const seedPool = new Pool({ connectionString: adminUrl })
+  const seedPool = poolDePrueba(adminUrl)
   try {
     await seedDatabase(seedPool)
   } finally {
@@ -87,7 +87,7 @@ beforeAll(async () => {
 
   // La app corre como `tc_app` (sujeto a RLS, Artículo IV); sin este LOGIN el
   // pool de aplicación no puede conectarse.
-  const alterPool = new Pool({ connectionString: adminUrl })
+  const alterPool = poolDePrueba(adminUrl)
   try {
     await alterPool.query("ALTER ROLE tc_app LOGIN PASSWORD 'test'")
   } finally {
