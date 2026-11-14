@@ -274,3 +274,23 @@ validar contra el build de producción (PWA)**, no contra `vite` dev.
 **N-01 — Baja · nit de documentación.** El checklist (PA-05) espera
 `user.rol = platform_admin`, pero `/auth/login` devuelve **`user.role`**. El
 resultado del caso es correcto; sólo el nombre del campo está desactualizado.
+
+## 10. Validación en dispositivo — actualización controlada de la PWA (TSK-OFF-019)
+
+> Ejecutada el **2026-11-15** por Daniel Ávila en su iPhone, con la PWA instalada
+> desde `https://terrenoconectado.cl`. Cubre el protocolo manual de FR-010 que
+> `test-plan.md` §3 dejaba pendiente por dispositivo.
+
+| Paso | Versión en producción | Resultado |
+| :--- | :--- | :--- |
+| 1. Desplegar la versión con el botón (#249, `registerType: 'prompt'`) | `f8bc788` | El teléfono traía la versión anterior (`autoUpdate`). La nueva quedó en espera y se activó al cerrar la PWA del todo y volver a abrirla: ese cambio de modo sólo se hace una vez. |
+| 2. Mi cuenta → **Buscar actualización** sin versión nueva publicada | `f8bc788` | ✅ Respondió "Ya tienes la versión más reciente". |
+| 3. Desplegar una versión nueva (#252, escala de la PWA) | `24840f8` | — |
+| 4. Mi cuenta → **Buscar actualización** | `24840f8` | ✅ Encontró la versión nueva y la instaló sólo después de la confirmación. |
+
+**Conclusión:** el flujo de FR-010 funciona en un teléfono real. Ninguna versión
+se aplica sola a mitad de una captura, y la persona la trae desde Mi cuenta. En
+esta corrida no se observó a propósito la persistencia de un borrador o de la
+cola durante la actualización: la cubren `frontend/test/actualizacion-pwa.test.ts`
+y el hecho de que viven en IndexedDB, fuera del service worker. Queda pendiente
+el protocolo manual Android de la escala fija (TSK-OFF-020).
