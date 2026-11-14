@@ -952,6 +952,20 @@ export async function fotosDeHallazgo(findingId: string): Promise<FotoHallazgo[]
   return fotos
 }
 
+/** TSK-OFF-015: hallazgos directos del borrador (sin respuesta), del más antiguo al más reciente. */
+export async function hallazgosDirectos(inspectionId: string): Promise<FindingRow[]> {
+  return (await hallazgosDeInspeccion(inspectionId))
+    .filter((f) => f.responseId === null)
+    .sort((x, y) => (x.capturedAt === y.capturedAt ? x.id.localeCompare(y.id) : x.capturedAt < y.capturedAt ? -1 : 1))
+}
+
+/** Un hallazgo por su id, con todas sus fotos (o `null`). */
+export async function hallazgoPorId(id: string): Promise<{ hallazgo: FindingRow; fotos: FotoHallazgo[] } | null> {
+  const hallazgo = await db.findings.get(id)
+  if (!hallazgo) return null
+  return { hallazgo, fotos: await fotosDeHallazgo(hallazgo.id) }
+}
+
 /** Hallazgo ligado a una respuesta, con todas sus fotos (o `null`). */
 export async function hallazgoDeRespuesta(
   inspectionId: string,
@@ -1009,15 +1023,19 @@ export async function guardarHallazgo(params: {
   fotosNuevas: Array<{ blob: Blob; ancho: number; alto: number; mime: string }>
   /** Ids de adjunto a quitar; los ya enviados se ignoran. */
   fotosQuitar: string[]
+  /** TSK-OFF-015: hallazgo directo existente a corregir (sin respuesta asociada). */
+  hallazgoId?: string | null
 }): Promise<{ id: string; creado: boolean }> {
   const ts = ahoraIso()
   const titulo = `Hallazgo · Severidad ${SEVERIDAD_ES[params.severity]}`
   return db.transaction('rw', db.findings, db.attachments, db.outbox, async () => {
-    const previo = params.responseId
-      ? (await db.findings.where('inspectionId').equals(params.inspectionId).toArray()).find(
-          (f) => f.responseId === params.responseId,
-        )
-      : undefined
+    const previo = params.hallazgoId
+      ? await db.findings.get(params.hallazgoId)
+      : params.responseId
+        ? (await db.findings.where('inspectionId').equals(params.inspectionId).toArray()).find(
+            (f) => f.responseId === params.responseId,
+          )
+        : undefined
     const id = previo?.id ?? uuidv7()
     if (previo) {
       await db.findings.update(id, {
