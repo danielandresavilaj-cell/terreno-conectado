@@ -3,7 +3,7 @@
 | | |
 | :--- | :--- |
 | **Estado** | COMPLETO (ciclo del módulo, F2 · 2026-10-13) |
-| **Versión** | 0.9.1 |
+| **Versión** | 0.10.1 |
 | **Autor** | Daniel Ávila |
 | **Padre** | specs/000-master/spec.md |
 | **Depende de** | 003 (datos sincronizados + `SYNC_LOG`), 004 (dominio) |
@@ -149,9 +149,8 @@ La fila principal de Gerencia muestra: **Por revisar** (inspecciones enviadas si
 El alcance V1 del **resumen ejecutivo** es **read-only** y se apoya en las métricas que ya expone el dashboard (FR-040): inspecciones por estado, hallazgos por severidad, hallazgos urgentes, latencia media+p95 y conflictos pendientes. No se agrega una pantalla nueva: el supervisor usa el dashboard como el resumen operativo de la faena.
 
 - **V1 (dentro del alcance):** KPIs derivados de `DashboardSummary` (§3.2) y el listado de hallazgos filtrado; export CSV de la vista (FR-042) para compartir con gerencia.
-- **Post-V1 (fuera del alcance):** resumen redactado por IA a partir de los mismos datos. Queda registrado como evolución futura (spec maestro §10 excluye "Analítica con IA" en V1).
-- **Por qué no entra en V1:** costo de API de LLM (choca con NFR-08, ≤ US$7/mes), privacidad multi-tenant (datos de un cliente saliendo hacia un proveedor externo — a evaluar contra Artículo IV/NFR-06) y carga de trabajo del equipo (Artículo V).
-- **Cuándo reabrirlo:** si el equipo lo decide, como enmienda al spec maestro (Artículo X) después de cerrar el walking skeleton, con costos y privacidad resueltos.
+- **V1.4 (Enmienda 009, FR-068, TSK-REP-014):** resumen redactado por IA a partir de los mismos datos. Se reabrió con el costo y la privacidad resueltos en el ADR-005 (Enmienda 1): sólo salen cifras agregadas, el nombre de la faena y el período; hay tope diario por empresa y caché por cifras.
+- **Cómo funciona:** al abrir Gerencia, `GET /api/v1/dashboard/resumen-ia` (con el filtro actual) devuelve si hay IA, cuántos resúmenes quedan hoy y el **último resumen guardado** de ese filtro, que se muestra al instante sin llamar a la IA. Si no hay, "Resumir con IA" pide `POST /api/v1/dashboard/resumen-ia`; si las cifras cambiaron desde que se redactó, el guardado se marca desactualizado y aparece "Actualizar resumen". Con las mismas cifras, el `POST` devuelve el guardado sin llamar a la API ni contar para el tope. Cada resumen se guarda en `resumen_ia` (migración 024) y "Resúmenes anteriores" los lista (`GET /api/v1/dashboard/resumen-ia/historial?site_id=`, últimos 20). El texto va marcado "generado con IA". El período "Semana anterior" (lunes a domingo) permite un resumen semanal que se redacta una vez. Sin clave no se piden resúmenes nuevos, pero se ven los guardados; sin conexión el botón queda deshabilitado. Cada redacción queda en `audit_log` (`dashboard_resumen_ia`). Errores: `503` sin IA, `429` con el tope del día alcanzado, `502` si la API falla, con mensaje en español.
 
 > Nota: la IA sí participa en V1 como **probador adversarial** (red-team cross-model, `test-plan.md` §5, Artículo VII).
 
@@ -167,6 +166,8 @@ El alcance V1 del **resumen ejecutivo** es **read-only** y se apoya en las métr
 
 | Versión | Fecha | Cambio | Autor |
 | :--- | :--- | :--- | :--- |
+| 0.10.1 | 2026-11-15 | **TSK-REP-015:** las tarjetas de supervisión ya no se salen de la pantalla en el teléfono con textos largos | Daniel Ávila (con IA) |
+| 0.10.0 | 2026-11-15 | **TSK-REP-014 (Enmienda 009, FR-068):** resumen de Gerencia redactado con IA; §7 pasa de post-V1 a V1.4 | Daniel Ávila (con IA) |
 | 0.9.0 | 2026-11-14 | **TSK-REP-012:** `summary.tendencia_semanal` (8 semanas) y filtros de faena, severidad y autor en una barra | Daniel Ávila (con IA) |
 | 0.8.1 | 2026-11-14 | **TSK-OFF-016:** `fotos_ids` en hallazgos del listado y del detalle; hasta 3 miniaturas por hallazgo | Daniel Ávila (con IA) |
 | 0.9.1 | 2026-11-14 | **TSK-REP-013:** descarga individual como PDF universal, evidencia fotográfica explícita y alineación de acciones en la lista | Raúl González (con IA) |

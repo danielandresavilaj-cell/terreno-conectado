@@ -90,8 +90,8 @@ Claves que importan:
 | `DEMO_PASSWORD` | cuentas del seed (sólo desarrollo, tests y E2E) | producción no usa seed |
 | `VITE_API_URL` | URL de la API en el bundle | **build-time** |
 | `SYNC_VOLUME` | volumen de adjuntos | local `.vol/sync` |
-| `ANTHROPIC_API_KEY` | importar con IA (TSK-FORM-021, ADR-005) | **opcional**; sin ella no hay IA. Los tests nunca la usan |
-| `IA_MODELO` / `IA_TOPE_DIARIO` | modelo y tope diario de la IA | por defecto `claude-haiku-5-5` / 20 |
+| `ANTHROPIC_API_KEY` | importar con IA (TSK-FORM-021) y resumen de Gerencia (TSK-REP-014), ADR-005 | **opcional**; sin ella no hay IA. Los tests nunca la usan |
+| `IA_MODELO` / `IA_TOPE_DIARIO` / `IA_TOPE_RESUMEN_DIARIO` | modelo y topes diarios de la IA (import / resumen) | por defecto `claude-haiku-5-5` / 20 / 20 |
 
 **Nunca hardcodear secretos ni passwords en el código, tests, docs o commits**
 (Art. IX). En CI hay escaneo de secretos (gitleaks) que falla el PR.
