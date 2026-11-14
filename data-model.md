@@ -1,6 +1,6 @@
 # DATA MODEL — Modelo conceptual de datos
 
-**Versión:** 1.7.0 (Enmienda 008) · **Fecha:** 2026-09-14 · actualizado 2026-11-13 · **Autor:** Daniel Ávila · **Relacionado:** spec maestro §5/§7, specs 001–007, ADR-003
+**Versión:** 1.7.1 (Enmienda 008) · **Fecha:** 2026-09-14 · actualizado 2026-11-13 · **Autor:** Daniel Ávila · **Relacionado:** spec maestro §5/§7, specs 001–007, ADR-003
 **Evidencia APT:** "Modelo conceptual de datos preliminar" (informe §6).
 **Reglas transversales:** toda tabla de dominio lleva `tenant_id UUID NOT NULL` + política RLS (Artículo IV); IDs `UUIDv7` generados en el cliente cuando el registro nace offline (FR-015); timestamps `created_at`, `updated_at` (servidor) y `captured_at` (cliente, autoridad para LWW — FR-023).
 
@@ -89,7 +89,7 @@ erDiagram
 | tenant_id | UUID FK→TENANT | RLS |
 | name | TEXT | |
 | description | TEXT NULL | |
-| status | ENUM(active, archived) | baja lógica (§4.4) |
+| status | ENUM(active, archived) | baja lógica (§4.4). *(FR-066)* `archived` lo saca de `GET /templates` y del catálogo de los dispositivos; revisiones, asignaciones e inspecciones se conservan |
 | created_at / updated_at | TIMESTAMPTZ | |
 
 **TEMPLATE_REVISION** — contenido versionado e inmutable (módulo 007, FR-049).
@@ -210,6 +210,7 @@ CREATE POLICY tenant_isolation ON inspection
 
 | Versión | Fecha | Cambio |
 | :--- | :--- | :--- |
+| 1.7.1 | 2026-11-14 | **FR-066 (TSK-FORM-024):** uso de `template.status = archived` para archivar formularios; sin migración |
 | 1.0.0 | 2026-09-14 | Modelo base (specs 001–006) |
 | 1.6.0 | 2026-11-12 | **Enmienda 007** (aprobada por Daniel Ávila el 2026-11-12): modelo previo a implementación para `inspection_signature`, `asset`, `inspection_schedule`, `scheduled_inspection` y `notification_outbox`; RLS, inmutabilidad e idempotencia explícitas | Raúl González (con IA) |
 | 1.7.0 | 2026-11-13 | **Enmienda 008 (FR-064, TSK-DOM-007):** migración 020 — `finding.assignee_id`, `due_date`, `resolution_note` e índice parcial por responsable |

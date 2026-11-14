@@ -15,6 +15,8 @@
  *  · `POST /api/v1/templates`                    — crea template + draft (solo `tenant_admin`)
  *  · `PATCH /api/v1/templates/revisions/:id`     — actualiza draft (solo `tenant_admin`)
  *  · `POST /api/v1/templates/revisions/:id/publish` — publica draft explícitamente (solo `tenant_admin`); nunca publica automático (FR-048)
+ *  · `PATCH /api/v1/templates/:templateId/estado` — archiva o restaura un formulario (solo `tenant_admin`, FR-066)
+ *  · `GET /api/v1/templates/archivadas`         — formularios archivados (solo `tenant_admin`, FR-066)
  *
  * El aislamiento por tenant lo garantiza RLS (FR-007): estos handlers sólo
  * traducen claims HTTP → servicio.
@@ -183,6 +185,9 @@ function toAssignmentDto(row: {
   }
 }
 
+/** TSK-FORM-024 (FR-066): archivar o restaurar. */
+const EstadoPlantillaSchema = z.object({ status: z.enum(['archived', 'active']) }).strict()
+
 const CreateTemplateSchema = z.object({
   name: z
     .string({ required_error: 'name es requerido' })
@@ -212,6 +217,30 @@ export class TemplatesController {
       tenantDe(req),
       parseSince(since),
       workerFilter(claims, siteId),
+    )
+  }
+
+  /** TSK-FORM-024 (FR-066): formularios archivados del tenant. */
+  @UseGuards(AuthGuard)
+  @Get('archivadas')
+  archivadas(@Req() req: AuthedRequest) {
+    requireTenantAdmin(req)
+    return this.templates.listarArchivadas(tenantDe(req))
+  }
+
+  /** TSK-FORM-024 (FR-066): archivar (`archived`) o restaurar (`active`) un formulario. */
+  @UseGuards(AuthGuard)
+  @Patch(':templateId/estado')
+  cambiarEstado(@Req() req: AuthedRequest, @Param('templateId') templateId: string, @Body() body: unknown) {
+    requireTenantAdmin(req)
+    if (!z.string().uuid().safeParse(templateId).success) throw new BadRequestException('templateId inválido')
+    const parsed = EstadoPlantillaSchema.safeParse(body)
+    if (!parsed.success) throw new BadRequestException("status debe ser 'archived' o 'active'")
+    return this.templates.cambiarEstadoPlantilla(
+      tenantDe(req),
+      (req.user as JwtClaims).sub,
+      templateId,
+      parsed.data.status,
     )
   }
 

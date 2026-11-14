@@ -25,12 +25,17 @@ import { Boton } from '../components/ui'
 import { VistaPreviaFormulario } from '../components/VistaPreviaFormulario'
 import {
   ApiError,
+  cambiarEstadoPlantilla,
   crearAsignacion,
+  crearPlantilla,
   eliminarAsignacion,
   getAsignaciones,
   getPlantillas,
+  getPlantillasArchivadas,
   getSites,
+  publicarRevision,
 } from '../lib/api'
+import { duplicarDefinicion, nombreDeCopia } from '../lib/duplicar-formulario'
 import { EASE } from '../lib/motion'
 import { useEstado } from '../lib/store'
 import type { SiteDto } from '@terreno/shared'
@@ -65,17 +70,23 @@ export function Plantillas() {
   const [pendiente, setPendiente] = useState<string | null>(null)
   /* TSK-FORM-023: formulario abierto en vista previa. */
   const [previa, setPrevia] = useState<TemplatePublicadaDto | null>(null)
+  /* TSK-FORM-024 (FR-066): archivo y duplicado. */
+  const [archivadas, setArchivadas] = useState<Array<{ template_id: string; name: string; archivada_at: string }>>([])
+  const [aArchivar, setAArchivar] = useState<string | null>(null)
+  const [ocupado, setOcupado] = useState<string | null>(null)
 
   const cargar = useCallback(async () => {
     setCargando(true)
     setError(null)
     try {
-      const [pub, asignacionesResp, sites] = await Promise.all([
+      const [pub, asignacionesResp, sites, arch] = await Promise.all([
         getPlantillas(),
         getAsignaciones(),
         getSites(),
+        getPlantillasArchivadas(),
       ])
       setPlantillas(pub.items)
+      setArchivadas(arch.items)
       setAsignaciones(asignacionesResp.items)
       setFaenas(sites.items)
     } catch (e) {
@@ -112,6 +123,43 @@ export function Plantillas() {
       }
     },
     [asignaciones],
+  )
+
+  /* TSK-FORM-024: archivar/restaurar y duplicar. Tras cada acción se recarga
+   * todo desde el servidor (nada optimista). */
+  const cambiarEstado = useCallback(
+    async (templateId: string, status: 'archived' | 'active') => {
+      setOcupado(templateId)
+      setError(null)
+      try {
+        await cambiarEstadoPlantilla(templateId, status)
+        setAArchivar(null)
+        await cargar()
+      } catch (e) {
+        setError(e instanceof ApiError ? e.detalle : 'No se pudo cambiar el formulario')
+      } finally {
+        setOcupado(null)
+      }
+    },
+    [cargar],
+  )
+
+  const duplicar = useCallback(
+    async (p: TemplatePublicadaDto) => {
+      setOcupado(p.template_id)
+      setError(null)
+      try {
+        const nombre = nombreDeCopia(p.name, [...plantillas.map((x) => x.name), ...archivadas.map((x) => x.name)])
+        const borrador = await crearPlantilla({ name: nombre, definition: duplicarDefinicion(p.definition) })
+        await publicarRevision(borrador.id)
+        await cargar()
+      } catch (e) {
+        setError(e instanceof ApiError ? e.detalle : 'No se pudo duplicar el formulario')
+      } finally {
+        setOcupado(null)
+      }
+    },
+    [plantillas, archivadas, cargar],
   )
 
   /* Búsqueda + filtros de cliente sobre el catálogo ya traído. */
@@ -197,8 +245,30 @@ export function Plantillas() {
                   <Boton tamano="sm" variante="fantasma" onClick={() => setPrevia(p)}>
                     Vista previa
                   </Boton>
+                  <Boton tamano="sm" variante="fantasma" disabled={ocupado !== null} onClick={() => void duplicar(p)}>
+                    {ocupado === p.template_id && aArchivar !== p.template_id ? 'Duplicando…' : 'Duplicar'}
+                  </Boton>
+                  <Boton tamano="sm" variante="fantasma" disabled={ocupado !== null} onClick={() => setAArchivar(p.template_id)}>
+                    Archivar
+                  </Boton>
                 </div>
               </div>
+              {aArchivar === p.template_id && (
+                <div role="alert" className="rounded-xl border border-sev-media/40 bg-sev-media/10 p-3 space-y-2">
+                  <p className="text-[14px]">
+                    ¿Archivar «{p.name}»? Deja de llegar a los teléfonos y de aparecer aquí. Sus inspecciones y asignaciones
+                    se conservan y puedes restaurarlo cuando quieras.
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    <Boton tamano="sm" variante="peligro" disabled={ocupado !== null} onClick={() => void cambiarEstado(p.template_id, 'archived')}>
+                      {ocupado === p.template_id ? 'Archivando…' : 'Sí, archivar'}
+                    </Boton>
+                    <Boton tamano="sm" variante="fantasma" onClick={() => setAArchivar(null)}>
+                      Cancelar
+                    </Boton>
+                  </div>
+                </div>
+              )}
               {ROLES.map((rol) => {
                 const targets: Array<{ siteId: string | null; label: string }> = [
                   { siteId: null, label: 'Todas' },
@@ -237,6 +307,32 @@ export function Plantillas() {
             </article>
           ))}
         </div>
+      )}
+
+      {/* TSK-FORM-024: formularios archivados, para restaurarlos. */}
+      {archivadas.length > 0 && (
+        <details className="group">
+          <summary className="flex min-h-11 items-center gap-3 px-0.5 cursor-pointer list-none [&::-webkit-details-marker]:hidden">
+            <h2 className="label-inst">Archivados ({archivadas.length})</h2>
+            <div className="flex-1 rule" />
+            <span className="label-inst group-open:rotate-180 transition-transform duration-150">▾</span>
+          </summary>
+          <ul className="mt-2 space-y-2">
+            {archivadas.map((a) => (
+              <li key={a.template_id} className="panel px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-[14px] font-medium break-words">{a.name}</p>
+                  <p className="text-[13px] text-ink-2">
+                    Archivado el {new Date(a.archivada_at).toLocaleDateString('es-CL', { day: 'numeric', month: 'short', year: 'numeric' })}
+                  </p>
+                </div>
+                <Boton tamano="sm" variante="secundaria" disabled={ocupado !== null} onClick={() => void cambiarEstado(a.template_id, 'active')}>
+                  {ocupado === a.template_id ? 'Restaurando…' : 'Restaurar'}
+                </Boton>
+              </li>
+            ))}
+          </ul>
+        </details>
       )}
 
       {previa && (

@@ -372,6 +372,7 @@ export class TemplatesService {
            FROM template_revision r
            JOIN template t ON t.id = r.template_id
           WHERE r.status = 'published'
+            AND t.status = 'active'
             AND ($1::bigint IS NULL OR r.published_seq > $1)
             AND ${visibilidadRolOperativo('$2', '$3')}
           ORDER BY r.published_seq DESC`,
@@ -381,7 +382,9 @@ export class TemplatesService {
         tenantId,
         `SELECT MAX(r.published_seq) AS max
            FROM template_revision r
+           JOIN template t ON t.id = r.template_id
           WHERE r.status = 'published'
+            AND t.status = 'active'
             AND ${visibilidadRolOperativo('$1', '$2')}`,
         [role, siteId],
       ),
@@ -400,6 +403,63 @@ export class TemplatesService {
         definition: r.definition as unknown as TemplateDefinition,
       })),
       latest_seq: max === null ? null : Number(max),
+    }
+  }
+
+  /* ── Archivo de formularios (TSK-FORM-024, FR-066) ──────────────────────── */
+
+  /**
+   * Archiva (`archived`) o restaura (`active`) un formulario. Archivado, deja de
+   * entregarse a los dispositivos y de listarse para asignar; sus revisiones,
+   * asignaciones e inspecciones se conservan. Cada cambio queda en audit_log.
+   * Otra empresa no ve el formulario (RLS): responde 404.
+   */
+  async cambiarEstadoPlantilla(
+    tenantId: string,
+    actorId: string,
+    templateId: string,
+    status: 'active' | 'archived',
+  ): Promise<{ template_id: string; name: string; status: 'active' | 'archived' }> {
+    return this.db.withTenantTransaction(tenantId, async (run) => {
+      const [actual] = await run<{ status: string; name: string }>(
+        'SELECT status, name FROM template WHERE id = $1 FOR UPDATE',
+        [templateId],
+      )
+      if (!actual) throw new NotFoundException('Formulario no encontrado')
+      if (actual.status !== status) {
+        await run('UPDATE template SET status = $2, updated_at = now() WHERE id = $1', [templateId, status])
+        await run(
+          `INSERT INTO audit_log (id, actor_id, tenant_id, action, entity_type, entity_id, payload)
+           VALUES ($1, $2, $3, $4, 'template', $5, $6)`,
+          [
+            randomUUID(),
+            actorId,
+            tenantId,
+            status === 'archived' ? 'template_archived' : 'template_restored',
+            templateId,
+            JSON.stringify({ name: actual.name }),
+          ],
+        )
+      }
+      return { template_id: templateId, name: actual.name, status }
+    })
+  }
+
+  /** Formularios archivados del tenant, del más reciente al más antiguo. */
+  async listarArchivadas(
+    tenantId: string,
+  ): Promise<{ items: Array<{ template_id: string; name: string; archivada_at: string }> }> {
+    const rows = await this.db.queryAsTenant<{ template_id: string; name: string; archivada_ms: number }>(
+      tenantId,
+      `SELECT id AS template_id, name, (extract(epoch FROM updated_at) * 1000)::float8 AS archivada_ms
+         FROM template WHERE status = 'archived' ORDER BY updated_at DESC`,
+    )
+    return {
+      items: rows.map((r) => ({
+        template_id: r.template_id,
+        name: r.name,
+        archivada_at: new Date(r.archivada_ms).toISOString(),
+      })),
     }
   }
 
