@@ -3,7 +3,7 @@
 | | |
 | :--- | :--- |
 | **ID** | 000-master |
-| **Versión** | 1.9.0 · Enmienda 008 (evidencia, bitácora y acción correctiva) |
+| **Versión** | 1.10.0 · Enmienda 008 (evidencia, bitácora, acción correctiva, faenas por cuenta y archivo de formularios) |
 | **Estado** | APROBADO — Raúl González (2026-09-24) y Daniel Ávila (2026-10-13) · Enmiendas 003–006 firmadas por Daniel Ávila, pendientes de ratificación de Raúl González · Enmienda 007 propuesta por Raúl González y aprobada por Daniel Ávila el 2026-11-12; B está en revisión y C–E se implementan por tareas · Enmienda 008 firmada por Daniel Ávila el 2026-11-13, pendiente de ratificación de Raúl González |
 | **Autores** | Daniel Ávila (datos/negocio) · Raúl González (infra/plataforma) |
 | **Fuente** | Informe de Definición APT, Fase 1 (2026-09-04) |
@@ -151,6 +151,8 @@ Convención EARS en español: ubicuo (`EL SISTEMA DEBERÁ…`), evento (`CUANDO�
 - **FR-062** *(Enmienda 008)* EL SISTEMA DEBERÁ permitir al `supervisor` y al `tenant_admin` ver en pantalla la evidencia fotográfica de las respuestas y de los hallazgos de su empresa, sin necesidad de exportar un archivo; el acceso a cada foto DEBERÁ respetar el aislamiento por tenant (RLS) y los roles del dashboard.
 - **FR-063** *(Enmienda 008)* EL SISTEMA DEBERÁ permitir que el `field_worker`, el `supervisor` y el `tenant_admin` lean las entradas de bitácora de su empresa escritas por otras personas, filtradas por faena y período, para que el turno entrante conozca el relevo y la supervisión siga lo ocurrido; la lectura requiere conexión y respeta el aislamiento por tenant (RLS).
 - **FR-064** *(Enmienda 008)* EL SISTEMA DEBERÁ permitir al `supervisor` y al `tenant_admin` gestionar cada hallazgo como acción correctiva: asignar un responsable (cuenta activa de la empresa), fijar un plazo y registrar una nota de cierre; DEBERÁ destacar los hallazgos con plazo vencido y auditar cada cambio con su valor anterior y nuevo.
+- **FR-065** *(Enmienda 008)* EL SISTEMA DEBERÁ permitir al `tenant_admin` limitar las faenas en que puede capturar cada cuenta `field_worker` o `supervisor`; una cuenta sin faenas asignadas puede capturar en todas las faenas de su empresa. La limitación se aplica a la lista de faenas que recibe el dispositivo; la ingesta de sincronización no rechaza capturas ya hechas (Art. III).
+- **FR-066** *(Enmienda 008)* EL SISTEMA DEBERÁ permitir al `tenant_admin` archivar y restaurar un formulario (archivado, deja de entregarse a los dispositivos y de ofrecerse para asignar, y conserva sus revisiones, asignaciones e inspecciones) y duplicar un formulario publicado como uno nuevo e independiente. Cada archivo y restauración queda en el audit log.
 
 ### 5.6 Módulo 006 — Administración plataforma
 
@@ -275,6 +277,7 @@ Fuera de alcance explícito — cualquier inclusión requiere enmienda a este sp
 > - **Sin cambios de modelo:** no hay migración; se leen las tablas `attachment`, `finding` e `inspection_response` existentes.
 > - **FR-063 (2026-11-13, hallazgo S2):** la bitácora se sincronizaba pero nadie podía leerla. `GET /api/v1/dashboard/bitacora` la entrega por faena y período (TSK-REP-009); la pantalla Bitácora suma la vista "De la faena" y Gerencia un bloque "Bitácora del equipo". La escribe sólo su autor desde el dispositivo, como antes; la lectura no se audita. Sin migración.
 > - **FR-064 (2026-11-13, hallazgo S3):** el hallazgo sólo tenía estado. Ahora tiene responsable, plazo y nota de cierre (migración 020, TSK-DOM-007), que escribe sólo supervisión; la ingesta de sync no los toca. Gerencia muestra "Vencido" / "Vence hoy" y pide la nota al resolver. El aviso por correo al responsable queda para la outbox de la Enmienda 007 (TSK-OPS-003-E); la bajada del hallazgo asignado al dispositivo del responsable queda en el plan (2.3).
+> - **FR-065 y FR-066 (2026-11-14, bloque 4 del plan de mejora):** faenas por cuenta (tabla `user_site`, migración 021, TSK-ADM-003) y archivo/duplicado de formularios (columna existente `template.status`, TSK-FORM-024). Se implementan según `plans/009-plan-mejora-bloque-4/`. Las demás tareas del bloque (varias fotos por hallazgo, hallazgo directo, reexportar, tendencia semanal) son aclaraciones de FR-012/019/032/040/041 sin cambio de alcance.
 
 ## 11. Supuestos y restricciones
 
@@ -327,6 +330,7 @@ La demo se considera exitosa si, en vivo ante el docente:
 
 | Versión | Fecha | Cambio | Autor |
 | :--- | :--- | :--- | :--- |
+| 1.10.0 | 2026-11-14 | **Enmienda 008 (ampliación)** — FR-065 (faenas por cuenta) y FR-066 (archivar, restaurar y duplicar formularios), por implementar según `plans/009-plan-mejora-bloque-4/` | Daniel Ávila (con IA) |
 | 1.0.0 | 2026-09-14 | Borrador inicial derivado del informe APT Fase 1 + decisiones de grilling (Q1–Q14) | Daniel Ávila (con IA) |
 | 1.0.1 | 2026-09-23 | Título: "Decisiones en Tiempo Real" → "Datos al día donde no hay señal" (Opción A — alinear la promesa con la realidad offline-first) | Raúl González (con IA) |
 | 1.0.1 | 2026-09-24 | Firmado por Raúl González; pendiente firma de Daniel Ávila | Raúl González (con IA) |
