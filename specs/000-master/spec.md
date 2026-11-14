@@ -3,7 +3,7 @@
 | | |
 | :--- | :--- |
 | **ID** | 000-master |
-| **Versión** | 1.10.2 · Enmienda 008 (evidencia, bitácora, acción correctiva, faenas por cuenta y archivo de formularios) |
+| **Versión** | 1.11.0 · Enmienda 008 (evidencia, bitácora, acción correctiva, faenas por cuenta y archivo de formularios) |
 | **Estado** | APROBADO — Raúl González (2026-09-24) y Daniel Ávila (2026-10-13) · Enmiendas 003–006 firmadas por Daniel Ávila, pendientes de ratificación de Raúl González · Enmienda 007 propuesta por Raúl González y aprobada por Daniel Ávila el 2026-11-12; B está en revisión y C–E se implementan por tareas · Enmienda 008 firmada por Daniel Ávila el 2026-11-13, pendiente de ratificación de Raúl González |
 | **Autores** | Daniel Ávila (datos/negocio) · Raúl González (infra/plataforma) |
 | **Fuente** | Informe de Definición APT, Fase 1 (2026-09-04) |
@@ -153,6 +153,7 @@ Convención EARS en español: ubicuo (`EL SISTEMA DEBERÁ…`), evento (`CUANDO�
 - **FR-064** *(Enmienda 008)* EL SISTEMA DEBERÁ permitir al `supervisor` y al `tenant_admin` gestionar cada hallazgo como acción correctiva: asignar un responsable (cuenta activa de la empresa), fijar un plazo y registrar una nota de cierre; DEBERÁ destacar los hallazgos con plazo vencido y auditar cada cambio con su valor anterior y nuevo.
 - **FR-065** *(Enmienda 008)* EL SISTEMA DEBERÁ permitir al `tenant_admin` limitar las faenas en que puede capturar cada cuenta `field_worker` o `supervisor`; una cuenta sin faenas asignadas puede capturar en todas las faenas de su empresa. La limitación se aplica a la lista de faenas que recibe el dispositivo; la ingesta de sincronización no rechaza capturas ya hechas (Art. III).
 - **FR-066** *(Enmienda 008)* EL SISTEMA DEBERÁ permitir al `tenant_admin` archivar y restaurar un formulario (archivado, deja de entregarse a los dispositivos y de ofrecerse para asignar, y conserva sus revisiones, asignaciones e inspecciones) y duplicar un formulario publicado como uno nuevo e independiente. Cada archivo y restauración queda en el audit log.
+- **FR-067** *(Enmienda 008)* CUANDO a una cuenta de la empresa se le asigna un hallazgo, EL SISTEMA DEBERÁ mostrárselo en una sección propia con aviso de "nuevo" (también sin señal, desde la última lista recibida) y permitirle empezarlo y reportar lo que hizo; el reporte necesita conexión y no resuelve el hallazgo: lo resuelve la supervisión (FR-064). Cada avance queda en el audit log.
 
 ### 5.6 Módulo 006 — Administración plataforma
 
@@ -280,6 +281,7 @@ Fuera de alcance explícito — cualquier inclusión requiere enmienda a este sp
 > - **FR-065 y FR-066 (2026-11-14, bloque 4 del plan de mejora):** faenas por cuenta (tabla `user_site`, migración 021, TSK-ADM-003) y archivo/duplicado de formularios (columna existente `template.status`, TSK-FORM-024). Se implementan según `plans/009-plan-mejora-bloque-4/`. Las demás tareas del bloque (varias fotos por hallazgo, hallazgo directo, reexportar, tendencia semanal) son aclaraciones de FR-012/019/032/040/041 sin cambio de alcance.
 > - **FR-056 y FR-024 (2026-11-15, aclaración, TSK-OFF-018):** en terreno una inspección quedó trabada porque el pad guardaba un toque suelto como trazo de 1 punto y el servidor rechazaba el lote completo. La firma se dibuja a pantalla completa y, al confirmar, se recorta a su contorno y se escala con un solo factor a un marco de 1000 × 500 (quien la dibuje usa `viewBox="0 0 1000 500"`); un toque se guarda como trazo de 2 puntos iguales y la firma se simplifica para respetar los límites del servidor. Las firmas ya encoladas se ajustan al enviarse (el `content_hash` no incluye los trazos). Un lote rechazado antes de procesarse guarda el motivo de validación en `sync_log.error_message` y `GET /api/v1/conflicts/rechazos` lo muestra a supervisión agrupado por equipo y motivo. La cámara de evidencia se abre a pantalla completa (FR-012).
 > - **FR-005 (2026-11-15, aclaración, TSK-AUTH-012):** "5 veces consecutivas" se cumple también después de un bloqueo: al vencer los 15 minutos el contador de la cuenta reinicia, así que un solo error ya no vuelve a bloquearla. El `423` dice los minutos que faltan y el teléfono los muestra.
+> - **FR-067 (2026-11-15, prueba en terreno, TSK-DOM-008):** un hallazgo asignado no le aparecía en ninguna parte a su responsable. La pestaña "Hallazgos" lista los asignados (`GET /api/v1/findings/asignados`, guardados en el teléfono para verlos sin señal) con un punto de aviso y un mensaje en Formularios. El responsable lo empieza y reporta lo que hizo (`PATCH /api/v1/findings/:id/avance`, migración 023: `assigned_at`, `progress_note`, `reported_at`); "listo para revisar" = en curso + reportado. Supervisión lo verifica y lo resuelve; reabrirlo quita el "listo" y reasignarlo borra el avance. El responsable ve las fotos de sus hallazgos. El estado del hallazgo no cambia de dominio y la ingesta de sync no toca las columnas nuevas. Cerrar hallazgos sin señal y la notificación push quedan fuera (plan de mejora 2.3).
 
 ## 11. Supuestos y restricciones
 
@@ -332,6 +334,7 @@ La demo se considera exitosa si, en vivo ante el docente:
 
 | Versión | Fecha | Cambio | Autor |
 | :--- | :--- | :--- | :--- |
+| 1.11.0 | 2026-11-15 | **Enmienda 008 (ampliación) — FR-067 (TSK-DOM-008):** el responsable de un hallazgo lo ve en "Hallazgos", lo empieza y reporta lo que hizo; supervisión cierra (migración 023) | Daniel Ávila (con IA) |
 | 1.10.2 | 2026-11-15 | **Aclaración de FR-005 (TSK-AUTH-012):** un bloqueo cumplido reinicia el contador de fallos y el `423` informa los minutos que faltan | Daniel Ávila (con IA) |
 | 1.10.1 | 2026-11-15 | **Aclaración de FR-056 y FR-024 (TSK-OFF-018, #239):** la firma sale del teléfono siempre válida (marco 1000 × 500 con una sola escala, ≥2 puntos por trazo, ≤32 trazos, ≤1024 puntos) y las ya encoladas se ajustan al enviar; un lote rechazado guarda su motivo en `sync_log.error_message` (migración 022) y la supervisión lo ve en Conflictos. Sin cambio de alcance | Daniel Ávila (con IA) |
 | 1.10.0 | 2026-11-14 | **Enmienda 008 (ampliación)** — FR-065 (faenas por cuenta) y FR-066 (archivar, restaurar y duplicar formularios), por implementar según `plans/009-plan-mejora-bloque-4/` | Daniel Ávila (con IA) |
