@@ -43,7 +43,7 @@ import {
   type EvidenciaRellenable,
 } from '@terreno/shared/xlsx'
 import { db, getDraftInspectionId, originalDePlantilla, type AttachmentRow } from './db'
-import { itemsDe } from './valores'
+import { itemsDe, valorDesdeColumnas } from './valores'
 
 /**
  * Vista mínima de una respuesta capturada que necesita la exportación.
@@ -264,6 +264,41 @@ export function nombreDeExportacion(
  * el backend (`ZIP_MIME`) y se duplica a propósito porque un MIME de contenedor
  * no pertenece al contrato de datos.
  */
+/** TSK-OFF-017: motivos por los que no se puede reexportar desde el teléfono. */
+export const SIN_INSPECCION_LOCAL = 'Esta inspección ya no está guardada en este teléfono.'
+export const SIN_PLANTILLA_LOCAL =
+  'El formulario de esta inspección ya no está en este teléfono. Se vuelve a descargar con señal si sigue asignado a tu faena.'
+
+/**
+ * TSK-OFF-017 (FR-019): vuelve a generar el Excel de una inspección ya enviada
+ * con lo que quedó guardado en este teléfono: su plantilla congelada, sus
+ * respuestas y sus fotos. No usa la red (Art. I): si falta la plantilla o la
+ * planilla original, devuelve el motivo.
+ */
+export async function exportarInspeccionGuardada(inspectionId: string, hoy?: Date): Promise<ResultadoExportar> {
+  const ins = await db.inspections.get(inspectionId)
+  if (!ins) return { ok: false, error: SIN_INSPECCION_LOCAL }
+  const revisionId = ins.templateRevisionId ?? null
+  if (!revisionId) return { ok: false, error: SIN_REVISION }
+  const plantilla = await db.plantillas.get(revisionId)
+  if (!plantilla) return { ok: false, error: SIN_PLANTILLA_LOCAL }
+  const filas = await db.responses.where('inspectionId').equals(inspectionId).toArray()
+  const porItem = new Map(filas.map((r) => [r.templateItemId, r]))
+  const respuestas: Record<string, RespuestaExportable> = {}
+  for (const item of itemsDe(plantilla.definition)) {
+    const fila = porItem.get(item.id)
+    respuestas[item.id] = { campo: fila ? valorDesdeColumnas(item, fila) : null }
+  }
+  return exportarDocumento({
+    revisionId,
+    templateName: ins.templateName,
+    definition: plantilla.definition,
+    respuestas,
+    inspectionId,
+    hoy,
+  })
+}
+
 export const ZIP_MIME = 'application/zip'
 
 /**
