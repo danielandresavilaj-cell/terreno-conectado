@@ -1,6 +1,6 @@
 # TEST PLAN — Plan de pruebas de validación
 
-**Versión:** 1.3.7 · **Fecha:** 2026-09-14 · actualizado 2026-11-13 · **Autor:** Raúl González (validación) · **Relacionado:** spec maestro §5–6, constitución Artículos III/IV/VII
+**Versión:** 1.3.8 · **Fecha:** 2026-09-14 · actualizado 2026-11-13 · **Autor:** Raúl González (validación) · **Relacionado:** spec maestro §5–6, constitución Artículos III/IV/VII
 **Evidencia APT:** "Plan de pruebas de validación" (informe §6) y soporte de la competencia "Realizar pruebas de certificación de productos y procesos".
 
 ## 1. Principio rector
@@ -69,7 +69,7 @@ verde.
 | FR-029 | *(Enmienda 003: el import es una acción en línea del `tenant_admin`, no viaja por el batch)* Reintentar la subida del mismo archivo no publica nada: cada subida crea una propuesta nueva que exige revisión humana antes de confirmar | Integración | `backend/test/templates-caos-007.spec.ts` (reintento → propuesta nueva, sin publicar), `import-wizard.spec.ts` | 🟢 verde |
 | FR-029/048 (IA) | Con IA, una foto o un PDF escaneado producen una propuesta revisable; reintento con IA sobre un import fallido; salida inválida o error de la API → `failed` sin guardar; tope diario → 429; sin clave → 503 y el asistente sin IA; foto sin IA → 415; auditoría con modelo y tokens (Enmienda 006). La CI usa un analizador falso | Unit + integración | `shared/src/importar/ia.test.ts`, `backend/test/import-ia.spec.ts`, `frontend/test/importar-ia.test.ts` | ✅ |
 | FR-029 (Word/PDF) | Importar `.docx` y `.pdf` (texto y rellenable) propone secciones e ítems con su tipo; escaneado → error claro; firma de bytes falsa → 415; tope por formato → 413; confirmar como nueva versión no duplica la plantilla (Enmienda 005) | Unit + integración | `shared/src/importar/docx.test.ts`, `backend/test/importar-pdf.spec.ts`, `backend/test/import-word-pdf.spec.ts` | ✅ |
-| FR-019/044 | Export rellenado + hoja "Evidencias" idéntico en dispositivo y en servidor | E2E + Integración | `backend/test/inspection-export.spec.ts`, `shared/src/rellenar.test.ts`, `serializar.test.ts` | 🟢 verde |
+| FR-019/044 | Export rellenado + hoja "Evidencias" idéntico en dispositivo y en servidor | E2E + Integración | `backend/test/inspection-export.spec.ts`, `shared/src/rellenar.test.ts`, `serializar.test.ts`; *(TSK-OFF-017)* reexportar desde el teléfono sin red: `frontend/test/reexportar.test.ts` | 🟢 verde |
 | FR-045/046 | Lote del período con formato de su plantilla + hoja "Evidencias" (adjuntos referenciados/embebidos) | Integración | `backend/test/inspection-export-lote.spec.ts` | 🟢 verde |
 | FR-045/046/047 (Enmienda 005) | Excel consolidado (Resumen + hoja por formulario + Hallazgos + Evidencias, columnas unidas entre versiones, plantilla hecha a mano), PDF y Word (un archivo o ZIP), selección por `ids` con RLS, filtros de formulario/estado, tope 413, 404, 400, roles y auditoría | Unit + integración | `shared/src/exportar/consolidado.test.ts`, `backend/test/inspection-report.spec.ts`, `frontend/test/exportar-inspecciones.test.ts` | ✅ |
 | FR-047 + FR-051 | Import confirmado y export por lote registrados en el audit log (autor, timestamp, tenant) | Integración | `backend/test/import-wizard.spec.ts`, `inspection-export-lote.spec.ts` | 🟢 verde |
@@ -212,6 +212,7 @@ y nunca bloquea un PR. Informe por módulo en
 
 | Versión | Fecha | Cambio | Autor |
 | :--- | :--- | :--- | :--- |
+| 1.3.8 | 2026-11-14 | **TSK-OFF-017:** reexportar desde Cola; evidencia en la fila FR-019/044 (`reexportar.test.ts`) | Daniel Ávila (con IA) |
 | 1.3.7 | 2026-11-14 | **TSK-OFF-015:** hallazgo directo; evidencia en la fila FR-009/032/036 (`hallazgo.test.ts`) | Daniel Ávila (con IA) |
 | 1.3.6 | 2026-11-14 | **TSK-OFF-016:** varias fotos por hallazgo; evidencia en las filas FR-062 (`attachments.spec.ts`, `hallazgo.test.ts`) | Daniel Ávila (con IA) |
 | 1.3.5 | 2026-11-14 | Filas FR-065 y FR-066 (Enmienda 008, ampliación) en 🟡 por implementar; recuento 52 filas | Daniel Ávila (con IA) |

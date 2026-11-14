@@ -3,7 +3,7 @@
 | | |
 | :--- | :--- |
 | **Estado** | COMPLETO (ciclo del módulo, F2 · 2026-10-13) |
-| **Versión** | 0.3.10 |
+| **Versión** | 0.3.11 |
 | **Autor** | Daniel Ávila |
 | **Padre** | specs/000-master/spec.md |
 | **Depende de** | 001 (sesión/tenant), 004 (plantillas a renderizar offline) |
@@ -89,6 +89,8 @@ Las **plantillas** no dependen de la caché HTTP del SW: viven en Dexie (FR-018)
 2. **Render**: la captura dibuja desde la `definition` de la revisión **congelada** del borrador (FR-028); nunca reencuadra un turno en curso.
 3. **Export**: `exportar.ts` rellena el original cacheado con las respuestas y agrega la hoja "Evidencias" **en el dispositivo**, con el mismo generador compartido que el servidor (ADR-003, decisión 5).
 
+**Reexportar desde Cola (TSK-OFF-017):** cada inspección de la Cola, enviada o no, ofrece "Descargar Excel". El libro se arma con lo que quedó en el teléfono (plantilla congelada, respuestas y fotos) con la misma `exportarDocumento`; si falta la plantilla o la planilla original se informa el motivo y no se usa la red. El módulo de exportación se carga recién al pulsar, para no sumar ExcelJS a la pantalla Cola.
+
 ## 7. Compresión de imagen (FR-012)
 
 Canvas en cliente: lado mayor ≤ 1280 px, calidad 0.7, `imageSmoothingQuality: high`, salida JPEG, **antes** de encolar. El blob comprimido vive en IndexedDB (`attachments`). El hallazgo no depende de la foto (fallback sin imagen).
@@ -111,6 +113,7 @@ La toma usa `getUserMedia` y prefiere la cámara trasera. El stream se detiene a
 
 | Versión | Fecha | Cambio | Autor |
 | :--- | :--- | :--- | :--- |
+| 0.3.11 | 2026-11-14 | TSK-OFF-017: reexportar una inspección desde Cola, sin red | Daniel Ávila (con IA) |
 | 0.3.10 | 2026-11-14 | Corrige §4: Cola tiene cuatro secciones (TSK-OFF-013) y el tema sin elección guardada sigue al del sistema (TSK-OFF-011); el texto anterior había quedado desactualizado | Daniel Ávila (con IA) |
 | 0.3.9 | 2026-11-13 | TSK-OFF-014 (#221): todos los desplegables de Cola alcanzan 44 px y mantienen su control nativo de teclado | Raúl González (con IA) |
 | 0.3.8 | 2026-11-13 | TSK-OFF-011: navegación inferior en el teléfono, miniatura de la foto del ítem y tema según el sistema | Daniel Ávila (con IA) |
