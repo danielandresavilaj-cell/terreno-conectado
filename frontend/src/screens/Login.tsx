@@ -22,6 +22,8 @@ import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { Boton } from '../components/ui'
 import { PwaInstalacion } from '../components/PwaInstalacion'
 import { BotonTema } from '../components/BotonTema'
+import { Marca } from '../components/Marca'
+import { Topografia } from '../components/Topografia'
 import { useEstado } from '../lib/store'
 import { ApiError } from '../lib/api'
 import { mensajeBloqueo } from '../lib/bloqueo'
@@ -82,22 +84,12 @@ export function Login() {
       <BotonTema className="absolute right-3 top-[calc(env(safe-area-inset-top)_+_0.75rem)] z-10" />
       {/* Columna de marca: solo en desktop, evita el scroll infinito en móvil */}
       <aside className="hidden lg:flex lg:w-[46%] xl:w-[42%] relative overflow-hidden border-r border-line-soft p-12 flex-col justify-between">
-        {/* Textura: rejilla de Telemetría, muy tenue. Da profundidad sin ruido. */}
-        <div
-          className="absolute inset-0 opacity-[0.35]"
-          style={{
-            backgroundImage:
-              'linear-gradient(var(--color-line-soft) 1px, transparent 1px), linear-gradient(90deg, var(--color-line-soft) 1px, transparent 1px)',
-            backgroundSize: '56px 56px',
-            maskImage: 'radial-gradient(ellipse 90% 70% at 20% 30%, black, transparent)',
-          }}
-        />
+        {/* Curvas de nivel, las mismas de la portada de la landing. */}
+        <Topografia semilla={1} />
 
         <div className="relative">
           <motion.div {...bloque(0)} className="flex items-center gap-3">
-            <div className="h-9 w-9 rounded-[10px] bg-beam grid place-items-center shrink-0">
-              <span className="text-on-beam font-bold text-[17px] leading-none">TC</span>
-            </div>
+            <Marca tamano={38} />
             <div>
               <p className="text-[15px] font-semibold tracking-[-0.02em] leading-tight">
                 Terreno Conectado
@@ -136,12 +128,16 @@ export function Login() {
       </aside>
 
       {/* Panel de acceso */}
-      <main className="flex-1 flex items-center justify-center p-6 sm:p-10">
+      {/* En el teléfono no hay columna de marca: las curvas quedan como una
+          franja tenue arriba, detrás del logo. */}
+      <Topografia
+        semilla={2}
+        className="lg:hidden [mask-image:linear-gradient(to_bottom,black,transparent_45%)]"
+      />
+      <main className="relative flex-1 flex items-center justify-center p-6 sm:p-10">
         <div className="w-full max-w-[400px]">
           <motion.div {...bloque(0.06)} className="lg:hidden flex items-center gap-3 mb-10">
-            <div className="h-9 w-9 rounded-[10px] bg-beam grid place-items-center">
-              <span className="text-on-beam font-bold text-[17px] leading-none">TC</span>
-            </div>
+            <Marca tamano={38} />
             <div>
               <p className="text-[15px] font-semibold tracking-[-0.02em] leading-tight">
                 Terreno Conectado

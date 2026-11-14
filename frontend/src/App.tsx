@@ -1,6 +1,7 @@
 import { Suspense, lazy, useEffect } from 'react'
 import { motion } from 'motion/react'
 import { Shell } from './components/Shell'
+import { Marca } from './components/Marca'
 import { Login } from './screens/Login'
 import { CambioClaveObligatorio } from './screens/CambioClaveObligatorio'
 import { MiCuenta } from './screens/MiCuenta'
@@ -69,9 +70,7 @@ function Raiz() {
         className="min-h-dvh flex items-center justify-center py-16"
       >
         <div className="text-center space-y-3">
-          <div className="h-9 w-9 rounded-[10px] bg-beam grid place-items-center mx-auto">
-            <span className="text-on-beam font-bold text-[17px] leading-none">TC</span>
-          </div>
+          <Marca tamano={44} className="mx-auto" />
           <p className="label-inst">Restaurando sesión y cola local…</p>
         </div>
       </motion.div>
@@ -117,9 +116,7 @@ function Raiz() {
 function PantallaCargando() {
   return (
     <div className="py-16 text-center" role="status" aria-live="polite">
-      <div className="h-9 w-9 rounded-[10px] bg-beam grid place-items-center mx-auto">
-        <span className="text-on-beam font-bold text-[17px] leading-none">TC</span>
-      </div>
+      <Marca tamano={44} className="mx-auto" />
       <p className="label-inst mt-3">Cargando pantalla…</p>
     </div>
   )
