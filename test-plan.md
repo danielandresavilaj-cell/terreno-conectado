@@ -1,6 +1,6 @@
 # TEST PLAN — Plan de pruebas de validación
 
-**Versión:** 1.3.8 · **Fecha:** 2026-09-14 · actualizado 2026-11-13 · **Autor:** Raúl González (validación) · **Relacionado:** spec maestro §5–6, constitución Artículos III/IV/VII
+**Versión:** 1.3.9 · **Fecha:** 2026-09-14 · actualizado 2026-11-13 · **Autor:** Raúl González (validación) · **Relacionado:** spec maestro §5–6, constitución Artículos III/IV/VII
 **Evidencia APT:** "Plan de pruebas de validación" (informe §6) y soporte de la competencia "Realizar pruebas de certificación de productos y procesos".
 
 ## 1. Principio rector
@@ -77,13 +77,13 @@ verde.
 | FR-063 | *(Enmienda 008)* El trabajador, la supervisión y la administración leen la bitácora de la empresa, más reciente primero, con autor y faena; filtros por faena y período, paginación; otra empresa no ve entradas (RLS), plataforma → 403, sin sesión → 401, filtro inválido → 400 | Integración | `backend/test/bitacora.spec.ts` | 🟢 verde |
 | FR-064 | *(Enmienda 008)* Supervisión asigna responsable y plazo y cierra con nota; auditoría antes→después; responsable de otra empresa → 400; otra empresa → 404 (RLS), trabajador → 403; una corrección por sync no borra la asignación; el dashboard muestra responsable y plazo; plazo vencido / vence hoy / cerrado | Integración + Unit | `backend/test/accion-correctiva.spec.ts`; `frontend/test/plazo.test.ts` | 🟢 verde |
 | FR-065 | *(Enmienda 008)* `GET /sites` devuelve a cada cuenta sólo sus faenas asignadas (sin asignación: todas); el admin las asigna con `PUT /users/:id/faenas`; otra empresa → 404, faena ajena → 400, auditoría | Integración | `backend/test/users-faenas.spec.ts` (TSK-ADM-003) | 🟡 por implementar |
-| FR-066 | *(Enmienda 008)* Archivar oculta el formulario a dispositivos y a Plantillas sin borrar revisiones ni asignaciones; restaurar lo devuelve; sólo `tenant_admin`; otra empresa → 404; auditoría. Duplicar genera ids nuevos y quita el origen de planilla | Integración + Unit | `backend/test/templates-archivar.spec.ts`; `frontend/test/duplicar-formulario.test.ts` (TSK-FORM-024) | 🟡 por implementar |
+| FR-066 | *(Enmienda 008)* Archivar oculta el formulario a dispositivos y a Plantillas sin borrar revisiones ni asignaciones; restaurar lo devuelve; sólo `tenant_admin`; otra empresa → 404; auditoría. Duplicar genera ids nuevos y quita el origen de planilla | Integración + Unit | `backend/test/templates-archivar.spec.ts`; `frontend/test/duplicar-formulario.test.ts` (TSK-FORM-024) | 🟢 verde |
 | FR-048 | *(Enmienda 006)* La IA (opcional, sólo backend) propone secciones e ítems desde PDF, Word o foto, y la propuesta nunca se publica sin la confirmación explícita del `tenant_admin`. *(TSK-FORM-022)* Un formulario creado desde cero sigue el mismo camino: borrador por `POST /templates` y publicación explícita, con las mismas validaciones de props; sin clave la función queda apagada | Integración + Unit | `backend/test/import-ia.spec.ts` (analizador falso), `import-wizard.spec.ts`, `templates.http.spec.ts`, `frontend/test/editor-formulario.test.ts` | 🟢 verde |
 | FR-049 | Revisión publicada inmutable: ítems ya inspeccionados no se modifican; el cambio exige revisión nueva | Integración | `backend/test/templates.http.spec.ts` (409 al editar publicado) | 🟢 verde |
 | FR-050 | `platform_admin` crea tenant, le asigna el `tenant_admin` inicial y lo suspende/reactiva; un rol distinto recibe 403 en toda la consola | Integración | `backend/test/admin.spec.ts` | 🟢 verde |
 | FR-051 (`admin`) | Cada mutación admin deja exactamente una fila en `audit_log` con `actor_id` y `tenant_id` correctos; `tc_app` no puede UPDATE/DELETE y la API no expone rutas de modificación | Integración | `backend/test/admin.spec.ts` | 🟢 verde |
 
-**Recuento (2026-11-14):** 52 filas · 🟢 46 (88,5%) · 🟡 5 (9,6%) · 🔴 0 · ⚪ 1 (1,9%). FR-056/057/061 está en revisión con una prueba unitaria verde y validación de integración/E2E/caos pendiente; FR-058/059/061 siguen por implementar. De lo ya validado, **46/47 (97,9%) está en verde**.
+**Recuento (2026-11-14):** 52 filas · 🟢 47 (90,4%) · 🟡 4 (7,7%) · 🔴 0 · ⚪ 1 (1,9%). FR-056/057/061 está en revisión con una prueba unitaria verde y validación de integración/E2E/caos pendiente; FR-058/059/061 siguen por implementar. De lo ya validado, **47/48 (97,9%) está en verde**.
 
 > La única fila con ⚪ es **FR-034**, y solo por la parte de geolocalización, que la
 > Enmienda 004 sacó de V1; su parte vigente (asociación a faena) está en 🟢. FR-048
@@ -212,6 +212,7 @@ y nunca bloquea un PR. Informe por módulo en
 
 | Versión | Fecha | Cambio | Autor |
 | :--- | :--- | :--- | :--- |
+| 1.3.9 | 2026-11-14 | **TSK-FORM-024:** FR-066 a 🟢 (`templates-archivar.spec.ts`, `duplicar-formulario.test.ts`); recuento 52 filas (47 🟢) | Daniel Ávila (con IA) |
 | 1.3.8 | 2026-11-14 | **TSK-OFF-017:** reexportar desde Cola; evidencia en la fila FR-019/044 (`reexportar.test.ts`) | Daniel Ávila (con IA) |
 | 1.3.7 | 2026-11-14 | **TSK-OFF-015:** hallazgo directo; evidencia en la fila FR-009/032/036 (`hallazgo.test.ts`) | Daniel Ávila (con IA) |
 | 1.3.6 | 2026-11-14 | **TSK-OFF-016:** varias fotos por hallazgo; evidencia en las filas FR-062 (`attachments.spec.ts`, `hallazgo.test.ts`) | Daniel Ávila (con IA) |
