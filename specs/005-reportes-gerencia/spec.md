@@ -3,7 +3,7 @@
 | | |
 | :--- | :--- |
 | **Estado** | COMPLETO (ciclo del módulo, F2 · 2026-10-13) |
-| **Versión** | 0.8.1 |
+| **Versión** | 0.9.0 |
 | **Autor** | Daniel Ávila |
 | **Padre** | specs/000-master/spec.md |
 | **Depende de** | 003 (datos sincronizados + `SYNC_LOG`), 004 (dominio) |
@@ -112,6 +112,11 @@ La lista de inspecciones del período se apila como tarjetas en pantallas angost
 
 La fila principal de Gerencia muestra: **Por revisar** (inspecciones enviadas sin revisar y la más antigua), **Hallazgos urgentes** (alta o crítica sin resolver), **Plazos vencidos** (acciones correctivas abiertas con plazo pasado; `summary.hallazgos_vencidos`, sin recorte de período porque es deuda abierta, sí por faena) e **Inspecciones**. La latencia de procesamiento sigue en el bloque de sincronización. El listado de hallazgos tiene el atajo "Sólo vencidos".
 
+### 4.5 Tendencia y filtros en una barra (TSK-REP-012, FR-040/041)
+
+- **Tendencia:** `summary.tendencia_semanal` trae las últimas 8 semanas (lunes a domingo en UTC del servidor, de la más antigua a la actual) con inspecciones y hallazgos. Se filtra por faena y **no** por el período elegido, para que la tendencia se lea igual con cualquier filtro. Gerencia la muestra como barras con los números al lado; la semana en curso se rotula "Esta".
+- **Filtros:** faena, severidad y autor quedan en una sola barra de selectores sobre las métricas (antes eran tres columnas de tarjetas a mitad de página). El autor es un solo filtro para hallazgos e inspecciones; formulario y estado siguen junto a la lista de inspecciones.
+
 ## 5. Export (FR-042)
 
 - **CSV de la vista:** en el cliente, `frontend/src/lib/dashboard-csv.ts` serializa **exactamente lo filtrado en pantalla** (columnas `id, severidad, estado, faena, autor, capturado_at`, `text/csv;charset=utf-8`, escapado de comillas).
@@ -158,6 +163,7 @@ El alcance V1 del **resumen ejecutivo** es **read-only** y se apoya en las métr
 
 | Versión | Fecha | Cambio | Autor |
 | :--- | :--- | :--- | :--- |
+| 0.9.0 | 2026-11-14 | **TSK-REP-012:** `summary.tendencia_semanal` (8 semanas) y filtros de faena, severidad y autor en una barra | Daniel Ávila (con IA) |
 | 0.8.1 | 2026-11-14 | **TSK-OFF-016:** `fotos_ids` en hallazgos del listado y del detalle; hasta 3 miniaturas por hallazgo | Daniel Ávila (con IA) |
 | 0.8.0 | 2026-11-13 | **TSK-REP-011:** "Plazos vencidos" reemplaza a la latencia en la fila principal; `summary.hallazgos_vencidos`; filtro "Sólo vencidos" | Daniel Ávila (con IA) |
 | 0.7.1 | 2026-11-13 | **TSK-REP-010:** lista de inspecciones apilada en pantallas angostas | Daniel Ávila (con IA) |

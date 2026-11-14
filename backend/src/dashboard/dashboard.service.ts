@@ -86,7 +86,7 @@ export class DashboardService {
     const tenantId = u.tenant_id as string
     const { siteId, desde, hasta } = normalizeFiltro(filtros)
 
-    const [estados, porSev, sincronizaciones, conflictos, urgentes, autores, vencidos] = await Promise.all([
+    const [estados, porSev, sincronizaciones, conflictos, urgentes, autores, vencidos, tendencia] = await Promise.all([
       this.db.queryAsTenant<{ status: string; n: number }>(
         tenantId,
         `SELECT status, count(*)::int AS n
@@ -159,6 +159,27 @@ export class DashboardService {
             AND ($1::uuid IS NULL OR i.site_id = $1)`,
         [siteId],
       ),
+      // TSK-REP-012 (FR-040): inspecciones y hallazgos por semana (lunes a
+      // domingo, UTC del servidor) de las últimas 8, por faena y sin recorte
+      // de período: la tendencia se lee igual cualquiera sea el filtro elegido.
+      this.db.queryAsTenant<{ semana: string; inspecciones: number; hallazgos: number }>(
+        tenantId,
+        `SELECT to_char(s.semana, 'YYYY-MM-DD') AS semana,
+                (SELECT count(*)::int FROM inspection i
+                  WHERE i.captured_at >= s.semana AND i.captured_at < s.semana + interval '7 days'
+                    AND ($1::uuid IS NULL OR i.site_id = $1)) AS inspecciones,
+                (SELECT count(*)::int FROM finding f
+                   LEFT JOIN inspection i ON i.id = f.inspection_id
+                  WHERE f.captured_at >= s.semana AND f.captured_at < s.semana + interval '7 days'
+                    AND ($1::uuid IS NULL OR i.site_id = $1)) AS hallazgos
+           FROM generate_series(
+                  date_trunc('week', now()) - interval '7 weeks',
+                  date_trunc('week', now()),
+                  interval '1 week'
+                ) AS s(semana)
+          ORDER BY s.semana`,
+        [siteId],
+      ),
     ])
 
     const porEstado = { draft: 0, in_progress: 0, submitted: 0, reviewed: 0 }
@@ -178,6 +199,7 @@ export class DashboardService {
       hallazgos_por_severidad: porSeveridad,
       hallazgos_urgentes: urgentes[0]?.n ?? 0,
       hallazgos_vencidos: vencidos[0]?.n ?? 0,
+      tendencia_semanal: tendencia,
       hallazgos_total: totalHallazgos,
       conflictos_pendientes: conflictos[0]?.n ?? 0,
       sincronizaciones: sincronizaciones[0]?.n ?? 0,

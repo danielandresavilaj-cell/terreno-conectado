@@ -1,6 +1,6 @@
 # TEST PLAN — Plan de pruebas de validación
 
-**Versión:** 1.3.9 · **Fecha:** 2026-09-14 · actualizado 2026-11-13 · **Autor:** Raúl González (validación) · **Relacionado:** spec maestro §5–6, constitución Artículos III/IV/VII
+**Versión:** 1.3.10 · **Fecha:** 2026-09-14 · actualizado 2026-11-13 · **Autor:** Raúl González (validación) · **Relacionado:** spec maestro §5–6, constitución Artículos III/IV/VII
 **Evidencia APT:** "Plan de pruebas de validación" (informe §6) y soporte de la competencia "Realizar pruebas de certificación de productos y procesos".
 
 ## 1. Principio rector
@@ -52,7 +52,7 @@ verde.
 | FR-058/061 | Evento crítico/cierre/programación crea una outbox única; fallo del proveedor reintenta sin cambiar la inspección ni duplicar correo lógico; destinatario cross-tenant no es visible | Unit + Integración + caos | Plan: `plans/008-operacion-certificada/plan.md` §2.3/§4 | 🟡 por implementar (Enmienda 007) |
 | FR-034 | *(Enmienda 004: sin geolocalización)* Cada captura queda asociada a una faena del tenant; el envío ya no pide ubicación y el sync sigue aceptando `location` nulo de colas antiguas | Integración + Unit | `backend/test/sync.spec.ts` (location opcional); *(TSK-OFF-010)* `frontend/test/faena.test.ts`: la sesión arranca en la faena del borrador, la última elegida o la primera (pidiendo elegir), y no se cambia de faena con una inspección sin enviar | ⚪ geolocalización fuera de V1 · 🟢 asociación a faena |
 | FR-040/043, NFR-03 | Procesamiento del lote ≤ 60 s (`sync_log`) y espera sin señal informada aparte, ambas con un solo reloj (Enmienda 004, TSK-REP-006) | Integración con relojes de dispositivo desfasados | `backend/test/dashboard-supervision.spec.ts` + `frontend/test/supervision-titulares.test.ts` | ✅ |
-| FR-041 | Dashboard: filtros de faena, rango de fechas, severidad y autor | Integración | `backend/test/dashboard.spec.ts` (`dashboardFiltrosSchema`, `findingsFiltrosSchema.autor_id`) | 🟢 verde |
+| FR-041 | Dashboard: filtros de faena, rango de fechas, severidad y autor | Integración | `backend/test/dashboard.spec.ts` (`dashboardFiltrosSchema`, `findingsFiltrosSchema.autor_id`); *(TSK-REP-012)* tendencia semanal por faena y sin recorte de período: `backend/test/dashboard-tendencia.spec.ts` | 🟢 verde |
 | FR-042 | Export de la vista de hallazgos a CSV (columnas y escapado) | Unit | `frontend/src/lib/dashboard-csv.ts` (`construirCsvHallazgos`) + `frontend/test/dashboard-csv.test.ts` | 🟢 verde |
 | FR-052, NFR-09 | `/health` responde 200 con estado de DB (503 con DB caída); uptime monitor lo consume; logs JSON con `request_id` y `tenant_id` en cada línea | Integración + manual | `backend/test/health.spec.ts` + `backend/test/observability.spec.ts` | 🟢 verde |
 | FR-053/054 | `tenant_admin` crea cuentas con clave temporal, desactiva/reactiva, cambia rol, restablece; crea/renombra faenas; otra empresa recibe 404 aunque conozca el id; `field_worker` 403 | Integración | `backend/test/users.spec.ts`; *(TSK-ADM-002)* `frontend/test/alta-masiva.test.ts`: lectura de la planilla, rechazos con motivo y CSV de claves | 🟢 verde |
@@ -212,6 +212,7 @@ y nunca bloquea un PR. Informe por módulo en
 
 | Versión | Fecha | Cambio | Autor |
 | :--- | :--- | :--- | :--- |
+| 1.3.10 | 2026-11-14 | **TSK-REP-012:** tendencia semanal y filtros en una barra; evidencia en la fila FR-041 (`dashboard-tendencia.spec.ts`) | Daniel Ávila (con IA) |
 | 1.3.9 | 2026-11-14 | **TSK-FORM-024:** FR-066 a 🟢 (`templates-archivar.spec.ts`, `duplicar-formulario.test.ts`); recuento 52 filas (47 🟢) | Daniel Ávila (con IA) |
 | 1.3.8 | 2026-11-14 | **TSK-OFF-017:** reexportar desde Cola; evidencia en la fila FR-019/044 (`reexportar.test.ts`) | Daniel Ávila (con IA) |
 | 1.3.7 | 2026-11-14 | **TSK-OFF-015:** hallazgo directo; evidencia en la fila FR-009/032/036 (`hallazgo.test.ts`) | Daniel Ávila (con IA) |
