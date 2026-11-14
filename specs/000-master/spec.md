@@ -3,8 +3,8 @@
 | | |
 | :--- | :--- |
 | **ID** | 000-master |
-| **Versión** | 1.11.0 · Enmienda 008 (evidencia, bitácora, acción correctiva, faenas por cuenta y archivo de formularios) |
-| **Estado** | APROBADO — Raúl González (2026-09-24) y Daniel Ávila (2026-10-13) · Enmiendas 003–006 firmadas por Daniel Ávila, pendientes de ratificación de Raúl González · Enmienda 007 propuesta por Raúl González y aprobada por Daniel Ávila el 2026-11-12; B está en revisión y C–E se implementan por tareas · Enmienda 008 firmada por Daniel Ávila el 2026-11-13, pendiente de ratificación de Raúl González |
+| **Versión** | 1.12.0 · Enmienda 009 (resumen de Gerencia redactado con IA) |
+| **Estado** | APROBADO — Raúl González (2026-09-24) y Daniel Ávila (2026-10-13) · Enmiendas 003–006 firmadas por Daniel Ávila, pendientes de ratificación de Raúl González · Enmienda 007 propuesta por Raúl González y aprobada por Daniel Ávila el 2026-11-12; B está en revisión y C–E se implementan por tareas · Enmienda 008 firmada por Daniel Ávila el 2026-11-13, pendiente de ratificación de Raúl González · Enmienda 009 propuesta por Daniel Ávila el 2026-11-15, pendiente de ratificación de Raúl González |
 | **Autores** | Daniel Ávila (datos/negocio) · Raúl González (infra/plataforma) |
 | **Fuente** | Informe de Definición APT, Fase 1 (2026-09-04) |
 | **Specs derivados** | 001-auth-tenancy · 002-captura-offline · 003-motor-sincronizacion · 004-dominio-inspecciones · 005-reportes-gerencia · 006-admin-plataforma · 007-formularios-dinamicos |
@@ -74,7 +74,7 @@ flowchart LR
 
 Convención EARS en español: ubicuo (`EL SISTEMA DEBERÁ…`), evento (`CUANDO…`), estado (`MIENTRAS…`), no deseado (`SI… ENTONCES…`), opcional (`DONDE…`).
 
-> **Nota de numeración:** los IDs FR se numeran por bloques de módulo, dejando huecos **reservados** a propósito para ampliaciones futuras sin renumerar. La **Enmienda 002** (módulo 007 — formularios dinámicos) ocupó los bloques **007–009, 018–019, 027–029, 036–039 y 044–049**; la **Enmienda 007** ocupa el bloque **056–061** para operación certificada; la **Enmienda 008** abre el bloque **062–069** para el plan de mejora de producto.
+> **Nota de numeración:** los IDs FR se numeran por bloques de módulo, dejando huecos **reservados** a propósito para ampliaciones futuras sin renumerar. La **Enmienda 002** (módulo 007 — formularios dinámicos) ocupó los bloques **007–009, 018–019, 027–029, 036–039 y 044–049**; la **Enmienda 007** ocupa el bloque **056–061** para operación certificada; la **Enmienda 008** abre el bloque **062–069** para el plan de mejora de producto, donde la **Enmienda 009** ocupa FR-068.
 
 ### 5.1 Módulo 001 — Autenticación y tenancy
 
@@ -154,6 +154,7 @@ Convención EARS en español: ubicuo (`EL SISTEMA DEBERÁ…`), evento (`CUANDO�
 - **FR-065** *(Enmienda 008)* EL SISTEMA DEBERÁ permitir al `tenant_admin` limitar las faenas en que puede capturar cada cuenta `field_worker` o `supervisor`; una cuenta sin faenas asignadas puede capturar en todas las faenas de su empresa. La limitación se aplica a la lista de faenas que recibe el dispositivo; la ingesta de sincronización no rechaza capturas ya hechas (Art. III).
 - **FR-066** *(Enmienda 008)* EL SISTEMA DEBERÁ permitir al `tenant_admin` archivar y restaurar un formulario (archivado, deja de entregarse a los dispositivos y de ofrecerse para asignar, y conserva sus revisiones, asignaciones e inspecciones) y duplicar un formulario publicado como uno nuevo e independiente. Cada archivo y restauración queda en el audit log.
 - **FR-067** *(Enmienda 008)* CUANDO a una cuenta de la empresa se le asigna un hallazgo, EL SISTEMA DEBERÁ mostrárselo en una sección propia con aviso de "nuevo" (también sin señal, desde la última lista recibida) y permitirle empezarlo y reportar lo que hizo; el reporte necesita conexión y no resuelve el hallazgo: lo resuelve la supervisión (FR-064). Cada avance queda en el audit log.
+- **FR-068** *(Enmienda 009)* DONDE la IA esté configurada en el servidor, EL SISTEMA DEBERÁ permitir al `supervisor` y al `tenant_admin` generar a pedido un resumen redactado del panel de Gerencia para la faena y el período filtrados, a partir sólo de las cifras agregadas del panel (sin nombres de personas, textos de terreno ni fotos). El resumen DEBERÁ indicar que fue generado con IA y no DEBERÁ modificar datos de negocio. EL SISTEMA DEBERÁ guardar cada resumen y mostrar el último guardado del mismo filtro sin volver a redactarlo mientras las cifras no cambien (y marcarlo desactualizado cuando cambien), conservar los anteriores como historial, respetar un tope diario por empresa y registrar cada redacción en el audit log; sin IA o sin conexión, el panel funciona igual.
 
 ### 5.6 Módulo 006 — Administración plataforma
 
@@ -225,7 +226,7 @@ Fuera de alcance explícito — cualquier inclusión requiere enmienda a este sp
 - SSO corporativo (SAML/OIDC con el IdP del cliente).
 - Notificaciones push.
 - Colaboración en tiempo real (edición simultánea con merge fino/CRDT — V1 usa LWW + auditoría).
-- OCR de formularios de papel escaneados y analítica con IA — **V2 opcional** *(Enmienda 005: importar Word `.docx` y PDF con texto o rellenable entra en V1.2. Enmienda 006: leer fotos de pautas en papel y PDF escaneados entra en V1.3 con un motor de IA opcional; la analítica con IA sigue en V2)* tras feature flag `ai` (off por defecto, ejecución solo en backend; ver FR-048 y ADR-003).
+- OCR de formularios de papel escaneados y analítica con IA — **V2 opcional** *(Enmienda 005: importar Word `.docx` y PDF con texto o rellenable entra en V1.2. Enmienda 006: leer fotos de pautas en papel y PDF escaneados entra en V1.3 con un motor de IA opcional; la analítica con IA sigue en V2)* tras feature flag `ai` (off por defecto, ejecución solo en backend; ver FR-048 y ADR-003). *(Enmienda 009: el resumen redactado del panel de Gerencia entra en V1.4, FR-068; el resto de la analítica con IA sigue fuera.)*
 - Integración con ERPs mineros reales.
 - Despliegue productivo multi-región, alta disponibilidad, backups gestionados (se documentan como diseño "real" en ADRs, no se pagan).
 - Alta self-service de empresas, invitaciones y recuperación de clave por correo (V1 usa clave temporal entregada por un administrador; FR-053/055).
@@ -283,6 +284,14 @@ Fuera de alcance explícito — cualquier inclusión requiere enmienda a este sp
 > - **FR-005 (2026-11-15, aclaración, TSK-AUTH-012):** "5 veces consecutivas" se cumple también después de un bloqueo: al vencer los 15 minutos el contador de la cuenta reinicia, así que un solo error ya no vuelve a bloquearla. El `423` dice los minutos que faltan y el teléfono los muestra.
 > - **FR-067 (2026-11-15, prueba en terreno, TSK-DOM-008):** un hallazgo asignado no le aparecía en ninguna parte a su responsable. La pestaña "Hallazgos" lista los asignados (`GET /api/v1/findings/asignados`, guardados en el teléfono para verlos sin señal) con un punto de aviso y un mensaje en Formularios. El responsable lo empieza y reporta lo que hizo (`PATCH /api/v1/findings/:id/avance`, migración 023: `assigned_at`, `progress_note`, `reported_at`); "listo para revisar" = en curso + reportado. Supervisión lo verifica y lo resuelve; reabrirlo quita el "listo" y reasignarlo borra el avance. El responsable ve las fotos de sus hallazgos. El estado del hallazgo no cambia de dominio y la ingesta de sync no toca las columnas nuevas. Cerrar hallazgos sin señal y la notificación push quedan fuera (plan de mejora 2.3).
 
+> **Enmienda 009 (2026-11-15, resumen de Gerencia con IA).** Reabre lo que el spec 005 §7 dejó como post-V1, con el costo y la privacidad ya resueltos por el ADR-005 (Enmienda 1).
+>
+> - **Entra a alcance:** FR-068. Un botón en Gerencia pide un resumen de tres partes —titular, 2 a 4 puntos con cifras y la acción más urgente— para la faena y el período del filtro (TSK-REP-014). Se agrega el período "Semana anterior" (lunes a domingo).
+> - **Qué sale del sistema:** sólo las cifras agregadas del panel, el nombre de la faena y el período. Nunca nombres de personas, autores, textos de hallazgos o bitácora, ni fotos.
+> - **Costo (NFR-08):** el modelo pequeño del ADR-005 (`IA_MODELO`) y un tope diario por empresa (`IA_TOPE_RESUMEN_DIARIO`, 20 por omisión). Cada resumen se guarda: quien mire el mismo filtro lo ve al instante y, si las cifras no cambiaron, no se vuelve a llamar a la API ni cuenta para el tope. Un período cerrado (semana o mes anterior) se redacta una vez y sólo se actualiza si llegan datos sincronizados tarde.
+> - **Modelo de datos:** migración 024, tabla `resumen_ia` con RLS (resúmenes e historial). Cada redacción deja además una fila en `audit_log` (`dashboard_resumen_ia`).
+> - **Offline (Art. I):** la captura no se toca. Sin conexión o sin clave, el botón no aparece o queda deshabilitado y el panel funciona igual.
+
 ## 11. Supuestos y restricciones
 
 - Sin acceso a faenas reales: datos simulados (semillas + faker es-CL) y escenarios de desconexión simulados (informe APT §3.5).
@@ -334,6 +343,7 @@ La demo se considera exitosa si, en vivo ante el docente:
 
 | Versión | Fecha | Cambio | Autor |
 | :--- | :--- | :--- | :--- |
+| 1.12.0 | 2026-11-15 | **Enmienda 009 — FR-068 (TSK-REP-014):** resumen de Gerencia redactado con IA a partir de las cifras agregadas del panel; reabre lo que el spec 005 §7 dejó post-V1. Propuesta por Daniel Ávila, pendiente de ratificación de Raúl González | Daniel Ávila (con IA) |
 | 1.11.0 | 2026-11-15 | **Enmienda 008 (ampliación) — FR-067 (TSK-DOM-008):** el responsable de un hallazgo lo ve en "Hallazgos", lo empieza y reporta lo que hizo; supervisión cierra (migración 023) | Daniel Ávila (con IA) |
 | 1.10.2 | 2026-11-15 | **Aclaración de FR-005 (TSK-AUTH-012):** un bloqueo cumplido reinicia el contador de fallos y el `423` informa los minutos que faltan | Daniel Ávila (con IA) |
 | 1.10.1 | 2026-11-15 | **Aclaración de FR-056 y FR-024 (TSK-OFF-018, #239):** la firma sale del teléfono siempre válida (marco 1000 × 500 con una sola escala, ≥2 puntos por trazo, ≤32 trazos, ≤1024 puntos) y las ya encoladas se ajustan al enviar; un lote rechazado guarda su motivo en `sync_log.error_message` (migración 022) y la supervisión lo ve en Conflictos. Sin cambio de alcance | Daniel Ávila (con IA) |

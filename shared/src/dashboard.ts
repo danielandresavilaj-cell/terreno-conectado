@@ -113,6 +113,51 @@ export interface DashboardSummary {
   sincronizaciones: number
 }
 
+/* ── Resumen de Gerencia con IA (TSK-REP-014, FR-068, Enmienda 009) ──────── */
+
+/** Si hay IA y cuántos resúmenes le quedan hoy a la empresa. */
+export interface EstadoResumenIA {
+  disponible: boolean
+  restantes_hoy: number
+  tope_diario: number
+}
+
+/** Salida del redactor: lo que se muestra en Gerencia. */
+export const resumenIASalidaSchema = z.object({
+  titular: z.string().trim().min(1).max(200),
+  puntos: z.array(z.string().trim().min(1).max(400)).min(1).max(4),
+  atencion: z.string().trim().min(1).max(300).nullable(),
+})
+export type ResumenIASalida = z.infer<typeof resumenIASalidaSchema>
+
+/** Un resumen guardado (tabla `resumen_ia`). */
+export interface ResumenIA extends ResumenIASalida {
+  id: string
+  modelo: string
+  generado_en: string
+  /** Faena del resumen, o "Todas las faenas". */
+  faena: string
+  /** Período exacto (ISO) con que se redactó; `null` = sin límite. */
+  desde: string | null
+  hasta: string | null
+  /** El período ya había terminado cuando se redactó (semana o mes anterior, rango pasado). */
+  cerrado: boolean
+  /** true = ya existía con estas mismas cifras: no se llamó a la API ni contó para el tope. */
+  desde_cache: boolean
+  /** true = las cifras de hoy ya no son las del resumen (llegaron datos nuevos). */
+  desactualizado: boolean
+}
+
+/** `GET /api/v1/dashboard/resumen-ia`: estado de la IA y el último resumen guardado del filtro. */
+export interface ConsultaResumenIA extends EstadoResumenIA {
+  guardado: ResumenIA | null
+}
+
+/** `GET /api/v1/dashboard/resumen-ia/historial`: los últimos resúmenes guardados. */
+export interface HistorialResumenIA {
+  items: ResumenIA[]
+}
+
 export interface DashboardFindingsResponse {
   items: FindingDto[]
   total: number

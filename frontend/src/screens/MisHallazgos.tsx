@@ -283,7 +283,7 @@ function DetalleHallazgo({
           {plazo.texto}
         </p>
 
-        <dl className="mt-5 grid gap-3 rounded-xl border border-line-soft bg-s1 p-4 text-[14px]">
+        <dl className="mt-5 grid grid-cols-1 gap-3 rounded-xl border border-line-soft bg-s1 p-4 text-[14px] [overflow-wrap:anywhere]">
           {h.pregunta && (
             <div>
               <dt className="label-inst">Pregunta</dt>

@@ -54,6 +54,7 @@ services:
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       IA_MODELO: ${IA_MODELO:-claude-haiku-5-5}
       IA_TOPE_DIARIO: ${IA_TOPE_DIARIO:-20}
+      IA_TOPE_RESUMEN_DIARIO: ${IA_TOPE_RESUMEN_DIARIO:-20}
     volumes:
       - sync_data:/data/sync
     expose:

@@ -24,12 +24,15 @@ import type {
   DashboardFindingsResponse,
   DashboardSummary,
   DashboardSupervision,
+  ConsultaResumenIA,
   ExportarInspeccionesBody,
   HallazgoAsignadoDto,
   InspectionDetalle,
   InspectionsResponse,
   ListConflictsResponse,
   ListEnviosRechazadosResponse,
+  HistorialResumenIA,
+  ResumenIA,
   SitesResponse,
   TemplateAssignmentDto,
   TemplateAssignmentRole,
@@ -303,6 +306,24 @@ export function getSupervision(f: DashboardFiltros = {}): Promise<DashboardSuper
 }
 
 /** TSK-REP-009 (FR-063): bitácora de la empresa por faena y período. */
+/** TSK-REP-014 (FR-068): estado de la IA y el último resumen guardado del filtro (no llama a la IA). */
+export function consultarResumenIA(f: DashboardFiltros = {}): Promise<ConsultaResumenIA> {
+  return apiFetch<ConsultaResumenIA>(`/dashboard/resumen-ia${qsFiltros(f)}`)
+}
+
+/** TSK-REP-014 (FR-068): los últimos resúmenes guardados, de una faena o de todas. */
+export function getHistorialResumenIA(siteId?: string | null): Promise<HistorialResumenIA> {
+  return apiFetch<HistorialResumenIA>(`/dashboard/resumen-ia/historial${qsFiltros({ site_id: siteId ?? undefined })}`)
+}
+
+/** TSK-REP-014 (FR-068): el resumen guardado si las cifras no cambiaron; si no, uno nuevo. */
+export function pedirResumenIA(f: DashboardFiltros = {}): Promise<ResumenIA> {
+  return apiFetch<ResumenIA>('/dashboard/resumen-ia', {
+    method: 'POST',
+    body: { site_id: f.site_id ?? undefined, desde: f.desde ?? undefined, hasta: f.hasta ?? undefined },
+  })
+}
+
 export function getBitacora(f: DashboardFiltros & { limit?: number; offset?: number } = {}): Promise<BitacoraResponse> {
   return apiFetch<BitacoraResponse>(`/dashboard/bitacora${qsFiltros(f, { limit: f.limit, offset: f.offset })}`)
 }

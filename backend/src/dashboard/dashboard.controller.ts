@@ -1,5 +1,6 @@
 import { SupervisionDashboardService } from './supervision-dashboard.service'
-import type { DashboardSupervision } from '@terreno/shared'
+import type { ConsultaResumenIA, DashboardSupervision, HistorialResumenIA, ResumenIA } from '@terreno/shared'
+import { ResumenIAService } from './resumen-ia.service'
 /**
  * Endpoints de lectura del dashboard del supervisor (spec 005, TSK-WS-011) y de
  * la exportación de inspecciones (TSK-FORM-010, FR-044/045/046/047).
@@ -16,6 +17,9 @@ import type { DashboardSupervision } from '@terreno/shared'
  *    hallazgo, para verla en pantalla (FR-062, TSK-REP-008)
  *  · `GET /api/v1/dashboard/bitacora` — bitácora de la empresa por faena y
  *    período, legible también por trabajadores (FR-063, TSK-REP-009)
+ *  · `GET|POST /api/v1/dashboard/resumen-ia` y `GET …/resumen-ia/historial`
+ *    — resumen del panel redactado con IA a partir de cifras agregadas, guardado
+ *    para reutilizarlo (FR-068, TSK-REP-014). Escribe `resumen_ia` y `audit_log`.
  *  · `GET /api/v1/sites`              — faenas/obras del tenant (FR-006)
  *
  * El dashboard no escribe datos de negocio (el flujo es Captura → Sync →
@@ -79,7 +83,31 @@ export class DashboardController {
     @Inject(InspectionExportLoteService) private readonly lote: InspectionExportLoteService,
     @Inject(SupervisionDashboardService) private readonly supervision: SupervisionDashboardService,
     @Inject(InspectionReportService) private readonly informes: InspectionReportService,
+    @Inject(ResumenIAService) private readonly resumenIA: ResumenIAService,
   ) {}
+
+  /** TSK-REP-014 (FR-068): estado de la IA y el último resumen guardado del filtro (no llama a la IA). */
+  @UseGuards(AuthGuard)
+  @Get('dashboard/resumen-ia')
+  consultarResumenIA(@Req() req: AuthedRequest, @Query() q: Record<string, unknown>): Promise<ConsultaResumenIA> {
+    return this.resumenIA.consultar(req.user as JwtClaims, { site_id: s(q.site_id), desde: s(q.desde), hasta: s(q.hasta) })
+  }
+
+  /** TSK-REP-014 (FR-068): los últimos resúmenes guardados (no llama a la IA). */
+  @UseGuards(AuthGuard)
+  @Get('dashboard/resumen-ia/historial')
+  historialResumenIA(@Req() req: AuthedRequest, @Query() q: Record<string, unknown>): Promise<HistorialResumenIA> {
+    return this.resumenIA.historial(req.user as JwtClaims, s(q.site_id))
+  }
+
+  /** TSK-REP-014 (FR-068): el guardado si las cifras no cambiaron; si no, uno nuevo. */
+  @UseGuards(AuthGuard)
+  @Post('dashboard/resumen-ia')
+  @HttpCode(200)
+  generarResumenIA(@Req() req: AuthedRequest, @Body() body: Record<string, unknown> | undefined): Promise<ResumenIA> {
+    const b = body ?? {}
+    return this.resumenIA.generar(req.user as JwtClaims, { site_id: s(b.site_id), desde: s(b.desde), hasta: s(b.hasta) })
+  }
 
   /** TSK-REP-006: los cuatro bloques accionables del dashboard de supervisión. */
   @UseGuards(AuthGuard)

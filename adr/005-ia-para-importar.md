@@ -42,3 +42,16 @@ Agregar un **motor de IA opcional**, solo en el backend, que llama a la API de C
 - **Requiere internet y una cuenta de API con crédito.** Si no hay crédito o la API está caída, el import queda `failed` con un mensaje en español y el usuario sigue con las reglas. La captura en terreno no depende de la IA (Art. I).
 - **Datos que salen del sistema:** la pauta en blanco va a Anthropic. Hay que declararlo en el informe y a cada empresa cliente.
 - **Cambiar de modelo** se hace con una variable de entorno, sin tocar código. Cambiar de proveedor exige solo otra implementación de `AnalizadorIA`.
+
+## Enmienda 1 (2026-11-15): resumen de Gerencia (FR-068, TSK-REP-014)
+
+**Estado:** PROPUESTA por Daniel Ávila (con IA), pendiente de ratificación de Raúl González.
+
+La misma decisión se extiende a un segundo uso: redactar en lenguaje simple las cifras del panel de Gerencia.
+
+- **Qué se envía:** sólo las cifras agregadas que el panel ya calcula (inspecciones por estado, hallazgos por severidad, urgentes, vencidos, conflictos pendientes, sincronizaciones y tendencia de 8 semanas), el nombre de la faena y el período. **No se envían** nombres de personas ni autores, textos de hallazgos o bitácora, ni fotos. La regla "sólo sale la pauta en blanco" pasa a ser "sólo salen pautas en blanco y cifras agregadas".
+- **Propone y no guarda:** el resumen se muestra marcado "generado con IA" y no modifica ningún dato de negocio.
+- **Costo:** mismo modelo (`IA_MODELO`, `claude-haiku-5-5` por omisión), esfuerzo bajo y salida corta: del orden de USD 0,001 por resumen. Tope propio por empresa, `IA_TOPE_RESUMEN_DIARIO` (20 cada 24 h por omisión), contado desde `audit_log` (`dashboard_resumen_ia`), separado del tope del import para que un uso no deje sin cupo al otro.
+- **Se guarda y se reutiliza:** cada resumen queda en la tabla `resumen_ia` (migración 024, RLS) con la huella de las cifras que se enviaron. El mismo filtro muestra el último guardado sin llamar a la IA; sólo se redacta otro si las cifras cambiaron. Un período cerrado no envía lo que se mide "a hoy" (tendencia, plazos vencidos), así que su resumen sólo cambia si llegan datos sincronizados tarde. Se guarda texto redactado, no datos nuevos: lo que sale hacia la IA no cambia.
+- **Tests:** como el import, el redactor es un provider de Nest (`REDACTOR_RESUMEN`) y la CI inyecta uno falso.
+- **Declaración:** el informe y el aviso a cada empresa cliente deben mencionar que las cifras agregadas del panel se envían a Anthropic cuando alguien pide el resumen.

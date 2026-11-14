@@ -1,6 +1,6 @@
 # DATA MODEL — Modelo conceptual de datos
 
-**Versión:** 1.9.0 (Enmienda 008) · **Fecha:** 2026-09-14 · actualizado 2026-11-15 · **Autor:** Daniel Ávila · **Relacionado:** spec maestro §5/§7, specs 001–007, ADR-003
+**Versión:** 1.10.0 (Enmienda 009) · **Fecha:** 2026-09-14 · actualizado 2026-11-15 · **Autor:** Daniel Ávila · **Relacionado:** spec maestro §5/§7, specs 001–007, ADR-003
 **Evidencia APT:** "Modelo conceptual de datos preliminar" (informe §6).
 **Reglas transversales:** toda tabla de dominio lleva `tenant_id UUID NOT NULL` + política RLS (Artículo IV); IDs `UUIDv7` generados en el cliente cuando el registro nace offline (FR-015); timestamps `created_at`, `updated_at` (servidor) y `captured_at` (cliente, autoridad para LWW — FR-023).
 
@@ -166,6 +166,8 @@ erDiagram
 
 **CONFLICT_RECORD** — `id, tenant_id, entity_type, entity_id, winner_payload JSONB, loser_payload JSONB, resolution ENUM(lww), resolved_at, sync_log_id, reviewed_at NULL, reviewed_by NULL`. Ambas versiones conservadas (FR-023, Artículo III); append-only en su contenido (REVOKE DELETE desde `tc_app`, TSK-WS-009); sólo se registra quién lo revisó y cuándo (TSK-DOM-005).
 
+**RESUMEN_IA (resúmenes de Gerencia guardados)** *(Enmienda 009, FR-068, migración 024)* — `id UUID, tenant_id UUID FK→TENANT, site_id UUID FK→SITE NULL (NULL = todas las faenas), alcance TEXT (faena + primer y último día del período en hora de Chile), desde/hasta TIMESTAMPTZ NULL, cerrado BOOL, cifras_hash TEXT(64), contenido JSONB {titular, puntos, atencion}, modelo TEXT, tokens_entrada/tokens_salida INT, generado_por UUID FK→USER NULL, generado_en`; RLS por `tenant_id`; índice `(tenant_id, alcance, generado_en DESC)`. Append-only en la práctica: actualizar un resumen agrega otra fila y las anteriores quedan como historial. Para un filtro se muestra la última fila del `alcance`; si `cifras_hash` coincide con las cifras de hoy, pedirlo de nuevo la devuelve sin llamar a la IA. Guarda sólo texto redactado por la IA a partir de cifras agregadas: ninguna persona ni dato de terreno (ADR-005, Enmienda 1).
+
 **AUDIT_LOG** (append-only, FR-051) — `id, tenant_id NULL, actor_id, action TEXT, entity_type, entity_id, payload JSONB, occurred_at`. Sin UPDATE/DELETE (permisos DB).
 
 ### 2.4 Cliente local (IndexedDB/Dexie — no es PostgreSQL)
@@ -212,6 +214,7 @@ CREATE POLICY tenant_isolation ON inspection
 
 | Versión | Fecha | Cambio |
 | :--- | :--- | :--- |
+| 1.10.0 | 2026-11-15 | **Enmienda 009 (FR-068, TSK-REP-014):** migración 024 — tabla `resumen_ia` con RLS (resúmenes de Gerencia guardados para reutilizar y como historial) | Daniel Ávila (con IA) |
 | 1.9.0 | 2026-11-15 | **Enmienda 008 (FR-067, TSK-DOM-008):** migración 023 — `finding.assigned_at`, `progress_note`, `reported_at` (avance del responsable) |
 | 1.8.1 | 2026-11-15 | **TSK-OFF-018 (FR-024, FR-056):** migración 022 — `sync_log.error_message` guarda el motivo de un lote rechazado; marco y límites de `strokes_json` documentados |
 | 1.8.0 | 2026-11-14 | **Enmienda 008 (FR-065, TSK-ADM-003):** migración 021 — tabla `user_site` con RLS (faenas por cuenta) |
