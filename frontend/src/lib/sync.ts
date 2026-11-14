@@ -105,9 +105,9 @@ export async function fetchLote(
 let enCurso = false
 let retryTimer: number | undefined
 /**
- * El interruptor de señal del demo es una condición de negocio, no sólo un
- * cambio visual: si está apagado ningún lote puede salir, aunque el navegador
- * siga físicamente conectado a Internet.
+ * Barrera de transporte: la fija el store con el estado de la red real
+ * (`navigator.onLine` y sus eventos). Mientras está en `false` ningún lote ni
+ * reintento sale, aunque una petición pudiera llegar a resolverse.
  */
 let sincronizacionPermitida = true
 

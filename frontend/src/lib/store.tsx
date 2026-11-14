@@ -571,7 +571,7 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
   )
 
   /* Al volver la señal hay que traer el delta igual que al arrancar (FR-027):
-   * el evento `online` y el toggle del mockup disparan esta misma ruta, que
+   * el evento `online` del navegador dispara esta misma ruta, que
    * reutiliza el borrador congelado sin tocar su marco (FR-028). */
   const recargarPlantillas = useCallback(() => {
     if (!usuario) return
@@ -579,7 +579,7 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
   }, [usuario, cargarPlantilla])
 
   /* Salida explícita del bloqueo FR-028. El borrador congelado cuya revisión no
-   * llega (marco demo, o plantilla desasignada) no se puede resolver nunca;
+   * llega (p. ej. una plantilla desasignada) no se puede resolver nunca;
    * descartarlo es una decisión del usuario y la UI la pide confirmada. */
   const descartarBorradorYRecargar = useCallback(async () => {
     if (!usuario) return
@@ -1176,8 +1176,8 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
         setRespuestas({})
         setHayBorrador(false)
         await refrescar()
-        // FR-004: si hay señal la cola se drena; con el switch apagado
-        // `sincronizarAhora` no inicia ninguna conexión.
+        // FR-004: si hay señal la cola se drena; sin señal `sincronizarAhora`
+        // no inicia ninguna conexión y el envío queda guardado.
         void sincronizarAhora()
       } finally {
         envioInspeccionEnCurso.current = false

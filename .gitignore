@@ -17,6 +17,11 @@ build/
 .idea/
 .vscode/
 
+# Estado local de Claude Code (vista previa y registros de la herramienta).
+# Lo compartible se versionaría como `.claude/settings.json`; hoy no hay.
+.claude/launch.json
+.claude/.cc-writes/
+
 # Logs
 *.log
 

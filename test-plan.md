@@ -1,6 +1,6 @@
 # TEST PLAN — Plan de pruebas de validación
 
-**Versión:** 1.3.2 · **Fecha:** 2026-09-14 · actualizado 2026-11-13 · **Autor:** Raúl González (validación) · **Relacionado:** spec maestro §5–6, constitución Artículos III/IV/VII
+**Versión:** 1.3.4 · **Fecha:** 2026-09-14 · actualizado 2026-11-13 · **Autor:** Raúl González (validación) · **Relacionado:** spec maestro §5–6, constitución Artículos III/IV/VII
 **Evidencia APT:** "Plan de pruebas de validación" (informe §6) y soporte de la competencia "Realizar pruebas de certificación de productos y procesos".
 
 ## 1. Principio rector
@@ -92,10 +92,10 @@ verde.
 ```
 E2E + caos (Playwright, manual)           23 tests
 Integración backend (Vitest + Testcontainers) 273 tests
-Unidad frontend (Vitest)                     207 tests
+Unidad frontend (Vitest)                     208 tests
 Unidad shared (Vitest)                        92 tests
                                            ───────────────
-                                           595 tests   (v1.4, cierre del plan de mejora, 2026-11-13)
+                                           596 tests   (v1.4, TSK-OFF-014, 2026-11-14)
 ```
 
 > El criterio de salida de Fase 2 (§8) pide "matriz §3 ≥ 90% verde": hoy está en
@@ -210,6 +210,7 @@ y nunca bloquea un PR. Informe por módulo en
 
 | Versión | Fecha | Cambio | Autor |
 | :--- | :--- | :--- | :--- |
+| 1.3.4 | 2026-11-14 | Encabezado y volumen al día tras TSK-OFF-014: frontend 208, total 596 | Daniel Ávila (con IA) |
 | 1.3.3 | 2026-11-13 | **TSK-OFF-014 (#221):** `cola-accesibilidad.test.ts` asegura que los tres desplegables de Cola mantienen objetivo táctil de 44 px y control nativo; suite frontend 39 archivos, 208 pruebas verdes | Raúl González (con IA) |
 | 1.3.2 | 2026-11-13 | Volumen contado en CI tras el plan de mejora (PR #218): backend 273, frontend 207, shared 92 y 23 E2E = 595. Corrige el total de backend estimado en 1.3.1 | Daniel Ávila (con IA) |
 | 1.3.1 | 2026-11-13 | **TSK-DOM-007 (Enmienda 008, FR-064):** fila FR-064 con `accion-correctiva.spec.ts` (7) y `plazo.test.ts` (3); recuento 50 filas (46 🟢); volumen 589 tests (backend 271 validados en CI, frontend 203 incluye TSK-OFF-011) | Daniel Ávila (con IA) |
