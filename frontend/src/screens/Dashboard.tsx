@@ -347,7 +347,9 @@ export function Dashboard() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="min-w-0 overflow-x-hidden space-y-6">
+      {/* TSK-OFF-020: Gerencia reúne tablas y filtros; nunca debe ampliar el
+          ancho del viewport móvil ni desplazar la cabecera tras un gesto táctil. */}
       <header className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <p className="label-inst">Gerencia</p>

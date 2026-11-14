@@ -2,7 +2,11 @@
 <html lang="es-CL" data-theme="dark">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <!-- TSK-OFF-020: en la PWA de terreno el pinch zoom dejaba la vista con
+         márgenes y encabezados fuera de escala. Se fija la escala: los
+         controles ya cumplen 44 px y los campos usan 16 px para seguir siendo
+         operables sin depender del zoom del navegador. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
     <meta name="theme-color" content="#0e0f11" />
     <!-- TSK-OFF-005: fija el tema claro/oscuro antes del primer pintado (archivo
          propio, compatible con la CSP `script-src 'self'`). -->

@@ -131,6 +131,10 @@
        los recortes con env(safe-area-inset-*). */
     -webkit-text-size-adjust: 100%;
     text-size-adjust: 100%;
+    /* Refuerzo para Android WebView/PWA: conserva los gestos de desplazamiento
+       y bloquea pinch-zoom, que rompe la grilla y las barras fijas al volver a
+       la escala original. La meta viewport es la defensa principal. */
+    touch-action: pan-x pan-y;
   }
 
   body {
@@ -142,6 +146,7 @@
     text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
     overscroll-behavior-y: none;
+    touch-action: pan-x pan-y;
   }
 
   /* Etiquetas de instrumento: versalitas monoespaciadas, nunca texto suelto.
