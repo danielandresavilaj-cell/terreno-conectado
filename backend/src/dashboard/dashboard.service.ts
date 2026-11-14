@@ -60,13 +60,22 @@ export class DashboardService {
   /* ------------------------------------------------------------ faenas */
 
   /** Faenas/obras del tenant + nombre del tenant (bootstrapea la captura offline, FR-006). */
-  async listSites(u: JwtClaims): Promise<SitesResponse> {
+  async listSites(u: JwtClaims, soloAsignadas = false): Promise<SitesResponse> {
     this.exigir(u, ['field_worker', 'supervisor', 'tenant_admin'])
+    // TSK-ADM-003 (FR-065): para capturar, una cuenta de terreno o supervisión
+    // ve sólo sus faenas asignadas; sin asignación, todas. El resumen del panel
+    // pide la lista completa (`soloAsignadas = false`): FR-065 no limita la supervisión.
+    const restringir = soloAsignadas && (u.rol === 'field_worker' || u.rol === 'supervisor')
     const rows = await this.db.queryAsTenant<SiteDto>(
       u.tenant_id as string,
-      `SELECT id, name AS nombre,
-              CASE kind WHEN 'mining' THEN 'mina' ELSE 'obra' END AS tipo
-         FROM site ORDER BY name`,
+      `SELECT s.id, s.name AS nombre,
+              CASE s.kind WHEN 'mining' THEN 'mina' ELSE 'obra' END AS tipo
+         FROM site s
+        WHERE NOT $1::boolean
+           OR NOT EXISTS (SELECT 1 FROM user_site us WHERE us.user_id = $2)
+           OR EXISTS (SELECT 1 FROM user_site us WHERE us.user_id = $2 AND us.site_id = s.id)
+        ORDER BY s.name`,
+      [restringir, u.sub],
     )
     const tenantId = u.tenant_id as string
     const ten = await this.db.queryOwner<{ id: string; name: string }>(

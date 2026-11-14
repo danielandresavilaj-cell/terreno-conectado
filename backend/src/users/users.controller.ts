@@ -9,6 +9,7 @@ import {
   Param,
   Patch,
   Post,
+  Put,
   Req,
   UseGuards,
 } from '@nestjs/common'
@@ -20,6 +21,7 @@ import { UUID_RE } from '../admin/contract'
 import {
   actualizarFaenaSchema,
   actualizarUsuarioSchema,
+  asignarFaenasSchema,
   crearFaenaSchema,
   crearUsuarioSchema,
   resetClaveSchema,
@@ -61,6 +63,7 @@ function parsear<S extends z.ZodType>(schema: S, value: unknown): z.output<S> {
  *  - POST  /api/v1/users                       (clave temporal)
  *  - PATCH /api/v1/users/:id                   (nombre, rol, activar/desactivar)
  *  - POST  /api/v1/users/:id/reset-password    (nueva clave temporal)
+ *  - PUT   /api/v1/users/:id/faenas            (faenas en que captura; [] = todas, FR-065)
  *  - POST  /api/v1/sites · PATCH /api/v1/sites/:id
  * El listado de faenas sigue siendo `GET /api/v1/sites` (dashboard).
  */
@@ -90,6 +93,17 @@ export class UsersController {
   ): Promise<UsuarioDto> {
     const { tenantId, actorId } = exigirAdminEmpresa(req)
     return this.users.actualizar(tenantId, actorId, exigirUuid(id), parsear(actualizarUsuarioSchema, body))
+  }
+
+  /** TSK-ADM-003 (FR-065): faenas en que puede capturar la cuenta; `[]` = todas. */
+  @Put('users/:id/faenas')
+  asignarFaenas(
+    @Req() req: AuthedRequest,
+    @Param('id') id: string,
+    @Body() body: unknown,
+  ): Promise<{ id: string; faena_ids: string[] }> {
+    const { tenantId, actorId } = exigirAdminEmpresa(req)
+    return this.users.asignarFaenas(tenantId, actorId, exigirUuid(id), parsear(asignarFaenasSchema, body).faena_ids)
   }
 
   @Post('users/:id/reset-password')

@@ -1,6 +1,6 @@
 # DATA MODEL — Modelo conceptual de datos
 
-**Versión:** 1.7.1 (Enmienda 008) · **Fecha:** 2026-09-14 · actualizado 2026-11-13 · **Autor:** Daniel Ávila · **Relacionado:** spec maestro §5/§7, specs 001–007, ADR-003
+**Versión:** 1.8.0 (Enmienda 008) · **Fecha:** 2026-09-14 · actualizado 2026-11-13 · **Autor:** Daniel Ávila · **Relacionado:** spec maestro §5/§7, specs 001–007, ADR-003
 **Evidencia APT:** "Modelo conceptual de datos preliminar" (informe §6).
 **Reglas transversales:** toda tabla de dominio lleva `tenant_id UUID NOT NULL` + política RLS (Artículo IV); IDs `UUIDv7` generados en el cliente cuando el registro nace offline (FR-015); timestamps `created_at`, `updated_at` (servidor) y `captured_at` (cliente, autoridad para LWW — FR-023).
 
@@ -71,6 +71,8 @@ erDiagram
 | token_hash | TEXT UNIQUE | hash del refresh token, nunca el token |
 | issued_at / expires_at | TIMESTAMPTZ | vigencia del refresh (30 días) |
 | revoked_at | TIMESTAMPTZ NULL | revocación explícita o por detección de reuso |
+
+**USER_SITE (faenas por cuenta)** *(Enmienda 008, FR-065, migración 021)* — `tenant_id UUID FK→TENANT, user_id UUID FK→USER, site_id UUID FK→SITE, created_by UUID FK→USER NULL, created_at`; PK `(user_id, site_id)`; RLS por `tenant_id`. Una cuenta **sin filas puede capturar en todas** las faenas de su empresa. La escribe sólo el `tenant_admin` (`PUT /users/:id/faenas`, reemplazo completo, auditado como `user_sites_updated`). Restringe `GET /sites` para `field_worker` y `supervisor`; la ingesta de sync no la consulta (Art. III).
 
 **SITE (Faena/Obra)**
 | Campo | Tipo | Notas |
@@ -210,6 +212,7 @@ CREATE POLICY tenant_isolation ON inspection
 
 | Versión | Fecha | Cambio |
 | :--- | :--- | :--- |
+| 1.8.0 | 2026-11-14 | **Enmienda 008 (FR-065, TSK-ADM-003):** migración 021 — tabla `user_site` con RLS (faenas por cuenta) |
 | 1.7.1 | 2026-11-14 | **FR-066 (TSK-FORM-024):** uso de `template.status = archived` para archivar formularios; sin migración |
 | 1.0.0 | 2026-09-14 | Modelo base (specs 001–006) |
 | 1.6.0 | 2026-11-12 | **Enmienda 007** (aprobada por Daniel Ávila el 2026-11-12): modelo previo a implementación para `inspection_signature`, `asset`, `inspection_schedule`, `scheduled_inspection` y `notification_outbox`; RLS, inmutabilidad e idempotencia explícitas | Raúl González (con IA) |
