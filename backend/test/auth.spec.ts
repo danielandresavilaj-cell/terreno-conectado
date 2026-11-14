@@ -2,7 +2,8 @@ import 'reflect-metadata'
 import { resolve } from 'node:path'
 import { PostgreSqlContainer } from '@testcontainers/postgresql'
 import type { StartedPostgreSqlContainer } from '@testcontainers/postgresql'
-import { Pool } from 'pg'
+import type { Pool } from 'pg'
+import { poolDePrueba } from './helpers/pool'
 import { runner } from 'node-pg-migrate'
 import type { INestApplication } from '@nestjs/common'
 import { Test } from '@nestjs/testing'
@@ -61,7 +62,7 @@ beforeAll(async () => {
     migrationsTable: 'pgmigrations',
   })
 
-  ownerPool = new Pool({ connectionString: ownerUrl })
+  ownerPool = poolDePrueba(ownerUrl)
   await seedDatabase(ownerPool)
   // El rol tc_app (NOLOGIN por defecto en las migraciones) se habilita para que
   // el backend se conecte como la app real en producción.
