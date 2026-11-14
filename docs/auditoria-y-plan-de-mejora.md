@@ -241,6 +241,8 @@ Todo lo siguiente está en `main`, con CI verde y desplegado en https://terrenoc
 | 3.5 Plantillas | TSK-FORM-023 | #218 | 🟡 vista previa · pendiente archivar y duplicar |
 | Desplegables de Cola a 44 px (seguimiento de 1.3) | TSK-OFF-014 (Raúl) | #222 | ✅ |
 
+**Planificado (bloque 4):** los pendientes chicos de 1.1, 1.2, 1.5, 1.7, 2.5 y 3.5 tienen plan ejecutable y validado en `plans/009-plan-mejora-bloque-4/` (tareas en `tasks/009-plan-mejora-bloque-4/`; FR-065 y FR-066 en la Enmienda 008).
+
 **No iniciado, y por qué:**
 
 - **1.4 (resto), 1.6 Varios borradores, 2.3 Bajada de hallazgos al dispositivo, 3.6 Lógica condicional:** cambian el modelo de borrador único o el contrato de sync, que son invariantes del Art. III (0 pérdidas, 0 duplicados). Necesitan su propio plan y pruebas de caos antes del código.
