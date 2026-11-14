@@ -974,7 +974,8 @@ function PanelDetalleInspeccion({
   const fotos = detalle
     ? [
         ...detalle.secciones.flatMap((seccion) => seccion.respuestas.map((respuesta) => respuesta.foto_id)),
-        ...detalle.hallazgos.map((hallazgo) => hallazgo.foto_id),
+        // TSK-OFF-016: un hallazgo puede traer hasta 5 fotos, no sólo la última.
+        ...detalle.hallazgos.flatMap((hallazgo) => hallazgo.fotos_ids),
       ].filter((foto): foto is string => foto !== null)
     : []
   const [revisando, setRevisando] = useState(false)
