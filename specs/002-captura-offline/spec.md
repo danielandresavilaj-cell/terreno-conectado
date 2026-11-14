@@ -3,7 +3,7 @@
 | | |
 | :--- | :--- |
 | **Estado** | COMPLETO (ciclo del módulo, F2 · 2026-10-13) |
-| **Versión** | 0.3.11 |
+| **Versión** | 0.3.12 |
 | **Autor** | Daniel Ávila |
 | **Padre** | specs/000-master/spec.md |
 | **Depende de** | 001 (sesión/tenant), 004 (plantillas a renderizar offline) |
@@ -68,7 +68,7 @@ Targets táctiles amplios, alto contraste para luz solar, y **autoguardado de bo
 
 **Lenguaje y legibilidad** (TSK-OFF-009): las pantallas hablan de formularios, preguntas, envíos y "este teléfono", no de plantillas dinámicas, caché, cola de sincronización ni identificadores internos. El texto secundario mide al menos 12 px y mantiene contraste ≥ 4,5:1 sobre todas las superficies en ambos temas; el borde de los campos y controles alcanza 3:1 (WCAG 1.4.11) con un token propio (`--color-campo`); los objetivos táctiles de captura, bitácora y navegación miden al menos 44 px; y el encabezado muestra el nombre y la faena de la sesión también en el teléfono.
 
-**Faena de la sesión** (TSK-OFF-010, FR-034): una cuenta pertenece a una empresa, no a una faena. Si la empresa tiene más de una, la pantalla Formularios muestra las faenas y la persona elige en cuál está; la app recuerda la elección por usuario y equipo. Al iniciar sesión manda, en este orden: la faena de la inspección en curso, la última elegida, la primera de la empresa (y en ese caso pregunta "¿En qué faena estás hoy?"). Cambiar de faena recarga los formularios asignados a ella (FR-009) y es la faena a la que queda asociada la próxima inspección; con una inspección sin enviar no se permite el cambio, porque el borrador ya nació asociado a su faena. Para que el cambio funcione sin conexión, al iniciar sesión con señal se guarda también el catálogo de formularios de las otras faenas (hasta 12); los documentos originales para exportar siguen bajándose sólo para la faena activa (FR-018). La bitácora parte en la faena de la sesión. Queda fuera de esta tarea restringir qué faenas puede elegir cada cuenta: hoy cualquier cuenta de la empresa puede elegir cualquiera de sus faenas, igual que el servidor acepta inspecciones de cualquier faena del tenant.
+**Faena de la sesión** (TSK-OFF-010, FR-034): una cuenta pertenece a una empresa, no a una faena. Si la empresa tiene más de una, la pantalla Formularios muestra las faenas y la persona elige en cuál está; la app recuerda la elección por usuario y equipo. Al iniciar sesión manda, en este orden: la faena de la inspección en curso, la última elegida, la primera de la empresa (y en ese caso pregunta "¿En qué faena estás hoy?"). Cambiar de faena recarga los formularios asignados a ella (FR-009) y es la faena a la que queda asociada la próxima inspección; con una inspección sin enviar no se permite el cambio, porque el borrador ya nació asociado a su faena. Para que el cambio funcione sin conexión, al iniciar sesión con señal se guarda también el catálogo de formularios de las otras faenas (hasta 12); los documentos originales para exportar siguen bajándose sólo para la faena activa (FR-018). La bitácora parte en la faena de la sesión. Desde TSK-ADM-003 (FR-065) el administrador puede limitar las faenas de cada cuenta: `GET /sites` devuelve sólo las asignadas (sin asignación, todas) y el selector trabaja con esa lista. Una elección guardada o un borrador de una faena que se le quitó a la cuenta se ignoran al elegir la faena inicial; la ingesta sigue aceptando capturas de cualquier faena del tenant, para no perder lo hecho sin señal.
 
 **Terreno en el teléfono** (TSK-OFF-011): en pantallas de teléfono, cuando el rol tiene cinco secciones o menos (el trabajador tiene cuatro), la navegación es una barra inferior al alcance del pulgar; el estado de señal y el acceso a la cuenta pasan a la barra superior, y la sección Cola muestra un punto cuando hay envíos pendientes (el número va en la descripción accesible). Con más secciones siguen las pestañas superiores y la barra de estado inferior. El ítem de foto muestra la miniatura de lo capturado con "Repetir" y "Quitar". Sin una elección guardada, el tema claro u oscuro sigue al del sistema.
 
@@ -113,6 +113,7 @@ La toma usa `getUserMedia` y prefiere la cámara trasera. El stream se detiene a
 
 | Versión | Fecha | Cambio | Autor |
 | :--- | :--- | :--- | :--- |
+| 0.3.12 | 2026-11-14 | TSK-ADM-003 (FR-065): la lista de faenas del teléfono respeta las faenas asignadas a la cuenta | Daniel Ávila (con IA) |
 | 0.3.11 | 2026-11-14 | TSK-OFF-017: reexportar una inspección desde Cola, sin red | Daniel Ávila (con IA) |
 | 0.3.10 | 2026-11-14 | Corrige §4: Cola tiene cuatro secciones (TSK-OFF-013) y el tema sin elección guardada sigue al del sistema (TSK-OFF-011); el texto anterior había quedado desactualizado | Daniel Ávila (con IA) |
 | 0.3.9 | 2026-11-13 | TSK-OFF-014 (#221): todos los desplegables de Cola alcanzan 44 px y mantienen su control nativo de teclado | Raúl González (con IA) |
