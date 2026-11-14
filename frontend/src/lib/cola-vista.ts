@@ -117,7 +117,14 @@ export function mensajeError(lastError: string | null | undefined): string | nul
   if (/sesi[oó]n expir|401|no autenticad/i.test(t)) {
     return 'Tu sesión expiró: vuelve a ingresar y se envía solo.'
   }
-  const limpio = t
+  // TSK-OFF-018: el error del servidor llega como `HTTP 400: {"message":"…"}`.
+  // Se muestra sólo el motivo, sin el JSON ni la ruta interna del dato.
+  const motivo = /"message"\s*:\s*"((?:[^"\\]|\\.)*)"/.exec(t)?.[1]?.replace(/\\"/g, '"') ?? t.replace(/^HTTP \d{3}:\s*/i, '')
+  if (/payload\.strokes/.test(motivo)) {
+    return 'La firma no tenía el formato que acepta el servidor. La app la corrige al reenviar: pulsa Reintentar o espera el próximo envío.'
+  }
+  const limpio = motivo
+    .replace(/records\[\d+\]\.(payload\.)?/g, '')
     .replace(/^[a-z_]+:/i, '')
     .replace(RE_UUID, '')
     .replace(/^[\s:·-]+/, '')

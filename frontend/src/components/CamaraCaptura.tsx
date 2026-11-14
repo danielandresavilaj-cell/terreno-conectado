@@ -41,7 +41,7 @@ export function CamaraCaptura({
   const video = useRef<HTMLVideoElement>(null)
   const stream = useRef<MediaStream | null>(null)
   const archivo = useRef<HTMLInputElement>(null)
-  const dialogo = useRef<HTMLElement>(null)
+  const dialogo = useRef<HTMLDivElement>(null)
   const cancelar = useRef<HTMLButtonElement>(null)
   const activador = useRef<HTMLElement | null>(null)
   const abiertaActual = useRef(abierta)
@@ -101,7 +101,11 @@ export function CamaraCaptura({
     // Un diálogo debe recibir el foco; de lo contrario el lector de pantalla y
     // el teclado siguen interactuando con la captura que quedó detrás.
     queueMicrotask(() => cancelar.current?.focus())
+    // Pantalla completa: la página de atrás no se desplaza mientras la cámara está abierta.
+    const overflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
     return () => {
+      document.body.style.overflow = overflow
       detener()
       if (activador.current?.isConnected) activador.current.focus()
       activador.current = null
@@ -155,39 +159,79 @@ export function CamaraCaptura({
     }, 'image/jpeg', 0.92)
   }
 
+  /* TSK-OFF-018: la cámara ocupa toda la pantalla, como la del teléfono. La
+   * imagen en vivo llena el fondo; los controles flotan encima y respetan la
+   * muesca y la barra de inicio (safe-area). */
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-black/75 p-4" role="dialog" aria-modal="true" aria-label="Tomar fotografía" onKeyDown={alTeclado}>
-      <section ref={dialogo} className="w-full max-w-lg rounded-2xl border border-line bg-s1 p-4 shadow-2xl">
-        <div className="mb-3 flex items-center justify-between gap-3">
-          <div>
-            <p className="text-[15px] font-semibold">Tomar foto</p>
-            <p className="text-[13px] text-ink-2">La foto queda guardada en este teléfono.</p>
+    <div
+      ref={dialogo}
+      className="fixed inset-0 z-50 bg-black text-white"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Tomar fotografía"
+      onKeyDown={alTeclado}
+    >
+      <video ref={video} autoPlay playsInline muted className="absolute inset-0 h-full w-full object-cover" />
+      {estado === 'iniciando' && (
+        <p role="status" aria-live="polite" className="absolute inset-0 grid place-items-center text-[14px]">
+          Abriendo cámara…
+        </p>
+      )}
+      {estado === 'error' && (
+        <div className="absolute inset-0 grid place-items-center p-8 text-center">
+          <div className="max-w-sm">
+            <p role="alert" className="text-[14px] leading-relaxed">{mensaje}</p>
+            <button
+              type="button"
+              onClick={() => void iniciar()}
+              className="mt-4 h-11 rounded-[10px] border border-white/40 px-4 text-[14px] font-medium hover:border-white"
+            >
+              Reintentar cámara
+            </button>
           </div>
-          <button ref={cancelar} type="button" onClick={cerrar} className="h-11 px-3 text-[14px] text-ink-2 hover:text-ink">Cancelar</button>
         </div>
-        <div className="relative aspect-[4/3] overflow-hidden rounded-xl bg-black">
-          <video ref={video} autoPlay playsInline muted className="h-full w-full object-cover" />
-          {estado === 'iniciando' && <p role="status" aria-live="polite" className="absolute inset-0 grid place-items-center text-[13px] text-white">Abriendo cámara…</p>}
-          {estado === 'error' && (
-            <div className="absolute inset-0 grid place-items-center p-6 text-center">
-              <p role="alert" className="text-[13px] leading-relaxed text-white">{mensaje}</p>
-            </div>
-          )}
-        </div>
-        <input ref={archivo} type="file" accept="image/*" aria-label="Seleccionar fotografía desde archivos" className="hidden" onChange={(event) => {
-          const foto = event.target.files?.[0]
-          event.target.value = ''
-          if (!foto) return
-          detener()
-          alCapturar(foto)
-          alCerrar()
-        }} />
-        <div className="mt-4 flex flex-wrap justify-end gap-2">
-          <button type="button" onClick={() => archivo.current?.click()} className="h-11 rounded-[10px] border border-campo px-4 text-[14px] font-medium hover:border-line-strong">Seleccionar archivo</button>
-          {estado === 'error' && <button type="button" onClick={() => void iniciar()} className="h-11 rounded-[10px] border border-campo px-4 text-[14px] font-medium hover:border-beam">Reintentar cámara</button>}
-          <button type="button" disabled={estado !== 'lista'} onClick={tomar} className="h-11 rounded-[10px] bg-beam px-4 text-[14px] font-semibold text-on-beam disabled:cursor-not-allowed disabled:opacity-45">Capturar foto</button>
-        </div>
-      </section>
+      )}
+
+      <div
+        className="absolute inset-x-0 top-0 flex items-center justify-between gap-3 bg-gradient-to-b from-black/70 to-transparent px-4 pb-6"
+        style={{ paddingTop: 'max(12px, env(safe-area-inset-top))' }}
+      >
+        <button ref={cancelar} type="button" onClick={cerrar} className="h-11 rounded-[10px] px-3 text-[15px] font-medium">
+          Cancelar
+        </button>
+        <p className="text-[12px] text-white/80">La foto queda guardada en este teléfono.</p>
+      </div>
+
+      <input ref={archivo} type="file" accept="image/*" aria-label="Seleccionar fotografía desde archivos" className="hidden" onChange={(event) => {
+        const foto = event.target.files?.[0]
+        event.target.value = ''
+        if (!foto) return
+        detener()
+        alCapturar(foto)
+        alCerrar()
+      }} />
+      <div
+        className="absolute inset-x-0 bottom-0 grid grid-cols-3 items-center bg-gradient-to-t from-black/70 to-transparent px-4 pt-8"
+        style={{ paddingBottom: 'max(20px, env(safe-area-inset-bottom))' }}
+      >
+        <button
+          type="button"
+          onClick={() => archivo.current?.click()}
+          className="h-11 justify-self-start rounded-[10px] px-3 text-[14px] font-medium"
+        >
+          Seleccionar archivo
+        </button>
+        <button
+          type="button"
+          disabled={estado !== 'lista'}
+          onClick={tomar}
+          aria-label="Capturar foto"
+          className="h-[76px] w-[76px] justify-self-center rounded-full border-4 border-white p-1 disabled:cursor-not-allowed disabled:opacity-45"
+        >
+          <span className="block h-full w-full rounded-full bg-white" />
+        </button>
+        <span />
+      </div>
     </div>
   )
 }

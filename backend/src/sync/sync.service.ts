@@ -55,6 +55,7 @@ import type { JwtClaims } from '../auth/auth.types'
 import type {
   ConflictRecordDto,
   ListConflictsResponse,
+  ListEnviosRechazadosResponse,
   SyncAttachmentPayload,
   SyncBatchRequest,
   SyncBatchResponse,
@@ -230,6 +231,45 @@ export class SyncService {
       ),
     ])
     return { items, total: totals[0]?.n ?? 0 }
+  }
+
+  /**
+   * `GET /api/v1/conflicts/rechazos` (TSK-OFF-018, FR-024): envíos que el
+   * servidor rechazó en los últimos 14 días, agrupados por equipo y motivo.
+   * Sólo supervisor/tenant_admin; RLS deja ver sólo los de su empresa.
+   */
+  async listEnviosRechazados(claims: JwtClaims): Promise<ListEnviosRechazadosResponse> {
+    if (!claims.tenant_id) {
+      throw new ForbiddenException('Los envíos rechazados requieren un rol con tenant')
+    }
+    if (!CONFLICT_VIEWER_ROLES.has(claims.rol)) {
+      throw new ForbiddenException('Solo supervisor o tenant_admin puede ver envíos rechazados')
+    }
+    const items = await this.db.queryAsTenant<{
+      device_id: string
+      usuario: string | null
+      motivo: string
+      intentos: number
+      primero: Date
+      ultimo: Date
+    }>(
+      claims.tenant_id,
+      `SELECT l.device_id, max(u.full_name) AS usuario, l.error_message AS motivo,
+              count(*)::int AS intentos, min(l.started_at) AS primero, max(l.started_at) AS ultimo
+         FROM sync_log l LEFT JOIN app_user u ON u.id = l.user_id
+        WHERE l.status = 'failed' AND l.error_message IS NOT NULL
+          AND l.started_at >= now() - interval '14 days'
+        GROUP BY l.device_id, l.error_message
+        ORDER BY max(l.started_at) DESC
+        LIMIT 50`,
+    )
+    return {
+      items: items.map((r) => ({
+        ...r,
+        primero: new Date(r.primero).toISOString(),
+        ultimo: new Date(r.ultimo).toISOString(),
+      })),
+    }
   }
 
   /* --------------------------------------------------------- validación */
@@ -1149,6 +1189,9 @@ export class SyncService {
     body: SyncBatchRequest,
     err: unknown,
   ): Promise<void> {
+    // TSK-OFF-018: el motivo (texto de validación, nunca el contenido) queda
+    // para que la supervisión vea por qué un equipo no logra enviar.
+    const motivo = msg(err).slice(0, 500)
     const esUuid = (v: unknown): v is string =>
       typeof v === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v)
     if (!esUuid(body?.batch_id) || !esUuid(body?.device_id)) {
@@ -1161,9 +1204,9 @@ export class SyncService {
         tenantId,
         `INSERT INTO sync_log
            (id, tenant_id, user_id, device_id, batch_id, records_total,
-            records_ok, records_failed, started_at, finished_at, status)
-         VALUES ($1, $2, $3, $4, $5, $6, 0, $6, now(), now(), 'failed')`,
-        [randomUUID(), tenantId, userId, body.device_id, body.batch_id, total],
+            records_ok, records_failed, started_at, finished_at, status, error_message)
+         VALUES ($1, $2, $3, $4, $5, $6, 0, $6, now(), now(), 'failed', $7)`,
+        [randomUUID(), tenantId, userId, body.device_id, body.batch_id, total, motivo],
       )
     } catch (logErr) {
       this.logger.error(
