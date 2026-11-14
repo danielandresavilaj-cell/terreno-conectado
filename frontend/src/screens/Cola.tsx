@@ -337,6 +337,24 @@ function TarjetaEnvio({
 }) {
   const reducir = useReducedMotion()
   const [abierta, setAbierta] = useState(false)
+  /* TSK-OFF-017: reexportar. El módulo de exportación (ExcelJS, ~900 kB) se
+   * carga recién al pulsar, para no inflar la pantalla Cola. */
+  const [exportando, setExportando] = useState(false)
+  const [errorExport, setErrorExport] = useState<string | null>(null)
+  const descargarExcel = async () => {
+    setExportando(true)
+    setErrorExport(null)
+    try {
+      const { exportarInspeccionGuardada, descargarLibro } = await import('../lib/exportar')
+      const r = await exportarInspeccionGuardada(g.clave.slice('inspeccion:'.length))
+      if (r.ok) descargarLibro(r.libro, r.fileName)
+      else setErrorExport(r.error)
+    } catch {
+      setErrorExport('No se pudo generar el Excel en este teléfono.')
+    } finally {
+      setExportando(false)
+    }
+  }
   const [recien, setRecien] = useState(false)
   const t = useRef<number | undefined>(undefined)
 
@@ -414,6 +432,11 @@ function TarjetaEnvio({
             {abierta ? 'Ocultar detalle' : 'Ver detalle'}
           </Boton>
         )}
+        {g.tipo === 'inspeccion' && (
+          <Boton tamano="sm" variante="fantasma" disabled={exportando} aria-busy={exportando} onClick={() => void descargarExcel()}>
+            {exportando ? 'Generando…' : 'Descargar Excel'}
+          </Boton>
+        )}
         <span className="flex-1" />
         {g.estado === 'failed' && (
           <Boton tamano="sm" variante="secundaria" onClick={onReintentar}>
@@ -426,6 +449,12 @@ function TarjetaEnvio({
           </Boton>
         )}
       </div>
+
+      {errorExport && (
+        <p role="alert" className="mt-2 text-[13px] text-failed leading-relaxed">
+          {errorExport}
+        </p>
+      )}
 
       {confirmacion && (
         <div className="mt-3 rounded-lg border border-failed/35 bg-failed/[0.05] p-3" role="alert">
