@@ -1,6 +1,6 @@
 # DATA MODEL — Modelo conceptual de datos
 
-**Versión:** 1.8.1 (Enmienda 008) · **Fecha:** 2026-09-14 · actualizado 2026-11-15 · **Autor:** Daniel Ávila · **Relacionado:** spec maestro §5/§7, specs 001–007, ADR-003
+**Versión:** 1.9.0 (Enmienda 008) · **Fecha:** 2026-09-14 · actualizado 2026-11-15 · **Autor:** Daniel Ávila · **Relacionado:** spec maestro §5/§7, specs 001–007, ADR-003
 **Evidencia APT:** "Modelo conceptual de datos preliminar" (informe §6).
 **Reglas transversales:** toda tabla de dominio lleva `tenant_id UUID NOT NULL` + política RLS (Artículo IV); IDs `UUIDv7` generados en el cliente cuando el registro nace offline (FR-015); timestamps `created_at`, `updated_at` (servidor) y `captured_at` (cliente, autoridad para LWW — FR-023).
 
@@ -142,7 +142,7 @@ erDiagram
 
 **INSPECTION_RESPONSE** — `id, inspection_id, template_item_id, tenant_id, value_ok ENUM(ok,nok,na) NULL, value_text NULL, value_number NULL, value_json JSONB NULL (select_single/select_multiple/date/time; validado contra `TEMPLATE_ITEM.props` antes de encolar, FR-039), captured_at, client_version`.
 
-**FINDING (Hallazgo)** — `id, inspection_id NULL, response_id NULL, tenant_id, severity ENUM(low, medium, high, critical), description TEXT, status ENUM(open, in_progress, resolved), captured_at, client_version`. *(Enmienda 008, migración 020, FR-064)* Acción correctiva: `assignee_id UUID FK→USER NULL` (responsable, cuenta activa del mismo tenant), `due_date DATE NULL` (plazo), `resolution_note TEXT NULL` (≤ 2000, qué se hizo para cerrarlo). Las escribe sólo supervisión por `PATCH /findings/:id`; la ingesta de sync no las toca, así que una corrección del dispositivo no borra la asignación. `resolved_at` (migración 016) se fija al resolver y se limpia al reabrir.
+**FINDING (Hallazgo)** — `id, inspection_id NULL, response_id NULL, tenant_id, severity ENUM(low, medium, high, critical), description TEXT, status ENUM(open, in_progress, resolved), captured_at, client_version`. *(Enmienda 008, migración 020, FR-064)* Acción correctiva: `assignee_id UUID FK→USER NULL` (responsable, cuenta activa del mismo tenant), `due_date DATE NULL` (plazo), `resolution_note TEXT NULL` (≤ 2000, qué se hizo para cerrarlo). Las escribe sólo supervisión por `PATCH /findings/:id`; la ingesta de sync no las toca, así que una corrección del dispositivo no borra la asignación. `resolved_at` (migración 016) se fija al resolver y se limpia al reabrir. *(Enmienda 008, migración 023, FR-067)* Avance del responsable: `assigned_at TIMESTAMPTZ NULL` (cuándo se le asignó al responsable actual; se fija al cambiar `assignee_id`), `progress_note TEXT NULL` (≤ 2000, lo que reportó) y `reported_at TIMESTAMPTZ NULL`. "Listo para revisar" = `in_progress` + `reported_at`. Las escribe `PATCH /findings/:id/avance` (sólo el responsable) y `PATCH /findings/:id` las limpia: reasignar borra el avance y reabrir borra `reported_at`. La ingesta de sync tampoco las toca.
 
 **LOG_ENTRY (Bitácora)** — `id, site_id, author_id, tenant_id, entry_text TEXT, tags TEXT[], shift_date DATE, captured_at, client_version`.
 
@@ -212,6 +212,7 @@ CREATE POLICY tenant_isolation ON inspection
 
 | Versión | Fecha | Cambio |
 | :--- | :--- | :--- |
+| 1.9.0 | 2026-11-15 | **Enmienda 008 (FR-067, TSK-DOM-008):** migración 023 — `finding.assigned_at`, `progress_note`, `reported_at` (avance del responsable) |
 | 1.8.1 | 2026-11-15 | **TSK-OFF-018 (FR-024, FR-056):** migración 022 — `sync_log.error_message` guarda el motivo de un lote rechazado; marco y límites de `strokes_json` documentados |
 | 1.8.0 | 2026-11-14 | **Enmienda 008 (FR-065, TSK-ADM-003):** migración 021 — tabla `user_site` con RLS (faenas por cuenta) |
 | 1.7.1 | 2026-11-14 | **FR-066 (TSK-FORM-024):** uso de `template.status = archived` para archivar formularios; sin migración |

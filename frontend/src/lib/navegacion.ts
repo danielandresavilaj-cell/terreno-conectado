@@ -31,6 +31,8 @@ export const PANTALLAS = [
   /** TSK-FORM-022: el mismo asistente, empezando en el editor sin archivo. */
   'crear-formulario',
   'plantillas',
+  /** TSK-DOM-008 (FR-067): hallazgos que me asignaron. */
+  'hallazgos',
 ] as const
 
 export type Pantalla = (typeof PANTALLAS)[number]

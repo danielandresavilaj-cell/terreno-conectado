@@ -80,9 +80,18 @@ import {
   logoutServidor,
   refrescarToken,
   me,
+  reportarAvanceHallazgo,
   setToken,
 } from './api'
 import { actualizarCatalogo, leerCatalogo } from './catalogo-formularios'
+import {
+  actualizarAsignados,
+  contarNuevos,
+  leerAsignados,
+  leerVistos,
+  marcarVisto,
+  type VistosAsignados,
+} from './hallazgos-asignados'
 import { comprimirImagen } from './compresor'
 import { sincronizarCola, setPriorizarFotos, setSincronizacionPermitida } from './sync'
 import { cuotaEsAlta, estimarCuota } from './cuota'
@@ -97,7 +106,9 @@ import {
   PRESUPUESTO_ORIGINALES_BYTES,
   validateValorCampo,
   XLSX_MIME,
+  type AvanceHallazgoBody,
   type CampoValor,
+  type HallazgoAsignadoDto,
   type SignatureStroke,
   type TemplateDefinition,
   type TemplatePublicadaDto,
@@ -225,6 +236,16 @@ interface Ctx {
   prepararCierre: () => boolean
   enviarInspeccion: (strokes: SignatureStroke[]) => void
   agregarBitacora: (texto: string, tags: string[], faenaId: string) => void
+  /** TSK-DOM-008 (FR-067): hallazgos que me asignaron (última lista conocida, también sin señal). */
+  asignados: HallazgoAsignadoDto[]
+  vistosAsignados: VistosAsignados
+  /** Asignados que todavía no abro: el punto de la pestaña y el aviso de Formularios. */
+  hallazgosNuevos: number
+  /** Pide la lista al servidor; `true` si llegó (con señal). */
+  recargarAsignados: () => Promise<boolean>
+  marcarAsignadoVisto: (h: HallazgoAsignadoDto) => Promise<void>
+  /** Empezar o reportar (requiere señal); lanza `ApiError` si el servidor lo rechaza. */
+  avanzarHallazgo: (id: string, body: AvanceHallazgoBody) => Promise<void>
 }
 
 /** Hallazgo guardado en el dispositivo, en los términos del panel que lo edita. */
@@ -408,6 +429,8 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
   const [erroresCampo, setErroresCampo] = useState<Record<string, string>>({})
   const [ultimoEnvio, setUltimoEnvio] = useState<EnvioConfirmado | null>(null)
   const [faenaPorElegir, setFaenaPorElegir] = useState(false)
+  const [asignados, setAsignados] = useState<HallazgoAsignadoDto[]>([])
+  const [vistosAsignados, setVistosAsignados] = useState<VistosAsignados>({})
 
   const refrescar = useCallback(async () => {
     setCola((await listOutbox()).map(mapaCola))
@@ -936,6 +959,8 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
     setUltimoEnvio(null)
     setAvisoSalir(false)
     setFaenaPorElegir(false)
+    setAsignados([])
+    setVistosAsignados({})
     setPantalla('captura')
   }, [])
 
@@ -1284,6 +1309,66 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
     [usuario, identidad, refrescar],
   )
 
+  /* ── TSK-DOM-008 (FR-067) · hallazgos asignados ──────────────────────────
+   * Se muestran desde el caché local al instante y se piden al servidor al
+   * entrar, al volver la señal, al terminar cada sincronización y al volver a
+   * la app (la persona la deja en segundo plano y otro le asigna algo). */
+  const ambitoAsignados = usuario?.rol === 'platform_admin' ? null : usuario
+  const ambitoId = ambitoAsignados ? `${ambitoAsignados.tenantId}:${ambitoAsignados.id}` : null
+  const recargarAsignados = useCallback(async () => {
+    if (!ambitoAsignados) return false
+    const a = { tenantId: ambitoAsignados.tenantId, id: ambitoAsignados.id }
+    const r = await actualizarAsignados(a)
+    setAsignados(r.items)
+    return r.enRed
+  }, [ambitoId])
+
+  useEffect(() => {
+    if (!ambitoAsignados) return
+    let vivo = true
+    const a = { tenantId: ambitoAsignados.tenantId, id: ambitoAsignados.id }
+    void Promise.all([leerAsignados(a), leerVistos(a)]).then(([lista, vistos]) => {
+      if (!vivo) return
+      setAsignados(lista)
+      setVistosAsignados(vistos)
+    })
+    return () => {
+      vivo = false
+    }
+  }, [ambitoId])
+
+  useEffect(() => {
+    if (online && !sincronizando) void recargarAsignados()
+  }, [online, sincronizando, recargarAsignados])
+
+  useEffect(() => {
+    const alVolver = () => {
+      if (document.visibilityState === 'visible' && navigator.onLine) void recargarAsignados()
+    }
+    document.addEventListener('visibilitychange', alVolver)
+    return () => document.removeEventListener('visibilitychange', alVolver)
+  }, [recargarAsignados])
+
+  const marcarAsignadoVisto = useCallback(
+    async (h: HallazgoAsignadoDto) => {
+      if (!ambitoAsignados) return
+      const a = { tenantId: ambitoAsignados.tenantId, id: ambitoAsignados.id }
+      setVistosAsignados(await marcarVisto(a, h, asignados))
+    },
+    [ambitoId, asignados],
+  )
+
+  const avanzarHallazgo = useCallback(
+    async (id: string, body: AvanceHallazgoBody) => {
+      const r = await reportarAvanceHallazgo(id, body)
+      setAsignados((prev) => prev.map((h) => (h.id === id ? { ...h, ...r } : h)))
+      void recargarAsignados()
+    },
+    [recargarAsignados],
+  )
+
+  const hallazgosNuevos = contarNuevos(asignados, vistosAsignados)
+
   const valor: Ctx = {
     usuario,
     identidad,
@@ -1333,6 +1418,12 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
     prepararCierre,
     enviarInspeccion,
     agregarBitacora,
+    asignados,
+    vistosAsignados,
+    hallazgosNuevos,
+    recargarAsignados,
+    marcarAsignadoVisto,
+    avanzarHallazgo,
   }
 
   return <StoreCtx.Provider value={valor}>{children}</StoreCtx.Provider>

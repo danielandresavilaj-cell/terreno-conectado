@@ -62,6 +62,19 @@ const NAV: Array<{ id: Pantalla; label: string; roles: Rol[]; icono: ReactNode }
     ),
   },
   {
+    /* TSK-DOM-008 (FR-067): los hallazgos que me asignaron. */
+    id: 'hallazgos',
+    label: 'Hallazgos',
+    roles: ['field_worker', 'supervisor', 'tenant_admin'],
+    icono: (
+      <svg width="17" height="17" viewBox="0 0 17 17" fill="none" aria-hidden>
+        <path d="M8.5 2.5 15 14H2L8.5 2.5Z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" />
+        <path d="M8.5 7v3.2" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+        <circle cx="8.5" cy="12" r="0.8" fill="currentColor" />
+      </svg>
+    ),
+  },
+  {
     id: 'cola',
     label: 'Cola',
     roles: ['field_worker', 'supervisor', 'tenant_admin'],
@@ -155,6 +168,7 @@ export function Shell({ children }: { children: ReactNode }) {
     ir,
     online,
     enviosPendientes,
+    hallazgosNuevos,
     cuotaAviso,
     cuota,
     sincronizarAhora,
@@ -175,7 +189,7 @@ export function Shell({ children }: { children: ReactNode }) {
   if (!usuario) return null
 
   const nav = NAV.filter((n) => n.roles.includes(usuario.rol))
-  /* TSK-OFF-011: en el teléfono, con pocas secciones (el trabajador tiene 4),
+  /* TSK-OFF-011: en el teléfono, con pocas secciones (el trabajador tiene 5),
    * la navegación va abajo, al alcance del pulgar. Con más secciones siguen las
    * pestañas de arriba. Se decide al renderizar (no con CSS) para que exista
    * una sola barra de navegación en la página. */
@@ -250,11 +264,13 @@ export function Shell({ children }: { children: ReactNode }) {
           <nav className="flex gap-1 -mb-px overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {nav.map((n) => {
               const activa = pantalla === n.id
+              const nuevos = n.id === 'hallazgos' && hallazgosNuevos > 0
               return (
                 <button
                   key={n.id}
                   onClick={() => ir(n.id)}
                   aria-current={activa ? 'page' : undefined}
+                  aria-describedby={nuevos ? 'nav-hallazgos-nuevos' : undefined}
                   className={[
                     'relative shrink-0 flex items-center gap-1.5 px-3 min-h-11 text-[14px] font-medium',
                     'transition-colors duration-150 ease-out cursor-pointer',
@@ -263,6 +279,11 @@ export function Shell({ children }: { children: ReactNode }) {
                 >
                   {n.icono}
                   {n.label}
+                  {nuevos && (
+                    <span className="min-w-5 h-5 px-1.5 rounded-full bg-beam text-on-beam text-[12px] font-semibold grid place-items-center" aria-hidden>
+                      {hallazgosNuevos}
+                    </span>
+                  )}
                   {activa && (
                     <motion.span
                       layoutId="nav-activo"
@@ -325,14 +346,15 @@ export function Shell({ children }: { children: ReactNode }) {
           <div className="grid" style={{ gridTemplateColumns: `repeat(${nav.length}, minmax(0, 1fr))` }}>
             {nav.map((n) => {
               const activa = pantalla === n.id
-              const conAviso = n.id === 'cola' && enviosPendientes > 0
+              const conAviso =
+                (n.id === 'cola' && enviosPendientes > 0) || (n.id === 'hallazgos' && hallazgosNuevos > 0)
               return (
                 <button
                   key={n.id}
                   type="button"
                   onClick={() => ir(n.id)}
                   aria-label={n.label}
-                  aria-describedby={conAviso ? 'nav-por-enviar' : undefined}
+                  aria-describedby={conAviso ? (n.id === 'cola' ? 'nav-por-enviar' : 'nav-hallazgos-nuevos') : undefined}
                   aria-current={activa ? 'page' : undefined}
                   className={[
                     'relative h-14 flex flex-col items-center justify-center gap-0.5 text-[12px] font-medium cursor-pointer',
@@ -357,6 +379,9 @@ export function Shell({ children }: { children: ReactNode }) {
           </span>
         </nav>
       )}
+      <span id="nav-hallazgos-nuevos" className="sr-only">
+        {hallazgosNuevos === 1 ? '1 hallazgo nuevo asignado' : `${hallazgosNuevos} hallazgos nuevos asignados`}
+      </span>
 
       {/* ── Barra de estado inferior (solo móvil, si la navegación va arriba) ── */}
       {!navAbajo && (
