@@ -208,5 +208,40 @@ describe('bloqueo por intentos fallidos (FR-005) — va al final por el rate-lim
     const res = await login('trabajador@minera.cl', DEMO_PASSWORD)
     expect(res.status).toBe(423)
     expect(String(res.body.message)).toMatch(/bloqueada/i)
+    // TSK-AUTH-012: dice cuántos minutos faltan.
+    expect(res.body.minutos).toBe(15)
+    expect(String(res.body.message)).toMatch(/\(15 min\)/)
+  })
+
+  it('el 423 informa los minutos que faltan, no siempre 15 (TSK-AUTH-012)', async () => {
+    await ownerPool.query(
+      "UPDATE app_user SET locked_until = now() + interval '3 minutes' WHERE email = 'trabajador@minera.cl'",
+    )
+    const res = await login('trabajador@minera.cl', DEMO_PASSWORD)
+    expect(res.status).toBe(423)
+    expect(res.body.minutos).toBe(3)
+    expect(String(res.body.message)).toMatch(/\(3 min\)/)
+  })
+
+  it('al vencer el bloqueo, un solo fallo nuevo no vuelve a bloquear (TSK-AUTH-012)', async () => {
+    // El bloqueo ya se cumplió; el contador quedó en 5 desde la prueba anterior.
+    await ownerPool.query(
+      "UPDATE app_user SET locked_until = now() - interval '1 minute' WHERE email = 'trabajador@minera.cl'",
+    )
+    // Otra IP: la del runner quedó bloqueada por el rate-limit por IP.
+    const desde = (password: string) =>
+      server()
+        .post('/api/v1/auth/login')
+        .set('X-Forwarded-For', '203.0.113.7')
+        .send({ email: 'trabajador@minera.cl', password })
+    expect((await desde('clave-incorrecta')).status).toBe(401)
+    const [fila] = (
+      await ownerPool.query<{ failed_login_count: number; locked_until: string | null }>(
+        "SELECT failed_login_count, locked_until FROM app_user WHERE email = 'trabajador@minera.cl'",
+      )
+    ).rows
+    expect(fila.failed_login_count).toBe(1)
+    expect(fila.locked_until).toBeNull()
+    expect((await desde(DEMO_PASSWORD)).status).toBe(200)
   })
 })

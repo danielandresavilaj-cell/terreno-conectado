@@ -1,6 +1,6 @@
 # TEST PLAN — Plan de pruebas de validación
 
-**Versión:** 1.3.13 · **Fecha:** 2026-09-14 · actualizado 2026-11-15 · **Autor:** Raúl González (validación) · **Relacionado:** spec maestro §5–6, constitución Artículos III/IV/VII
+**Versión:** 1.3.14 · **Fecha:** 2026-09-14 · actualizado 2026-11-15 · **Autor:** Raúl González (validación) · **Relacionado:** spec maestro §5–6, constitución Artículos III/IV/VII
 **Evidencia APT:** "Plan de pruebas de validación" (informe §6) y soporte de la competencia "Realizar pruebas de certificación de productos y procesos".
 
 ## 1. Principio rector
@@ -41,7 +41,7 @@ verde.
 | FR-024 | Tras sync: SYNC_LOG completo y `synced_at - captured_at` registrado | Integración | `backend/test/sync.spec.ts` + `supervision.spec.ts` (lote rechazado → `sync_log` `failed`, TSK-DOM-005; motivo en `error_message` y `GET /conflicts/rechazos` por rol y RLS, TSK-OFF-018) + aserción de `sync_log` en el E2E de FR-016 | 🟢 verde |
 | FR-025, NFR-05 | JWT tenant A intenta batch con `tenant_id` B → 4xx + AUDIT_LOG de incidente | Integración + **caos 7** | `e2e-caos-integridad.spec.ts` → "JWT del tenant A con payload del tenant B" | 🟢 verde |
 | FR-002, NFR-05 | Usuario tenant A consulta todos los endpoints de lectura → jamás aparece dato B (fixture B sembrada) | Integración (RLS, Testcontainers) | `backend/test/rls.spec.ts` | 🟢 verde |
-| FR-005 | 5 logins fallidos → bloqueo temporal 15 min (por cuenta y por IP) | Integración | `backend/test/auth.spec.ts` → "5 fallos consecutivos bloquean la cuenta 15 min" | 🟢 verde |
+| FR-005 | 5 logins fallidos → bloqueo temporal 15 min (por cuenta y por IP); el `423` dice los minutos que faltan; al vencer, un solo fallo no vuelve a bloquear (TSK-AUTH-012) | Integración + Unit | `backend/test/auth.spec.ts` → "5 fallos consecutivos bloquean la cuenta 15 min", "el 423 informa los minutos que faltan", "al vencer el bloqueo, un solo fallo nuevo no vuelve a bloquear"; `frontend/test/bloqueo.test.ts` | 🟢 verde |
 | FR-001 | Login email/contraseña → JWT HS256 de 15 min con claims `user_id`/`tenant_id`/`rol` + cookies `rt`/`csrf` | Integración | `backend/test/auth.spec.ts` → "emite access token con claims user_id/tenant_id/rol y cookies rt/csrf" | 🟢 verde |
 | FR-003 | Matriz rol × recurso × acción (§3 spec 001): `platform_admin` sólo `/admin`; `field_worker` sin dashboard ni admin; `tenant_admin` único que publica plantillas | Integración | `backend/test/admin.spec.ts` (403 a no-`platform_admin`) + guardas por controlador (`dashboard.auth.ts`, `templates.controller.ts`) | 🟢 verde |
 | FR-004 | Access token vencido con cola pendiente → la cola NO se pierde y drena al reingresar; el refresh rota `rt` y detecta reuso | Integración + **caos 6** | `backend/test/auth.spec.ts` (rotación/reuso y CSRF) + `e2e-caos-sync.spec.ts` → "caos 6 — token expirado en cola" | 🟢 verde |
@@ -212,6 +212,7 @@ y nunca bloquea un PR. Informe por módulo en
 
 | Versión | Fecha | Cambio | Autor |
 | :--- | :--- | :--- | :--- |
+| 1.3.14 | 2026-11-15 | **TSK-AUTH-012:** FR-005 suma el reinicio del contador tras un bloqueo y los minutos restantes (`auth.spec.ts` +2, `bloqueo.test.ts` 2); sin cambio de recuento de filas | Daniel Ávila (con IA) |
 | 1.3.13 | 2026-11-15 | **TSK-OFF-018 (#239):** evidencia de FR-024 (motivo del lote rechazado) y FR-056 (firma siempre válida, reparación de la cola); sin cambio de recuento | Daniel Ávila (con IA) |
 | 1.3.12 | 2026-11-14 | Volumen contado en CI tras el bloque 4 (plan 009): backend 289, frontend 223, shared 92 y 23 E2E = 627 | Daniel Ávila (con IA) |
 | 1.3.11 | 2026-11-14 | **TSK-ADM-003:** FR-065 a 🟢 (`users-faenas.spec.ts`, `faenas-cuenta.test.ts`); recuento 52 filas (48 🟢) | Daniel Ávila (con IA) |
