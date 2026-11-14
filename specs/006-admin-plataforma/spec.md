@@ -235,6 +235,8 @@ Reglas: nadie puede desactivarse a sí mismo ni dejar la empresa sin `tenant_adm
 
 **Alta masiva (TSK-ADM-002, FR-053):** en Equipo, "Agregar varias cuentas" acepta filas pegadas desde Excel o un `.csv` (`nombre; correo; rol`, separador coma, punto y coma o tabulación; rol en español y opcional, por omisión trabajador). La app muestra antes cuántas cuentas creará y qué filas rechaza y por qué (nombre vacío, correo inválido, rol desconocido, correo repetido o ya existente). Crea cada cuenta con la misma API del alta individual (cada una con su clave temporal y su registro de auditoría) y al terminar ofrece descargar un `.csv` con las claves temporales, que no se vuelven a mostrar. Sin cambios de API.
 
+**Faenas por cuenta (TSK-ADM-003, FR-065, Enmienda 008):** en Equipo, cada cuenta de terreno o supervisión tiene el botón "Faenas: todas / N de M" (sólo si la empresa tiene más de una faena), que abre la elección de faenas. Se guarda con `PUT /api/v1/users/:id/faenas` `{faena_ids}`: reemplazo completo, `[]` = todas, faenas repetidas se ignoran, una faena de otra empresa → 400, una cuenta de otra empresa → 404. `GET /api/v1/users` trae `faena_ids`. El cambio llega al teléfono la próxima vez que abra la app con señal.
+
 ## 6. Fuera de alcance de este ciclo
 
 - **UI del panel admin** — el tipo `Pantalla` y la navegación viven en `frontend/src/lib/store.tsx`, zona de Daniel; se coordina aparte.
@@ -245,6 +247,7 @@ Reglas: nadie puede desactivarse a sí mismo ni dejar la empresa sin `tenant_adm
 
 | Versión | Fecha | Cambio | Autor |
 | :--- | :--- | :--- | :--- |
+| 1.1.0 | 2026-11-14 | TSK-ADM-003 (FR-065): faenas por cuenta en Equipo y `PUT /users/:id/faenas` | Daniel Ávila (con IA) |
 | 1.0.1 | 2026-11-13 | TSK-ADM-002: alta masiva de cuentas desde una planilla (sólo interfaz, misma API) | Daniel Ávila (con IA) |
 | 1.0.0 | 2026-10-13 | Spec detallado: modelo del bypass de RLS, catálogo de acciones de auditoría, contratos HTTP y criterios de aceptación de FR-050/051/052 (issue #9) | Raúl González (con IA) |
 | 0.1.1 | 2026-10-08 | Contrato `/health` detallado e implementado en TSK-WS-012 (200/503, shape, logs JSON NFR-09) | Daniel Ávila |

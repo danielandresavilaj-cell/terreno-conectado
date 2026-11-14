@@ -133,7 +133,8 @@ export class DashboardController {
   @UseGuards(AuthGuard)
   @Get('sites')
   sites(@Req() req: AuthedRequest): Promise<SitesResponse> {
-    return this.dashboard.listSites(req.user as JwtClaims)
+    // TSK-ADM-003: esta es la lista con que el teléfono elige faena.
+    return this.dashboard.listSites(req.user as JwtClaims, true)
   }
 
   /* --------------------------------------------- inspecciones (TSK-FORM-010) */

@@ -14,7 +14,7 @@
 | TSK-OFF-017 | Reexportar una inspección enviada (ficha T3) | FR-019 | — | En Cola, una inspección enviada ofrece "Descargar Excel" si el teléfono tiene su plantilla y planilla original; si no, dice por qué, sin usar la red. `frontend/test/reexportar.test.ts` verde | ✅ Hecho |
 | TSK-FORM-024 | Archivar, restaurar y duplicar formularios (ficha T4) | FR-066, FR-049 | — | Archivar oculta el formulario a los dispositivos y a Plantillas sin borrar nada; restaurar lo devuelve; duplicar crea un formulario nuevo con ids nuevos. Auditado. `backend/test/templates-archivar.spec.ts` y `frontend/test/duplicar-formulario.test.ts` verdes | ✅ Hecho |
 | TSK-REP-012 | Tendencia semanal y filtros en una barra (ficha T5) | FR-040, FR-041 | TSK-OFF-016 | `summary.tendencia_semanal` con 8 semanas por faena; Gerencia la grafica; faena, severidad y autor en una sola barra y un solo filtro de autor. `backend/test/dashboard-tendencia.spec.ts` verde | ✅ Hecho |
-| TSK-ADM-003 | Limitar las faenas de cada cuenta (ficha T6) | FR-065, FR-034 | — | Migración 021 (`user_site`); `PUT /users/:id/faenas`; `GET /sites` devuelve sólo las faenas asignadas a la cuenta (sin asignación: todas); Equipo permite elegirlas. Auditado y con RLS. `backend/test/users-faenas.spec.ts` verde; E2E verde | Pendiente |
+| TSK-ADM-003 | Limitar las faenas de cada cuenta (ficha T6) | FR-065, FR-034 | — | Migración 021 (`user_site`); `PUT /users/:id/faenas`; `GET /sites` devuelve sólo las faenas asignadas a la cuenta (sin asignación: todas); Equipo permite elegirlas. Auditado y con RLS. `backend/test/users-faenas.spec.ts` verde; E2E verde | ✅ Hecho |
 
 ## Criterios de salida del bloque
 

@@ -45,6 +45,11 @@ export const actualizarUsuarioSchema = z
   })
   .refine((v) => Object.values(v).some((x) => x !== undefined), 'nada que actualizar')
 
+/** TSK-ADM-003 (FR-065): faenas en que puede capturar una cuenta; vacío = todas. */
+export const asignarFaenasSchema = z
+  .object({ faena_ids: z.array(z.string().uuid('faena inválida')).max(200, 'demasiadas faenas') })
+  .strict()
+
 export const resetClaveSchema = z.object({ password: claveTemporal })
 
 const nombreFaena = z
@@ -70,6 +75,8 @@ export interface UsuarioDto {
   is_active: boolean
   must_change_password: boolean
   created_at: string
+  /** TSK-ADM-003 (FR-065): faenas asignadas; vacío = todas. Sólo lo trae el listado. */
+  faena_ids?: string[]
 }
 
 export interface FaenaDto {

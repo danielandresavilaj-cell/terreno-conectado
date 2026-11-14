@@ -12,6 +12,7 @@ import {
   ApiError,
   actualizarFaena,
   actualizarUsuario,
+  asignarFaenasUsuario,
   crearFaena,
   crearUsuario,
   getSites,
@@ -91,10 +92,15 @@ function Equipo() {
   const [email, setEmail] = useState('')
   const [rol, setRol] = useState<RolEmpresa>('field_worker')
   const [enviando, setEnviando] = useState(false)
+  /* TSK-ADM-003: faenas de la empresa y cuenta cuyas faenas se están editando. */
+  const [faenasEmpresa, setFaenasEmpresa] = useState<Array<{ id: string; nombre: string }>>([])
+  const [editandoFaenas, setEditandoFaenas] = useState<string | null>(null)
 
   const cargar = useCallback(async () => {
     try {
-      setUsuarios(await listarUsuarios())
+      const [cuentas, sitios] = await Promise.all([listarUsuarios(), getSites()])
+      setUsuarios(cuentas)
+      setFaenasEmpresa(sitios.items.map((s) => ({ id: s.id, nombre: s.nombre })))
       setError(null)
     } catch (err) {
       setError(mensajeDe(err))
@@ -214,6 +220,16 @@ function Equipo() {
                   </option>
                 ))}
               </select>
+              {u.is_active && u.role !== 'tenant_admin' && faenasEmpresa.length > 1 && (
+                <Boton
+                  tamano="sm"
+                  variante="fantasma"
+                  aria-expanded={editandoFaenas === u.id}
+                  onClick={() => setEditandoFaenas(editandoFaenas === u.id ? null : u.id)}
+                >
+                  {resumenFaenas(u.faena_ids ?? [], faenasEmpresa.length)}
+                </Boton>
+              )}
               {u.is_active && (
                 <Boton tamano="sm" onClick={() => void resetear(u)}>
                   Restablecer clave
@@ -228,10 +244,101 @@ function Equipo() {
                   {u.is_active ? 'Desactivar' : 'Reactivar'}
                 </Boton>
               )}
+              {editandoFaenas === u.id && (
+                <EditorFaenas
+                  nombre={u.full_name}
+                  faenas={faenasEmpresa}
+                  inicial={u.faena_ids ?? []}
+                  alCancelar={() => setEditandoFaenas(null)}
+                  alGuardar={(ids) =>
+                    void accion(async () => {
+                      await asignarFaenasUsuario(u.id, ids)
+                      setEditandoFaenas(null)
+                    })
+                  }
+                />
+              )}
             </div>
           )
         })}
       </Panel>
+    </div>
+  )
+}
+
+/** TSK-ADM-003: "Faenas: todas" o "Faenas: 2 de 5". */
+function resumenFaenas(ids: string[], total: number): string {
+  return ids.length === 0 || ids.length >= total ? 'Faenas: todas' : `Faenas: ${ids.length} de ${total}`
+}
+
+/**
+ * TSK-ADM-003 (FR-065): elige en qué faenas puede capturar una cuenta. Sin
+ * ninguna marcada (o con todas) se guarda `[]`, que significa "todas": así una
+ * faena nueva le aparece sola a quien no tiene restricción.
+ */
+function EditorFaenas({
+  nombre,
+  faenas,
+  inicial,
+  alGuardar,
+  alCancelar,
+}: {
+  nombre: string
+  faenas: Array<{ id: string; nombre: string }>
+  inicial: string[]
+  alGuardar: (ids: string[]) => void
+  alCancelar: () => void
+}) {
+  const [marcadas, setMarcadas] = useState<string[]>(inicial)
+  const todas = marcadas.length === 0 || marcadas.length >= faenas.length
+  const alternar = (id: string) =>
+    setMarcadas((m) => (m.includes(id) ? m.filter((x) => x !== id) : [...m, id]))
+  return (
+    <div className="basis-full mt-1 rounded-xl border border-line-soft bg-s0 p-3.5 space-y-3">
+      <p className="text-[14px]">
+        ¿En qué faenas puede capturar <span className="font-semibold">{nombre}</span>?
+      </p>
+      <div className="flex flex-wrap gap-2" role="group" aria-label={`Faenas de ${nombre}`}>
+        <button
+          type="button"
+          aria-pressed={todas}
+          onClick={() => setMarcadas([])}
+          className={[
+            'min-h-11 px-3.5 rounded-xl border text-[14px] cursor-pointer',
+            todas ? 'border-beam bg-beam/10 text-ink' : 'border-campo bg-s1 text-ink-2',
+          ].join(' ')}
+        >
+          Todas las faenas
+        </button>
+        {faenas.map((f) => {
+          const sel = !todas && marcadas.includes(f.id)
+          return (
+            <button
+              key={f.id}
+              type="button"
+              aria-pressed={sel}
+              onClick={() => alternar(f.id)}
+              className={[
+                'min-h-11 px-3.5 rounded-xl border text-[14px] cursor-pointer',
+                sel ? 'border-beam bg-beam/10 text-ink' : 'border-campo bg-s1 text-ink-2',
+              ].join(' ')}
+            >
+              {f.nombre}
+            </button>
+          )
+        })}
+      </div>
+      <p className="text-[13px] text-ink-2">
+        El cambio llega a su teléfono la próxima vez que abra la app con señal.
+      </p>
+      <div className="flex flex-wrap gap-2">
+        <Boton tamano="sm" variante="primaria" onClick={() => alGuardar(todas ? [] : marcadas)}>
+          Guardar faenas
+        </Boton>
+        <Boton tamano="sm" variante="fantasma" onClick={alCancelar}>
+          Cancelar
+        </Boton>
+      </div>
     </div>
   )
 }
