@@ -11,14 +11,15 @@ funciona también desde macOS/Windows. Operación diaria: [`OPERACION.md`](OPERA
    Verificación de identidad/tarjeta y MFA los completa el titular en Oracle.
 2. Mantener **Free Tier**, sin upgrade a pago por uso. El crédito de prueba no es el presupuesto.
    Comprobar en consola los límites y la etiqueta Always Free antes de confirmar cada recurso.
-3. Registrar DuckDNS en https://www.duckdns.org/ con una cuenta propia y reservar
-   `terreno-conectado-demo` o, si está ocupado, `terreno-conectado-daniel-demo`.
-4. Registrar en ADR el nombre reservado, región, titular y límites confirmados.
+3. Tener el dominio propio con su DNS en Cloudflare (sección «Dominio propio» más abajo).
+   *Histórico:* la v1 se publicó primero en DuckDNS (`terreno-conectado-demo.duckdns.org`),
+   retirado el 2026-11-14 (ADR-002, adenda 3). No se registra DuckDNS en despliegues nuevos.
+4. Registrar en ADR el dominio, región, titular y límites confirmados.
    El PR lleva la aprobación del otro integrante antes de provisionar (Constitución VI).
 
 Ejecución autorizada directamente por el titular el 2026-10-16: región principal
 existente Valparaíso (`sa-valparaiso-1`), instancia `terreno-conectado-demo` y
-`terreno-conectado-demo.duckdns.org` (el nombre se conserva para la v1; PR #160 mergeado el 2026-11-11).
+`terreno-conectado-demo.duckdns.org` (PR #160 mergeado el 2026-11-11; esa dirección se retiró el 2026-11-14).
 
 Objetivo: una VM Ubuntu 24.04 ARM A1, 2 OCPU/12 GB, disco de arranque 50 GB y
 volumen de datos 50 GB (100 GB combinados, por debajo de 200 GB gratuitos).
@@ -81,8 +82,9 @@ En GitHub Actions ejecutar Deploy con el ref elegido y **publish_only=true**: pr
 commit y publica imágenes amd64/ARM etiquetadas por SHA real (nunca `latest`). Ese SHA
 debe coincidir con las tres `IMAGE_*` del entorno.
 
-En DuckDNS apuntar IPv4 a la IP de la VM; no dejar un AAAA que apunte a otro host. Si
-cambia la IP, actualizarla con la API HTTPS de DuckDNS; su token nunca va al repo.
+En Cloudflare, apuntar los registros `A` de `@` y `www` a la IP de la VM (sección «Dominio
+propio»); no dejar un `AAAA` que apunte a otro host. Si cambia la IP, actualizar esos dos
+registros. `DOMAIN` y `ALLOWED_ORIGIN` del `.env` llevan sólo el dominio propio.
 Ejecutar el workflow con **publish_only=false**. El primer despliegue crea la base, migra
 y ajusta permisos del volumen de fotos **antes de exponer la API**. No se siembran
 cuentas ni formularios: la base queda vacía.

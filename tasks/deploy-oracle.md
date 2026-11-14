@@ -15,6 +15,8 @@ Plan aprobado por Daniel en este chat el 2026-10-16; ADR-002, adenda 1.
 - [x] Verificar restore, retención, consumo, actualización compatible y reinicio del VPS antes de entregar enlace.
 - [ ] Registrar la aprobación humana del PR y activar la auditoría diaria de GitHub después de que el workflow exista en `main`.
 - [ ] Completar el recorrido manual público de importación Excel, captura de foto sin señal/PWA instalada y renovación de sesión de larga duración.
+- [x] Retirar DuckDNS de la configuración, el monitor y la guía de provisión (ADR-002 adenda 3, #250; verificación del 2026-11-15).
+- [ ] Borrar el subdominio `terreno-conectado-demo` en la cuenta de duckdns.org (acción del titular; sigue resolviendo hacia la VM).
 
 Evidencia 2026-10-16: export local selectivo preparado (2 empresas, 7 usuarios, 2 faenas,
 7 formularios, 8 revisiones, 4 asignaciones; 6 imports con originales). Paquete y secretos
