@@ -3,7 +3,7 @@
 | | |
 | :--- | :--- |
 | **Estado** | COMPLETO (base F2) · TSK-OPS-003-B en revisión (#191); Enmienda 007 continúa por tareas |
-| **Versión** | 0.6.1 |
+| **Versión** | 0.6.2 |
 | **Autor** | Daniel Ávila |
 | **Padre** | specs/000-master/spec.md |
 | **Depende de** | 001 (roles/tenant), 003 (ingesta idempotente) |
@@ -86,6 +86,7 @@ Estados `draft → in_progress → submitted → reviewed`. Lleva `site_id` (fae
 - **Hallazgo obligatorio en `nok`:** un ítem `ok_nok_na` marcado `NOK` exige hallazgo (`props`/regla de captura, FR-032/036).
 - **Un hallazgo por respuesta, corregible (TSK-OFF-007):** la respuesta `NOK` de un ítem tiene un solo hallazgo. Corregirlo en el dispositivo conserva su UUID y sube `client_version`; nunca crea un segundo registro. Un ítem cuenta como "con hallazgo" sólo si ese registro existe (no basta con que la respuesta sea `NOK`).
 - **Varias fotos por hallazgo (TSK-OFF-016):** hasta 5 fotos por hallazgo, impuesto en la interfaz. Corregir un hallazgo agrega fotos nuevas y puede quitar las que aún no salieron del teléfono; una foto ya enviada se conserva (la cola no borra en el servidor). Cada foto es un `ATTACHMENT` `owner_type='finding'`.
+- **Hallazgo directo (TSK-OFF-015):** en Inspección, "Registrar hallazgo general" crea un hallazgo con `response_id = null` dentro del borrador en curso (lo crea si no existe). Se corrige por su id sin duplicarse y viaja con la inspección por la misma cola; no cambia el contrato de sincronización.
 - **Hallazgo opcional en cualquier NOK (TSK-OFF-012):** todo ítem `ok_nok_na` respondido `NOK` ofrece registrar un hallazgo; sólo es obligatorio (y bloquea el envío) si la plantilla lo exige con `require_finding_on_nok`.
 - **Acción correctiva (TSK-DOM-007, FR-064, Enmienda 008):** supervisión asigna responsable (cuenta activa de la empresa), plazo y nota de cierre con `PATCH /api/v1/findings/:id` (`status`, `assignee_id`, `due_date`, `resolution_note`; cualquier combinación, al menos uno; campos desconocidos → 400). Cada cambio de estado deja `finding_status_changed`; los de gestión, `finding_assigned` con `{campo: {de, a}}`. `GET /api/v1/findings/responsables` lista a quién se puede asignar. La interfaz pide la nota al resolver y sugiere un plazo según la severidad (crítica 1 día, alta 3, media 7, baja 14); un hallazgo abierto con plazo pasado se marca "Vencido".
 - **Severidad elegida y descripción (TSK-OFF-007):** la severidad no viene preseleccionada; un hallazgo `alta` o `crítica` exige descripción (mínimo 5 caracteres) antes de guardarse. La regla es del dispositivo (`frontend/src/lib/hallazgo.ts`); el servidor sigue aceptando cualquier descripción no vacía.
@@ -113,6 +114,7 @@ Estados `draft → in_progress → submitted → reviewed`. Lleva `site_id` (fae
 
 | Versión | Fecha | Cambio | Autor |
 | :--- | :--- | :--- | :--- |
+| 0.6.2 | 2026-11-14 | **TSK-OFF-015:** hallazgo directo, no ligado a una pregunta | Daniel Ávila (con IA) |
 | 0.6.1 | 2026-11-14 | **TSK-OFF-016:** varias fotos por hallazgo (hasta 5) | Daniel Ávila (con IA) |
 | 0.6.0 | 2026-11-13 | **TSK-DOM-007 (Enmienda 008, FR-064):** hallazgo como acción correctiva — responsable, plazo y nota de cierre, auditados | Daniel Ávila (con IA) |
 | 0.5.3 | 2026-11-13 | **TSK-OFF-012:** hallazgo opcional en cualquier NOK; obligatorio sólo si la plantilla lo exige | Daniel Ávila (con IA) |
