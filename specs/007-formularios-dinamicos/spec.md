@@ -65,6 +65,7 @@ Requisitos que este spec detallará: **FR-007–009, 018–019, 027–029, 036�
 
 | Versión | Fecha | Cambio | Autor |
 | :--- | :--- | :--- | :--- |
+| 0.6.0 | 2026-11-14 | TSK-FORM-024 (FR-066): archivar, restaurar y duplicar formularios | Daniel Ávila (con IA) |
 | 0.5.0 | 2026-11-13 | TSK-FORM-022: crear formulario desde cero con el mismo editor | Daniel Ávila (con IA) |
 | 0.4.0 | 2026-11-11 | Enmienda 006: importar con IA (TSK-FORM-021) | Daniel Ávila (con IA) |
 | 0.3.0 | 2026-11-11 | Enmienda 005: importar Word y PDF (TSK-FORM-020) | Daniel Ávila (con IA) |
@@ -86,6 +87,13 @@ Requisitos que este spec detallará: **FR-007–009, 018–019, 027–029, 036�
 ### Enmienda 003 — Catálogo asignado offline (TSK-FORM-014, #149)
 
 FR-009/018/027: el catálogo visible se persiste por tenant, usuario, rol y faena. La caché legada por tenant no acredita asignaciones y no se muestra hasta obtener un catálogo del servidor para ese ámbito. Al iniciar o recuperar señal se consulta el catálogo completo sin cursor: los cambios de asignación no incrementan published_seq. El snapshot reemplaza la lista visible de forma atómica, incluyendo una lista vacía; sin red se usa exclusivamente el último snapshot del ámbito. Se conservan las definiciones históricas y las capturas; un borrador desasignado queda no disponible conforme a FR-028.
+
+### Archivar, restaurar y duplicar (TSK-FORM-024, FR-066, Enmienda 008)
+
+- **Archivar:** `PATCH /api/v1/templates/:templateId/estado` con `{status: "archived"}` (sólo `tenant_admin`). Usa la columna existente `template.status`; no hay migración. Un formulario archivado deja de aparecer en `GET /templates` (y por eso en el catálogo de los teléfonos y en Plantillas), pero conserva revisiones, asignaciones e inspecciones. Queda `template_archived` en `audit_log`.
+- **Restaurar:** el mismo endpoint con `{status: "active"}` (`template_restored`); vuelve con sus asignaciones.
+- **Archivados:** `GET /api/v1/templates/archivadas` los lista; Plantillas los muestra plegados con "Restaurar".
+- **Duplicar:** en el cliente (`lib/duplicar-formulario.ts`): copia la definición con ids nuevos y sin `origen`, la crea con `POST /templates` como "Nombre (copia)" y la publica. Su contenido ya fue revisado al publicar el original; la copia no tiene planilla original para exportar.
 
 ### Crear desde cero (TSK-FORM-022)
 
