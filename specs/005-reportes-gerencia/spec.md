@@ -3,7 +3,7 @@
 | | |
 | :--- | :--- |
 | **Estado** | COMPLETO (ciclo del módulo, F2 · 2026-10-13) |
-| **Versión** | 0.8.0 |
+| **Versión** | 0.8.1 |
 | **Autor** | Daniel Ávila |
 | **Padre** | specs/000-master/spec.md |
 | **Depende de** | 003 (datos sincronizados + `SYNC_LOG`), 004 (dominio) |
@@ -94,7 +94,7 @@ El listado de hallazgos muestra la **miniatura** de la foto en vez de su tamaño
 
 - **Carga:** la miniatura se baja sólo cuando entra en pantalla y queda en una caché en memoria (40 fotos, se descarta la menos usada), para que el refresco de 30 s no vuelva a pedirlas. Un fallo no se recuerda: se ofrece reintentar.
 - **Seguridad:** la sesión viaja en la cabecera `Authorization`, así que la imagen no es un enlace que se pueda compartir; el servidor responde con el tipo de imagen explícito y `X-Content-Type-Options: nosniff`.
-- **Límite conocido:** se muestra la foto más reciente de cada respuesta o hallazgo. El dispositivo sólo captura una por elemento; varias fotos por hallazgo es una mejora posterior del plan.
+- **Varias fotos (TSK-OFF-016):** el listado de hallazgos y el detalle muestran hasta 3 miniaturas por hallazgo y un contador del resto. El contrato trae `fotos_ids` (todas, de la más antigua a la más reciente) además de `foto_id` (la más reciente). De cada respuesta de tipo foto se sigue mostrando la más reciente.
 
 ### 4.2 Bitácora legible (TSK-REP-009, FR-063, Enmienda 008)
 
@@ -158,6 +158,7 @@ El alcance V1 del **resumen ejecutivo** es **read-only** y se apoya en las métr
 
 | Versión | Fecha | Cambio | Autor |
 | :--- | :--- | :--- | :--- |
+| 0.8.1 | 2026-11-14 | **TSK-OFF-016:** `fotos_ids` en hallazgos del listado y del detalle; hasta 3 miniaturas por hallazgo | Daniel Ávila (con IA) |
 | 0.8.0 | 2026-11-13 | **TSK-REP-011:** "Plazos vencidos" reemplaza a la latencia en la fila principal; `summary.hallazgos_vencidos`; filtro "Sólo vencidos" | Daniel Ávila (con IA) |
 | 0.7.1 | 2026-11-13 | **TSK-REP-010:** lista de inspecciones apilada en pantallas angostas | Daniel Ávila (con IA) |
 | 0.7.0 | 2026-11-13 | **TSK-REP-009 (Enmienda 008, FR-063):** bitácora legible en Bitácora ("De la faena") y en Gerencia; contrato `dashboard/bitacora` | Daniel Ávila (con IA) |
