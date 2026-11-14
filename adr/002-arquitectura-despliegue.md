@@ -87,6 +87,8 @@ Internet
 - **Decisión:** el titular pide deshabilitar definitivamente `terreno-conectado-demo.duckdns.org`. `DOMAIN` y `ALLOWED_ORIGIN` quedan solo con `terrenoconectado.cl` y `www.terrenoconectado.cl`. Caddy deja de responder y de renovar certificados para la dirección DuckDNS, y el backend ya no acepta ese origen. El monitor `demo-health` revisa solo el dominio propio.
 - **Teléfonos con la app instalada desde la dirección anterior:** sus datos sin enviar viven en ese origen. Antes de retirarla había que sincronizarlos; después, se reinstala la app desde `terrenoconectado.cl`.
 - **Registro en DuckDNS:** el subdominio se borra en la cuenta de duckdns.org del titular, para que nadie pueda reutilizarlo apuntando a la IP de la VM.
+- **Verificación (2026-11-15, TSK-DEPLOY-001):** `https://terrenoconectado.cl/health` y `https://www.terrenoconectado.cl/health` responden 200. El backend acepta como origen CORS sólo esas dos direcciones; el origen DuckDNS ya no recibe `Access-Control-Allow-Origin`. La dirección DuckDNS ya no se sirve: el servidor rechaza el TLS porque Caddy no tiene ese host. En el repositorio no quedan referencias vigentes, sólo históricas, y la guía de provisión ya no indica registrar DuckDNS. El retiro **no afecta** al CI ni a las pruebas: la falla intermitente del 2026-11-14 en el CI y en `deploy.yml` fue el `57P01` del apagado del contenedor de pruebas (H7, TSK-E2E-003).
+- **Pendiente del titular:** el nombre todavía resuelve hacia la VM, así que falta **borrar el subdominio en duckdns.org**. Sólo se puede hacer con la cuenta del titular; ningún secreto ni token de DuckDNS va al repositorio.
 
 ## Parte B — Ejercicio de diseño: qué sería "producción real" (NO se provisiona)
 

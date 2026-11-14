@@ -415,7 +415,7 @@ datos y fotos fuera de la VM (Object Storage) y restauración probada.
 | Qué | Dónde |
 | :--- | :--- |
 | Operación diaria: desplegar, respaldar, restaurar, crear el primer admin, activar la IA | [`infra/OPERACION.md`](infra/OPERACION.md) |
-| Provisionar la VM de Oracle y DuckDNS desde cero | [`infra/ORACLE-FREE.md`](infra/ORACLE-FREE.md) |
+| Provisionar la VM de Oracle y el dominio desde cero | [`infra/ORACLE-FREE.md`](infra/ORACLE-FREE.md) |
 | Decisión y costos | [`adr/002-arquitectura-despliegue.md`](adr/002-arquitectura-despliegue.md) (adenda 1) |
 | Compose de producción | `infra/docker-compose.prod.yml` (perfil `tools`: `migrate`, `bootstrap-admin`, `sync-files`) |
 | Workflow | `.github/workflows/deploy.yml` (manual) y `demo-health.yml` (monitor) |
