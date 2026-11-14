@@ -29,6 +29,7 @@ verde.
 
 | Requisito | Prueba | Nivel | Evidencia | Estado |
 | :--- | :--- | :--- | :--- | :--- |
+| FR-010 | PWA instalada: buscar actualización consulta el service worker; una versión nueva sólo se activa tras confirmación y un navegador sin SW explica el límite | Unit + manual móvil | `frontend/test/actualizacion-pwa.test.ts`; protocolo manual: instalar, publicar una versión, Buscar actualización y confirmar sin perder un borrador/cola | 🟢 verde (unit) · protocolo manual pendiente por dispositivo |
 | FR-011/014, NFR-01 | Capturar en modo avión, cerrar/reabrir app, verificar persistencia IndexedDB | E2E | `e2e-captura-offline.spec.ts` → "captura sin red, recarga y el borrador conserva las respuestas" | 🟢 verde |
 | FR-012 | Foto de 8 MP → verificar dimensiones ≤1280 px y tamaño comprimido antes de encolar; abrir cámara, tomar foto, cancelar y denegar permiso | Unit + E2E + manual móvil | `shared` (`compresor`) + `e2e-captura-offline.spec.ts` → "la foto de un ítem queda ≤1280 px"; protocolo manual: `CamaraCaptura` abre el lente trasero, detiene el indicador al cerrar y ofrece archivo si no hay permiso | 🟢 verde (compresión) · protocolo manual pendiente por dispositivo |
 | FR-016 | Desactivar red → encolar → reactivar: sync inicia sola sin clic | E2E | `e2e-captura-offline.spec.ts` → "reactivar la red drena la cola sin tocar el botón de sincronizar" | 🟢 verde |
@@ -212,6 +213,7 @@ y nunca bloquea un PR. Informe por módulo en
 
 | Versión | Fecha | Cambio | Autor |
 | :--- | :--- | :--- | :--- |
+| 1.3.14 | 2026-11-14 | **TSK-OFF-019:** fila FR-010 para búsqueda manual, confirmación y fallback de actualización PWA; `actualizacion-pwa.test.ts` | Raúl González (con IA) |
 | 1.3.13 | 2026-11-15 | **TSK-OFF-018 (#239):** evidencia de FR-024 (motivo del lote rechazado) y FR-056 (firma siempre válida, reparación de la cola); sin cambio de recuento | Daniel Ávila (con IA) |
 | 1.3.12 | 2026-11-14 | Volumen contado en CI tras el bloque 4 (plan 009): backend 289, frontend 223, shared 92 y 23 E2E = 627 | Daniel Ávila (con IA) |
 | 1.3.11 | 2026-11-14 | **TSK-ADM-003:** FR-065 a 🟢 (`users-faenas.spec.ts`, `faenas-cuenta.test.ts`); recuento 52 filas (48 🟢) | Daniel Ávila (con IA) |

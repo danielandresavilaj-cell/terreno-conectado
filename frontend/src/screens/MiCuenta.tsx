@@ -7,6 +7,7 @@
 import { useState } from 'react'
 import { Boton, Panel } from '../components/ui'
 import { FormCambioClave } from '../components/FormCambioClave'
+import { PwaActualizacion } from '../components/PwaActualizacion'
 import { ROL_LABEL } from '../lib/roles'
 import { useEstado } from '../lib/store'
 
@@ -44,6 +45,10 @@ export function MiCuenta() {
       <Panel className="p-5">
         <h2 className="text-[16px] font-semibold mb-4">Cambiar contraseña</h2>
         <FormCambioClave />
+      </Panel>
+
+      <Panel className="p-5">
+        <PwaActualizacion />
       </Panel>
 
       <Panel className="p-5">

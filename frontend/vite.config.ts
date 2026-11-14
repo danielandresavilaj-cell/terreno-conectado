@@ -16,7 +16,9 @@ export default defineConfig({
     react(),
     tailwindcss(),
     VitePWA({
-      registerType: 'autoUpdate',
+      // La actualización se descarga, pero nunca recarga una captura a mitad de
+      // turno: la persona la busca y confirma desde Mi cuenta (TSK-OFF-019).
+      registerType: 'prompt',
       injectRegister: false,
       includeAssets: ['pwa-192.png', 'pwa-512.png'],
       manifest: {
