@@ -1,6 +1,6 @@
 # PLAN — Módulo 005: Reportes y gerencia
 
-**Versión:** 0.2.0 · **Fecha:** 2026-10-14 · **Autor:** Daniel Ávila
+**Versión:** 0.3.0 · **Fecha:** 2026-11-14 · **Autor:** Raúl González
 **Derivado de:** `specs/000-master/spec.md` §3.3 · **Spec:** `specs/005-reportes-gerencia/spec.md` (0.3.1)
 **Tareas:** `tasks/005-reportes-gerencia/tasks.md` (TSK-REP-001…) · **Issue:** #8
 
@@ -25,6 +25,7 @@ Dejar el spec 005 en COMPLETO, verificar FR-040/042 (verdes) y **registrar como 
 1. **FR-041 autor — implementado (rev. 0.2.0).** Decisión original del ciclo 0.1.0: registrar como 🟡 y no agregarlo en V1. **Reabierto como enmienda menor** al cierre de F2 para llevar la matriz §3 a ≥ 90 %: `dashboard/findings?autor_id=` filtra por `inspection.executed_by`, `summary.autores` publica los autores con actividad del período y la UI agrega el filtro. Superficie acotada (un campo UUID en `findingsFiltrosSchema`), justificada por Art. V.
 2. **FR-042 CSV — se agrega test unitario (rev. 0.2.0).** El CSV de hallazgos ya estaba implementado en `Dashboard.tsx`; para cerrar el hueco ⚪ se extrae la lógica a `frontend/src/lib/dashboard-csv.ts` (función pura, escapado de comillas/comas, valores nulos) y se cubre con `frontend/test/dashboard-csv.test.ts`.
 3. **FR-043 ≤ 60 s — medido en vivo.** La métrica de latencia media+p95 (FR-040) sí está implementada; el umbral absoluto se valida cronometrado en la demo (Fase 3), no en CI. Fila 🟡 aceptada (coincide con `test-plan.md` §3).
+4. **TSK-REP-013 — PDF individual sin IA.** La descarga por fila usa el informe PDF ya existente (`POST /dashboard/inspections/exportar` con un único `id`), que se construye desde la versión congelada, respuestas, hallazgos y evidencias. Sustituye al Excel original como acción directa porque ese formato sólo existe para plantillas importadas; el Excel sigue disponible en el panel de formatos. No se envían datos a un tercero ni se añade una dependencia. La cabecera reserva un ancho fijo para acciones y la revisión dice explícitamente cuántas fotos se pueden abrir.
 
 ## 4. Definición de "hecho"
 
@@ -36,5 +37,6 @@ Dejar el spec 005 en COMPLETO, verificar FR-040/042 (verdes) y **registrar como 
 
 | Versión | Fecha | Cambio | Autor |
 | :--- | :--- | :--- | :--- |
+| 0.3.0 | 2026-11-14 | **TSK-REP-013:** decisión de reutilizar el PDF determinista por inspección, evidencia visible y rejilla desktop alineada | Raúl González (con IA) |
 | 0.2.0 | 2026-10-14 | **FR-041 filtro por autor implementado + FR-042 CSV testeado** (reabre la decisión de deferir de 0.1.0) para alcanzar el ≥ 90 % de la matriz §3. Ver `tasks/005-reportes-gerencia/tasks.md` TSK-REP-004 / TSK-REP-005 | Daniel Ávila |
 | 0.1.0 | 2026-10-13 | Plan técnico inicial del ciclo del módulo 005 | Daniel Ávila |
