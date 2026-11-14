@@ -48,6 +48,8 @@ export interface FindingDto {
   synced_at: string | null
   /** Evidencia fotográfica más reciente (metadata; los bytes se sirven aparte). */
   foto_id: string | null
+  /** TSK-OFF-016: todas las fotos del hallazgo, de la más antigua a la más reciente. */
+  fotos_ids: string[]
   foto_mime: string | null
   foto_bytes: number | null
   foto_ancho: number | null
@@ -157,6 +159,8 @@ export const inspectionHallazgoSchema = z.object({
   description: z.string(),
   status: z.enum(['open', 'in_progress', 'resolved']),
   foto_id: z.string().uuid().nullable(),
+  /** TSK-OFF-016: todas las fotos, de la más antigua a la más reciente. */
+  fotos_ids: z.array(z.string().uuid()),
 })
 
 export type InspectionHallazgo = z.infer<typeof inspectionHallazgoSchema>

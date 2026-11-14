@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { db, guardarHallazgo, hallazgoDeRespuesta, hallazgosDeInspeccion } from '../src/lib/db'
+import { db, fotosDeHallazgo, guardarHallazgo, hallazgoDeRespuesta, hallazgosDeInspeccion } from '../src/lib/db'
 import { detalleDeHallazgo, erroresDeHallazgo, exigeDescripcion } from '../src/lib/hallazgo'
 import { TENANT_A } from './fixtures'
 
@@ -56,7 +56,7 @@ describe('reglas del hallazgo (FR-032, TSK-OFF-007)', () => {
 
 describe('guardarHallazgo: una respuesta NOK tiene un solo hallazgo', () => {
   it('la primera vez crea el hallazgo y lo encola', async () => {
-    const r = await guardarHallazgo({ ...base, severity: 'medium', description: 'Fuga', foto: null })
+    const r = await guardarHallazgo({ ...base, severity: 'medium', description: 'Fuga', fotosNuevas: [], fotosQuitar: [] })
 
     expect(r.creado).toBe(true)
     expect(await hallazgosDeInspeccion('ins-1')).toHaveLength(1)
@@ -64,12 +64,12 @@ describe('guardarHallazgo: una respuesta NOK tiene un solo hallazgo', () => {
   })
 
   it('corregirlo actualiza el mismo registro en vez de crear otro', async () => {
-    const primero = await guardarHallazgo({ ...base, severity: 'medium', description: 'Fuga', foto: null })
+    const primero = await guardarHallazgo({ ...base, severity: 'medium', description: 'Fuga', fotosNuevas: [], fotosQuitar: [] })
     const segundo = await guardarHallazgo({
       ...base,
       severity: 'critical',
       description: 'Fuga de aceite bajo el motor',
-      foto: null,
+      fotosNuevas: [], fotosQuitar: [],
     })
 
     expect(segundo).toEqual({ id: primero.id, creado: false })
@@ -88,51 +88,90 @@ describe('guardarHallazgo: una respuesta NOK tiene un solo hallazgo', () => {
   })
 
   it('si la versión anterior ya salió, la corrección viaja en una fila nueva', async () => {
-    const { id } = await guardarHallazgo({ ...base, severity: 'low', description: 'Fuga', foto: null })
+    const { id } = await guardarHallazgo({ ...base, severity: 'low', description: 'Fuga', fotosNuevas: [], fotosQuitar: [] })
     await db.outbox.where('[entityType+entityId]').equals(['finding', id]).modify({ status: 'synced' })
 
-    await guardarHallazgo({ ...base, severity: 'high', description: 'Fuga mayor', foto: null })
+    await guardarHallazgo({ ...base, severity: 'high', description: 'Fuga mayor', fotosNuevas: [], fotosQuitar: [] })
 
     const filas = await filasDe('finding')
     expect(filas.map((f) => f.status).sort()).toEqual(['pending', 'synced'])
     expect(await hallazgosDeInspeccion('ins-1')).toHaveLength(1)
   })
 
-  it('corregir sin tomar otra foto conserva la que había', async () => {
-    await guardarHallazgo({ ...base, severity: 'medium', description: 'Fuga', foto: foto('uno') })
-    await guardarHallazgo({ ...base, severity: 'high', description: 'Fuga mayor', foto: null })
+  it('corregir sin tomar otra foto conserva las que había', async () => {
+    await guardarHallazgo({ ...base, severity: 'medium', description: 'Fuga', fotosNuevas: [foto('uno')], fotosQuitar: [] })
+    await guardarHallazgo({ ...base, severity: 'high', description: 'Fuga mayor', fotosNuevas: [], fotosQuitar: [] })
 
     const guardado = await hallazgoDeRespuesta('ins-1', 'resp-1')
-    expect(guardado?.foto).not.toBeNull()
+    expect(guardado?.fotos).toHaveLength(1)
     expect(await db.attachments.count()).toBe(1)
     expect(await filasDe('attachment')).toHaveLength(1)
   })
 
-  it('una foto nueva reemplaza a la anterior si ésta no había salido', async () => {
-    await guardarHallazgo({ ...base, severity: 'medium', description: 'Fuga', foto: foto('uno') })
-    const antes = (await db.attachments.toArray())[0].id
-    await guardarHallazgo({ ...base, severity: 'medium', description: 'Fuga', foto: foto('dos-mayor') })
+  it('varias fotos nuevas se agregan a las que ya tenía, en orden (TSK-OFF-016)', async () => {
+    const { id } = await guardarHallazgo({
+      ...base,
+      severity: 'medium',
+      description: 'Fuga',
+      fotosNuevas: [foto('uno'), foto('dos')],
+      fotosQuitar: [],
+    })
+    await guardarHallazgo({ ...base, severity: 'medium', description: 'Fuga', fotosNuevas: [foto('tres')], fotosQuitar: [] })
 
-    const adjuntos = await db.attachments.toArray()
-    expect(adjuntos).toHaveLength(1)
-    expect(adjuntos[0].id).not.toBe(antes)
-    const filas = await filasDe('attachment')
-    expect(filas).toHaveLength(1)
-    expect(filas[0].entityId).toBe(adjuntos[0].id)
+    const fotos = await fotosDeHallazgo(id)
+    expect(fotos).toHaveLength(3)
+    expect(await Promise.all(fotos.map((f) => f.blob.text()))).toEqual(['uno', 'dos', 'tres'])
+    expect(fotos.every((f) => !f.enviada)).toBe(true)
+    expect(await filasDe('attachment')).toHaveLength(3)
   })
 
-  it('una foto ya enviada no se borra: la nueva se agrega', async () => {
-    await guardarHallazgo({ ...base, severity: 'medium', description: 'Fuga', foto: foto('uno') })
-    await db.outbox.where('entityType').equals('attachment').modify({ status: 'synced' })
-    await guardarHallazgo({ ...base, severity: 'medium', description: 'Fuga', foto: foto('dos') })
+  it('quitar una foto que no salió la borra junto con su fila de envío', async () => {
+    const { id } = await guardarHallazgo({
+      ...base,
+      severity: 'medium',
+      description: 'Fuga',
+      fotosNuevas: [foto('uno'), foto('dos')],
+      fotosQuitar: [],
+    })
+    const [primera] = await fotosDeHallazgo(id)
+    await guardarHallazgo({ ...base, severity: 'medium', description: 'Fuga', fotosNuevas: [], fotosQuitar: [primera.id] })
 
-    expect(await db.attachments.count()).toBe(2)
-    expect(await filasDe('attachment')).toHaveLength(2)
+    const fotos = await fotosDeHallazgo(id)
+    expect(await Promise.all(fotos.map((f) => f.blob.text()))).toEqual(['dos'])
+    const filas = await filasDe('attachment')
+    expect(filas.map((f) => f.entityId)).toEqual([fotos[0].id])
+  })
+
+  it('una foto ya enviada no se borra aunque se pida quitarla', async () => {
+    const { id } = await guardarHallazgo({ ...base, severity: 'medium', description: 'Fuga', fotosNuevas: [foto('uno')], fotosQuitar: [] })
+    await db.outbox.where('entityType').equals('attachment').modify({ status: 'synced' })
+    const [enviada] = await fotosDeHallazgo(id)
+    expect(enviada.enviada).toBe(true)
+
+    await guardarHallazgo({ ...base, severity: 'medium', description: 'Fuga', fotosNuevas: [], fotosQuitar: [enviada.id] })
+
+    expect(await db.attachments.count()).toBe(1)
+    expect(await filasDe('attachment')).toHaveLength(1)
+  })
+
+  it('no quita fotos de otro hallazgo aunque reciba su id', async () => {
+    const a = await guardarHallazgo({ ...base, severity: 'medium', description: 'Fuga', fotosNuevas: [foto('a')], fotosQuitar: [] })
+    const [fotoDeA] = await fotosDeHallazgo(a.id)
+    await guardarHallazgo({
+      ...base,
+      responseId: 'resp-2',
+      severity: 'low',
+      description: 'Polvo',
+      fotosNuevas: [],
+      fotosQuitar: [fotoDeA.id],
+    })
+
+    expect(await fotosDeHallazgo(a.id)).toHaveLength(1)
   })
 
   it('respuestas distintas tienen hallazgos distintos', async () => {
-    const a = await guardarHallazgo({ ...base, severity: 'medium', description: 'Fuga', foto: null })
-    const b = await guardarHallazgo({ ...base, responseId: 'resp-2', severity: 'low', description: 'Polvo', foto: null })
+    const a = await guardarHallazgo({ ...base, severity: 'medium', description: 'Fuga', fotosNuevas: [], fotosQuitar: [] })
+    const b = await guardarHallazgo({ ...base, responseId: 'resp-2', severity: 'low', description: 'Polvo', fotosNuevas: [], fotosQuitar: [] })
 
     expect(b.creado).toBe(true)
     expect(b.id).not.toBe(a.id)
