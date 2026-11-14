@@ -46,3 +46,27 @@ describe('firma offline de cierre (FR-056)', () => {
     )
   })
 })
+
+describe('firma guardada por una versión anterior (TSK-OFF-018)', () => {
+  it('al enviar se ajusta a lo que acepta el servidor y el hash no cambia', async () => {
+    const { aSyncRecord } = await import('../src/lib/db')
+    const { id } = await borrador()
+    await submitInspection(id, {
+      strokes: [{ points: [{ x: 10, y: 20 }, { x: 400, y: 600 }] }],
+      declarationVersion: 'v1',
+    })
+    const firma = await db.signatures.where('inspectionId').equals(id).first()
+    if (!firma) throw new Error('sin firma')
+    // Como quedaba con el pad anterior: un toque suelto y un trazo de 1500 puntos.
+    const larga = Array.from({ length: 1500 }, (_, i) => ({ x: Math.round(i / 1.5), y: 300 + Math.round(100 * Math.sin(i / 9)) }))
+    await db.signatures.update(firma.id, { strokes: [{ points: [{ x: 5, y: 5 }] }, { points: larga }] })
+
+    const fila = (await db.outbox.toArray()).find((f) => f.entityType === 'inspection_signature')
+    if (!fila) throw new Error('sin fila de firma')
+    const registro = await aSyncRecord(fila)
+    const strokes = (registro.payload as { strokes: Array<{ points: unknown[] }>; content_hash: string }).strokes
+    expect(strokes.every((s) => s.points.length >= 2)).toBe(true)
+    expect(strokes.reduce((n, s) => n + s.points.length, 0)).toBeLessThanOrEqual(1024)
+    expect((registro.payload as { content_hash: string }).content_hash).toBe(firma.contentHash)
+  })
+})

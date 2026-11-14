@@ -239,6 +239,55 @@ describe('FR-024 y RLS estricta (TSK-DOM-005)', () => {
     expect(rows[0]?.status).toBe('failed')
   })
 
+  it('TSK-OFF-018: el motivo del rechazo queda y la supervisión lo ve agrupado', async () => {
+    const deviceId = randomUUID()
+    const firmaInvalida = {
+      entity_type: 'inspection_signature',
+      id: randomUUID(),
+      tenant_id: TENANT_A_ID,
+      client_version: 0,
+      captured_at: new Date().toISOString(),
+      payload: {
+        inspection_id: randomUUID(),
+        signer_id: ids.workerA,
+        signer_role: 'inspector',
+        // Un toque suelto: lo que guardaba el pad anterior.
+        strokes: [{ points: [{ x: 10, y: 10 }] }],
+        content_hash: 'a'.repeat(64),
+        declaration_version: 'v1',
+        signed_at: new Date().toISOString(),
+      },
+    }
+    for (let i = 0; i < 2; i++) {
+      const res = await server()
+        .post('/api/v1/sync/batch')
+        .set(como('workerA'))
+        .send({ batch_id: randomUUID(), device_id: deviceId, records: [firmaInvalida] })
+      expect(res.status).toBe(400)
+    }
+    const { rows } = await ownerPool.query(
+      'SELECT error_message FROM sync_log WHERE device_id = $1',
+      [deviceId],
+    )
+    expect(rows).toHaveLength(2)
+    expect(rows[0].error_message).toMatch(/payload\.strokes/)
+    // El motivo es el texto de validación, nunca el contenido del registro.
+    expect(rows[0].error_message).not.toMatch(/"x"/)
+
+    const lista = await server().get('/api/v1/conflicts/rechazos').set(como('supA'))
+    expect(lista.status).toBe(200)
+    const grupo = lista.body.items.find((r: { device_id: string }) => r.device_id === deviceId)
+    expect(grupo).toMatchObject({ intentos: 2, motivo: expect.stringMatching(/payload\.strokes/) })
+    expect(grupo.usuario).toBeTruthy()
+
+    // Otra empresa no lo ve (RLS) y el trabajador no tiene acceso.
+    const ajena = await server().get('/api/v1/conflicts/rechazos').set(como('supB'))
+    expect(ajena.status).toBe(200)
+    expect(ajena.body.items.some((r: { device_id: string }) => r.device_id === deviceId)).toBe(false)
+    expect((await server().get('/api/v1/conflicts/rechazos').set(como('workerA'))).status).toBe(403)
+    expect((await server().get('/api/v1/conflicts/rechazos')).status).toBe(401)
+  })
+
   it('el rol de la app no ve filas de plataforma en audit_log', async () => {
     await ownerPool.query(
       `INSERT INTO audit_log (id, actor_id, tenant_id, action, entity_type, entity_id, payload)

@@ -27,6 +27,7 @@ import type {
   InspectionDetalle,
   InspectionsResponse,
   ListConflictsResponse,
+  ListEnviosRechazadosResponse,
   SitesResponse,
   TemplateAssignmentDto,
   TemplateAssignmentRole,
@@ -491,6 +492,11 @@ function conteoDeCabecera(resp: Response, cabecera: string): number | null {
 
 export function getConflicts(): Promise<ListConflictsResponse> {
   return apiFetch<ListConflictsResponse>('/conflicts')
+}
+
+/** TSK-OFF-018 (FR-024): envíos rechazados por el servidor, por equipo y motivo. */
+export function getEnviosRechazados(): Promise<ListEnviosRechazadosResponse> {
+  return apiFetch<ListEnviosRechazadosResponse>('/conflicts/rechazos')
 }
 
 /** Revisiones publicadas con su definición; `since` pedida = delta (FR-027).

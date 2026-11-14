@@ -21,6 +21,7 @@ import {
 import { type PlanPurga } from './plantillas'
 import type { Identidad } from './types'
 import { SEVERIDAD_ES, type EntradaVistaCola } from './cola-vista'
+import { ajustarALimites } from './firma'
 
 export type SyncEstado = 'pending' | 'syncing' | 'synced' | 'failed'
 export type OutboxTipo = 'inspeccion' | 'respuesta' | 'hallazgo' | 'foto' | 'bitacora' | 'firma'
@@ -1302,7 +1303,10 @@ async function payloadDe(o: OutboxRow): Promise<{
           inspection_id: r.inspectionId,
           signer_id: r.signerId,
           signer_role: r.signerRole,
-          strokes: r.strokes,
+          // TSK-OFF-018: una firma guardada por una versión anterior puede traer
+          // toques de un punto o más de 1024 puntos, y el servidor rechazaría el
+          // lote completo. Se ajusta al enviar; el hash del cierre no la incluye.
+          strokes: ajustarALimites(r.strokes),
           content_hash: r.contentHash,
           declaration_version: r.declarationVersion,
           signed_at: r.signedAt,

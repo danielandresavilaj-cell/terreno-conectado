@@ -9,13 +9,20 @@ import type { Request } from 'express'
 import { AuthGuard } from '../auth/auth.guard'
 import type { JwtClaims } from '../auth/auth.types'
 import { SyncService } from './sync.service'
-import type { ListConflictsResponse } from '@terreno/shared'
+import type { ListConflictsResponse, ListEnviosRechazadosResponse } from '@terreno/shared'
 
 type AuthedRequest = Request & { user?: JwtClaims }
 
 @Controller('conflicts')
 export class ConflictsController {
   constructor(@Inject(SyncService) private readonly sync: SyncService) {}
+
+  /** TSK-OFF-018 (FR-024): envíos rechazados por el servidor, con su motivo. */
+  @UseGuards(AuthGuard)
+  @Get('rechazos')
+  async rechazos(@Req() req: AuthedRequest): Promise<ListEnviosRechazadosResponse> {
+    return this.sync.listEnviosRechazados(req.user as JwtClaims)
+  }
 
   @UseGuards(AuthGuard)
   @Get()

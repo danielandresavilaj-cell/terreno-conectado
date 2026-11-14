@@ -31,3 +31,20 @@ export interface ListConflictsResponse {
   items: ConflictRecordDto[]
   total: number
 }
+/**
+ * TSK-OFF-018 (FR-024): envíos que el servidor rechazó antes de procesarlos,
+ * agrupados por equipo y motivo. Un teléfono reintenta el mismo lote, así que
+ * cada grupo dice cuántas veces ocurrió y cuándo fue la última.
+ */
+export interface EnvioRechazadoDto {
+  device_id: string
+  usuario: string | null
+  motivo: string
+  intentos: number
+  primero: string
+  ultimo: string
+}
+
+export interface ListEnviosRechazadosResponse {
+  items: EnvioRechazadoDto[]
+}

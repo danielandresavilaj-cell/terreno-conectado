@@ -25,11 +25,19 @@ import { useCallback, useEffect, useState } from 'react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { BadgeSev } from '../components/Badges'
 import { Boton } from '../components/ui'
-import { ApiError, getConflicts, revisarConflicto } from '../lib/api'
+import { ApiError, getConflicts, getEnviosRechazados, revisarConflicto } from '../lib/api'
 import { useEstado } from '../lib/store'
 import { EASE } from '../lib/motion'
 import type { Conflicto } from '../lib/types'
-import type { ConflictRecordDto } from '@terreno/shared'
+import type { ConflictRecordDto, EnvioRechazadoDto } from '@terreno/shared'
+
+/** TSK-OFF-018: motivo técnico del servidor → frase para la supervisión. */
+export function motivoRechazoLegible(motivo: string): string {
+  if (/payload\.strokes/.test(motivo)) {
+    return 'La firma de cierre no tenía el formato que acepta el servidor. La versión actual de la app la corrige sola al reenviar.'
+  }
+  return motivo.replace(/records\[\d+\]\.(payload\.)?/g, '').trim()
+}
 
 const ENTIDAD_LABEL: Record<ConflictRecordDto['entity_type'], string> = {
   inspection: 'inspección',
@@ -112,6 +120,7 @@ export function Conflictos() {
   const [error, setError] = useState<string | null>(null)
   const [resueltos, setResueltos] = useState<Record<string, boolean>>({})
   const [errorRevision, setErrorRevision] = useState<string | null>(null)
+  const [rechazos, setRechazos] = useState<EnvioRechazadoDto[]>([])
 
   const cargar = useCallback(async () => {
     setCargando(true)
@@ -121,6 +130,8 @@ export function Conflictos() {
       const lista = r.items.map(mapaConflicto)
       setItems(lista)
       setResueltos(Object.fromEntries(lista.filter((c) => c.resuelto).map((c) => [c.id, true])))
+      // Los rechazos son un complemento: si fallan, el registro de conflictos igual se ve.
+      setRechazos(await getEnviosRechazados().then((x) => x.items).catch(() => []))
     } catch {
       setError('No se pudo leer el registro de conflictos.')
     } finally {
@@ -207,6 +218,29 @@ export function Conflictos() {
             />
           ))}
         </div>
+      )}
+
+      {rechazos.length > 0 && (
+        <section aria-labelledby="rechazos-titulo" className="space-y-3">
+          <div>
+            <h2 id="rechazos-titulo" className="text-[17px] font-semibold">Envíos rechazados por el servidor</h2>
+            <p className="mt-1 text-[13px] text-ink-2 max-w-[62ch] leading-relaxed">
+              Últimos 14 días. No son conflictos: el servidor no aceptó un dato y el envío completo quedó en el
+              teléfono, que lo reintenta solo. Nada se pierde mientras el teléfono conserve la cola.
+            </p>
+          </div>
+          {rechazos.map((r) => (
+            <div key={`${r.device_id}-${r.motivo}`} className="panel px-4 py-3">
+              <p className="text-[14px] font-semibold">{r.usuario ?? 'Cuenta desconocida'}</p>
+              <p className="mt-1 text-[13px] leading-relaxed">{motivoRechazoLegible(r.motivo)}</p>
+              <p className="mt-1 text-[12px] text-ink-2">
+                {r.intentos === 1 ? '1 intento' : `${r.intentos} intentos`} · último{' '}
+                {new Date(r.ultimo).toLocaleString('es-CL', { dateStyle: 'short', timeStyle: 'short' })} · equipo{' '}
+                {r.device_id.slice(0, 8)}
+              </p>
+            </div>
+          ))}
+        </section>
       )}
 
       <p className="text-[11px] text-ink-3 leading-relaxed border-t border-line-soft pt-4">
