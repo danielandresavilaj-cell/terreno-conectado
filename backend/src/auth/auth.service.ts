@@ -75,8 +75,10 @@ export class AuthService {
       throw new UnauthorizedException('Credenciales inválidas')
     }
     if (user.locked_until && new Date(user.locked_until).getTime() > Date.now()) {
+      // TSK-AUTH-012: los minutos que FALTAN, no siempre los 15 del bloqueo.
+      const minutos = Math.max(1, Math.ceil((new Date(user.locked_until).getTime() - Date.now()) / 60_000))
       throw new HttpException(
-        `Cuenta bloqueada temporalmente (${LOCK_MINUTES} min)`,
+        { statusCode: LOCKED_STATUS, message: `Cuenta bloqueada temporalmente (${minutos} min)`, minutos },
         LOCKED_STATUS,
       )
     }
@@ -286,13 +288,25 @@ export class AuthService {
     }
   }
 
+  /**
+   * FR-005: "5 veces consecutivas". Un bloqueo ya cumplido cierra la racha: el
+   * primer fallo después de él cuenta como el 1, no como el 6 (TSK-AUTH-012).
+   * Sin esto, al vencer los 15 min un solo error volvía a bloquear la cuenta.
+   */
   private async registerAccountFail(user: AuthUserRow): Promise<void> {
     await this.db.queryOwner(
       `UPDATE app_user
-         SET failed_login_count = failed_login_count + 1,
+         SET failed_login_count = CASE
+               WHEN locked_until IS NOT NULL AND locked_until <= now() THEN 1
+               ELSE failed_login_count + 1
+             END,
              locked_until = CASE
-               WHEN failed_login_count + 1 >= ${MAX_FAILED_LOGINS}
+               WHEN (CASE
+                       WHEN locked_until IS NOT NULL AND locked_until <= now() THEN 1
+                       ELSE failed_login_count + 1
+                     END) >= ${MAX_FAILED_LOGINS}
                THEN now() + interval '${LOCK_MINUTES} minutes'
+               WHEN locked_until IS NOT NULL AND locked_until <= now() THEN NULL
                ELSE locked_until
              END
        WHERE id = $1`,

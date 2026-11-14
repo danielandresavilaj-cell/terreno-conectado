@@ -311,6 +311,8 @@ export class DashboardService {
       responsable: string | null
       due_date: string | null
       resolution_note: string | null
+      progress_note: string | null
+      reported_ms: number | null
     }
 
     const where = `
@@ -346,7 +348,8 @@ export class DashboardService {
                 COALESCE((SELECT array_agg(a3.id ORDER BY a3.captured_at, a3.id) FROM attachment a3
                            WHERE a3.owner_type = 'finding' AND a3.owner_id = f.id), '{}') AS fotos_ids,
                 f.assignee_id, r.full_name AS responsable,
-                to_char(f.due_date, 'YYYY-MM-DD') AS due_date, f.resolution_note
+                to_char(f.due_date, 'YYYY-MM-DD') AS due_date, f.resolution_note,
+                f.progress_note, (extract(epoch FROM f.reported_at) * 1000)::float8 AS reported_ms
          ${base}
          ${where}
          ORDER BY f.captured_at DESC
@@ -381,6 +384,8 @@ export class DashboardService {
       responsable: r.responsable,
       due_date: r.due_date,
       resolution_note: r.resolution_note,
+      progress_note: r.progress_note,
+      reported_at: r.reported_ms == null ? null : new Date(r.reported_ms).toISOString(),
     }))
 
     return { items, total: totalRows[0]?.n ?? 0 }
