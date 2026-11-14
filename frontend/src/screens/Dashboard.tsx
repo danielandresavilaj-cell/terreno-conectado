@@ -54,6 +54,7 @@ import { FirmaCierre } from '../components/FirmaCierre'
 import { FotoEvidencia } from '../components/FotoEvidencia'
 import { BitacoraFaena } from '../components/BitacoraFaena'
 import { TendenciaSemanal } from '../components/dashboard/TendenciaSemanal'
+import { ResumenIA } from '../components/dashboard/ResumenIA'
 import { estadoPlazo, hoyLocal, plazoSugerido, type EstadoPlazo } from '../lib/plazo'
 import { PERIODOS, rangoPeriodo, type Periodo, type RangoFechas } from '../lib/periodos'
 import { EASE } from '../lib/motion'
@@ -524,6 +525,17 @@ export function Dashboard() {
             <Metrica etiqueta="Inspecciones" valor={totalInsp} pie={`${enCurso} en curso ahora`} />
           </div>
 
+          {/* TSK-REP-014 (FR-068): resumen redactado con IA del filtro actual. La
+              `key` lo reinicia al cambiar el filtro: nunca muestra un resumen de
+              otro período. Sin IA en el servidor no se muestra. */}
+          {summary && (
+            <ResumenIA
+              key={`${periodo}|${faena}|${rango.desde}|${rango.hasta}`}
+              filtros={rangoBitacora}
+              online={online}
+              alcance={`${nombreFaena} · ${periodo === 'Rango' ? 'rango elegido' : periodo}`}
+            />
+          )}
           {summary && summary.tendencia_semanal.length > 0 && <TendenciaSemanal semanas={summary.tendencia_semanal} />}
 
           {supervision && (

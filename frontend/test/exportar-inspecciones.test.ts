@@ -30,6 +30,19 @@ describe('períodos', () => {
     expect([hasta.getMonth(), hasta.getDate(), hasta.getHours()]).toEqual([9, 31, 23])
   })
 
+  it('semana anterior va de lunes 00:00 a domingo 23:59 (TSK-REP-014)', () => {
+    // 15-nov-2026 es domingo: la semana anterior es del lunes 2 al domingo 8.
+    const s = rangoPeriodo('Semana anterior', undefined, ahora)
+    const desde = new Date(s.desde!)
+    const hasta = new Date(s.hasta!)
+    expect([desde.getMonth(), desde.getDate(), desde.getDay(), desde.getHours()]).toEqual([10, 2, 1, 0])
+    expect([hasta.getMonth(), hasta.getDate(), hasta.getDay(), hasta.getHours()]).toEqual([10, 8, 0, 23])
+    // Un lunes, la semana anterior es la que acaba de terminar.
+    const lunes = rangoPeriodo('Semana anterior', undefined, new Date(2026, 10, 16, 8, 0, 0))
+    expect(new Date(lunes.desde!).getDate()).toBe(9)
+    expect(new Date(lunes.hasta!).getDate()).toBe(15)
+  })
+
   it('rango libre incluye el día final completo; vacío = sin límite', () => {
     const r = rangoPeriodo('Rango', { desde: '2026-11-01', hasta: '2026-11-03' }, ahora)
     expect(new Date(r.hasta!).getHours()).toBe(23)
