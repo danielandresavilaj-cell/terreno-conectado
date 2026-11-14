@@ -23,6 +23,8 @@ const base: Omit<FindingDto, 'severity' | 'status' | 'description'> = {
   responsable: null,
   due_date: null,
   resolution_note: null,
+  progress_note: null,
+  reported_at: null,
 }
 
 const hallazgos: FindingDto[] = [

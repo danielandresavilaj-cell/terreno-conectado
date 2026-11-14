@@ -60,7 +60,40 @@ export interface FindingDto {
   /** Plazo (AAAA-MM-DD). */
   due_date: string | null
   resolution_note: string | null
+  /** TSK-DOM-008 (FR-067): lo que reportó el responsable. "Listo para revisar" = `in_progress` + `reported_at`. */
+  progress_note: string | null
+  reported_at: string | null
 }
+
+/**
+ * TSK-DOM-008 (FR-067): `GET /api/v1/findings/asignados` — un hallazgo del que
+ * se hace cargo quien consulta, con lo necesario para entenderlo sin señal.
+ */
+export interface HallazgoAsignadoDto {
+  id: string
+  severity: SyncSeverity
+  status: 'open' | 'in_progress' | 'resolved'
+  description: string
+  /** Plazo (AAAA-MM-DD). */
+  due_date: string | null
+  /** Cuándo se le asignó (ISO); decide si es "nuevo" para el aviso. */
+  assigned_at: string
+  progress_note: string | null
+  reported_at: string | null
+  resolution_note: string | null
+  resolved_at: string | null
+  faena: string | null
+  formulario: string | null
+  /** Pregunta de la que salió, si salió de una respuesta (no si es hallazgo general). */
+  pregunta: string | null
+  inspeccion_at: string | null
+  /** Quién registró la inspección. */
+  autor: string | null
+  fotos_ids: string[]
+}
+
+/** TSK-DOM-008 (FR-067): `PATCH /api/v1/findings/:id/avance`. */
+export type AvanceHallazgoBody = { accion: 'iniciar' } | { accion: 'reportar'; nota: string }
 
 export interface DashboardSummary {
   site_id: string | null

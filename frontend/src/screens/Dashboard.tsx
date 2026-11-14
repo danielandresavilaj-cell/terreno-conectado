@@ -1213,7 +1213,9 @@ function FilaHallazgo({
   const cambiar = async (nuevo: FindingDto['status']) => {
     if (nuevo === 'resolved' && !h.resolution_note) {
       // Cerrar pide decir qué se hizo: se abre la gestión con el estado ya elegido.
+      // TSK-DOM-008: si el responsable ya reportó, su reporte es el punto de partida.
       setEstado(nuevo)
+      if (!nota.trim() && h.progress_note) setNota(h.progress_note)
       setEditando(true)
       return
     }
@@ -1287,6 +1289,18 @@ function FilaHallazgo({
             </span>
             <span className={pm.clase}>· {pm.texto(h.due_date)}</span>
           </div>
+          {/* TSK-DOM-008 (FR-067): el responsable reportó; falta que supervisión verifique y cierre. */}
+          {h.status === 'in_progress' && h.reported_at && (
+            <p className="mt-1.5 inline-flex items-center rounded-md bg-synced/15 px-2 py-1 text-[12px] font-semibold text-synced">
+              Listo para revisar
+            </p>
+          )}
+          {h.progress_note && h.status !== 'resolved' && (
+            <p className="mt-1.5 text-[13px] text-ink-2 break-words">
+              <span className="text-ink-3">Reporte del responsable: </span>
+              {h.progress_note}
+            </p>
+          )}
           {h.status === 'resolved' && h.resolution_note && (
             <p className="mt-1.5 text-[13px] text-ink-2 break-words">
               <span className="text-ink-3">Cierre: </span>

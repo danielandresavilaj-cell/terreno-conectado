@@ -16,6 +16,7 @@
 
 import { nombreArchivoDeContentDisposition } from '@terreno/shared'
 import type {
+  AvanceHallazgoBody,
   CapacidadesImport,
   ConfirmImportBody,
   ConflictRecordDto,
@@ -24,6 +25,7 @@ import type {
   DashboardSummary,
   DashboardSupervision,
   ExportarInspeccionesBody,
+  HallazgoAsignadoDto,
   InspectionDetalle,
   InspectionsResponse,
   ListConflictsResponse,
@@ -828,6 +830,19 @@ export function gestionarHallazgo(
   },
 ): Promise<{ id: string; status: string; assignee_id: string | null; responsable: string | null; due_date: string | null; resolution_note: string | null }> {
   return apiFetch(`/findings/${encodeURIComponent(id)}`, { method: 'PATCH', body: cambios })
+}
+
+/** TSK-DOM-008 (FR-067): los hallazgos de los que me hago cargo. */
+export function getHallazgosAsignados(): Promise<HallazgoAsignadoDto[]> {
+  return apiFetch('/findings/asignados')
+}
+
+/** TSK-DOM-008 (FR-067): el responsable lo empieza o reporta lo que hizo. */
+export function reportarAvanceHallazgo(
+  id: string,
+  body: AvanceHallazgoBody,
+): Promise<{ id: string; status: HallazgoAsignadoDto['status']; progress_note: string | null; reported_at: string | null }> {
+  return apiFetch(`/findings/${encodeURIComponent(id)}/avance`, { method: 'PATCH', body })
 }
 
 /** Cuentas activas de la empresa a las que se puede asignar un hallazgo. */

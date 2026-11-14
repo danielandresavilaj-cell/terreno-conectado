@@ -7,8 +7,18 @@ import { itemsDe } from '../lib/valores'
 /** Punto de entrada de terreno: sólo muestra formularios que el servidor ya
  * filtró por la faena y rol del usuario autenticado. */
 export function Formularios() {
-  const { formularios, plantilla, hayBorrador, seleccionarFormulario, ir, usuario, identidad, faenaPorElegir, cambiarFaena } =
-    useEstado()
+  const {
+    formularios,
+    plantilla,
+    hayBorrador,
+    seleccionarFormulario,
+    ir,
+    usuario,
+    identidad,
+    faenaPorElegir,
+    cambiarFaena,
+    hallazgosNuevos,
+  } = useEstado()
   const [error, setError] = useState<string | null>(null)
   const [cambiando, setCambiando] = useState<string | null>(null)
   const faenas = identidad?.faenas ?? []
@@ -44,6 +54,24 @@ export function Formularios() {
           Estos son los formularios habilitados para {usuario?.faena && usuario.faena !== '—' ? usuario.faena : 'tu faena'}.
         </p>
       </header>
+
+      {/* TSK-DOM-008 (FR-067): al abrir la app, la persona se entera de lo que le asignaron. */}
+      {hallazgosNuevos > 0 && (
+        <section className="panel p-4 border-beam/45 bg-beam/[0.06] flex flex-wrap items-center justify-between gap-3" role="status">
+          <p className="text-[15px] font-semibold">
+            {hallazgosNuevos === 1
+              ? 'Tienes 1 hallazgo nuevo asignado'
+              : `Tienes ${hallazgosNuevos} hallazgos nuevos asignados`}
+          </p>
+          <button
+            type="button"
+            onClick={() => ir('hallazgos')}
+            className="min-h-11 px-4 rounded-[10px] bg-beam text-on-beam text-[14px] font-semibold cursor-pointer"
+          >
+            Ver hallazgos
+          </button>
+        </section>
+      )}
 
       {faenas.length > 1 && (
         <section
