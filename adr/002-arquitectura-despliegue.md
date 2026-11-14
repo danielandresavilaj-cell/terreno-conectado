@@ -82,6 +82,12 @@ Internet
 - **Transición:** `DOMAIN` lista los tres hosts (`terrenoconectado.cl, www.terrenoconectado.cl, terreno-conectado-demo.duckdns.org`) y `ALLOWED_ORIGIN` sus orígenes, así las PWA ya instaladas siguen sincronizando lo pendiente. `tools/ops.mjs` comprueba la salud pública en el **primer** host de la lista.
 - **Costo:** solo el dominio (anual). La infraestructura sigue en US$0/mes.
 
+#### Adenda 3 — Se retira DuckDNS (2026-11-14)
+
+- **Decisión:** el titular pide deshabilitar definitivamente `terreno-conectado-demo.duckdns.org`. `DOMAIN` y `ALLOWED_ORIGIN` quedan solo con `terrenoconectado.cl` y `www.terrenoconectado.cl`. Caddy deja de responder y de renovar certificados para la dirección DuckDNS, y el backend ya no acepta ese origen. El monitor `demo-health` revisa solo el dominio propio.
+- **Teléfonos con la app instalada desde la dirección anterior:** sus datos sin enviar viven en ese origen. Antes de retirarla había que sincronizarlos; después, se reinstala la app desde `terrenoconectado.cl`.
+- **Registro en DuckDNS:** el subdominio se borra en la cuenta de duckdns.org del titular, para que nadie pueda reutilizarlo apuntando a la IP de la VM.
+
 ## Parte B — Ejercicio de diseño: qué sería "producción real" (NO se provisiona)
 
 Comparación educativa para el informe final (muestra que entendemos la diferencia entre demo y producción):

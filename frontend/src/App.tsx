@@ -23,6 +23,7 @@ const Importar = lazy(() => import('./screens/Importar').then((m) => ({ default:
 const Administracion = lazy(() => import('./screens/Administracion').then((m) => ({ default: m.Administracion })))
 const Plataforma = lazy(() => import('./screens/Plataforma').then((m) => ({ default: m.Plataforma })))
 const Plantillas = lazy(() => import('./screens/Plantillas').then((m) => ({ default: m.Plantillas })))
+const MisHallazgos = lazy(() => import('./screens/MisHallazgos').then((m) => ({ default: m.MisHallazgos })))
 
 /* Permisos por rol (FR-003: permisos crecientes).
  * Esta tabla es la traducción visual de la matriz rol→recurso del spec 001.
@@ -30,9 +31,9 @@ const Plantillas = lazy(() => import('./screens/Plantillas').then((m) => ({ defa
  * ve la captura. Esto sólo decide qué pantallas se ofrecen: la autorización
  * real la hacen el backend y la RLS (Art. IV). */
 const POR_ROL: Record<string, Pantalla[]> = {
-  field_worker: ['formularios', 'captura', 'bitacora', 'cola', 'cuenta'],
-  supervisor: ['formularios', 'captura', 'bitacora', 'cola', 'dashboard', 'conflictos', 'cuenta'],
-  tenant_admin: ['dashboard', 'administracion', 'conflictos', 'plantillas', 'importar', 'crear-formulario', 'cola', 'cuenta'],
+  field_worker: ['formularios', 'captura', 'bitacora', 'hallazgos', 'cola', 'cuenta'],
+  supervisor: ['formularios', 'captura', 'bitacora', 'hallazgos', 'cola', 'dashboard', 'conflictos', 'cuenta'],
+  tenant_admin: ['dashboard', 'administracion', 'conflictos', 'plantillas', 'importar', 'crear-formulario', 'hallazgos', 'cola', 'cuenta'],
   platform_admin: ['plataforma', 'cuenta'],
 }
 
@@ -106,6 +107,7 @@ function Raiz() {
         {pantalla === 'plantillas' && <Plantillas />}
         {pantalla === 'administracion' && <Administracion />}
         {pantalla === 'plataforma' && <Plataforma />}
+        {pantalla === 'hallazgos' && <MisHallazgos />}
       </Suspense>
     </Shell>
   )

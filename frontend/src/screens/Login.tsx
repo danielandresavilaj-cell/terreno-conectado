@@ -24,6 +24,7 @@ import { PwaInstalacion } from '../components/PwaInstalacion'
 import { BotonTema } from '../components/BotonTema'
 import { useEstado } from '../lib/store'
 import { ApiError } from '../lib/api'
+import { mensajeBloqueo } from '../lib/bloqueo'
 import { EASE, STAGGER } from '../lib/motion'
 
 export function Login() {
@@ -54,7 +55,7 @@ export function Login() {
               : 'Correo o contraseña incorrectos. Si tu correo está en más de una empresa, indica el código de empresa.',
           )
         } else if (err.status === 423) {
-          setError('Tu cuenta quedó bloqueada por demasiados intentos. Vuelve a intentar en 15 minutos.')
+          setError(mensajeBloqueo(err.detalle))
         } else if (err.status === 429) {
           setError('Demasiados intentos seguidos. Espera unos minutos y vuelve a intentar.')
         } else if (err.status === 0) {
