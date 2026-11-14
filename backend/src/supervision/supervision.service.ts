@@ -1,6 +1,6 @@
 import { BadRequestException, ConflictException, Inject, Injectable, NotFoundException } from '@nestjs/common'
 import { randomUUID } from 'node:crypto'
-import type { SignatureStroke } from '@terreno/shared'
+import type { AvanceHallazgoBody, HallazgoAsignadoDto, SignatureStroke } from '@terreno/shared'
 import { DbService } from '../db/db.service'
 
 type Run = <R = Record<string, unknown>>(sql: string, params?: unknown[]) => Promise<R[]>
@@ -22,7 +22,13 @@ export interface HallazgoGestion {
   responsable: string | null
   due_date: string | null
   resolution_note: string | null
+  /** TSK-DOM-008 (FR-067): lo que reportó el responsable y cuándo (ISO). */
+  progress_note: string | null
+  reported_at: string | null
 }
+
+/** Ventana en que el responsable sigue viendo un hallazgo ya resuelto. */
+const DIAS_RESUELTOS_VISIBLES = 14
 
 /**
  * Ciclo de supervisión (FR-031/032, TSK-DOM-005). Decisiones del supervisor o
@@ -151,8 +157,11 @@ export class SupervisionService {
         assignee_id: string | null
         due_date: string | null
         resolution_note: string | null
+        progress_note: string | null
+        reported_ms: number | null
       }>(
-        `SELECT status, assignee_id, to_char(due_date, 'YYYY-MM-DD') AS due_date, resolution_note
+        `SELECT status, assignee_id, to_char(due_date, 'YYYY-MM-DD') AS due_date, resolution_note,
+                progress_note, (extract(epoch FROM reported_at) * 1000)::float8 AS reported_ms
            FROM finding WHERE id = $1 FOR UPDATE`,
         [id],
       )
@@ -175,14 +184,32 @@ export class SupervisionService {
       for (const k of ['status', 'assignee_id', 'due_date', 'resolution_note'] as const) {
         if (nuevo[k] !== actual[k]) cambio[k] = { de: actual[k], a: nuevo[k] }
       }
+      // TSK-DOM-008 (FR-067): otro responsable empieza de cero (sin el avance
+      // del anterior) y reabrir devuelve el hallazgo a quien lo tenía, sin el
+      // "listo para revisar".
+      const reasignado = cambio.assignee_id !== undefined
+      const reabierto = cambio.status !== undefined && nuevo.status === 'open'
+      let avance = {
+        progress_note: actual.progress_note,
+        reported_at: actual.reported_ms == null ? null : new Date(actual.reported_ms).toISOString(),
+      }
       if (Object.keys(cambio).length > 0) {
-        await run(
+        const [fila] = await run<{ progress_note: string | null; reported_ms: number | null }>(
           `UPDATE finding SET status = $2, assignee_id = $3, due_date = $4::date, resolution_note = $5,
                   updated_at = now(),
-                  resolved_at = CASE WHEN $2 = 'resolved' THEN COALESCE(resolved_at, now()) ELSE NULL END
-            WHERE id = $1`,
-          [id, nuevo.status, nuevo.assignee_id, nuevo.due_date, nuevo.resolution_note],
+                  resolved_at = CASE WHEN $2 = 'resolved' THEN COALESCE(resolved_at, now()) ELSE NULL END,
+                  assigned_at = CASE WHEN $6 THEN (CASE WHEN $3::uuid IS NULL THEN NULL ELSE now() END)
+                                     ELSE assigned_at END,
+                  progress_note = CASE WHEN $6 THEN NULL ELSE progress_note END,
+                  reported_at = CASE WHEN $6 OR $7 THEN NULL ELSE reported_at END
+            WHERE id = $1
+            RETURNING progress_note, (extract(epoch FROM reported_at) * 1000)::float8 AS reported_ms`,
+          [id, nuevo.status, nuevo.assignee_id, nuevo.due_date, nuevo.resolution_note, reasignado, reabierto],
         )
+        avance = {
+          progress_note: fila.progress_note,
+          reported_at: fila.reported_ms == null ? null : new Date(fila.reported_ms).toISOString(),
+        }
         if (cambio.status) {
           // Mismo evento de siempre para el cambio de estado (TSK-DOM-005).
           await auditar(run, actorId, tenantId, 'finding_status_changed', 'finding', id, {
@@ -198,7 +225,132 @@ export class SupervisionService {
       const [persona] = nuevo.assignee_id
         ? await run<{ full_name: string }>('SELECT full_name FROM app_user WHERE id = $1', [nuevo.assignee_id])
         : []
-      return { id, ...nuevo, responsable: persona?.full_name ?? null }
+      return { id, ...nuevo, ...avance, responsable: persona?.full_name ?? null }
+    })
+  }
+
+  /**
+   * TSK-DOM-008 (FR-067): `GET /findings/asignados` — los hallazgos de los que
+   * se hace cargo quien consulta. Los abiertos y en curso, más los resueltos de
+   * los últimos 14 días para que vea el cierre. Con la conexión del tenant (RLS):
+   * sólo su empresa, y además sólo los suyos.
+   */
+  async asignados(tenantId: string, actorId: string): Promise<HallazgoAsignadoDto[]> {
+    interface Row {
+      id: string
+      severity: HallazgoAsignadoDto['severity']
+      status: EstadoHallazgo
+      description: string
+      due_date: string | null
+      assigned_ms: number | null
+      progress_note: string | null
+      reported_ms: number | null
+      resolution_note: string | null
+      resolved_ms: number | null
+      faena: string | null
+      formulario: string | null
+      pregunta: string | null
+      inspeccion_ms: number | null
+      autor: string | null
+      fotos_ids: string[] | null
+    }
+    const ms = (v: number | null) => (v == null ? null : new Date(v).toISOString())
+    const rows = await this.db.queryAsTenant<Row>(
+      tenantId,
+      `SELECT f.id, f.severity, f.status, f.description,
+              to_char(f.due_date, 'YYYY-MM-DD') AS due_date,
+              (extract(epoch FROM COALESCE(f.assigned_at, f.updated_at)) * 1000)::float8 AS assigned_ms,
+              f.progress_note,
+              (extract(epoch FROM f.reported_at) * 1000)::float8 AS reported_ms,
+              f.resolution_note,
+              (extract(epoch FROM f.resolved_at) * 1000)::float8 AS resolved_ms,
+              s.name AS faena, t.name AS formulario,
+              (SELECT it->>'prompt'
+                 FROM template_revision tr,
+                      jsonb_array_elements(tr.definition->'sections') sec,
+                      jsonb_array_elements(sec->'items') it
+                WHERE tr.template_id = i.template_id AND tr.version = i.template_version
+                  AND it->>'id' = ir.template_item_id::text
+                LIMIT 1) AS pregunta,
+              (extract(epoch FROM i.captured_at) * 1000)::float8 AS inspeccion_ms,
+              u.full_name AS autor,
+              COALESCE((SELECT array_agg(a.id ORDER BY a.captured_at, a.id) FROM attachment a
+                         WHERE a.owner_type = 'finding' AND a.owner_id = f.id), '{}') AS fotos_ids
+         FROM finding f
+         LEFT JOIN inspection i ON i.id = f.inspection_id
+         LEFT JOIN inspection_response ir ON ir.id = f.response_id
+         LEFT JOIN site s ON s.id = i.site_id
+         LEFT JOIN template t ON t.id = i.template_id
+         LEFT JOIN app_user u ON u.id = i.executed_by
+        WHERE f.assignee_id = $1
+          AND (f.status <> 'resolved' OR f.resolved_at >= now() - make_interval(days => $2))
+        ORDER BY (f.status = 'resolved'), f.due_date NULLS LAST, COALESCE(f.assigned_at, f.updated_at) DESC`,
+      [actorId, DIAS_RESUELTOS_VISIBLES],
+    )
+    return rows.map((r) => ({
+      id: r.id,
+      severity: r.severity,
+      status: r.status,
+      description: r.description,
+      due_date: r.due_date,
+      assigned_at: ms(r.assigned_ms) ?? '',
+      progress_note: r.progress_note,
+      reported_at: ms(r.reported_ms),
+      resolution_note: r.resolution_note,
+      resolved_at: ms(r.resolved_ms),
+      faena: r.faena,
+      formulario: r.formulario,
+      pregunta: r.pregunta,
+      inspeccion_at: ms(r.inspeccion_ms),
+      autor: r.autor,
+      fotos_ids: r.fotos_ids ?? [],
+    }))
+  }
+
+  /**
+   * TSK-DOM-008 (FR-067): `PATCH /findings/:id/avance` — el responsable lo
+   * empieza o reporta lo que hizo. No lo resuelve: eso lo decide supervisión.
+   * Un hallazgo que no es suyo, ya resuelto o de otra empresa → 404 (no se
+   * distingue, para no revelar hallazgos ajenos).
+   */
+  avanzarHallazgo(
+    tenantId: string,
+    actorId: string,
+    id: string,
+    body: AvanceHallazgoBody,
+  ): Promise<{ id: string; status: EstadoHallazgo; progress_note: string | null; reported_at: string | null }> {
+    return this.db.withTenantTransaction(tenantId, async (run) => {
+      const [actual] = await run<{ status: EstadoHallazgo; progress_note: string | null; reported_ms: number | null }>(
+        `SELECT status, progress_note, (extract(epoch FROM reported_at) * 1000)::float8 AS reported_ms
+           FROM finding
+          WHERE id = $1 AND assignee_id = $2 AND status <> 'resolved'
+          FOR UPDATE`,
+        [id, actorId],
+      )
+      if (!actual) throw new NotFoundException('Hallazgo no encontrado entre los tuyos')
+      const nota = body.accion === 'reportar' ? body.nota.trim() : null
+      if (body.accion === 'reportar' && !nota) {
+        throw new BadRequestException('Cuenta qué hiciste para reportar el hallazgo')
+      }
+      const [fila] = await run<{ status: EstadoHallazgo; progress_note: string | null; reported_ms: number | null }>(
+        body.accion === 'iniciar'
+          ? `UPDATE finding SET status = 'in_progress', updated_at = now()
+              WHERE id = $1
+              RETURNING status, progress_note, (extract(epoch FROM reported_at) * 1000)::float8 AS reported_ms`
+          : `UPDATE finding SET status = 'in_progress', progress_note = $2, reported_at = now(), updated_at = now()
+              WHERE id = $1
+              RETURNING status, progress_note, (extract(epoch FROM reported_at) * 1000)::float8 AS reported_ms`,
+        body.accion === 'iniciar' ? [id] : [id, nota],
+      )
+      const iso = (v: number | null) => (v == null ? null : new Date(v).toISOString())
+      await auditar(run, actorId, tenantId, 'finding_progress', 'finding', id, {
+        accion: body.accion,
+        status: { de: actual.status, a: fila.status },
+        ...(body.accion === 'reportar'
+          ? { progress_note: { de: actual.progress_note, a: fila.progress_note }, reported_at: { de: iso(actual.reported_ms), a: iso(fila.reported_ms) } }
+          : {}),
+      })
+      return { id, status: fila.status, progress_note: fila.progress_note, reported_at: iso(fila.reported_ms) }
     })
   }
 

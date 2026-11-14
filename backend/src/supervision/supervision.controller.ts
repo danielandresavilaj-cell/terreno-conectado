@@ -31,6 +31,18 @@ const estadoHallazgoSchema = z
   })
   .strict()
   .refine((b) => Object.keys(b).length > 0, 'nada que cambiar')
+/** TSK-DOM-008 (FR-067): el responsable empieza o reporta; nunca resuelve. */
+const avanceSchema = z.discriminatedUnion('accion', [
+  z.object({ accion: z.literal('iniciar') }).strict(),
+  z.object({
+    accion: z.literal('reportar'),
+    nota: z
+      .string()
+      .trim()
+      .min(1, 'Cuenta qué hiciste para reportar el hallazgo')
+      .max(2000, 'el reporte no puede superar 2000 caracteres'),
+  }).strict(),
+])
 const cofirmaSchema = z.object({
   strokes: z.array(z.object({
     points: z.array(z.object({ x: z.number().int().min(0).max(1000), y: z.number().int().min(0).max(1000) })).min(2),
@@ -54,6 +66,13 @@ function exigirSupervision(req: AuthedRequest): { tenantId: string; actorId: str
   return { tenantId: c.tenant_id, actorId: c.sub }
 }
 
+/** Cualquier cuenta de empresa (no la de plataforma): para lo que es de cada uno. */
+function exigirEmpresa(req: AuthedRequest): { tenantId: string; actorId: string } {
+  const c = req.user
+  if (!c || !c.tenant_id) throw new ForbiddenException('Sólo una cuenta de empresa puede hacer esto')
+  return { tenantId: c.tenant_id, actorId: c.sub }
+}
+
 function uuid(id: string): string {
   if (!UUID_RE.test(id)) throw new BadRequestException('id debe ser un UUID')
   return id
@@ -64,6 +83,8 @@ function uuid(id: string): string {
  *  - PATCH /api/v1/inspections/:id/review
  *  - PATCH /api/v1/findings/:id          { status }
  *  - PATCH /api/v1/conflicts/:id/review
+ *  - GET   /api/v1/findings/asignados     (TSK-DOM-008: cualquier cuenta de empresa)
+ *  - PATCH /api/v1/findings/:id/avance    (TSK-DOM-008: sólo su responsable)
  */
 @Controller()
 @UseGuards(AuthGuard)
@@ -99,6 +120,24 @@ export class SupervisionController {
   responsables(@Req() req: AuthedRequest) {
     const { tenantId } = exigirSupervision(req)
     return this.svc.equipo(tenantId)
+  }
+
+  /** TSK-DOM-008 (FR-067): los hallazgos de los que se hace cargo quien consulta. */
+  @Get('findings/asignados')
+  asignados(@Req() req: AuthedRequest) {
+    const { tenantId, actorId } = exigirEmpresa(req)
+    return this.svc.asignados(tenantId, actorId)
+  }
+
+  /** TSK-DOM-008 (FR-067): el responsable lo empieza o reporta lo que hizo. */
+  @Patch('findings/:id/avance')
+  avanzarHallazgo(@Req() req: AuthedRequest, @Param('id') id: string, @Body() body: unknown) {
+    const { tenantId, actorId } = exigirEmpresa(req)
+    const parsed = avanceSchema.safeParse(body)
+    if (!parsed.success) {
+      throw new BadRequestException(parsed.error.issues[0]?.message ?? 'accion debe ser iniciar o reportar')
+    }
+    return this.svc.avanzarHallazgo(tenantId, actorId, uuid(id), parsed.data)
   }
 
   @Patch('conflicts/:id/review')

@@ -41,7 +41,7 @@ import {
   getInspecciones,
   getSummary,
   getSupervision,
-  descargarInspeccion,
+  exportarInspecciones,
   ApiError,
   type DashboardFiltros,
 } from '../lib/api'
@@ -49,7 +49,7 @@ import { descargarLibro } from '../lib/exportar'
 import { construirCsvHallazgos } from '../lib/dashboard-csv'
 import { useEstado } from '../lib/store'
 import { BloquesSupervision } from '../components/dashboard/BloquesSupervision'
-import { PanelExportar } from '../components/dashboard/PanelExportar'
+import { exportacionIndividualPdf, PanelExportar } from '../components/dashboard/PanelExportar'
 import { FirmaCierre } from '../components/FirmaCierre'
 import { FotoEvidencia } from '../components/FotoEvidencia'
 import { BitacoraFaena } from '../components/BitacoraFaena'
@@ -293,22 +293,20 @@ export function Dashboard() {
   }
 
   /**
-   * FR-044: el supervisor descarga el `.xlsx` que el `tenant_admin` subió, con
-   * las respuestas de la inspección y la hoja "Evidencias".
+   * TSK-REP-013: el supervisor descarga un PDF con las respuestas, hallazgos y
+   * evidencia de la inspección, incluso si el formulario se creó desde cero.
    *
    * El estado de descarga es UN id, no un flag: bloquear toda la tabla mientras
-   * se arma un libro de varios MB sería castigar al resto de filas por una
+   * se arma un PDF de varios MB sería castigar al resto de filas por una
    * acción que es de una sola. Y el error va anclado a la fila que falló, con el
-   * motivo REAL del servidor: un 404 acá no es una caída, es "esta inspección no
-   * tiene documento original" (una plantilla creada a mano no viene de un
-   * import), y ese es el motivo por el que no se puede descargar.
+   * motivo REAL del servidor.
    */
   const descargar = async (i: InspectionListaItem) => {
     setDescargandoId(i.id)
     setErrorDescarga(null)
     try {
-      const { bytes, fileName } = await descargarInspeccion(i.id)
-      descargarLibro(bytes, fileName)
+      const { bytes, fileName, mime } = await exportarInspecciones(exportacionIndividualPdf(i.id))
+      descargarLibro(bytes, fileName, mime)
     } catch (err) {
       setErrorDescarga({ id: i.id, mensaje: motivoDe(err) })
     } finally {
@@ -718,9 +716,9 @@ export function Dashboard() {
                           checked={todasMarcadas}
                           onChange={() => setSeleccion(todasMarcadas ? new Set() : new Set(inspecciones.map((i) => i.id)))}
                         />
-                        {['Faena', 'Plantilla', 'Ejecutado por', 'Estado', 'Resp.', 'Fecha', ''].map(
+                        {['Faena', 'Plantilla', 'Ejecutado por', 'Estado', 'Resp.', 'Fecha', 'Acciones'].map(
                           (h) => (
-                            <span key={h} className="label-inst">
+                            <span key={h} className={h === 'Acciones' ? 'label-inst text-right' : 'label-inst'}>
                               {h}
                             </span>
                           ),
@@ -857,7 +855,7 @@ const SELECT_BARRA = 'h-11 px-2 rounded-[10px] bg-s1 border border-line-soft tex
 
 const COLUMNAS_INSPECCION = [
   'lg:grid lg:items-center lg:gap-3',
-  'lg:grid-cols-[1.25rem_minmax(0,1fr)_minmax(0,1.5fr)_minmax(0,1fr)_7rem_4.5rem_6rem_auto]',
+  'lg:grid-cols-[1.25rem_minmax(0,1fr)_minmax(0,1.5fr)_minmax(0,1fr)_7rem_4.5rem_6rem_13.5rem]',
 ].join(' ')
 
 const GRID_INSPECCION = `grid grid-cols-[1.25rem_minmax(0,1fr)] items-start gap-x-3 gap-y-1.5 ${COLUMNAS_INSPECCION}`
@@ -866,10 +864,9 @@ const GRID_INSPECCION = `grid grid-cols-[1.25rem_minmax(0,1fr)] items-start gap-
  * Fila de una inspección con su acción de descarga.
  *
  * El estado de la descarga vive en la fila (y no en la tabla) porque la acción
- * es de una sola inspección: mientras se arma un libro, las demás filas siguen
+ * es de una sola inspección: mientras se arma un PDF, las demás filas siguen
  * siendo utilizables. El motivo del fallo se muestra AQUÍ y no en un aviso
- * general, porque un 404 aquí significa algo concreto —"este registro no tiene
- * documento original que rellenar"— y sólo la fila lo sabe.
+ * general, porque un error corresponde a ese registro y sólo la fila lo sabe.
  */
 function FilaInspeccion({
   i,
@@ -891,12 +888,6 @@ function FilaInspeccion({
   onSeleccionar: () => void
 }) {
   const meta = ESTADO_META[i.status]
-  /* `template_nombre` a `null` = la plantilla se borró. El registro se conserva
-   * para auditoría, pero no hay revisión ni original desde los que reconstruir
-   * un .xlsx. Dejar la acción activa garantiza un 404 evitable y parece un
-   * fallo operativo, por eso se explica y se deshabilita desde el listado. */
-  const sinPlantilla = i.template_nombre === null
-
   return (
     <div className="panel px-4 py-3">
       <div className={GRID_INSPECCION}>
@@ -930,9 +921,8 @@ function FilaInspeccion({
           <Boton
             tamano="sm"
             variante="secundaria"
-            disabled={sinPlantilla || descargando}
+            disabled={descargando}
             aria-busy={descargando}
-            aria-describedby={sinPlantilla ? `inspeccion-${i.id}-sin-plantilla` : undefined}
             onClick={() => onDescargar(i)}
             icono={
               <svg width="13" height="13" viewBox="0 0 14 14" fill="none" aria-hidden>
@@ -947,17 +937,11 @@ function FilaInspeccion({
               </svg>
             }
           >
-            {sinPlantilla ? 'No disponible' : descargando ? 'Generando…' : 'Descargar'}
+            {descargando ? 'Generando…' : 'Descargar PDF'}
           </Boton>
         </div>
       </div>
 
-      {sinPlantilla && (
-        <p id={`inspeccion-${i.id}-sin-plantilla`} className="mt-2 text-[11px] text-ink-3 leading-relaxed">
-          El formulario de esta inspección ya no existe, así que no hay planilla original que
-          rellenar. La inspección se conserva y se puede exportar desde el panel de exportación.
-        </p>
-      )}
       {error && (
         <p role="alert" className="mt-2 text-[12px] font-medium text-failed leading-relaxed">
           No se pudo descargar: {error}
@@ -989,6 +973,13 @@ function PanelDetalleInspeccion({
   onCofirmada: () => void
 }) {
   const detalle = estado.fase === 'ok' ? estado.detalle : null
+  const fotos = detalle
+    ? [
+        ...detalle.secciones.flatMap((seccion) => seccion.respuestas.map((respuesta) => respuesta.foto_id)),
+        // TSK-OFF-016: un hallazgo puede traer hasta 5 fotos, no sólo la última.
+        ...detalle.hallazgos.flatMap((hallazgo) => hallazgo.fotos_ids),
+      ].filter((foto): foto is string => foto !== null)
+    : []
   const [revisando, setRevisando] = useState(false)
   const [errorRevision, setErrorRevision] = useState<string | null>(null)
   const [firmando, setFirmando] = useState(false)
@@ -1073,6 +1064,12 @@ function PanelDetalleInspeccion({
 
       {estado.fase === 'cargando' && <p className="mt-4 text-[13px] text-ink-2">Cargando respuestas…</p>}
       {estado.fase === 'error' && <p role="alert" className="mt-4 text-[13px] text-failed">No se pudo abrir: {estado.mensaje}</p>}
+      {fotos.length > 0 && (
+        <div className="mt-4 rounded-xl border border-line-soft bg-s0 px-3.5 py-3">
+          <p className="label-inst">Evidencia fotográfica · {fotos.length} {fotos.length === 1 ? 'foto' : 'fotos'}</p>
+          <p className="mt-1 text-[12px] text-ink-2">Las miniaturas aparecen junto a su respuesta o hallazgo. Toca una para verla en grande.</p>
+        </div>
+      )}
       {detalle && (
         <div className="mt-5 space-y-4">
           {detalle.secciones.map((seccion) => (
@@ -1215,7 +1212,9 @@ function FilaHallazgo({
   const cambiar = async (nuevo: FindingDto['status']) => {
     if (nuevo === 'resolved' && !h.resolution_note) {
       // Cerrar pide decir qué se hizo: se abre la gestión con el estado ya elegido.
+      // TSK-DOM-008: si el responsable ya reportó, su reporte es el punto de partida.
       setEstado(nuevo)
+      if (!nota.trim() && h.progress_note) setNota(h.progress_note)
       setEditando(true)
       return
     }
@@ -1289,6 +1288,18 @@ function FilaHallazgo({
             </span>
             <span className={pm.clase}>· {pm.texto(h.due_date)}</span>
           </div>
+          {/* TSK-DOM-008 (FR-067): el responsable reportó; falta que supervisión verifique y cierre. */}
+          {h.status === 'in_progress' && h.reported_at && (
+            <p className="mt-1.5 inline-flex items-center rounded-md bg-synced/15 px-2 py-1 text-[12px] font-semibold text-synced">
+              Listo para revisar
+            </p>
+          )}
+          {h.progress_note && h.status !== 'resolved' && (
+            <p className="mt-1.5 text-[13px] text-ink-2 break-words">
+              <span className="text-ink-3">Reporte del responsable: </span>
+              {h.progress_note}
+            </p>
+          )}
           {h.status === 'resolved' && h.resolution_note && (
             <p className="mt-1.5 text-[13px] text-ink-2 break-words">
               <span className="text-ink-3">Cierre: </span>

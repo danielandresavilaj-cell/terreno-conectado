@@ -35,6 +35,15 @@ export function cuerpoExportacion(
   return { ...base, formato, ...(formato === 'pdf' || formato === 'docx' ? { agrupar } : {}) }
 }
 
+/**
+ * TSK-REP-013: la descarga desde una fila siempre es un PDF de esa inspección.
+ * No depende de que exista una planilla Excel de origen: el informe usa la
+ * revisión congelada y por eso también sirve para formularios creados aquí.
+ */
+export function exportacionIndividualPdf(inspeccionId: string): ExportarInspeccionesBody {
+  return { ids: [inspeccionId], formato: 'pdf', agrupar: 'un_archivo' }
+}
+
 export function PanelExportar({
   filtros,
   seleccion,

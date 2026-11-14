@@ -3,7 +3,7 @@
 | | |
 | :--- | :--- |
 | **Estado** | COMPLETO (ciclo del módulo, F2 · 2026-10-13) |
-| **Versión** | 0.9.0 |
+| **Versión** | 0.9.1 |
 | **Autor** | Daniel Ávila |
 | **Padre** | specs/000-master/spec.md |
 | **Depende de** | 003 (datos sincronizados + `SYNC_LOG`), 004 (dominio) |
@@ -132,6 +132,10 @@ La fila principal de Gerencia muestra: **Por revisar** (inspecciones enviadas si
 
   Sobre el tope → 413 con el motivo; filtro vacío → 404; una inspección ilegible se omite y se cuenta (`X-Export-Fallidas`); si fallan todas → 422. Cada exportación queda en `audit_log` (`inspection_export`, FR-047). La lista acepta los mismos filtros y el dashboard suma los períodos "Este mes", "Mes anterior" y un rango libre, casillas para elegir y un panel de formato.
 
+  **Descarga individual (TSK-REP-013):** el botón de cada fila genera un **PDF de una inspección**, usando la misma ruta y la versión congelada. Es el formato directo porque funciona tanto con plantillas importadas como con formularios creados desde cero; no utiliza IA ni transmite información a un proveedor externo. El Excel original continúa disponible como formato de exportación para las plantillas que sí tienen un libro de origen.
+
+  En escritorio la cabecera y las filas reservan la misma columna de acciones. Al abrir **Revisar**, si hay evidencia, el detalle indica cuántas fotos contiene y explica que cada miniatura se abre a tamaño completo.
+
 ## 6. Criterios de aceptación
 
 - Matriz §3 de `test-plan.md`: filas **FR-040/043** con `backend/test/dashboard.spec.ts`; la latencia ≤ 60 s se mide en vivo (🟡).
@@ -165,6 +169,7 @@ El alcance V1 del **resumen ejecutivo** es **read-only** y se apoya en las métr
 | :--- | :--- | :--- | :--- |
 | 0.9.0 | 2026-11-14 | **TSK-REP-012:** `summary.tendencia_semanal` (8 semanas) y filtros de faena, severidad y autor en una barra | Daniel Ávila (con IA) |
 | 0.8.1 | 2026-11-14 | **TSK-OFF-016:** `fotos_ids` en hallazgos del listado y del detalle; hasta 3 miniaturas por hallazgo | Daniel Ávila (con IA) |
+| 0.9.1 | 2026-11-14 | **TSK-REP-013:** descarga individual como PDF universal, evidencia fotográfica explícita y alineación de acciones en la lista | Raúl González (con IA) |
 | 0.8.0 | 2026-11-13 | **TSK-REP-011:** "Plazos vencidos" reemplaza a la latencia en la fila principal; `summary.hallazgos_vencidos`; filtro "Sólo vencidos" | Daniel Ávila (con IA) |
 | 0.7.1 | 2026-11-13 | **TSK-REP-010:** lista de inspecciones apilada en pantallas angostas | Daniel Ávila (con IA) |
 | 0.7.0 | 2026-11-13 | **TSK-REP-009 (Enmienda 008, FR-063):** bitácora legible en Bitácora ("De la faena") y en Gerencia; contrato `dashboard/bitacora` | Daniel Ávila (con IA) |

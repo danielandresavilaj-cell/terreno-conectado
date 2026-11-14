@@ -1,5 +1,6 @@
 import { readFile } from 'node:fs/promises'
 import {
+  ForbiddenException,
   Injectable,
   Logger,
   NotFoundException,
@@ -29,7 +30,7 @@ import type { JwtClaims } from '../auth/auth.types'
 import { DbService } from '../db/db.service'
 import { SyncVolumeService } from '../storage/sync-volume.service'
 import { TemplatesService } from '../templates/templates.service'
-import { exigirDashboard } from './dashboard.auth'
+import { DASHBOARD_ROLES, exigirDashboard } from './dashboard.auth'
 import { parsearFiltrosInspecciones, type FiltrosInspecciones } from './dashboard.contract'
 import type { InspeccionExportable, RespuestaExportable } from '@terreno/shared/exportar'
 import { serializarValorCampo } from '@terreno/shared/xlsx'
@@ -425,14 +426,25 @@ export class InspectionExportService {
    * (`owner_type='template_import'`) tiene su propia ruta y sus propias reglas.
    */
   async adjunto(u: JwtClaims, attachmentId: string): Promise<{ bytes: Buffer; mime: string }> {
-    exigirDashboard(u)
+    // TSK-DOM-008 (FR-067): el responsable de un hallazgo ve sus fotos aunque no
+    // sea de supervisión; sólo las de los hallazgos asignados a él.
+    const esResponsable = Boolean(u.tenant_id) && !DASHBOARD_ROLES.includes(u.rol as (typeof DASHBOARD_ROLES)[number])
+    if (!esResponsable) exigirDashboard(u)
     const [fila] = await this.db.queryAsTenant<{ file_key: string; mime: string }>(
       u.tenant_id as string,
-      `SELECT file_key, mime
-         FROM attachment
-        WHERE id = $1 AND owner_type IN ('inspection', 'response', 'finding', 'log_entry')`,
-      [attachmentId],
+      esResponsable
+        ? `SELECT a.file_key, a.mime
+             FROM attachment a
+             JOIN finding f ON f.id = a.owner_id
+            WHERE a.id = $1 AND a.owner_type = 'finding' AND f.assignee_id = $2`
+        : `SELECT file_key, mime
+             FROM attachment
+            WHERE id = $1 AND owner_type IN ('inspection', 'response', 'finding', 'log_entry')`,
+      esResponsable ? [attachmentId, u.sub] : [attachmentId],
     )
+    // Para quien no es de supervisión, una foto que no es de sus hallazgos se
+    // niega igual que antes (403), sin decir si existe.
+    if (!fila && esResponsable) throw new ForbiddenException('Rol no autorizado')
     if (!fila) throw new NotFoundException('Foto no encontrada')
     const mime = MIMES_DE_FOTO.has(fila.mime) ? fila.mime : null
     if (!mime) throw new NotFoundException('El adjunto no es una foto que se pueda mostrar')

@@ -3,7 +3,7 @@
 | | |
 | :--- | :--- |
 | **Estado** | COMPLETO (ciclo del módulo, F2 · 2026-10-14) |
-| **Versión** | 1.1.0 |
+| **Versión** | 1.1.1 |
 | **Autor** | Raúl González |
 | **Padre** | specs/000-master/spec.md |
 | **Depende de** | — (primer módulo: todo lo demás lo consume) |
@@ -113,12 +113,12 @@ Además fija las cookies `rt` (httpOnly) y `csrf` (legible por JS) — ver §6.
 | :--- | :--- |
 | `400` | Falta `email` o `password` (tipo incorrecto). |
 | `401` | Credenciales inválidas. **Misma respuesta** para email inexistente, password errónea, email en dos tenants sin `tenant`, cuenta inactiva o tenant no activo (anti-enumeración). |
-| `423 Locked` | Cuenta bloqueada por 5 fallos (`locked_until` vigente). |
+| `423 Locked` | Cuenta bloqueada por 5 fallos (`locked_until` vigente). El cuerpo trae `minutos` (los que faltan, redondeados hacia arriba) y el mensaje los repite: `Cuenta bloqueada temporalmente (N min)` (TSK-AUTH-012). |
 | `429 Too Many Requests` | IP bloqueada por 5 fallos. |
 
 **Rate-limit (FR-005) — dos contadores independientes:**
 
-- **Por cuenta:** columnas `app_user.failed_login_count` y `app_user.locked_until`. Al 5.º fallo se fija `locked_until = now() + 15 min` (`registerAccountFail`). Un login correcto resetea el contador a 0.
+- **Por cuenta:** columnas `app_user.failed_login_count` y `app_user.locked_until`. Al 5.º fallo se fija `locked_until = now() + 15 min` (`registerAccountFail`). Un login correcto resetea el contador a 0. Un bloqueo ya cumplido cierra la racha: el primer fallo posterior cuenta como el 1 y deja `locked_until` en nulo (TSK-AUTH-012). Antes, un solo error al vencer los 15 min volvía a bloquear la cuenta.
 - **Por IP:** `Map` en memoria del proceso (`registerIpFail`/`isIpBlocked`). Al 5.º fallo la IP queda bloqueada 15 min (`429`). El `ip` sale de `req.ip` con `trust proxy = 1` (`app.setup.ts:32`).
 - **Limitación conocida:** el contador por IP es **en memoria de una sola instancia**; con varias réplicas hace falta un store compartido (ADR-002). Documentado en `auth.service.ts:32`.
 
@@ -202,6 +202,7 @@ El tenant B existe para probar el aislamiento (FR-002) y el rechazo cross-tenant
 
 | Versión | Fecha | Cambio | Autor |
 | :--- | :--- | :--- | :--- |
+| 1.1.1 | 2026-11-15 | **TSK-AUTH-012 (FR-005):** un bloqueo cumplido reinicia la racha de fallos (un error al vencer ya no vuelve a bloquear) y el `423` informa los minutos que faltan | Daniel Ávila (con IA) |
 | 1.0.1 | 2026-10-14 | **TSK-AUTH-008 resuelto** (issue #128): el módulo 003 alinea `CONFLICT_VIEWER_ROLES` a `supervisor`/`tenant_admin`; tests cubren acceso autorizado, roles denegados y aislamiento cross-tenant | Daniel Ávila |
 | 1.0.0 | 2026-10-14 | **Spec completado (F2).** Documenta el estado real de FR-001…006: matriz rol × recurso × acción (§3), argon2id + política de contraseñas (§4), contratos `login`/`refresh`/`me` con rate-limit (§5), modelo de sesión D5 ratificado (§6), RLS (§7) y tenant demo (§8). Registra la desviación `sessionStorage` vs "solo en memoria" (**TSK-AUTH-006**) y el desajuste de roles de `CONFLICT_VIEWER_ROLES` en el módulo de sync (**TSK-AUTH-008**, issue #128). Añade filas FR-001/003/004/006 a `test-plan.md` §3 | Raúl González |
 | 0.2.0 | 2026-10-06 | **Decisión D5:** refresh en cookie httpOnly con rotación + detección de reuso y CSRF double-submit (issue #11) | Raúl González |
