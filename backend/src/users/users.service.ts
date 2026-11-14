@@ -30,7 +30,10 @@ export class UsersService {
   listar(tenantId: string): Promise<UsuarioDto[]> {
     return this.db.queryAsTenant<UsuarioDto>(
       tenantId,
-      `SELECT ${COLUMNAS_USUARIO} FROM app_user ORDER BY is_active DESC, full_name`,
+      `SELECT ${COLUMNAS_USUARIO},
+              COALESCE((SELECT array_agg(us.site_id ORDER BY us.site_id) FROM user_site us
+                         WHERE us.user_id = app_user.id), '{}') AS faena_ids
+         FROM app_user ORDER BY is_active DESC, full_name`,
     )
   }
 
@@ -112,6 +115,45 @@ export class UsersService {
         cambios,
       })
       return rows[0]
+    })
+  }
+
+  /**
+   * TSK-ADM-003 (FR-065): reemplaza las faenas en que puede capturar una cuenta.
+   * Lista vacía = todas las faenas de la empresa. Todo con la conexión del
+   * tenant (RLS): una cuenta o faena de otra empresa no existe para esta
+   * consulta. Queda `user_sites_updated` en audit_log con antes y después.
+   */
+  async asignarFaenas(
+    tenantId: string,
+    actorId: string,
+    id: string,
+    faenaIds: string[],
+  ): Promise<{ id: string; faena_ids: string[] }> {
+    const unicas = [...new Set(faenaIds)].sort()
+    return this.db.withTenantTransaction(tenantId, async (run) => {
+      const [cuenta] = await run<{ id: string }>('SELECT id FROM app_user WHERE id = $1 FOR UPDATE', [id])
+      if (!cuenta) throw new NotFoundException('Usuario no encontrado')
+      if (unicas.length > 0) {
+        const [existen] = await run<{ n: number }>('SELECT count(*)::int AS n FROM site WHERE id = ANY($1::uuid[])', [
+          unicas,
+        ])
+        if ((existen?.n ?? 0) !== unicas.length) throw new BadRequestException('Alguna faena no existe en tu empresa')
+      }
+      const antes = (
+        await run<{ site_id: string }>('SELECT site_id FROM user_site WHERE user_id = $1 ORDER BY site_id', [id])
+      ).map((r) => r.site_id)
+      await run('DELETE FROM user_site WHERE user_id = $1', [id])
+      for (const siteId of unicas) {
+        await run('INSERT INTO user_site (tenant_id, user_id, site_id, created_by) VALUES ($1, $2, $3, $4)', [
+          tenantId,
+          id,
+          siteId,
+          actorId,
+        ])
+      }
+      await auditar(run, actorId, tenantId, 'user_sites_updated', 'app_user', id, { antes, despues: unicas })
+      return { id, faena_ids: unicas }
     })
   }
 

@@ -678,6 +678,8 @@ export interface UsuarioEmpresa {
   is_active: boolean
   must_change_password: boolean
   created_at: string
+  /** TSK-ADM-003: faenas asignadas; vacío o ausente = todas. */
+  faena_ids?: string[]
 }
 
 export interface FaenaEmpresa {
@@ -704,6 +706,11 @@ export function actualizarUsuario(
   body: { full_name?: string; role?: RolEmpresa; is_active?: boolean },
 ): Promise<UsuarioEmpresa> {
   return apiFetch(`/users/${encodeURIComponent(id)}`, { method: 'PATCH', body })
+}
+
+/** TSK-ADM-003 (FR-065): faenas en que puede capturar una cuenta; `[]` = todas. */
+export function asignarFaenasUsuario(id: string, faenaIds: string[]): Promise<{ id: string; faena_ids: string[] }> {
+  return apiFetch(`/users/${encodeURIComponent(id)}/faenas`, { method: 'PUT', body: { faena_ids: faenaIds } })
 }
 
 export function resetearClaveUsuario(id: string, password: string): Promise<UsuarioEmpresa> {
