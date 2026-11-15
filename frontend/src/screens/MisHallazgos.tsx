@@ -110,7 +110,9 @@ export function MisHallazgos() {
           </div>
           <p className="mt-2 text-[15px] font-medium leading-snug line-clamp-2">{h.description}</p>
           <p className="mt-1.5 text-[13px] text-ink-2">
-            {[h.faena, h.formulario].filter(Boolean).join(' · ') || 'Hallazgo general'}
+            {/* TSK-DOM-009: una alerta desde la bitácora no tiene formulario. */}
+            {[h.faena, h.origen === 'bitacora' ? 'Desde la bitácora' : h.formulario].filter(Boolean).join(' · ') ||
+              'Hallazgo general'}
           </p>
           <p className={['mt-1 text-[13px]', plazo.urgente ? 'font-semibold text-sev-critica' : 'text-ink-2'].join(' ')}>
             {plazo.texto}
@@ -291,8 +293,10 @@ function DetalleHallazgo({
             </div>
           )}
           <div>
-            <dt className="label-inst">Formulario y faena</dt>
-            <dd className="mt-0.5">{[h.formulario, h.faena].filter(Boolean).join(' · ') || '—'}</dd>
+            <dt className="label-inst">{h.origen === 'bitacora' ? 'Origen y faena' : 'Formulario y faena'}</dt>
+            <dd className="mt-0.5">
+              {[h.origen === 'bitacora' ? 'Alerta desde la bitácora' : h.formulario, h.faena].filter(Boolean).join(' · ') || '—'}
+            </dd>
           </div>
           <div>
             <dt className="label-inst">Registrado por</dt>

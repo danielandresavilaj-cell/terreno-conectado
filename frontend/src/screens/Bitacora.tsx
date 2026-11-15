@@ -1,5 +1,10 @@
 /* Bitácora de turno — FR-033, FR-034.
  *
+ * TSK-DOM-009 (FR-069): desde la bitácora también se reporta una alerta (un
+ * hallazgo con severidad, descripción y fotos) sin llenar un formulario. Se
+ * marca al escribir la entrada o después, desde la propia entrada; funciona
+ * sin señal y supervisión la gestiona como cualquier hallazgo.
+ *
  * MOVIMIENTO:
  * · Añadir una entrada: la nueva aparece con stagger respecto a las anteriores
  *   solo si es la primera del turno. Las siguientes ya no se staggorean: la
@@ -16,7 +21,8 @@
 import { useState } from 'react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { Boton } from '../components/ui'
-import { BadgeSync } from '../components/Badges'
+import { BadgeSev, BadgeSync } from '../components/Badges'
+import { SheetHallazgo } from '../components/SheetHallazgo'
 import { BitacoraFaena } from '../components/BitacoraFaena'
 import { CountUp } from '../components/CountUp'
 import { useEstado } from '../lib/store'
@@ -34,7 +40,8 @@ function diaDe(iso: string, hoy: Date): string {
 }
 
 export function Bitacora() {
-  const { entradasBitacora, agregarBitacora, identidad, cola, usuario, online } = useEstado()
+  const { entradasBitacora, agregarBitacora, guardarAlertaBitacora, leerAlertaBitacora, identidad, cola, usuario, online } =
+    useEstado()
   /* TSK-REP-009: "Mías" es lo escrito en este teléfono (funciona sin señal);
    * "De la faena" es lo que escribió todo el equipo, leído del servidor. */
   const [vista, setVista] = useState<'mias' | 'faena'>('mias')
@@ -46,17 +53,26 @@ export function Bitacora() {
   const [abierto, setAbierto] = useState(false)
   const [texto, setTexto] = useState('')
   const [tags, setTags] = useState<string[]>([])
+  /** TSK-DOM-009: al guardar la entrada, abrir la hoja para reportar una alerta. */
+  const [conAlerta, setConAlerta] = useState(false)
+  /** Entrada cuya alerta se está reportando o corrigiendo. */
+  const [alertaPara, setAlertaPara] = useState<{ id: string; faenaId: string; texto: string } | null>(null)
   // TSK-OFF-010: parte en la faena de la sesión, no en la primera de la empresa.
   const [faena, setFaena] = useState<string>(usuario?.faenaId || faenas[0]?.id || '')
   const reducir = useReducedMotion()
 
-  const agregar = () => {
+  const agregar = async () => {
     if (!texto.trim() || !faena) return
-    agregarBitacora(texto.trim(), tags, faena)
+    const contenido = texto.trim()
+    const id = await agregarBitacora(contenido, tags, faena)
+    if (id && conAlerta) setAlertaPara({ id, faenaId: faena, texto: contenido })
     setTexto('')
     setTags([])
+    setConAlerta(false)
     setAbierto(false)
   }
+
+  const nombreFaena = (id: string) => faenas.find((f) => f.id === id)?.nombre ?? '—'
 
   return (
     <div className="space-y-6">
@@ -158,11 +174,27 @@ export function Bitacora() {
                 </div>
               </div>
 
+              {/* TSK-DOM-009: reportar una alerta junto con la entrada. */}
+              <label className="flex items-start gap-3 rounded-[10px] border border-line-soft bg-s2 px-3 py-3 cursor-pointer min-h-11">
+                <input
+                  type="checkbox"
+                  checked={conAlerta}
+                  onChange={(e) => setConAlerta(e.target.checked)}
+                  className="mt-0.5 h-5 w-5 shrink-0 accent-[var(--color-beam)]"
+                />
+                <span className="text-[14px] leading-snug">
+                  <span className="font-medium">Reportar una alerta</span>
+                  <span className="block text-[13px] text-ink-2">
+                    Al guardar eliges la severidad y puedes sumar fotos. Supervisión la verá como un hallazgo.
+                  </span>
+                </span>
+              </label>
+
               <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
                 <p className="text-[13px] text-ink-2 leading-relaxed max-w-[46ch]">
                   Se guarda en este teléfono aunque no haya señal y se envía sola al volver la conexión.
                 </p>
-                <Boton variante="primaria" onClick={agregar} disabled={!texto.trim()}>
+                <Boton variante="primaria" onClick={() => void agregar()} disabled={!texto.trim()}>
                   Guardar entrada
                 </Boton>
               </div>
@@ -246,12 +278,43 @@ export function Bitacora() {
                 {/* TSK-OFF-007: el estado es el real de la cola. Si la fila ya
                     no está en la cola, la entrada se envió hace más de un día. */}
                 <BadgeSync estado={cola.find((r) => r.id === `log_entry:${e.id}`)?.estado ?? 'synced'} />
+                {e.alerta && <BadgeSev sev={e.alerta} />}
+                <button
+                  type="button"
+                  onClick={() => setAlertaPara({ id: e.id, faenaId: e.faenaId, texto: e.texto })}
+                  className="ml-auto min-h-11 px-2 text-[13px] font-medium text-beam hover:underline cursor-pointer"
+                >
+                  {e.alerta ? 'Editar alerta' : 'Reportar alerta'}
+                </button>
               </div>
             </div>
           </motion.article>
         ))}
       </div>
       )}
+
+      {/* TSK-DOM-009: hoja de alerta, la misma del hallazgo de una inspección. */}
+      <SheetHallazgo
+        item={
+          alertaPara
+            ? {
+                id: alertaPara.id,
+                texto: alertaPara.texto.length > 120 ? `${alertaPara.texto.slice(0, 117)}…` : alertaPara.texto,
+                seccion: `Alerta desde la bitácora · ${nombreFaena(alertaPara.faenaId)}`,
+                etiquetaNueva: 'Nueva alerta',
+                etiquetaEditar: 'Editar alerta',
+              }
+            : null
+        }
+        onClose={() => setAlertaPara(null)}
+        cargar={leerAlertaBitacora}
+        onGuardar={(sev, descripcion, nuevas, quitar) => {
+          if (!alertaPara) return
+          const destino = alertaPara
+          setAlertaPara(null)
+          void guardarAlertaBitacora(destino.id, destino.faenaId, sev, descripcion, nuevas, quitar)
+        }}
+      />
     </div>
   )
 }

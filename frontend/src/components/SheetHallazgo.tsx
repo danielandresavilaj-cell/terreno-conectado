@@ -6,6 +6,10 @@
  * severidad no viene preseleccionada y un hallazgo alta/crítica exige
  * descripción (`lib/hallazgo.ts`).
  *
+ * TSK-DOM-009 (FR-069): también se abre desde una entrada de bitácora para
+ * reportar una alerta. Por eso recibe sólo lo que muestra (id, título,
+ * subtítulo y etiquetas), no un ítem de plantilla completo.
+ *
  * TSK-OFF-016: hasta MAX_FOTOS_HALLAZGO fotos. Las que ya salieron del teléfono
  * se muestran pero no se pueden quitar (la cola no borra en el servidor).
  *
@@ -29,6 +33,14 @@ import { Boton } from './ui'
 import { SEV_META } from './Badges'
 import { EASE } from '../lib/motion'
 import type { ItemPlantilla, Severidad } from '../lib/types'
+
+/** Lo que la hoja necesita del origen del hallazgo: un ítem NOK o una entrada de bitácora. */
+export type OrigenHallazgo = Pick<ItemPlantilla, 'id' | 'texto' | 'seccion'> & {
+  hallazgoObligatorio?: boolean
+  /** Rótulos propios (alerta desde la bitácora); por omisión, los de hallazgo. */
+  etiquetaNueva?: string
+  etiquetaEditar?: string
+}
 import type { HallazgoGuardado } from '../lib/store'
 import { MAX_FOTOS_HALLAZGO, erroresDeHallazgo, exigeDescripcion, type ErroresHallazgo } from '../lib/hallazgo'
 import { useCapaAtras } from '../lib/useCapaAtras'
@@ -42,7 +54,7 @@ export function SheetHallazgo({
   onGuardar,
   cargar,
 }: {
-  item: ItemPlantilla | null
+  item: OrigenHallazgo | null
   onClose: () => void
   /** `fotosNuevas`: tomadas en esta apertura; `fotosQuitar`: ids de fotos guardadas que se quitan. */
   onGuardar: (sev: Severidad, descripcion: string, fotosNuevas: File[], fotosQuitar: string[]) => void
@@ -165,7 +177,11 @@ export function SheetHallazgo({
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="label-inst">
-                  {editando ? 'Editar hallazgo' : item.hallazgoObligatorio ? 'Hallazgo obligatorio' : 'Nuevo hallazgo'}
+                  {editando
+                    ? (item.etiquetaEditar ?? 'Editar hallazgo')
+                    : item.hallazgoObligatorio
+                      ? 'Hallazgo obligatorio'
+                      : (item.etiquetaNueva ?? 'Nuevo hallazgo')}
                 </p>
                 <h2 className="mt-1.5 text-[19px] font-semibold tracking-[-0.025em] leading-snug">
                   {item.texto}

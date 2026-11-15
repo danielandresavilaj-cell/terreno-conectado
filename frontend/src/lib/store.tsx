@@ -31,6 +31,8 @@ import {
   guardarHallazgo as guardarHallazgoDb,
   hallazgoDeRespuesta,
   hallazgoPorId,
+  hallazgoDeBitacora,
+  severidadesDeBitacora,
   hallazgosDirectos,
   hallazgosDeInspeccion,
   fotosDeHallazgo,
@@ -161,7 +163,17 @@ interface Ctx {
    *  no expone la Storage API (no se inventa un porcentaje). */
   cuota: { usadaPct: number | null; fotosPendientes: number }
   respuestas: Record<string, RespuestaItem>
-  entradasBitacora: Array<{ id: string; capturadaEn: string; hora: string; autor: string; texto: string; tags: string[] }>
+  entradasBitacora: Array<{
+    id: string
+    capturadaEn: string
+    hora: string
+    autor: string
+    texto: string
+    tags: string[]
+    faenaId: string
+    /** TSK-DOM-009: severidad de la alerta reportada desde la entrada, si tiene. */
+    alerta: Severidad | null
+  }>
 
   /** Plantilla activa (FR-036); null sólo durante la hidratación inicial. */
   plantilla: PlantillaActual | null
@@ -235,7 +247,19 @@ interface Ctx {
   /** Revalida antes de abrir el pad de firma; mantiene la firma fuera si faltan datos. */
   prepararCierre: () => boolean
   enviarInspeccion: (strokes: SignatureStroke[]) => void
-  agregarBitacora: (texto: string, tags: string[], faenaId: string) => void
+  /** Devuelve el id de la entrada creada (para reportar una alerta desde ella, TSK-DOM-009). */
+  agregarBitacora: (texto: string, tags: string[], faenaId: string) => Promise<string | null>
+  /** TSK-DOM-009 (FR-069): crea o corrige la alerta de una entrada de bitácora. Funciona sin señal. */
+  guardarAlertaBitacora: (
+    logEntryId: string,
+    faenaId: string,
+    sev: Severidad,
+    descripcion: string,
+    fotosNuevas: File[],
+    fotosQuitar: string[],
+  ) => Promise<void>
+  /** TSK-DOM-009: la alerta guardada de una entrada, para corregirla. */
+  leerAlertaBitacora: (logEntryId: string) => Promise<HallazgoGuardado | null>
   /** TSK-DOM-008 (FR-067): hallazgos que me asignaron (última lista conocida, también sin señal). */
   asignados: HallazgoAsignadoDto[]
   vistosAsignados: VistosAsignados
@@ -354,15 +378,25 @@ function usuarioDe(
   }
 }
 
-function mapEntradas(rows: Array<{ id: string; capturedAt: string; authorId: string; entryText: string; tags: string[] }>, autor: string) {
-  return rows.map((e) => ({
-    id: e.id,
-    capturadaEn: e.capturedAt,
-    hora: new Date(e.capturedAt).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' }),
-    autor,
-    texto: e.entryText,
-    tags: e.tags,
-  }))
+function mapEntradas(
+  rows: Array<{ id: string; siteId: string; capturedAt: string; authorId: string; entryText: string; tags: string[] }>,
+  autor: string,
+  /** TSK-DOM-009: severidad de la alerta de cada entrada que tenga una. */
+  alertas: Map<string, 'low' | 'medium' | 'high' | 'critical'> = new Map(),
+) {
+  return rows.map((e) => {
+    const sev = alertas.get(e.id)
+    return {
+      id: e.id,
+      capturadaEn: e.capturedAt,
+      hora: new Date(e.capturedAt).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' }),
+      autor,
+      texto: e.entryText,
+      tags: e.tags,
+      faenaId: e.siteId,
+      alerta: sev ? SEV_TO_ES[sev] : null,
+    }
+  })
 }
 
 function plantillaDesdeRevision(
@@ -745,7 +779,7 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
     if (!usuario) return
     await descartarRegistroColaDb(outboxId, usuario.tenantId)
     const entradas = await listLogEntries(null)
-    setEntradasBitacora(mapEntradas(entradas, usuario.nombre))
+    setEntradasBitacora(mapEntradas(entradas, usuario.nombre, await severidadesDeBitacora()))
     await refrescar()
   }, [usuario, refrescar])
 
@@ -825,7 +859,7 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
       setUsuario(u)
       setIdentidad(i)
       const entradas = await listLogEntries(null)
-      setEntradasBitacora(mapEntradas(entradas, u.nombre))
+      setEntradasBitacora(mapEntradas(entradas, u.nombre, await severidadesDeBitacora()))
       setHidratando(false)
       await refrescar()
       /* TSK-OFF-010: los formularios de las OTRAS faenas se dejan en el equipo
@@ -1289,10 +1323,10 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
   const descartarAvisoEnvio = useCallback(() => setUltimoEnvio(null), [])
 
   const agregarBitacora = useCallback(
-    (texto: string, tags: string[], faenaId: string) => {
-      if (!usuario) return
-      void (async () => {
-        await addLogEntry({
+    async (texto: string, tags: string[], faenaId: string): Promise<string | null> => {
+      if (!usuario) return null
+      {
+        const id = await addLogEntry({
           siteId: faenaId,
           authorId: usuario.id,
           tenantId: usuario.tenantId,
@@ -1302,12 +1336,50 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
           detalle: `${identidad?.faenas.find((f) => f.id === faenaId)?.nombre ?? '—'} · ${tags.join(' · ')}`,
         })
         const entradas = await listLogEntries(null)
-        setEntradasBitacora(mapEntradas(entradas, usuario.nombre))
+        setEntradasBitacora(mapEntradas(entradas, usuario.nombre, await severidadesDeBitacora()))
         await refrescar()
-      })()
+        return id
+      }
     },
     [usuario, identidad, refrescar],
   )
+
+  /* TSK-DOM-009 (FR-069): alerta desde una entrada de bitácora. A diferencia
+   * del hallazgo directo, no abre ni toca un borrador de inspección: el
+   * hallazgo se liga a la entrada y a su faena, y viaja en el mismo lote. */
+  const guardarAlertaBitacora = useCallback(
+    async (logEntryId: string, faenaId: string, sev: Severidad, descripcion: string, fotosNuevas: File[], fotosQuitar: string[]) => {
+      if (!usuario) return
+      const previa = await hallazgoDeBitacora(logEntryId)
+      await guardarHallazgoDb({
+        inspectionId: null,
+        responseId: null,
+        logEntryId,
+        siteId: faenaId,
+        hallazgoId: previa?.hallazgo.id ?? null,
+        tenantId: usuario.tenantId,
+        severity: SEV_TO_EN[sev],
+        description: descripcion.trim() || 'Sin descripción',
+        detalle: `Alerta desde la bitácora · ${detalleDeHallazgo(descripcion)}`,
+        fotosNuevas: await comprimirFotos(fotosNuevas),
+        fotosQuitar,
+      })
+      const entradas = await listLogEntries(null)
+      setEntradasBitacora(mapEntradas(entradas, usuario.nombre, await severidadesDeBitacora()))
+      await refrescar()
+    },
+    [usuario, refrescar],
+  )
+
+  const leerAlertaBitacora = useCallback(async (logEntryId: string): Promise<HallazgoGuardado | null> => {
+    const guardado = await hallazgoDeBitacora(logEntryId)
+    if (!guardado) return null
+    return {
+      severidad: SEV_TO_ES[guardado.hallazgo.severity],
+      descripcion: guardado.hallazgo.description === 'Sin descripción' ? '' : guardado.hallazgo.description,
+      fotos: guardado.fotos,
+    }
+  }, [])
 
   /* ── TSK-DOM-008 (FR-067) · hallazgos asignados ──────────────────────────
    * Se muestran desde el caché local al instante y se piden al servidor al
@@ -1418,6 +1490,8 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
     prepararCierre,
     enviarInspeccion,
     agregarBitacora,
+    guardarAlertaBitacora,
+    leerAlertaBitacora,
     asignados,
     vistosAsignados,
     hallazgosNuevos,
