@@ -3,7 +3,7 @@
 | | |
 | :--- | :--- |
 | **Estado** | COMPLETO (ciclo del módulo, F2 · 2026-10-13) |
-| **Versión** | 0.5.0 |
+| **Versión** | 0.5.1 |
 | **Autor** | Daniel Ávila |
 | **Padre** | specs/000-master/spec.md |
 | **Depende de** | 001 (sesión/tenant), 004 (plantillas a renderizar offline) |
@@ -72,7 +72,7 @@ Targets táctiles amplios, alto contraste para luz solar, y **autoguardado de bo
 
 **Alerta desde la bitácora** (TSK-DOM-009, FR-069, Enmienda 010): "Nueva entrada" trae la casilla "Reportar una alerta"; al guardar la entrada se abre la hoja de hallazgo (severidad, descripción obligatoria en alta y crítica, hasta 5 fotos). Cada entrada muestra su alerta con el distintivo de severidad y un botón "Reportar alerta" o "Editar alerta". La alerta es un hallazgo sin inspección, ligado a la entrada y a su faena (`logEntryId`, `siteId`); se guarda y encola sin señal, una entrada tiene a lo más una (corregirla actualiza la misma) y el lote envía la bitácora antes que los hallazgos (`ORDEN_BATCH`).
 
-**Abrir con el código de un QR** (TSK-OPS-003-C, FR-060/061): Formularios trae "Abrir con el código de un QR". El código (`tc1:…`, con o sin prefijo) se resuelve en el teléfono, sin señal: el SHA-256 del código se busca entre los activos guardados de las faenas de la cuenta (Dexie v5, se renuevan al sincronizar) y abre la revisión asignada del formulario del activo. Un código inválido, desconocido, de otra faena o con formulario no asignado se explica sin abrir nada. Captura muestra "Abierto por QR · {activo}" y la inspección envía su `asset_id`. El lector con cámara llega en el tramo 3.
+**Abrir con un QR** (TSK-OPS-003-C, FR-060/061): Formularios trae "Abrir con un QR": "Escanear QR" abre la cámara trasera a pantalla completa (el permiso se pide sólo al pulsar; Atrás o Escape la cierran) y decodifica en el teléfono con `jsqr` cada ~200 ms un recorte del centro, sin subir imágenes; si la cámara no está disponible, se escribe el código a mano en el mismo bloque. El código (`tc1:…`, con o sin prefijo) se resuelve en el teléfono, sin señal: el SHA-256 del código se busca entre los activos guardados de las faenas de la cuenta (Dexie v5, se renuevan al sincronizar) y abre la revisión asignada del formulario del activo. Un código inválido, desconocido, de otra faena o con formulario no asignado se explica sin abrir nada. Captura muestra "Abierto por QR · {activo}" y la inspección envía su `asset_id`. La administración imprime la etiqueta del QR desde Activos (QR en SVG con `qrcode-generator`, nombre, faena y el código en texto).
 
 **Terreno en el teléfono** (TSK-OFF-011, TSK-OFF-022): en pantallas de teléfono la navegación es una barra inferior al alcance del pulgar para todos los roles de empresa; el estado de señal y el acceso a la cuenta van en la barra superior, y la sección Cola muestra un punto cuando hay envíos pendientes (el número va en la descripción accesible). Con cinco secciones o menos (el trabajador tiene cinco) van todas; con más, van las cuatro de uso diario del rol —supervisión: Formularios, Inspección, Hallazgos y Gerencia; administración: Hallazgos, Gerencia, Equipo y Plantillas— y el botón "Más" abre una hoja con el resto (lleva el punto si una sección oculta tiene aviso; Atrás o Escape la cierran). El administrador de plataforma tiene una sola sección y no lleva barra. Ya no hay barra de estado inferior. El ítem de foto muestra la miniatura de lo capturado con "Repetir" y "Quitar". Sin una elección guardada, el tema claro u oscuro sigue al del sistema.
 
@@ -120,6 +120,7 @@ La toma usa `getUserMedia` y prefiere la cámara trasera. El stream se detiene a
 
 | Versión | Fecha | Cambio | Autor |
 | :--- | :--- | :--- | :--- |
+| 0.5.1 | 2026-11-15 | TSK-OPS-003-C (tramo 3): lector de QR con la cámara y etiqueta imprimible | Daniel Ávila (con IA) |
 | 0.5.0 | 2026-11-15 | TSK-OPS-003-C (tramo 2): abrir un formulario con el código de un QR, sin señal | Daniel Ávila (con IA) |
 | 0.4.1 | 2026-11-15 | TSK-OFF-022: barra inferior en el teléfono para todos los roles de empresa, con "Más" cuando hay más de cinco secciones | Daniel Ávila (con IA) |
 | 0.4.0 | 2026-11-15 | TSK-DOM-009 (FR-069, Enmienda 010): reportar una alerta desde la bitácora; la cola envía la bitácora antes que los hallazgos | Daniel Ávila (con IA) |
