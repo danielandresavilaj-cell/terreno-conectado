@@ -70,3 +70,6 @@ infra/secrets/
 # y activo (se subió con un token que sí tiene el scope). Si haces push LOCAL de
 # cambios a workflows, tu PAT sigue necesitando el scope `workflow`; edítalos vía
 # web/API o regenera tu token. La rama local `ci/workflow-parkada` quedó obsoleta.
+
+# Claves de la empresa de demostración (infra/tools/demo-datos.mjs). Nunca al repo (Art. IX).
+.demo-cuentas.local.json
