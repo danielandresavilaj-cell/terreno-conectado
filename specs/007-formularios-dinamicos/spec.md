@@ -52,7 +52,7 @@ Requisitos que este spec detallará: **FR-007–009, 018–019, 027–029, 036�
 - [x] Criterios de aceptación y pruebas con libros reales y caos — ampliar test-plan.md §3 con FR-036/039/049 → TSK-FORM-011 (PR #100)
 - [x] Plan técnico → `plans/007-formularios-dinamicos/plan.md` (PR #67)
 - [x] Validación completa antes de enviar y estado vacío sin asignación (FR-009, FR-032, FR-039) → TSK-FORM-016 (#151)
-- [ ] V2 (fuera de V1): Word/PDF/OCR de formularios de papel, catálogo de plantillas de plataforma, analítica con IA (FR-048)
+- [ ] V2 (fuera de V1): Word/PDF/OCR de formularios de papel, catálogo de plantillas administrable por la plataforma, analítica con IA (FR-048). *El catálogo de inicio en el código ya está: TSK-FORM-025, FR-070.*
 
 ## Criterios de aceptación del módulo (resumen)
 
@@ -65,6 +65,7 @@ Requisitos que este spec detallará: **FR-007–009, 018–019, 027–029, 036�
 
 | Versión | Fecha | Cambio | Autor |
 | :--- | :--- | :--- | :--- |
+| 0.7.0 | 2026-11-15 | TSK-FORM-025 (FR-070, Enmienda 010): catálogo de plantillas de inicio | Daniel Ávila (con IA) |
 | 0.6.0 | 2026-11-14 | TSK-FORM-024 (FR-066): archivar, restaurar y duplicar formularios | Daniel Ávila (con IA) |
 | 0.5.0 | 2026-11-13 | TSK-FORM-022: crear formulario desde cero con el mismo editor | Daniel Ávila (con IA) |
 | 0.4.0 | 2026-11-11 | Enmienda 006: importar con IA (TSK-FORM-021) | Daniel Ávila (con IA) |
@@ -94,6 +95,13 @@ FR-009/018/027: el catálogo visible se persiste por tenant, usuario, rol y faen
 - **Restaurar:** el mismo endpoint con `{status: "active"}` (`template_restored`); vuelve con sus asignaciones.
 - **Archivados:** `GET /api/v1/templates/archivadas` los lista; Plantillas los muestra plegados con "Restaurar".
 - **Duplicar:** en el cliente (`lib/duplicar-formulario.ts`): copia la definición con ids nuevos y sin `origen`, la crea con `POST /templates` como "Nombre (copia)" y la publica. Su contenido ya fue revisado al publicar el original; la copia no tiene planilla original para exportar.
+
+### Catálogo de plantillas de inicio (TSK-FORM-025, FR-070, Enmienda 010)
+
+- **Contenido:** `shared/src/catalogo-plantillas.ts` define 8 plantillas (seguridad diaria, andamios, equipo móvil, extintores, EPP, orden y aseo, trabajo en altura, relevo de turno), con categoría y descripción; andamios y trabajo en altura piden cofirma. Todas cumplen `templateDefinitionSchema` (lo prueba `shared/src/catalogo-plantillas.test.ts`). Sus ids son deterministas sólo para pasar el esquema y nunca llegan a una empresa.
+- **Uso:** Plantillas → "Desde el catálogo" abre un diálogo con las tarjetas, su vista previa (`VistaPreviaFormulario`, "Del catálogo") y "Usar en mi empresa". La app copia la definición con `duplicarDefinicion` (ids nuevos), la crea con `POST /templates` y la publica; si el nombre ya existe en la empresa (publicado o archivado), usa "Nombre (copia)". La copia aparece en la lista para asignarla a faenas y roles. Sólo `tenant_admin` (el servidor responde 403 a otros roles).
+- **Datos:** sin tabla ni RLS nuevos; cambiar el catálogo no toca las copias ya creadas.
+- **Pruebas:** `frontend/test/catalogo-plantillas.test.ts` (copia válida y sin ids compartidos) y `backend/test/catalogo-plantillas.spec.ts` (las 8 se crean y publican; un trabajador recibe 403).
 
 ### Crear desde cero (TSK-FORM-022)
 

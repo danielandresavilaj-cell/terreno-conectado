@@ -1,6 +1,6 @@
 # TASKS — Módulo 007: Formularios dinámicos desde documentos
 
-**Versión:** 0.2.4 · **Fecha:** 2026-10-12 · **Autor:** Raúl González (con IA)
+**Versión:** 0.6.0 · **Fecha:** 2026-10-12 · actualizado 2026-11-15 · **Autor:** Raúl González (con IA)
 **Padre:** `plans/007-formularios-dinamicos/plan.md` · **Spec de referencia:** `specs/000-master/spec.md` §5 (Enmienda 002, FR-007–009/018–019/027–029/036–039/044–049) · **Board:** issues #34–#45 (TSK-FORM-001→012)
 
 > **Regla (Artículo II):** cada task referencia al menos un ID de requisito; cada commit referencia al menos un task. **Compuerta cerrada:** los PRs de la Enmienda 002 (#63–#66) y el resto de la documentación del módulo (#62, #64, #65, #67–#70) están en `main` desde el 2026-10-08; TSK-FORM-002/003 ya codificaron sobre ella; TSK-FORM-001 (renderer) cerró en el PR #79; TSK-FORM-004 (respuesta híbrida) cerró en el PR #80; TSK-FORM-005 (importador `.xlsx`) cerró en el PR #82.
@@ -20,8 +20,9 @@
 | TSK-FORM-009 | Sync delta de plantillas publicadas + Excel original para uso offline | FR-018, FR-027 | 001, 002, 008 | `GET /api/v1/templates?since=<template_version>` devuelve solo el delta; caché local permite capturar 100% offline; inspección en curso conserva su versión (FR-028) | ✅ Hecho (PR #89) |
 | TSK-FORM-010 | Exportación — Excel original rellenado + hoja Evidencias, generado en el dispositivo | FR-019, FR-044, FR-045, FR-046, FR-047 | 004, 005 | En el dispositivo y desde el dashboard se descarga el `.xlsx` rellenado con hoja Evidencias; lote exportado con formato de plantilla | ✅ Hecho (PRs #91, #92, #93) |
 | TSK-FORM-011 | Pruebas import/export con libros reales, offline, RLS de plantillas y versionado inmutable | FR-019, FR-027–029, FR-036–039, FR-044–047, FR-049 | 001–010 | Libros reales importan y exportan; caos: corte a mitad de delta, doble import, edición concurrente — cero duplicación (Artículo III) | ✅ Hecho (PR #100) |
-| TSK-FORM-012 | **[V2 — fuera de corte]** Catálogo de plantillas de plataforma (Word/PDF pasó a TSK-FORM-020; OCR e IA de import pasaron a TSK-FORM-021) | FR-048 | 011 | Fuera del alcance del ciclo 007 (Enmienda 002 §10) | ⏳ Pendiente (V2) |
+| TSK-FORM-012 | **[Reemplazada por TSK-FORM-025]** Catálogo de plantillas de plataforma (Word/PDF pasó a TSK-FORM-020; OCR e IA de import pasaron a TSK-FORM-021). Estaba ligada por error a FR-048 (import con IA); el catálogo es FR-070 | FR-070 | 011 | Ver TSK-FORM-025. Un catálogo administrable por la plataforma queda como evolución | ↪ Reemplazada |
 | TSK-FORM-016 | Bloquear envío incompleto y captura sin formularios asignados | FR-009, FR-032, FR-039 | 003, 008, 009 | El envío valida todos los obligatorios y hallazgos NOK antes de encolar; una sesión sin asignación muestra estado vacío y no recibe plantilla demo | ✅ Hecho (issue #151) |
+| TSK-FORM-025 | Catálogo de plantillas de inicio: "Desde el catálogo" en Plantillas, vista previa y "Usar en mi empresa" (#275) | FR-070, FR-008 | TSK-FORM-023, TSK-FORM-024 | 8 plantillas en `shared/src/catalogo-plantillas.ts` válidas para el esquema; usar una crea con `POST /templates` y publica una copia con ids nuevos ("(copia)" si el nombre existe); sólo `tenant_admin`. Pruebas de shared, frontend e integración verdes | 🔄 En curso |
 
 ## Criterios de salida del módulo
 
@@ -38,6 +39,7 @@
 
 | Versión | Fecha | Cambio | Autor |
 | :--- | :--- | :--- | :--- |
+| 0.6.0 | 2026-11-15 | Se agrega TSK-FORM-025 (catálogo de plantillas de inicio, FR-070); TSK-FORM-012 queda reemplazada | Daniel Ávila (con IA) |
 | 0.5.1 | 2026-11-13 | TSK-FORM-023: vista previa del formulario publicado | Daniel Ávila (con IA) |
 | 0.5.0 | 2026-11-13 | TSK-FORM-022: crear formulario desde cero | Daniel Ávila (con IA) |
 | 0.4.0 | 2026-11-11 | TSK-FORM-021: importar con IA (Enmienda 006) | Daniel Ávila (con IA) |

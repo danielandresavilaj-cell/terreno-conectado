@@ -1,6 +1,6 @@
 # TEST PLAN — Plan de pruebas de validación
 
-**Versión:** 1.5.0 · **Fecha:** 2026-09-14 · actualizado 2026-11-15 · **Autor:** Raúl González (validación) · **Relacionado:** spec maestro §5–6, constitución Artículos III/IV/VII
+**Versión:** 1.6.0 · **Fecha:** 2026-09-14 · actualizado 2026-11-15 · **Autor:** Raúl González (validación) · **Relacionado:** spec maestro §5–6, constitución Artículos III/IV/VII
 **Evidencia APT:** "Plan de pruebas de validación" (informe §6) y soporte de la competencia "Realizar pruebas de certificación de productos y procesos".
 
 ## 1. Principio rector
@@ -82,12 +82,13 @@ verde.
 | FR-066 | *(Enmienda 008)* Archivar oculta el formulario a dispositivos y a Plantillas sin borrar revisiones ni asignaciones; restaurar lo devuelve; sólo `tenant_admin`; otra empresa → 404; auditoría. Duplicar genera ids nuevos y quita el origen de planilla | Integración + Unit | `backend/test/templates-archivar.spec.ts`; `frontend/test/duplicar-formulario.test.ts` (TSK-FORM-024) | 🟢 verde |
 | FR-067 | *(Enmienda 008)* El responsable ve sólo sus hallazgos (otra empresa → lista vacía; plataforma → 403), con faena, formulario, pregunta y fotos; los empieza y reporta con nota obligatoria; uno ajeno o resuelto → 404; auditoría `finding_progress`; supervisión lo ve listo para revisar; reabrir y reasignar limpian el avance; una corrección por sync no lo borra; el responsable ve las fotos de sus hallazgos y no otras; en el teléfono la lista se lee sin señal, el aviso cuenta los no abiertos y el reporte queda como borrador | Integración + Unit + E2E | `backend/test/hallazgos-asignados.spec.ts`; `frontend/test/hallazgos-asignados.test.ts`; `frontend/e2e/specs/hallazgos-asignados.spec.ts` | 🟢 verde |
 | FR-069 | *(Enmienda 010)* La alerta reportada desde la bitácora se guarda y encola sin señal ligada a la entrada y a su faena, una por entrada (corregirla actualiza la misma); el lote envía la bitácora antes que el hallazgo; entrada y alerta llegan en un lote y reenviarlo no duplica; Gerencia la muestra con faena, autor y origen bitácora y el filtro por faena la encuentra; asignada, el responsable la ve en "Hallazgos"; una entrada o faena de otra empresa → rechazada | Integración + Unit | `backend/test/alerta-bitacora.spec.ts`; `frontend/test/alerta-bitacora.test.ts` | 🟢 verde |
+| FR-070 | *(Enmienda 010)* Las 8 plantillas del catálogo cumplen el esquema y tienen ids únicos; la copia que crea la app no comparte ids con el catálogo ni con otra copia y conserva la cofirma; el servidor crea y publica las 8 como `tenant_admin`, y un trabajador recibe 403 | Unit + Integración | `shared/src/catalogo-plantillas.test.ts`; `frontend/test/catalogo-plantillas.test.ts`; `backend/test/catalogo-plantillas.spec.ts` | 🟢 verde |
 | FR-048 | *(Enmienda 006)* La IA (opcional, sólo backend) propone secciones e ítems desde PDF, Word o foto, y la propuesta nunca se publica sin la confirmación explícita del `tenant_admin`. *(TSK-FORM-022)* Un formulario creado desde cero sigue el mismo camino: borrador por `POST /templates` y publicación explícita, con las mismas validaciones de props; sin clave la función queda apagada | Integración + Unit | `backend/test/import-ia.spec.ts` (analizador falso), `import-wizard.spec.ts`, `templates.http.spec.ts`, `frontend/test/editor-formulario.test.ts` | 🟢 verde |
 | FR-049 | Revisión publicada inmutable: ítems ya inspeccionados no se modifican; el cambio exige revisión nueva | Integración | `backend/test/templates.http.spec.ts` (409 al editar publicado) | 🟢 verde |
 | FR-050 | `platform_admin` crea tenant, le asigna el `tenant_admin` inicial y lo suspende/reactiva; un rol distinto recibe 403 en toda la consola | Integración | `backend/test/admin.spec.ts` | 🟢 verde |
 | FR-051 (`admin`) | Cada mutación admin deja exactamente una fila en `audit_log` con `actor_id` y `tenant_id` correctos; `tc_app` no puede UPDATE/DELETE y la API no expone rutas de modificación | Integración | `backend/test/admin.spec.ts` | 🟢 verde |
 
-**Recuento (2026-11-15):** 54 filas · 🟢 50 (92,6%) · 🟡 3 (5,6%) · 🔴 0 · ⚪ 1 (1,9%). FR-056/057/061 está en revisión con una prueba unitaria verde y validación de integración/E2E/caos pendiente; FR-058/059/061 siguen por implementar. De lo ya validado, **50/51 (98,0%) está en verde**.
+**Recuento (2026-11-15):** 55 filas · 🟢 51 (92,7%) · 🟡 3 (5,5%) · 🔴 0 · ⚪ 1 (1,8%). FR-056/057/061 está en revisión con una prueba unitaria verde y validación de integración/E2E/caos pendiente; FR-058/059/061 siguen por implementar. De lo ya validado, **51/52 (98,1%) está en verde**.
 
 > La única fila con ⚪ es **FR-034**, y solo por la parte de geolocalización, que la
 > Enmienda 004 sacó de V1; su parte vigente (asociación a faena) está en 🟢. FR-048
@@ -217,6 +218,7 @@ y nunca bloquea un PR. Informe por módulo en
 
 | Versión | Fecha | Cambio | Autor |
 | :--- | :--- | :--- | :--- |
+| 1.6.0 | 2026-11-15 | **TSK-FORM-025 (FR-070, Enmienda 010):** fila del catálogo de plantillas de inicio | Daniel Ávila (con IA) |
 | 1.5.0 | 2026-11-15 | **TSK-DOM-009 (FR-069, Enmienda 010):** fila de la alerta desde la bitácora (integración + unitarias) | Daniel Ávila (con IA) |
 | 1.4.5 | 2026-11-15 | **TSK-OFF-019:** protocolo manual de FR-010 ejecutado en iPhone con la PWA instalada (informe §10); la fila pasa a 🟢 unit + manual | Daniel Ávila (con IA) |
 | 1.4.4 | 2026-11-15 | **TSK-E2E-003:** H7 en §5.1 (falso rojo por `57P01` al apagar el contenedor de pruebas) y su regresión `pool-prueba.spec.ts`; sin cambio de recuento | Daniel Ávila (con IA) |
