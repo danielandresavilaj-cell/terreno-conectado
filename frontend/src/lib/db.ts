@@ -103,6 +103,10 @@ export interface FindingRow {
   status: 'open' | 'in_progress' | 'resolved'
   capturedAt: string
   clientVersion: number
+  /** TSK-DOM-009 (FR-069): entrada de bitácora de la que nació la alerta. */
+  logEntryId?: string | null
+  /** Faena de una alerta sin inspección (FR-069). */
+  siteId?: string | null
 }
 
 export interface LogEntryRow {
@@ -163,12 +167,17 @@ export interface PlantillaOriginalRow extends TemplateOriginalMeta {
   bytes: Blob
 }
 
+/**
+ * Orden de envío del lote (FR-020). La bitácora va antes que los hallazgos:
+ * una alerta puede nacer de una entrada que viaja en el mismo lote
+ * (TSK-DOM-009). Debe coincidir con `BATCH_ORDER` del servidor.
+ */
 export const ORDEN_BATCH: Record<OutboxRow['entityType'], number> = {
   inspection: 1,
   response: 2,
-  finding: 3,
-  attachment: 4,
-  log_entry: 5,
+  log_entry: 3,
+  finding: 4,
+  attachment: 5,
   inspection_signature: 6,
 }
 
@@ -967,6 +976,24 @@ export async function hallazgoPorId(id: string): Promise<{ hallazgo: FindingRow;
   return { hallazgo, fotos: await fotosDeHallazgo(hallazgo.id) }
 }
 
+/** TSK-DOM-009: la alerta reportada desde una entrada de bitácora, con sus fotos (o `null`). */
+export async function hallazgoDeBitacora(
+  logEntryId: string,
+): Promise<{ hallazgo: FindingRow; fotos: FotoHallazgo[] } | null> {
+  const hallazgo = await db.findings.filter((f) => f.logEntryId === logEntryId).first()
+  if (!hallazgo) return null
+  return { hallazgo, fotos: await fotosDeHallazgo(hallazgo.id) }
+}
+
+/** TSK-DOM-009: severidad de la alerta de cada entrada de bitácora que tenga una. */
+export async function severidadesDeBitacora(): Promise<Map<string, Severity>> {
+  const m = new Map<string, Severity>()
+  await db.findings.filter((f) => !!f.logEntryId).each((f) => {
+    m.set(f.logEntryId as string, f.severity)
+  })
+  return m
+}
+
 /** Hallazgo ligado a una respuesta, con todas sus fotos (o `null`). */
 export async function hallazgoDeRespuesta(
   inspectionId: string,
@@ -1014,8 +1041,11 @@ async function reencolar(
  * teléfono; una ya enviada se conserva, porque la cola no borra en el servidor.
  */
 export async function guardarHallazgo(params: {
-  inspectionId: string
+  /** `null` = alerta desde la bitácora (TSK-DOM-009): entonces van `logEntryId` y `siteId`. */
+  inspectionId: string | null
   responseId: string | null
+  logEntryId?: string | null
+  siteId?: string | null
   tenantId: string
   severity: Severity
   description: string
@@ -1032,11 +1062,14 @@ export async function guardarHallazgo(params: {
   return db.transaction('rw', db.findings, db.attachments, db.outbox, async () => {
     const previo = params.hallazgoId
       ? await db.findings.get(params.hallazgoId)
-      : params.responseId
+      : params.responseId && params.inspectionId
         ? (await db.findings.where('inspectionId').equals(params.inspectionId).toArray()).find(
             (f) => f.responseId === params.responseId,
           )
-        : undefined
+        : params.logEntryId
+          ? // TSK-DOM-009: una entrada de bitácora tiene a lo más una alerta.
+            await db.findings.filter((f) => f.logEntryId === params.logEntryId).first()
+          : undefined
     const id = previo?.id ?? uuidv7()
     if (previo) {
       await db.findings.update(id, {
@@ -1057,6 +1090,8 @@ export async function guardarHallazgo(params: {
         status: 'open',
         capturedAt: ts,
         clientVersion: 0,
+        logEntryId: params.logEntryId ?? null,
+        siteId: params.siteId ?? null,
       }
       await db.findings.add(finding)
       await encolar('finding', id, titulo, params.detalle, params.tenantId)
@@ -1111,7 +1146,7 @@ export async function addLogEntry(params: {
   tags: string[]
   shiftDate: string
   detalle: string
-}): Promise<void> {
+}): Promise<string> {
   const ts = ahoraIso()
   const id = uuidv7()
   const entry: LogEntryRow = {
@@ -1129,6 +1164,7 @@ export async function addLogEntry(params: {
     await db.logEntries.add(entry)
     await encolar('log_entry', id, 'Bitácora de turno', params.detalle, params.tenantId)
   })
+  return id
 }
 
 export async function listOutbox(): Promise<OutboxRow[]> {
@@ -1341,6 +1377,8 @@ async function payloadDe(o: OutboxRow): Promise<{
           severity: r.severity,
           description: r.description,
           status: r.status,
+          // TSK-DOM-009: sólo se envían si la alerta vino de la bitácora.
+          ...(r.logEntryId ? { log_entry_id: r.logEntryId, site_id: r.siteId ?? null } : {}),
         },
       }
     }

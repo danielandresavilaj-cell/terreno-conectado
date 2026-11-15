@@ -111,7 +111,7 @@ export class DashboardService {
         `SELECT f.severity AS severity, count(*)::int AS n
            FROM finding f
            LEFT JOIN inspection i ON i.id = f.inspection_id
-          WHERE ($1::uuid IS NULL OR i.site_id = $1)
+          WHERE ($1::uuid IS NULL OR COALESCE(f.site_id, i.site_id) = $1)
             AND f.captured_at >= COALESCE($2::timestamptz, '-infinity'::timestamptz)
             AND f.captured_at <= COALESCE($3::timestamptz, 'infinity'::timestamptz)
           GROUP BY f.severity`,
@@ -140,7 +140,7 @@ export class DashboardService {
            FROM finding f
            LEFT JOIN inspection i ON i.id = f.inspection_id
           WHERE f.severity IN ('high','critical') AND f.status <> 'resolved'
-            AND ($1::uuid IS NULL OR i.site_id = $1)
+            AND ($1::uuid IS NULL OR COALESCE(f.site_id, i.site_id) = $1)
             AND f.captured_at >= COALESCE($2::timestamptz, '-infinity'::timestamptz)
             AND f.captured_at <= COALESCE($3::timestamptz, 'infinity'::timestamptz)`,
         [siteId, desde, hasta],
@@ -165,7 +165,7 @@ export class DashboardService {
            FROM finding f
            LEFT JOIN inspection i ON i.id = f.inspection_id
           WHERE f.status <> 'resolved' AND f.due_date < current_date
-            AND ($1::uuid IS NULL OR i.site_id = $1)`,
+            AND ($1::uuid IS NULL OR COALESCE(f.site_id, i.site_id) = $1)`,
         [siteId],
       ),
       // TSK-REP-012 (FR-040): inspecciones y hallazgos por semana (lunes a
@@ -180,7 +180,7 @@ export class DashboardService {
                 (SELECT count(*)::int FROM finding f
                    LEFT JOIN inspection i ON i.id = f.inspection_id
                   WHERE f.captured_at >= s.semana AND f.captured_at < s.semana + interval '7 days'
-                    AND ($1::uuid IS NULL OR i.site_id = $1)) AS hallazgos
+                    AND ($1::uuid IS NULL OR COALESCE(f.site_id, i.site_id) = $1)) AS hallazgos
            FROM generate_series(
                   date_trunc('week', now()) - interval '7 weeks',
                   date_trunc('week', now()),
@@ -313,20 +313,24 @@ export class DashboardService {
       resolution_note: string | null
       progress_note: string | null
       reported_ms: number | null
+      origen: 'inspeccion' | 'bitacora'
     }
 
     const where = `
-        WHERE ($1::uuid IS NULL OR i.site_id = $1)
+        WHERE ($1::uuid IS NULL OR COALESCE(f.site_id, i.site_id) = $1)
           AND f.captured_at >= COALESCE($2::timestamptz, '-infinity'::timestamptz)
           AND f.captured_at <= COALESCE($3::timestamptz, 'infinity'::timestamptz)
           AND ($4::text IS NULL OR f.severity = $4)
           AND ($5::text IS NULL OR f.status = $5)
-          AND ($6::uuid IS NULL OR i.executed_by = $6)`
+          AND ($6::uuid IS NULL OR COALESCE(i.executed_by, le.author_id) = $6)`
     const base = `
         FROM finding f
         LEFT JOIN inspection i ON i.id = f.inspection_id
-        LEFT JOIN site s ON s.id = i.site_id
-        LEFT JOIN app_user u ON u.id = i.executed_by
+        -- TSK-DOM-009: una alerta desde la bitácora no tiene inspección; su
+        -- faena y su autor vienen del propio hallazgo y de su entrada.
+        LEFT JOIN log_entry le ON le.id = f.log_entry_id
+        LEFT JOIN site s ON s.id = COALESCE(f.site_id, i.site_id)
+        LEFT JOIN app_user u ON u.id = COALESCE(i.executed_by, le.author_id)
         LEFT JOIN app_user r ON r.id = f.assignee_id
         LEFT JOIN LATERAL (
           SELECT a2.id, a2.mime, a2.bytes, a2.width, a2.height
@@ -339,10 +343,11 @@ export class DashboardService {
       this.db.queryAsTenant<Row>(
         tenantId,
         `SELECT f.id, f.severity, f.status, f.description,
-                i.site_id AS faena_id, s.name AS faena_nombre,
-                i.executed_by AS autor_id, u.full_name AS autor,
+                COALESCE(f.site_id, i.site_id) AS faena_id, s.name AS faena_nombre,
+                COALESCE(i.executed_by, le.author_id) AS autor_id, u.full_name AS autor,
                 (extract(epoch FROM f.captured_at) * 1000)::float8 AS captured_ms,
-                (extract(epoch FROM i.synced_at) * 1000)::float8 AS synced_ms,
+                (extract(epoch FROM COALESCE(i.synced_at, f.created_at)) * 1000)::float8 AS synced_ms,
+                CASE WHEN f.log_entry_id IS NOT NULL THEN 'bitacora' ELSE 'inspeccion' END AS origen,
                 a.id AS foto_id, a.mime AS foto_mime, a.bytes AS foto_bytes,
                 a.width AS foto_ancho, a.height AS foto_alto,
                 COALESCE((SELECT array_agg(a3.id ORDER BY a3.captured_at, a3.id) FROM attachment a3
@@ -386,6 +391,7 @@ export class DashboardService {
       resolution_note: r.resolution_note,
       progress_note: r.progress_note,
       reported_at: r.reported_ms == null ? null : new Date(r.reported_ms).toISOString(),
+      origen: r.origen,
     }))
 
     return { items, total: totalRows[0]?.n ?? 0 }

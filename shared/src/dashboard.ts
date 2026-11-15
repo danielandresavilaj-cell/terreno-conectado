@@ -38,7 +38,7 @@ export interface FindingDto {
   severity: SyncSeverity
   status: 'open' | 'in_progress' | 'resolved'
   description: string
-  /** Sitio (faena) al que pertenece el hallazgo vía su inspección. */
+  /** Sitio (faena) del hallazgo: el de su inspección o, si vino de la bitácora, el suyo propio (TSK-DOM-009). */
   faena_id: string | null
   faena_nombre: string | null
   /** Usuario que ejecutó la inspección (FR-041): id para filtrar, nombre para mostrar. */
@@ -63,6 +63,11 @@ export interface FindingDto {
   /** TSK-DOM-008 (FR-067): lo que reportó el responsable. "Listo para revisar" = `in_progress` + `reported_at`. */
   progress_note: string | null
   reported_at: string | null
+  /**
+   * TSK-DOM-009 (FR-069): si nació de una inspección o de una entrada de bitácora.
+   * Opcional: los cachés de versiones anteriores no lo traen (= inspección).
+   */
+  origen?: 'inspeccion' | 'bitacora'
 }
 
 /**
@@ -87,9 +92,14 @@ export interface HallazgoAsignadoDto {
   /** Pregunta de la que salió, si salió de una respuesta (no si es hallazgo general). */
   pregunta: string | null
   inspeccion_at: string | null
-  /** Quién registró la inspección. */
+  /** Quién registró la inspección (o la entrada de bitácora). */
   autor: string | null
   fotos_ids: string[]
+  /**
+   * TSK-DOM-009 (FR-069): si nació de una inspección o de una entrada de bitácora.
+   * Opcional: los cachés de versiones anteriores no lo traen (= inspección).
+   */
+  origen?: 'inspeccion' | 'bitacora'
 }
 
 /** TSK-DOM-008 (FR-067): `PATCH /api/v1/findings/:id/avance`. */

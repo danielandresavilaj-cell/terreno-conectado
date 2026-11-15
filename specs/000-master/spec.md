@@ -3,7 +3,7 @@
 | | |
 | :--- | :--- |
 | **ID** | 000-master |
-| **Versión** | 1.12.0 · Enmienda 009 (resumen de Gerencia redactado con IA) |
+| **Versión** | 1.13.0 · Enmienda 010 (alerta desde la bitácora) |
 | **Estado** | APROBADO — Raúl González (2026-09-24) y Daniel Ávila (2026-10-13) · Enmiendas 003–006 firmadas por Daniel Ávila, pendientes de ratificación de Raúl González · Enmienda 007 propuesta por Raúl González y aprobada por Daniel Ávila el 2026-11-12; B está en revisión y C–E se implementan por tareas · Enmienda 008 firmada por Daniel Ávila el 2026-11-13, pendiente de ratificación de Raúl González · Enmienda 009 propuesta por Daniel Ávila el 2026-11-15, pendiente de ratificación de Raúl González |
 | **Autores** | Daniel Ávila (datos/negocio) · Raúl González (infra/plataforma) |
 | **Fuente** | Informe de Definición APT, Fase 1 (2026-09-04) |
@@ -155,6 +155,7 @@ Convención EARS en español: ubicuo (`EL SISTEMA DEBERÁ…`), evento (`CUANDO�
 - **FR-066** *(Enmienda 008)* EL SISTEMA DEBERÁ permitir al `tenant_admin` archivar y restaurar un formulario (archivado, deja de entregarse a los dispositivos y de ofrecerse para asignar, y conserva sus revisiones, asignaciones e inspecciones) y duplicar un formulario publicado como uno nuevo e independiente. Cada archivo y restauración queda en el audit log.
 - **FR-067** *(Enmienda 008)* CUANDO a una cuenta de la empresa se le asigna un hallazgo, EL SISTEMA DEBERÁ mostrárselo en una sección propia con aviso de "nuevo" (también sin señal, desde la última lista recibida) y permitirle empezarlo y reportar lo que hizo; el reporte necesita conexión y no resuelve el hallazgo: lo resuelve la supervisión (FR-064). Cada avance queda en el audit log.
 - **FR-068** *(Enmienda 009)* DONDE la IA esté configurada en el servidor, EL SISTEMA DEBERÁ permitir al `supervisor` y al `tenant_admin` generar a pedido un resumen redactado del panel de Gerencia para la faena y el período filtrados, a partir sólo de las cifras agregadas del panel (sin nombres de personas, textos de terreno ni fotos). El resumen DEBERÁ indicar que fue generado con IA y no DEBERÁ modificar datos de negocio. EL SISTEMA DEBERÁ guardar cada resumen y mostrar el último guardado del mismo filtro sin volver a redactarlo mientras las cifras no cambien (y marcarlo desactualizado cuando cambien), conservar los anteriores como historial, respetar un tope diario por empresa y registrar cada redacción en el audit log; sin IA o sin conexión, el panel funciona igual.
+- **FR-069** *(Enmienda 010)* CUANDO un `field_worker`, `supervisor` o `tenant_admin` registra una entrada de bitácora, EL SISTEMA DEBERÁ permitirle reportar desde esa entrada una alerta (un hallazgo con severidad, descripción —obligatoria en alta y crítica— y hasta 5 fotos), también sin conexión. La alerta DEBERÁ quedar ligada a la entrada y a su faena, sincronizarse en el mismo lote de forma idempotente (una entrada tiene a lo más una alerta; corregirla actualiza la misma) y gestionarse como cualquier hallazgo (FR-064, FR-067). Gerencia y "Hallazgos" DEBERÁN mostrar su faena, su autor y que viene de la bitácora.
 
 ### 5.6 Módulo 006 — Administración plataforma
 
@@ -291,6 +292,10 @@ Fuera de alcance explícito — cualquier inclusión requiere enmienda a este sp
 > - **Costo (NFR-08):** el modelo pequeño del ADR-005 (`IA_MODELO`) y un tope diario por empresa (`IA_TOPE_RESUMEN_DIARIO`, 20 por omisión). Cada resumen se guarda: quien mire el mismo filtro lo ve al instante y, si las cifras no cambiaron, no se vuelve a llamar a la API ni cuenta para el tope. Un período cerrado (semana o mes anterior) se redacta una vez y sólo se actualiza si llegan datos sincronizados tarde.
 > - **Modelo de datos:** migración 024, tabla `resumen_ia` con RLS (resúmenes e historial). Cada redacción deja además una fila en `audit_log` (`dashboard_resumen_ia`).
 > - **Offline (Art. I):** la captura no se toca. Sin conexión o sin clave, el botón no aparece o queda deshabilitado y el panel funciona igual.
+>
+> **Enmienda 010 (2026-11-15, preparación de la presentación).** Abre el bloque FR-070–079 para las mejoras previas a la presentación del 19 de noviembre y completa el bloque de la Enmienda 008 con FR-069.
+>
+> - **FR-069 (TSK-DOM-009):** en terreno muchas alertas se anotan primero en la bitácora y no en una inspección. Desde "Nueva entrada" o desde una entrada ya escrita se reporta una alerta, que es un hallazgo sin inspección. Migración 025: `finding.log_entry_id` y `finding.site_id` (ambas opcionales); la faena de un hallazgo se lee como `COALESCE(finding.site_id, inspection.site_id)`, así que los existentes no cambian. El lote ordena la bitácora antes que los hallazgos para validar la referencia. Las colas de clientes antiguos siguen sincronizando igual (Art. III); la ingesta valida que la entrada y la faena sean de la misma empresa, además de RLS (Art. IV).
 
 ## 11. Supuestos y restricciones
 
@@ -343,6 +348,7 @@ La demo se considera exitosa si, en vivo ante el docente:
 
 | Versión | Fecha | Cambio | Autor |
 | :--- | :--- | :--- | :--- |
+| 1.13.0 | 2026-11-15 | **Enmienda 010 — FR-069 (TSK-DOM-009):** alerta reportada desde la bitácora, ligada a la entrada y a su faena (migración 025); abre el bloque FR-070–079. Propuesta por Daniel Ávila, pendiente de ratificación de Raúl González | Daniel Ávila (con IA) |
 | 1.12.0 | 2026-11-15 | **Enmienda 009 — FR-068 (TSK-REP-014):** resumen de Gerencia redactado con IA a partir de las cifras agregadas del panel; reabre lo que el spec 005 §7 dejó post-V1. Propuesta por Daniel Ávila, pendiente de ratificación de Raúl González | Daniel Ávila (con IA) |
 | 1.11.0 | 2026-11-15 | **Enmienda 008 (ampliación) — FR-067 (TSK-DOM-008):** el responsable de un hallazgo lo ve en "Hallazgos", lo empieza y reporta lo que hizo; supervisión cierra (migración 023) | Daniel Ávila (con IA) |
 | 1.10.2 | 2026-11-15 | **Aclaración de FR-005 (TSK-AUTH-012):** un bloqueo cumplido reinicia el contador de fallos y el `423` informa los minutos que faltan | Daniel Ávila (con IA) |

@@ -1291,6 +1291,8 @@ function FilaHallazgo({
           <div className="mt-2 flex items-center gap-x-3 gap-y-1 flex-wrap text-[13px] text-ink-2">
             <span>{h.faena_nombre ?? 'Sin faena'}</span>
             <span>· {h.autor ?? 'Sin autor'}</span>
+            {/* TSK-DOM-009 (FR-069): alerta reportada desde la bitácora. */}
+            {h.origen === 'bitacora' && <span>· desde la bitácora</span>}
             <span>· {tiempoRelativo(h.captured_at)}</span>
             {h.fotos_ids.length === 0 && <span className="text-ink-3">· sin foto</span>}
           </div>

@@ -76,12 +76,16 @@ const MAX_CONFLICTS_VIEW = 100
 /** Tamaño máximo serializado de `value_json` (forma híbrida FR-036, data-model §2.2). */
 const MAX_VALUE_JSON = 16_384
 
-/** Orden de dependencias fijo (FR-020, data-model §4.2). */
+/**
+ * Orden de dependencias fijo (FR-020, data-model §4.2). La bitácora va antes
+ * que los hallazgos: una alerta puede nacer de una entrada del mismo lote
+ * (TSK-DOM-009, FR-069).
+ */
 const BATCH_ORDER: SyncEntityType[] = [
   'inspection',
   'response',
-  'finding',
   'log_entry',
+  'finding',
   'attachment',
   'inspection_signature',
 ]
@@ -396,6 +400,8 @@ export class SyncService {
         const x = p as unknown as SyncFindingPayload
         if (x.inspection_id !== null) this.assertUuid(x.inspection_id, `${at}.payload.inspection_id`)
         if (x.response_id !== null) this.assertUuid(x.response_id, `${at}.payload.response_id`)
+        if (x.log_entry_id != null) this.assertUuid(x.log_entry_id, `${at}.payload.log_entry_id`)
+        if (x.site_id != null) this.assertUuid(x.site_id, `${at}.payload.site_id`)
         if (!SEVERITIES.has(x.severity)) {
           throw new BadRequestException(`${at}.payload.severity inválido`)
         }
@@ -724,6 +730,12 @@ export class SyncService {
         const refs: Array<[string, string]> = []
         if (p.inspection_id !== null) refs.push(['inspection', p.inspection_id])
         if (p.response_id !== null) refs.push(['inspection_response', p.response_id])
+        // TSK-DOM-009: la entrada y la faena de una alerta desde la bitácora
+        // también tienen que ser del tenant del JWT.
+        const logEntryId = p.log_entry_id ?? null
+        const siteId = p.site_id ?? null
+        if (logEntryId !== null) refs.push(['log_entry', logEntryId])
+        if (siteId !== null) refs.push(['site', siteId])
         return this.db.withTenantTransaction(tenantId, (run) =>
           this.applyAny(run, tenantId, syncLogId, rec, {
             table: 'finding',
@@ -738,15 +750,18 @@ export class SyncService {
               p.status,
               rec.captured_at,
               rec.client_version,
+              logEntryId,
+              siteId,
             ],
             insertSql: `INSERT INTO finding
               (id, tenant_id, inspection_id, response_id, severity, description, status,
-               captured_at, client_version)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+               captured_at, client_version, log_entry_id, site_id)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
              RETURNING id`,
             updateSql: `UPDATE finding SET
               inspection_id = $3, response_id = $4, severity = $5, description = $6,
               status = $7, captured_at = $8, client_version = $9,
+              log_entry_id = COALESCE($10, log_entry_id), site_id = COALESCE($11, site_id),
               updated_at = now()
              WHERE id = $1 AND tenant_id = $2`,
             updateValues: () => [
@@ -759,6 +774,8 @@ export class SyncService {
               p.status,
               rec.captured_at,
               rec.client_version,
+              logEntryId,
+              siteId,
             ],
             payloadFrom: (r) => ({
               inspection_id: r.inspection_id,
@@ -766,6 +783,8 @@ export class SyncService {
               severity: r.severity,
               description: r.description,
               status: r.status,
+              log_entry_id: r.log_entry_id ?? null,
+              site_id: r.site_id ?? null,
             }),
           }),
         )
