@@ -202,7 +202,10 @@ test.describe('Tabs por perfil (FW-05 / SU / AD-02 / PA-01)', () => {
     await page.keyboard.press('Escape')
     await expect(hoja).toBeHidden()
     expect(barra).toHaveLength(4)
-    return [...barra, ...resto.map((t) => t.split('\n')[0].trim())]
+    // TSK-OFF-024: el cajón lateral trae además 'Cerrar menú' (sólo ícono) y
+    // 'Mi cuenta' al fondo, que no son secciones.
+    const secciones = resto.map((t) => t.split('\n')[0].trim()).filter((t) => t && t !== 'Mi cuenta')
+    return [...barra, ...secciones]
   }
 
   test('trabajador A · Inspección, Bitácora, Cola', async ({ page }) => {
