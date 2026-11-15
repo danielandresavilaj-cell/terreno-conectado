@@ -1,6 +1,6 @@
 # TASKS — Ajustes desde terreno
 
-**Versión:** 1.8.1 · **Fecha:** 2026-11-15 · **Autor:** Daniel Ávila (con IA)
+**Versión:** 1.9.0 · **Fecha:** 2026-11-15 · **Autor:** Daniel Ávila (con IA)
 **Origen:** prueba en terreno con el teléfono (inspección trabada en la cola) · **Requisitos:** FR-005, FR-010, FR-012, FR-024, FR-056, FR-064, FR-067, FR-069, NFR-05, NFR-12
 
 > **Regla (Artículo II):** cada task referencia al menos un ID de requisito; cada commit referencia al menos un task.
@@ -16,6 +16,7 @@
 | TSK-OFF-022 | Barra inferior en el teléfono para todos los roles de empresa, con "Más" (#271) | FR-010 | TSK-OFF-011 | Hasta 5 secciones van todas; con más, 4 de uso diario por rol + "Más" (hoja que cierra Atrás/Escape, con punto de aviso); plataforma sin barra; sin barra de estado inferior. `frontend/test/nav-telefono.test.ts` y E2E "Tabs por perfil" verdes | ✅ Hecho (PR #272) |
 | TSK-OFF-023 | Landing pública en terrenoconectado.cl y la app en /app (#284) | FR-010 | TSK-OFF-021 | `/` sirve la landing con "Ingresar"; `/app/` la PWA (base, manifest y service worker); apps ya instaladas y enlaces `/#pantalla` llegan a `/app/`; el service worker antiguo se retira sin tocar IndexedDB; CSP sin cambios; suite E2E completa verde | ✅ Hecho (PR #285) |
 | TSK-OFF-024 | Menú lateral por tamaño de pantalla (#287) | FR-010 | TSK-OFF-022 | Escritorio: menú lateral fijo con grupos, avisos y Mi cuenta al fondo, sin pestañas; tableta: hamburguesa → cajón; teléfono: barra inferior sin cambios y "Más" → cajón lateral; plataforma sin menú; Atrás/Escape/fondo cierran el cajón. `frontend/test/nav-telefono.test.ts` y E2E por rol verdes | ✅ Hecho (PR #288) |
+| TSK-DEMO-002 | Empresa de demostración por la API: script reproducible de la empresa ficticia para la presentación (plan 011) | FR-001, FR-064, FR-069, NFR-05 | TSK-FORM-025, TSK-OPS-003-C | `infra/tools/demo-datos.mjs` crea empresa, faenas, cuentas, formularios del catálogo, activos y 8 semanas de historia sólo con la API; claves sólo en `.demo-cuentas.local.json` (ignorado); ensayo local sin fallos | 🔄 En curso |
 
 ## Control de cambios
 
@@ -37,3 +38,4 @@
 | 1.7.1 | 2026-11-15 | TSK-OFF-023 hecha: PR #285 con CI y E2E completos en verde, desplegado (`faba6bd`). En producción, una pestaña con el service worker antiguo de la raíz lo retiró sola y llegó a /app/ con la sesión intacta | Daniel Ávila (con IA) |
 | 1.8.0 | 2026-11-15 | Se agrega TSK-OFF-024 (menú lateral por tamaño de pantalla) | Daniel Ávila (con IA) |
 | 1.8.1 | 2026-11-15 | TSK-OFF-024 hecha: PR #288 con CI y E2E completos en verde, desplegado (`358a3ca`); revisado en producción a 1280, 768 y 375 px | Daniel Ávila (con IA) |
+| 1.9.0 | 2026-11-15 | Se agrega TSK-DEMO-002 (empresa de demostración por la API) | Daniel Ávila (con IA) |
