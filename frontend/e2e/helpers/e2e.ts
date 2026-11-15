@@ -316,8 +316,10 @@ export async function loginEnApp(page: Page, email: string): Promise<void> {
    * esperarlo por rol button nunca se cumplía. Y sólo con eso no alcanza:
    * durante la hidratación la pantalla de login sigue montada mientras
    * `arrancarSesión` siembra Dexie y pide las plantillas, así que además se
-   * espera a que aparezca la barra de navegación del Shell. */
-  await page.locator('nav button').first().waitFor({ state: 'visible' })
+   * espera a que el Shell esté montado. Se usa "Mi cuenta" de la barra
+   * superior porque existe en todos los roles; la barra de navegación no
+   * (plataforma, con una sola sección, no la lleva en el teléfono; TSK-OFF-022). */
+  await page.getByRole('button', { name: 'Mi cuenta' }).waitFor({ state: 'visible' })
   if (email === CUENTAS.trabajadorA || email === CUENTAS.trabajadorB) {
     await abrirFormularioAsignado(page)
   }
