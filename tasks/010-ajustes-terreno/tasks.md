@@ -1,6 +1,6 @@
 # TASKS — Ajustes desde terreno
 
-**Versión:** 1.8.0 · **Fecha:** 2026-11-15 · **Autor:** Daniel Ávila (con IA)
+**Versión:** 1.8.1 · **Fecha:** 2026-11-15 · **Autor:** Daniel Ávila (con IA)
 **Origen:** prueba en terreno con el teléfono (inspección trabada en la cola) · **Requisitos:** FR-005, FR-010, FR-012, FR-024, FR-056, FR-064, FR-067, FR-069, NFR-05, NFR-12
 
 > **Regla (Artículo II):** cada task referencia al menos un ID de requisito; cada commit referencia al menos un task.
@@ -15,7 +15,7 @@
 | TSK-DOM-009 | Alerta desde la bitácora: reportar un hallazgo desde una entrada, sin inspección (Enmienda 010) | FR-069, FR-064, FR-067 | TSK-DOM-008 | Migración 025 (`finding.log_entry_id`, `finding.site_id`); sync acepta ambos y procesa `log_entry` antes que `finding`; Gerencia, supervisión y "Hallazgos" leen la faena con `COALESCE(finding.site_id, inspection.site_id)` y devuelven `origen`; casilla "Reportar una alerta" y botón por entrada en Bitácora. `backend/test/alerta-bitacora.spec.ts` y `frontend/test/alerta-bitacora.test.ts` verdes | ✅ Hecho (PR #270) |
 | TSK-OFF-022 | Barra inferior en el teléfono para todos los roles de empresa, con "Más" (#271) | FR-010 | TSK-OFF-011 | Hasta 5 secciones van todas; con más, 4 de uso diario por rol + "Más" (hoja que cierra Atrás/Escape, con punto de aviso); plataforma sin barra; sin barra de estado inferior. `frontend/test/nav-telefono.test.ts` y E2E "Tabs por perfil" verdes | ✅ Hecho (PR #272) |
 | TSK-OFF-023 | Landing pública en terrenoconectado.cl y la app en /app (#284) | FR-010 | TSK-OFF-021 | `/` sirve la landing con "Ingresar"; `/app/` la PWA (base, manifest y service worker); apps ya instaladas y enlaces `/#pantalla` llegan a `/app/`; el service worker antiguo se retira sin tocar IndexedDB; CSP sin cambios; suite E2E completa verde | ✅ Hecho (PR #285) |
-| TSK-OFF-024 | Menú lateral por tamaño de pantalla (#287) | FR-010 | TSK-OFF-022 | Escritorio: menú lateral fijo con grupos, avisos y Mi cuenta al fondo, sin pestañas; tableta: hamburguesa → cajón; teléfono: barra inferior sin cambios y "Más" → cajón lateral; plataforma sin menú; Atrás/Escape/fondo cierran el cajón. `frontend/test/nav-telefono.test.ts` y E2E por rol verdes | 🔄 En curso |
+| TSK-OFF-024 | Menú lateral por tamaño de pantalla (#287) | FR-010 | TSK-OFF-022 | Escritorio: menú lateral fijo con grupos, avisos y Mi cuenta al fondo, sin pestañas; tableta: hamburguesa → cajón; teléfono: barra inferior sin cambios y "Más" → cajón lateral; plataforma sin menú; Atrás/Escape/fondo cierran el cajón. `frontend/test/nav-telefono.test.ts` y E2E por rol verdes | ✅ Hecho (PR #288) |
 
 ## Control de cambios
 
@@ -36,3 +36,4 @@
 | 1.7.0 | 2026-11-15 | Se agrega TSK-OFF-023 (landing en la raíz y la app en /app) | Daniel Ávila (con IA) |
 | 1.7.1 | 2026-11-15 | TSK-OFF-023 hecha: PR #285 con CI y E2E completos en verde, desplegado (`faba6bd`). En producción, una pestaña con el service worker antiguo de la raíz lo retiró sola y llegó a /app/ con la sesión intacta | Daniel Ávila (con IA) |
 | 1.8.0 | 2026-11-15 | Se agrega TSK-OFF-024 (menú lateral por tamaño de pantalla) | Daniel Ávila (con IA) |
+| 1.8.1 | 2026-11-15 | TSK-OFF-024 hecha: PR #288 con CI y E2E completos en verde, desplegado (`358a3ca`); revisado en producción a 1280, 768 y 375 px | Daniel Ávila (con IA) |
