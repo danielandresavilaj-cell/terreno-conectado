@@ -35,6 +35,15 @@ export default tseslint.config(
     },
   },
   {
+    // TSK-OFF-023: scripts de la landing pública (navegador) y el service
+    // worker que retira el de la raíz. Archivos clásicos, no módulos.
+    files: ['landing/**/*.js'],
+    languageOptions: {
+      sourceType: 'script',
+      globals: { ...globals.browser, ...globals.serviceworker },
+    },
+  },
+  {
     files: ['**/*.mjs'],
     languageOptions: {
       globals: { ...globals.node },
