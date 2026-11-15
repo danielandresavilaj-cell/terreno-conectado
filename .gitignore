@@ -73,3 +73,6 @@ infra/secrets/
 
 # Claves de la empresa de demostración (infra/tools/demo-datos.mjs). Nunca al repo (Art. IX).
 .demo-cuentas.local.json
+
+# Fotos de la empresa de demostración (créditos en infra/tools/demo-fotos-creditos.md).
+.demo-fotos/
