@@ -3,7 +3,7 @@
 | | |
 | :--- | :--- |
 | **Estado** | COMPLETO (ciclo del módulo, F2 · 2026-10-13) |
-| **Versión** | 0.3.15 |
+| **Versión** | 0.4.0 |
 | **Autor** | Daniel Ávila |
 | **Padre** | specs/000-master/spec.md |
 | **Depende de** | 001 (sesión/tenant), 004 (plantillas a renderizar offline) |
@@ -70,6 +70,8 @@ Targets táctiles amplios, alto contraste para luz solar, y **autoguardado de bo
 
 **Faena de la sesión** (TSK-OFF-010, FR-034): una cuenta pertenece a una empresa, no a una faena. Si la empresa tiene más de una, la pantalla Formularios muestra las faenas y la persona elige en cuál está; la app recuerda la elección por usuario y equipo. Al iniciar sesión manda, en este orden: la faena de la inspección en curso, la última elegida, la primera de la empresa (y en ese caso pregunta "¿En qué faena estás hoy?"). Cambiar de faena recarga los formularios asignados a ella (FR-009) y es la faena a la que queda asociada la próxima inspección; con una inspección sin enviar no se permite el cambio, porque el borrador ya nació asociado a su faena. Para que el cambio funcione sin conexión, al iniciar sesión con señal se guarda también el catálogo de formularios de las otras faenas (hasta 12); los documentos originales para exportar siguen bajándose sólo para la faena activa (FR-018). La bitácora parte en la faena de la sesión. Desde TSK-ADM-003 (FR-065) el administrador puede limitar las faenas de cada cuenta: `GET /sites` devuelve sólo las asignadas (sin asignación, todas) y el selector trabaja con esa lista. Una elección guardada o un borrador de una faena que se le quitó a la cuenta se ignoran al elegir la faena inicial; la ingesta sigue aceptando capturas de cualquier faena del tenant, para no perder lo hecho sin señal.
 
+**Alerta desde la bitácora** (TSK-DOM-009, FR-069, Enmienda 010): "Nueva entrada" trae la casilla "Reportar una alerta"; al guardar la entrada se abre la hoja de hallazgo (severidad, descripción obligatoria en alta y crítica, hasta 5 fotos). Cada entrada muestra su alerta con el distintivo de severidad y un botón "Reportar alerta" o "Editar alerta". La alerta es un hallazgo sin inspección, ligado a la entrada y a su faena (`logEntryId`, `siteId`); se guarda y encola sin señal, una entrada tiene a lo más una (corregirla actualiza la misma) y el lote envía la bitácora antes que los hallazgos (`ORDEN_BATCH`).
+
 **Terreno en el teléfono** (TSK-OFF-011): en pantallas de teléfono, cuando el rol tiene cinco secciones o menos (el trabajador tiene cuatro), la navegación es una barra inferior al alcance del pulgar; el estado de señal y el acceso a la cuenta pasan a la barra superior, y la sección Cola muestra un punto cuando hay envíos pendientes (el número va en la descripción accesible). Con más secciones siguen las pestañas superiores y la barra de estado inferior. El ítem de foto muestra la miniatura de lo capturado con "Repetir" y "Quitar". Sin una elección guardada, el tema claro u oscuro sigue al del sistema.
 
 ## 5. Cache del service worker (Workbox)
@@ -116,6 +118,7 @@ La toma usa `getUserMedia` y prefiere la cámara trasera. El stream se detiene a
 
 | Versión | Fecha | Cambio | Autor |
 | :--- | :--- | :--- | :--- |
+| 0.4.0 | 2026-11-15 | TSK-DOM-009 (FR-069, Enmienda 010): reportar una alerta desde la bitácora; la cola envía la bitácora antes que los hallazgos | Daniel Ávila (con IA) |
 | 0.3.15 | 2026-11-15 | TSK-OFF-021 (#261): identidad visual — marca de arcos de señal, curvas de nivel de fondo, íconos PWA y landing con la paleta de la app | Daniel Ávila (con IA) |
 | 0.3.14 | 2026-11-15 | TSK-OFF-020: escala fija en PWA Android; pinch zoom bloqueado sin perder desplazamiento | Raúl González (con IA) |
 | 0.3.13 | 2026-11-14 | TSK-OFF-019: búsqueda manual de actualización y activación confirmada desde Mi cuenta | Raúl González (con IA) |
