@@ -44,3 +44,57 @@ export function repartirSecciones(rol: Rol, secciones: Pantalla[]): RepartoBarra
 export function llevaBarraInferior(esTelefono: boolean, secciones: readonly unknown[]): boolean {
   return esTelefono && secciones.length > 1
 }
+
+/* ── Navegación por tamaño de pantalla — TSK-OFF-024 ─────────────────────
+ *
+ * Un solo menú que es fijo o no según el ancho:
+ *  - teléfono (< 640 px): barra inferior; "Más" abre el cajón lateral;
+ *  - tableta (640–1023 px): cajón que abre la hamburguesa;
+ *  - escritorio (≥ 1024 px): menú lateral fijo.
+ * Con una sola sección (plataforma) no hay menú.
+ */
+export type Ancho = 'telefono' | 'tableta' | 'escritorio'
+export type ModoNavegacion = 'barra' | 'cajon' | 'lateral' | 'ninguno'
+
+export function modoNavegacion(ancho: Ancho, nSecciones: number): ModoNavegacion {
+  if (nSecciones <= 1) return 'ninguno'
+  if (ancho === 'telefono') return 'barra'
+  return ancho === 'tableta' ? 'cajon' : 'lateral'
+}
+
+export type TituloGrupo = 'Terreno' | 'Operación' | 'Configuración'
+
+export interface GrupoSecciones {
+  titulo: TituloGrupo
+  ids: Pantalla[]
+}
+
+const GRUPO_DE: Partial<Record<Pantalla, TituloGrupo>> = {
+  formularios: 'Terreno',
+  captura: 'Terreno',
+  bitacora: 'Terreno',
+  cola: 'Terreno',
+  dashboard: 'Operación',
+  hallazgos: 'Operación',
+  conflictos: 'Operación',
+  administracion: 'Configuración',
+  plantillas: 'Configuración',
+  activos: 'Configuración',
+  importar: 'Configuración',
+}
+
+const ORDEN_GRUPOS: TituloGrupo[] = ['Terreno', 'Operación', 'Configuración']
+
+/**
+ * Agrupa las secciones (en su orden de navegación) para el menú lateral. Para
+ * el trabajador "Hallazgos" es parte de su terreno (los que le asignaron); para
+ * supervisión y administración es operación. Los grupos vacíos se omiten; una
+ * sección sin grupo conocido (p. ej. plataforma) va al final, en "Operación".
+ */
+export function agruparSecciones(rol: Rol, secciones: readonly Pantalla[]): GrupoSecciones[] {
+  const grupoDe = (id: Pantalla): TituloGrupo =>
+    id === 'hallazgos' && rol === 'field_worker' ? 'Terreno' : (GRUPO_DE[id] ?? 'Operación')
+  return ORDEN_GRUPOS.map((titulo) => ({ titulo, ids: secciones.filter((s) => grupoDe(s) === titulo) })).filter(
+    (g) => g.ids.length > 0,
+  )
+}
