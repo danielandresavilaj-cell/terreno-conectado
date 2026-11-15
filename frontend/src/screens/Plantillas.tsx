@@ -23,6 +23,7 @@ import { AnimatePresence, motion } from 'motion/react'
 import { Chip } from '../components/Badges'
 import { Boton } from '../components/ui'
 import { VistaPreviaFormulario } from '../components/VistaPreviaFormulario'
+import { CatalogoPlantillas } from '../components/CatalogoPlantillas'
 import {
   ApiError,
   cambiarEstadoPlantilla,
@@ -38,7 +39,7 @@ import {
 import { duplicarDefinicion, nombreDeCopia } from '../lib/duplicar-formulario'
 import { EASE } from '../lib/motion'
 import { useEstado } from '../lib/store'
-import type { SiteDto } from '@terreno/shared'
+import type { PlantillaCatalogo, SiteDto } from '@terreno/shared'
 import type {
   TemplateAssignmentDto,
   TemplateAssignmentRole,
@@ -74,6 +75,10 @@ export function Plantillas() {
   const [archivadas, setArchivadas] = useState<Array<{ template_id: string; name: string; archivada_at: string }>>([])
   const [aArchivar, setAArchivar] = useState<string | null>(null)
   const [ocupado, setOcupado] = useState<string | null>(null)
+  /* TSK-FORM-025 (FR-070): catálogo de plantillas de inicio. */
+  const [verCatalogo, setVerCatalogo] = useState(false)
+  const [usando, setUsando] = useState<string | null>(null)
+  const [aviso, setAviso] = useState<string | null>(null)
 
   const cargar = useCallback(async () => {
     setCargando(true)
@@ -162,6 +167,33 @@ export function Plantillas() {
     [plantillas, archivadas, cargar],
   )
 
+  /* TSK-FORM-025: copia propia de la empresa, publicada por el camino normal
+   * (POST /templates + publicar), con ids nuevos. Luego se asigna abajo. */
+  const usarDelCatalogo = useCallback(
+    async (p: PlantillaCatalogo) => {
+      setUsando(p.clave)
+      setError(null)
+      setAviso(null)
+      try {
+        const existentes = [...plantillas.map((x) => x.name), ...archivadas.map((x) => x.name)]
+        const nombre = existentes.includes(p.nombre) ? nombreDeCopia(p.nombre, existentes) : p.nombre
+        const borrador = await crearPlantilla({ name: nombre, definition: duplicarDefinicion(p.definition) })
+        await publicarRevision(borrador.id)
+        await cargar()
+        setVerCatalogo(false)
+        setBusqueda('')
+        setRolFiltro('todos')
+        setAviso(`«${nombre}» quedó publicado en tu empresa. Asígnalo a las faenas y roles que deben verlo.`)
+      } catch (e) {
+        setVerCatalogo(false)
+        setError(e instanceof ApiError ? e.detalle : 'No se pudo crear el formulario desde el catálogo')
+      } finally {
+        setUsando(null)
+      }
+    },
+    [plantillas, archivadas, cargar],
+  )
+
   /* Búsqueda + filtros de cliente sobre el catálogo ya traído. */
   const visibles = useMemo(() => {
     const q = busqueda.trim().toLowerCase()
@@ -188,6 +220,9 @@ export function Plantillas() {
         </div>
         {/* TSK-FORM-022: crear desde cero; importar sigue en su pestaña. */}
         <div className="flex flex-wrap gap-2">
+          <Boton tamano="sm" variante="secundaria" onClick={() => setVerCatalogo(true)}>
+            Desde el catálogo
+          </Boton>
           <Boton tamano="sm" variante="secundaria" onClick={() => ir('importar')}>
             Importar archivo
           </Boton>
@@ -226,13 +261,28 @@ export function Plantillas() {
             {error}
           </motion.div>
         )}
+        {aviso && !error && (
+          <motion.div
+            role="status"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.15, ease: EASE.out }}
+            className="flex items-start gap-3 rounded-[10px] border border-synced/40 bg-synced/10 px-3.5 py-2.5 text-[13px]"
+          >
+            <p className="flex-1">{aviso}</p>
+            <button type="button" onClick={() => setAviso(null)} className="text-ink-2 cursor-pointer" aria-label="Cerrar aviso">
+              ✕
+            </button>
+          </motion.div>
+        )}
       </AnimatePresence>
 
       {cargando ? (
         <p className="label-inst">Cargando plantillas…</p>
       ) : visibles.length === 0 ? (
         <p className="label-inst">
-          Sin plantillas publicadas que coincidan. Crea un formulario o impórtalo desde un archivo, publícalo y podrás asignarlo aquí.
+          Sin plantillas publicadas que coincidan. Elige una del catálogo, crea un formulario o impórtalo desde un archivo, y podrás asignarlo aquí.
         </p>
       ) : (
         <div className="space-y-3">
@@ -333,6 +383,17 @@ export function Plantillas() {
             ))}
           </ul>
         </details>
+      )}
+
+      {verCatalogo && (
+        <CatalogoPlantillas
+          existentes={[...plantillas.map((x) => x.name), ...archivadas.map((x) => x.name)]}
+          usando={usando}
+          alUsar={(p) => void usarDelCatalogo(p)}
+          alCerrar={() => {
+            if (!usando) setVerCatalogo(false)
+          }}
+        />
       )}
 
       {previa && (

@@ -26,7 +26,8 @@ export function VistaPreviaFormulario({
   alCerrar,
 }: {
   nombre: string
-  version: number
+  /** Sin versión: plantilla del catálogo, aún no copiada a la empresa. */
+  version?: number
   definition: TemplateDefinition
   alCerrar: () => void
 }) {
@@ -64,7 +65,7 @@ export function VistaPreviaFormulario({
             <p className="label-inst">Vista previa · como lo verá el trabajador</p>
             <h2 className="mt-1 text-[19px] font-semibold break-words">{nombre}</h2>
             <p className="mt-1 text-[13px] text-ink-2">
-              Versión {version} · {total} {total === 1 ? 'pregunta' : 'preguntas'}
+              {version === undefined ? 'Del catálogo' : `Versión ${version}`} · {total} {total === 1 ? 'pregunta' : 'preguntas'}
               {definition.closing?.require_supervisor_signature ? ' · pide cofirma de supervisión' : ''}
             </p>
           </div>
