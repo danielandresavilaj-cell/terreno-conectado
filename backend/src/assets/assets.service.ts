@@ -12,6 +12,7 @@ import {
   type AssetConQrDto,
   type AssetDto,
   type AssetResueltoDto,
+  type AssetsCatalogoResponse,
   type AssetsResponse,
   type CrearAssetBody,
 } from '@terreno/shared'
@@ -120,6 +121,31 @@ export class AssetsService {
       }
       return this.uno(run, id)
     })
+  }
+
+  /**
+   * Tramo 2 (FR-060/061): activos activos de las faenas de la cuenta (FR-065),
+   * con su hash, para que el teléfono resuelva un QR sin señal. Se descarga la
+   * lista completa del alcance: un activo revocado desaparece en la próxima
+   * sincronización (hasta entonces, sin señal, sigue abriendo: desfase aceptado).
+   * La asignación faena/rol del formulario la aplica el teléfono con su catálogo
+   * de formularios, que ya viene filtrado por el servidor.
+   */
+  async catalogo(u: JwtClaims): Promise<AssetsCatalogoResponse> {
+    if (!u.tenant_id) throw new ForbiddenException('Sólo una cuenta de empresa puede descargar activos')
+    const operativo = u.rol === 'field_worker' || u.rol === 'supervisor'
+    const items = await this.db.queryAsTenant<AssetsCatalogoResponse['items'][number]>(
+      u.tenant_id,
+      `SELECT a.id, a.name, a.kind, a.site_id, a.template_id, a.qr_token_hash
+         FROM asset a
+        WHERE a.status = 'active'
+          AND (NOT $1::boolean
+               OR NOT EXISTS (SELECT 1 FROM user_site us WHERE us.user_id = $2)
+               OR EXISTS (SELECT 1 FROM user_site us WHERE us.user_id = $2 AND us.site_id = a.site_id))
+        ORDER BY a.site_id, a.name`,
+      [operativo, u.sub],
+    )
+    return { items }
   }
 
   /**

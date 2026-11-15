@@ -60,6 +60,23 @@ export interface AssetResueltoDto {
 }
 
 /**
+ * `GET /assets/catalogo` — activos activos de las faenas de la cuenta, para
+ * resolver un QR sin señal (tramo 2). Trae el hash, nunca el token.
+ */
+export interface AssetCatalogoDto {
+  id: string
+  name: string
+  kind: AssetKind
+  site_id: string
+  template_id: string
+  qr_token_hash: string
+}
+
+export interface AssetsCatalogoResponse {
+  items: AssetCatalogoDto[]
+}
+
+/**
  * Normaliza lo que leyó la cámara o se escribió a mano: quita espacios y
  * acepta el token sin prefijo. Devuelve `null` si no parece un QR de la app.
  */
