@@ -1,6 +1,6 @@
 # TASKS — Operación certificada
 
-**Versión:** 0.1.5 · **Fecha:** 2026-11-12 · actualizado 2026-11-15
+**Versión:** 0.1.6 · **Fecha:** 2026-11-12 · actualizado 2026-11-15
 **Padre:** `plans/008-operacion-certificada/plan.md` · **Spec:** `specs/004-dominio-inspecciones/spec.md`  
 **Issue raíz:** #186 · **Requisitos:** FR-056…061
 
@@ -8,7 +8,7 @@
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | TSK-OPS-003-A | Enmienda 007, modelo y plan | FR-056…061 | — | Requisitos, modelo, riesgos, orden y decisiones pendientes versionados; PR aprobado por ambos integrantes | ✅ Hecho (#187, aprobada por Daniel Ávila el 2026-11-12) |
 | TSK-OPS-003-B | Firma offline y cofirma | FR-056/057/061 | A | Inspector no puede enviar sin firma; trazo sobrevive offline/recarga y es idempotente; cofirma y RLS se prueban | En revisión (#191): cobertura completa; cierre a decisión de Raúl |
-| TSK-OPS-003-C | Activos/lugares y QR | FR-060/061 | A | QR opaco y revocable abre sólo plantilla autorizada; cámara y entrada manual; RLS y casos revocados verdes | 🔄 En curso — tramos 1 y 2 de 3 (servidor, pantalla Activos y resolución sin señal) |
+| TSK-OPS-003-C | Activos/lugares y QR | FR-060/061 | A | QR opaco y revocable abre sólo plantilla autorizada; cámara y entrada manual; RLS y casos revocados verdes | 🔄 En revisión — tramos 1, 2 y 3 hechos; falta validar la lectura con la cámara del iPhone (#279) |
 | TSK-OPS-003-D | Programar inspecciones | FR-059/061 | A, C | Puntual/diaria/semanal/mensual, zona IANA, una ocurrencia por clave y terminable offline tras sincronizar | Pendiente |
 | TSK-OPS-003-E | Outbox y avisos por correo | FR-058/061 | A, D | Un aviso lógico por evento, reintento/auditoría, sin bloquear captura; proveedor/remitente/destinatarios aprobados y secretos fuera de Git | Bloqueada por decisión |
 
@@ -28,4 +28,4 @@ Se construye en tres tramos desplegables:
 
 1. **Servidor y administración (hecho en este PR):** migración 026 (`asset` con RLS), `/api/v1/assets` (crear, listar, regenerar, revocar/reactivar; sólo `tenant_admin`, auditado) y `GET /api/v1/assets/resolver/:hash` (asignación por faena y rol, faenas de la cuenta; todo lo demás 404). Pantalla "Activos" en administración; el código `tc1:…` se muestra una vez para copiarlo. Pruebas: `backend/test/assets.spec.ts` y `shared/src/assets.test.ts`.
 2. **Resolución sin señal (hecho):** migración 027 (`inspection.asset_id`), `GET /api/v1/assets/catalogo` y caché Dexie v5; el teléfono calcula el SHA-256 del código y abre la revisión asignada desde su caché. Entrada manual del código en Formularios ("Abrir con el código de un QR") y aviso "Abierto por QR" en Captura. Un QR revocado sigue abriendo sin señal hasta sincronizar (aceptado por Daniel Ávila, 2026-11-15). Pruebas: `frontend/test/qr-sin-senal.test.ts`, `backend/test/assets.spec.ts` (13) y `frontend/e2e/specs/e2e-qr-offline.spec.ts`.
-3. **Lector con cámara, entrada manual e impresión del QR:** bibliotecas evaluadas en `research.md` antes de instalarlas (Art. V).
+3. **Lector con cámara e impresión del QR (hecho):** `jsqr` 1.4.0 y `qrcode-generator` 2.0.4, evaluadas en `research.md` §6. "Escanear QR" en Formularios (`components/LectorQr.tsx`, decodifica en el teléfono, chunk diferido y precacheado) y etiqueta imprimible en Activos (`components/QrImprimible.tsx`, SVG + código en texto). Prueba: `frontend/test/qr-imagen.test.ts` (ida y vuelta). Falta la validación manual con la cámara del iPhone antes de cerrar #279.

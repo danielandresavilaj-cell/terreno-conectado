@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Chip } from '../components/Badges'
 import { Boton } from '../components/ui'
+import { LectorQr } from '../components/LectorQr'
 import { useEstado } from '../lib/store'
 import { itemsDe } from '../lib/valores'
 
@@ -26,6 +27,7 @@ export function Formularios() {
   const [codigo, setCodigo] = useState('')
   const [errorQr, setErrorQr] = useState<string | null>(null)
   const [abriendoQr, setAbriendoQr] = useState(false)
+  const [escaneando, setEscaneando] = useState(false)
   const faenas = identidad?.faenas ?? []
 
   /* TSK-OFF-010 (FR-034): con más de una faena, la persona dice en cuál está. */
@@ -48,10 +50,10 @@ export function Formularios() {
     ir('captura')
   }
 
-  const abrirCodigo = async () => {
+  const abrirCodigo = async (texto = codigo) => {
     setErrorQr(null)
     setAbriendoQr(true)
-    const r = await abrirConQr(codigo)
+    const r = await abrirConQr(texto)
     setAbriendoQr(false)
     if (!r.ok) {
       setErrorQr(r.error ?? 'No se pudo abrir el código.')
@@ -143,12 +145,19 @@ export function Formularios() {
 
       {!faenaPorElegir && formularios.length > 0 && (
         <section className="panel p-4" aria-labelledby="titulo-qr">
-          <h2 id="titulo-qr" className="text-[15px] font-semibold">
-            Abrir con el código de un QR
-          </h2>
-          <p className="mt-1 text-[13px] text-ink-2 leading-relaxed">
-            Escribe el código impreso bajo el QR del equipo o lugar. Funciona sin señal.
-          </p>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="min-w-0">
+              <h2 id="titulo-qr" className="text-[15px] font-semibold">
+                Abrir con un QR
+              </h2>
+              <p className="mt-1 text-[13px] text-ink-2 leading-relaxed">
+                Escanea el QR del equipo o lugar, o escribe el código impreso bajo él. Funciona sin señal.
+              </p>
+            </div>
+            <Boton variante="primaria" onClick={() => setEscaneando(true)} disabled={abriendoQr}>
+              Escanear QR
+            </Boton>
+          </div>
           <form
             className="mt-3 flex flex-col sm:flex-row gap-2"
             onSubmit={(e) => {
@@ -176,6 +185,16 @@ export function Formularios() {
             </p>
           )}
         </section>
+      )}
+
+      {escaneando && (
+        <LectorQr
+          alCerrar={() => setEscaneando(false)}
+          alLeer={(texto) => {
+            setEscaneando(false)
+            void abrirCodigo(texto)
+          }}
+        />
       )}
 
       {error && <p className="rounded-[10px] border border-sev-alta/40 bg-sev-alta/10 px-3.5 py-2.5 text-[13px] text-sev-alta" role="status" aria-live="polite">{error}</p>}

@@ -75,6 +75,8 @@
 | Informes PDF / Word (backend) | `pdfkit` / `docx` | Puro JS, MIT, sin navegador headless; sólo servidor (ADR-003 Enmienda 4) |
 | Importar con IA (backend) | `@anthropic-ai/sdk` | SDK oficial de la API de Claude, MIT; reintentos y errores tipados; sólo servidor y opcional (ADR-005) |
 | Leer Word (`shared`) | `jszip` + `saxes` | Ya venían con exceljs; se declaran explícitos, cero peso nuevo |
+| Leer QR con la cámara (frontend) | `jsqr` 1.4.0 | Apache-2.0, sin dependencias, decodifica en el teléfono. Safari de iPhone no trae `BarcodeDetector`; `@zxing/browser` pesa varias veces más. Se carga sólo al abrir el lector (chunk propio, ~47 KB gzip) y queda precacheado para usarse sin señal (TSK-OPS-003-C) |
+| Generar el QR imprimible (frontend) | `qrcode-generator` 2.0.4 | MIT, sin dependencias, con tipos; da la matriz y la app la dibuja como SVG. Se descartó `qrcode` porque arrastra `yargs` y `pngjs` (CLI y PNG que no usamos). Sólo en la pantalla Activos (~10 KB gzip con la pantalla) (TSK-OPS-003-C) |
 
 ## 7. Resultado
 

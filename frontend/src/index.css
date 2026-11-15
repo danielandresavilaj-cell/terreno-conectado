@@ -376,3 +376,22 @@ select[aria-invalid='true'] {
   transform-origin: left center;
   animation: fill 600ms var(--ease-out-ui) both;
 }
+
+/* TSK-OPS-003-C: al imprimir desde Activos sólo sale la etiqueta del QR. */
+@media print {
+  body * {
+    visibility: hidden !important;
+  }
+  .zona-impresion,
+  .zona-impresion * {
+    visibility: visible !important;
+  }
+  .zona-impresion {
+    position: fixed;
+    inset: 0;
+    margin: auto;
+    height: fit-content;
+    max-width: 8cm;
+    box-shadow: none;
+  }
+}
