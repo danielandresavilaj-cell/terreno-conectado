@@ -237,7 +237,7 @@ Reglas: nadie puede desactivarse a sí mismo ni dejar la empresa sin `tenant_adm
 
 **Faenas por cuenta (TSK-ADM-003, FR-065, Enmienda 008):** en Equipo, cada cuenta de terreno o supervisión tiene el botón "Faenas: todas / N de M" (sólo si la empresa tiene más de una faena), que abre la elección de faenas. Se guarda con `PUT /api/v1/users/:id/faenas` `{faena_ids}`: reemplazo completo, `[]` = todas, faenas repetidas se ignoran, una faena de otra empresa → 400, una cuenta de otra empresa → 404. `GET /api/v1/users` trae `faena_ids`. El cambio llega al teléfono la próxima vez que abra la app con señal.
 
-**Encabezado del admin de plataforma (TSK-ADM-004, #245, FR-050):** bajo el nombre, el encabezado muestra "Administrador de plataforma" para `platform_admin`, porque esa cuenta administra todas las empresas y no opera en una faena. Los roles de empresa siguen viendo su faena actual (TSK-OFF-009, equipos compartidos).
+**Encabezado del admin de plataforma (TSK-ADM-004, #245, FR-050):** bajo el nombre, el encabezado muestra "Administrador de plataforma" para `platform_admin`, porque esa cuenta administra todas las empresas y no opera en una faena. El `tenant_admin` administra toda su empresa y no captura en una faena: ve el nombre de su empresa (si no se conoce, "Administrador de empresa"). Quien captura —trabajador y supervisión— sigue viendo su faena actual (TSK-OFF-009, equipos compartidos).
 
 ## 6. Fuera de alcance de este ciclo
 
@@ -249,6 +249,7 @@ Reglas: nadie puede desactivarse a sí mismo ni dejar la empresa sin `tenant_adm
 
 | Versión | Fecha | Cambio | Autor |
 | :--- | :--- | :--- | :--- |
+| 1.1.2 | 2026-11-15 | TSK-ADM-004: el admin de empresa ve su empresa en el encabezado, no la primera faena de la lista | Daniel Ávila (con IA) |
 | 1.1.1 | 2026-11-15 | TSK-ADM-004 (#245): el encabezado del admin de plataforma muestra su alcance global en vez de una faena | Daniel Ávila (con IA) |
 | 1.1.0 | 2026-11-14 | TSK-ADM-003 (FR-065): faenas por cuenta en Equipo y `PUT /users/:id/faenas` | Daniel Ávila (con IA) |
 | 1.0.1 | 2026-11-13 | TSK-ADM-002: alta masiva de cuentas desde una planilla (sólo interfaz, misma API) | Daniel Ávila (con IA) |

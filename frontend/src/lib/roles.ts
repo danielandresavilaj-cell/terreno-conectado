@@ -14,12 +14,14 @@ export const ROLES_DE_EMPRESA: Rol[] = ['field_worker', 'supervisor', 'tenant_ad
 /**
  * Subtítulo bajo el nombre en el encabezado (TSK-ADM-004, #245).
  *
- * Los roles de empresa ven su faena actual: es lo primero que alguien revisa
- * al tomar un equipo compartido (TSK-OFF-009). El `platform_admin` no opera en
- * una faena ni en una empresa: administra la plataforma, y el subtítulo dice
- * ese alcance global en vez de una faena que no le corresponde.
+ * Quien captura (trabajador y supervisión) ve su faena actual: es lo primero
+ * que alguien revisa al tomar un equipo compartido (TSK-OFF-009). Quien no
+ * captura en una faena ve su alcance real en vez de la primera faena de la
+ * lista: el `tenant_admin` administra toda su empresa y ve el nombre de la
+ * empresa; el `platform_admin` administra la plataforma.
  */
-export function subtituloEncabezado(u: Pick<Usuario, 'rol' | 'faena'>): string {
+export function subtituloEncabezado(u: Pick<Usuario, 'rol' | 'faena' | 'tenant'>): string {
   if (u.rol === 'platform_admin') return ROL_LABEL.platform_admin
+  if (u.rol === 'tenant_admin') return u.tenant || ROL_LABEL.tenant_admin
   return u.faena || '—'
 }
