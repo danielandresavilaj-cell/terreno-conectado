@@ -1,6 +1,6 @@
 # TEST PLAN — Plan de pruebas de validación
 
-**Versión:** 1.6.0 · **Fecha:** 2026-09-14 · actualizado 2026-11-15 · **Autor:** Raúl González (validación) · **Relacionado:** spec maestro §5–6, constitución Artículos III/IV/VII
+**Versión:** 1.7.0 · **Fecha:** 2026-09-14 · actualizado 2026-11-15 · **Autor:** Raúl González (validación) · **Relacionado:** spec maestro §5–6, constitución Artículos III/IV/VII
 **Evidencia APT:** "Plan de pruebas de validación" (informe §6) y soporte de la competencia "Realizar pruebas de certificación de productos y procesos".
 
 ## 1. Principio rector
@@ -49,7 +49,7 @@ verde.
 | FR-004 | Access token vencido con cola pendiente → la cola NO se pierde y drena al reingresar; el refresh rota `rt` y detecta reuso | Integración + **caos 6** | `backend/test/auth.spec.ts` (rotación/reuso y CSRF) + `e2e-caos-sync.spec.ts` → "caos 6 — token expirado en cola" | 🟢 verde |
 | FR-006 | Tenant demo sembrado (A: minera + faena + 3 roles; B: constructora) y login de cada rol | Integración | `backend/db/seed.ts` + `backend/test/auth.spec.ts` (`login (FR-001, FR-006)`) | 🟢 verde |
 | FR-031/032 | Ciclo draft→submitted→reviewed; ítem `nok` exige hallazgo; sólo supervisión revisa (un `field_worker` no puede declarar `reviewed` por sync); estado del hallazgo open/in_progress/resolved auditado | Unit + Integración + E2E | `e2e-captura-offline.spec.ts` (submitted, hallazgo desde NOK) + `backend/test/supervision.spec.ts` (revisión, RLS, auditoría) | 🟢 verde |
-| FR-056/057/061 | Inspector firma sin red → recarga → sync; reintento del lote deja una firma por rol; cofirma sólo por supervisor/admin del mismo tenant y `reviewed` se rechaza si falta | Unit + Integración + E2E + caos | `frontend/test/firma-cierre.test.ts` y `firma-offline.test.ts` 🟢 (incluye firma siempre válida, escala única y reparación de firmas encoladas, TSK-OFF-018); `backend/test/supervision.spec.ts` (cofirma, pendiente de ejecución con Docker); E2E de recarga y caos de reintento pendientes | 🟡 en revisión (#191: cobertura parcial) |
+| FR-056/057/061 | Inspector firma sin red → recarga → sync; reintento del lote deja una firma por rol; cofirma sólo por supervisor/admin del mismo tenant y `reviewed` se rechaza si falta | Unit + Integración + E2E + caos | `frontend/test/firma-cierre.test.ts` y `firma-offline.test.ts` (firma siempre válida, escala única y reparación de firmas encoladas, TSK-OFF-018); `backend/test/supervision.spec.ts` (cofirma antes de revisar; reenviar la firma = `unchanged` y un solo `inspection_signed`; segunda firma del mismo rol rechazada; trabajador no cofirma ni por API ni por cola; otra empresa → 404; cofirma repetida idempotente); `frontend/e2e/specs/e2e-firma-offline.spec.ts` (firma sin red + recarga, caos 12 y cofirma en la UI) | 🟢 verde (FR-056/057; QR de FR-061 aparte) |
 | FR-059/061 | Crear programación puntual/diaria/semanal/mensual con zona IANA; ejecutar worker dos veces y comprobar una sola ocurrencia; completar una ocurrencia ya sincronizada sin red | Unit + Integración + E2E + caos | Plan: `plans/008-operacion-certificada/plan.md` §2.3/§4 | 🟡 por implementar (Enmienda 007) |
 | FR-058/061 | Evento crítico/cierre/programación crea una outbox única; fallo del proveedor reintenta sin cambiar la inspección ni duplicar correo lógico; destinatario cross-tenant no es visible | Unit + Integración + caos | Plan: `plans/008-operacion-certificada/plan.md` §2.3/§4 | 🟡 por implementar (Enmienda 007) |
 | FR-034 | *(Enmienda 004: sin geolocalización)* Cada captura queda asociada a una faena del tenant; el envío ya no pide ubicación y el sync sigue aceptando `location` nulo de colas antiguas | Integración + Unit | `backend/test/sync.spec.ts` (location opcional); *(TSK-OFF-010)* `frontend/test/faena.test.ts`: la sesión arranca en la faena del borrador, la última elegida o la primera (pidiendo elegir), y no se cambia de faena con una inspección sin enviar | ⚪ geolocalización fuera de V1 · 🟢 asociación a faena |
@@ -88,7 +88,7 @@ verde.
 | FR-050 | `platform_admin` crea tenant, le asigna el `tenant_admin` inicial y lo suspende/reactiva; un rol distinto recibe 403 en toda la consola | Integración | `backend/test/admin.spec.ts` | 🟢 verde |
 | FR-051 (`admin`) | Cada mutación admin deja exactamente una fila en `audit_log` con `actor_id` y `tenant_id` correctos; `tc_app` no puede UPDATE/DELETE y la API no expone rutas de modificación | Integración | `backend/test/admin.spec.ts` | 🟢 verde |
 
-**Recuento (2026-11-15):** 55 filas · 🟢 51 (92,7%) · 🟡 3 (5,5%) · 🔴 0 · ⚪ 1 (1,8%). FR-056/057/061 está en revisión con una prueba unitaria verde y validación de integración/E2E/caos pendiente; FR-058/059/061 siguen por implementar. De lo ya validado, **51/52 (98,1%) está en verde**.
+**Recuento (2026-11-15):** 55 filas · 🟢 52 (94,5%) · 🟡 2 (3,6%) · 🔴 0 · ⚪ 1 (1,8%). FR-056/057 (firma y cofirma) quedó verde con integración, E2E y caos 12; FR-058/059/061 (avisos, agenda y QR) siguen por implementar. De lo ya validado, **52/53 (98,1%) está en verde**.
 
 > La única fila con ⚪ es **FR-034**, y solo por la parte de geolocalización, que la
 > Enmienda 004 sacó de V1; su parte vigente (asociación a faena) está en 🟢. FR-048
@@ -141,6 +141,7 @@ una plantilla para localizar sus controles.
 | 5 | 200 registros inyectados en el outbox (entidad + fila), medidos en `log_entry` | `e2e-caos-sync.spec.ts` |
 | 6 | Se sustituye el token por uno vencido y se comprueba que la cola no se pierde | `e2e-caos-sync.spec.ts` |
 | 7 | Lote con `tenant_id` del tenant B bajo el JWT del A: 409 + `audit_log` | `e2e-caos-integridad.spec.ts` |
+| 12 | *(TSK-OPS-003-B)* El lote con la firma llega al servidor (`route.fetch`) pero la respuesta se corta (`abort`); el reintento deja una firma `inspector` y un solo `inspection_signed` | `e2e-firma-offline.spec.ts` |
 
 **Criterio de éxito global:** los escenarios 1–7 con `0 pérdidas ∧ 0 duplicados ∧ 0 fugas cross-tenant`. Cualquier fallo bloquea la demo (Artículo III). **Resultado histórico 2026-10-13: los 7 en verde.** La corrida programada que falló el 2026-10-20 se corrigió en TSK-E2E-002 / issue #161 (PR #179): el harness recompila el frontend contra su API temporal y entrega las URLs a Playwright. **Revalidado en CI el 2026-11-12: 23/23 en verde, caos 1–7 incluidos** (runs 43239304685 y 43239310758, sobre las ramas de #178 y #179).
 
@@ -218,6 +219,7 @@ y nunca bloquea un PR. Informe por módulo en
 
 | Versión | Fecha | Cambio | Autor |
 | :--- | :--- | :--- | :--- |
+| 1.7.0 | 2026-11-15 | **TSK-OPS-003-B (#191):** E2E de firma sin señal con recarga, caos 12 (respuesta cortada) y cofirma en la UI, más pruebas de idempotencia, rol y empresa en backend; FR-056/057 pasa a 🟢 (E2E verde en CI sobre la rama) | Daniel Ávila (con IA) |
 | 1.6.0 | 2026-11-15 | **TSK-FORM-025 (FR-070, Enmienda 010):** fila del catálogo de plantillas de inicio | Daniel Ávila (con IA) |
 | 1.5.0 | 2026-11-15 | **TSK-DOM-009 (FR-069, Enmienda 010):** fila de la alerta desde la bitácora (integración + unitarias) | Daniel Ávila (con IA) |
 | 1.4.5 | 2026-11-15 | **TSK-OFF-019:** protocolo manual de FR-010 ejecutado en iPhone con la PWA instalada (informe §10); la fila pasa a 🟢 unit + manual | Daniel Ávila (con IA) |

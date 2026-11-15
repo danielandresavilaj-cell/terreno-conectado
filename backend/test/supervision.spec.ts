@@ -212,6 +212,91 @@ describe('ciclo de supervisión (FR-031/032)', () => {
   })
 })
 
+describe('firma y cofirma idempotentes (TSK-OPS-003-B, FR-056/057)', () => {
+  const trazo = { strokes: [{ points: [{ x: 150, y: 150 }, { x: 600, y: 420 }] }] }
+
+  /** Inspección firmada por el inspector que exige (o no) cofirma. */
+  async function firmada(conCofirma: boolean) {
+    const inspeccion = inspeccionWire(ids.workerA) as ReturnType<typeof inspeccionWire> & {
+      payload: { signature_required?: boolean }
+    }
+    inspeccion.payload.requires_supervisor_signature = conCofirma
+    inspeccion.payload.signature_required = true
+    const firma = firmaWire(inspeccion.id, ids.workerA)
+    const res = await server().post('/api/v1/sync/batch').set(como('workerA')).send(lote([inspeccion, firma]))
+    expect(res.body.records_ok).toBe(2)
+    return { inspeccion, firma }
+  }
+
+  const contarFirmas = async (inspectionId: string, rol: string) =>
+    (
+      await ownerPool.query(
+        'SELECT count(*)::int AS n FROM inspection_signature WHERE inspection_id = $1 AND signer_role = $2',
+        [inspectionId, rol],
+      )
+    ).rows[0].n as number
+
+  it('reenviar la misma firma no la duplica ni la vuelve a auditar', async () => {
+    const { inspeccion, firma } = await firmada(false)
+    const replay = await server().post('/api/v1/sync/batch').set(como('workerA')).send(lote([firma]))
+    expect(replay.status).toBe(200)
+    expect(replay.body).toMatchObject({ records_failed: 0, records_unchanged: 1 })
+    expect(await contarFirmas(inspeccion.id, 'inspector')).toBe(1)
+    const audit = await ownerPool.query(
+      "SELECT count(*)::int AS n FROM audit_log WHERE action = 'inspection_signed' AND payload->>'inspection_id' = $1",
+      [inspeccion.id],
+    )
+    expect(audit.rows[0].n).toBe(1)
+  })
+
+  it('una segunda firma del mismo rol con otro id se rechaza y no reemplaza la primera', async () => {
+    const { inspeccion, firma } = await firmada(false)
+    const otra = firmaWire(inspeccion.id, ids.workerA)
+    const res = await server().post('/api/v1/sync/batch').set(como('workerA')).send(lote([otra]))
+    expect(res.body.records_failed).toBe(1)
+    const { rows } = await ownerPool.query(
+      "SELECT id FROM inspection_signature WHERE inspection_id = $1 AND signer_role = 'inspector'",
+      [inspeccion.id],
+    )
+    expect(rows.map((r) => r.id)).toEqual([firma.id])
+  })
+
+  it('un trabajador no puede cofirmar, ni por la API ni desde su cola', async () => {
+    const { inspeccion } = await firmada(true)
+    const api = await server().post(`/api/v1/inspections/${inspeccion.id}/signature`).set(como('workerA')).send(trazo)
+    expect(api.status).toBe(403)
+    const cola = await server()
+      .post('/api/v1/sync/batch')
+      .set(como('workerA'))
+      .send(lote([firmaWire(inspeccion.id, ids.workerA, 'supervisor')]))
+    expect(cola.body.records_failed).toBe(1)
+    expect(await contarFirmas(inspeccion.id, 'supervisor')).toBe(0)
+  })
+
+  it('la cofirma de otra empresa no encuentra la inspección', async () => {
+    const { inspeccion } = await firmada(true)
+    const res = await server().post(`/api/v1/inspections/${inspeccion.id}/signature`).set(como('supB')).send(trazo)
+    expect(res.status).toBe(404)
+    expect(await contarFirmas(inspeccion.id, 'supervisor')).toBe(0)
+  })
+
+  it('repetir la cofirma devuelve la misma y no exige cofirma donde no corresponde', async () => {
+    const { inspeccion } = await firmada(true)
+    const primera = await server().post(`/api/v1/inspections/${inspeccion.id}/signature`).set(como('supA')).send(trazo)
+    const segunda = await server().post(`/api/v1/inspections/${inspeccion.id}/signature`).set(como('supA')).send(trazo)
+    expect(primera.status).toBe(201)
+    expect(segunda.body.id).toBe(primera.body.id)
+    expect(await contarFirmas(inspeccion.id, 'supervisor')).toBe(1)
+
+    const sinRegla = await firmada(false)
+    const res = await server()
+      .post(`/api/v1/inspections/${sinRegla.inspeccion.id}/signature`)
+      .set(como('supA'))
+      .send(trazo)
+    expect(res.status).toBe(409)
+  })
+})
+
 describe('revisión persistente de conflictos (TSK-DOM-005)', () => {
   it('guarda quién revisó y deja de contar como pendiente', async () => {
     const id = randomUUID()
