@@ -27,8 +27,8 @@ import { Topografia } from './Topografia'
 import { useEstado, type Pantalla } from '../lib/store'
 import { EASE } from '../lib/motion'
 import { useMedia } from '../lib/useMedia'
-import { useCapaAtras } from '../lib/useCapaAtras'
-import { llevaBarraInferior, repartirSecciones } from '../lib/nav-telefono'
+import { agruparSecciones, modoNavegacion, repartirSecciones } from '../lib/nav-telefono'
+import { MenuLateralCajon, MenuLateralFijo, type GrupoMenu } from './MenuLateral'
 import type { Rol } from '../lib/types'
 
 const NAV: Array<{ id: Pantalla; label: string; roles: Rol[]; icono: ReactNode }> = [
@@ -195,9 +195,10 @@ export function Shell({ children }: { children: ReactNode }) {
   } = useEstado()
   const reducir = useReducedMotion()
   const esTelefono = useMedia('(max-width: 639px)')
+  const esEscritorio = useMedia('(min-width: 1024px)')
   const [verAviso, setVerAviso] = useState(false)
-  const [verMas, setVerMas] = useState(false)
-  useCapaAtras(verMas, () => setVerMas(false))
+  /* TSK-OFF-024: cajón lateral ("Más" en el teléfono, hamburguesa en tableta). */
+  const [verCajon, setVerCajon] = useState(false)
 
   /* El aviso de cuota aparece solo, una vez (FR-017). */
   useEffect(() => {
@@ -209,12 +210,13 @@ export function Shell({ children }: { children: ReactNode }) {
   if (!usuario) return null
 
   const nav = NAV.filter((n) => n.roles.includes(usuario.rol))
-  /* TSK-OFF-011 / TSK-OFF-022: en el teléfono la navegación va abajo, al
-   * alcance del pulgar, para todos los roles de empresa. Si el rol tiene más de
-   * cinco secciones, van las cuatro de uso diario y "Más" abre el resto. Se
-   * decide al renderizar (no con CSS) para que exista una sola barra de
-   * navegación en la página. Plataforma (una sección) no lleva barra. */
-  const navAbajo = llevaBarraInferior(esTelefono, nav)
+  /* TSK-OFF-011 / 022 / 024: navegación por tamaño de pantalla. Teléfono: barra
+   * inferior al alcance del pulgar (4 de uso diario + "Más", que abre el
+   * cajón). Tableta: cajón con la hamburguesa. Escritorio: menú lateral fijo.
+   * Plataforma (una sección) no lleva menú. Se decide al renderizar (no con
+   * CSS) para que exista una sola navegación en la página. */
+  const modo = modoNavegacion(esTelefono ? 'telefono' : esEscritorio ? 'escritorio' : 'tableta', nav.length)
+  const navAbajo = modo === 'barra'
   const reparto = repartirSecciones(
     usuario.rol,
     nav.map((n) => n.id),
@@ -224,10 +226,12 @@ export function Shell({ children }: { children: ReactNode }) {
   const tieneAviso = (id: Pantalla) => (id === 'cola' && enviosPendientes > 0) || (id === 'hallazgos' && hallazgosNuevos > 0)
   const masActiva = enMas.some((n) => n.id === pantalla)
   const masConAviso = enMas.some((n) => tieneAviso(n.id))
-  const irDesdeMas = (id: Pantalla) => {
-    setVerMas(false)
-    ir(id)
-  }
+  /* Grupos del menú lateral: en el teléfono sólo lo que no cabe en la barra. */
+  const gruposMenu: GrupoMenu[] = agruparSecciones(
+    usuario.rol,
+    (navAbajo ? enMas : nav).map((n) => n.id),
+  ).map((g) => ({ titulo: g.titulo, items: g.ids.map((id) => nav.find((n) => n.id === id)!) }))
+  const propsMenu = { grupos: gruposMenu, pantalla, enviosPendientes, hallazgosNuevos, alIr: ir }
 
   return (
     <div className="relative isolate min-h-dvh flex flex-col bg-s0">
@@ -246,8 +250,25 @@ export function Shell({ children }: { children: ReactNode }) {
       <header className="sticky top-0 z-30 border-b border-line-soft bg-s0/85 backdrop-blur-md">
         {/* pt-safe: con viewport-fit=cover, sin esto la barra superior entra
             bajo la muesca en iPhone. En equipos sin recorte env() da 0. */}
-        <div className="mx-auto max-w-[1180px] px-4 sm:px-6 pt-safe">
+        <div className={['mx-auto px-4 sm:px-6 pt-safe', modo === 'lateral' ? 'max-w-[1440px]' : 'max-w-[1180px]'].join(' ')}>
           <div className="h-14 flex items-center gap-3">
+            {modo === 'cajon' && (
+              <button
+                type="button"
+                onClick={() => setVerCajon(true)}
+                aria-label="Menú"
+                aria-haspopup="dialog"
+                aria-expanded={verCajon}
+                className="relative -ml-2 h-11 w-11 shrink-0 grid place-items-center rounded-lg text-ink-2 hover:text-ink hover:bg-s3 cursor-pointer"
+              >
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden>
+                  <path d="M3 5.5h14M3 10h14M3 14.5h14" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+                </svg>
+                {(enviosPendientes > 0 || hallazgosNuevos > 0) && (
+                  <span className="absolute right-2 top-2 h-2.5 w-2.5 rounded-full bg-beam ring-2 ring-s0" aria-hidden />
+                )}
+              </button>
+            )}
             <Marca tamano={30} />
             {/* En el teléfono también se ve quién está capturando y en qué
                 faena: es lo primero que alguien revisa al tomar un equipo
@@ -280,7 +301,7 @@ export function Shell({ children }: { children: ReactNode }) {
                   <path d="M3 15.5c.7-3 3-4.5 6-4.5s5.3 1.5 6 4.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
                 </svg>
               </button>
-            ) : (
+            ) : modo === 'ninguno' ? (
               <Boton
                 tamano="sm"
                 variante={pantalla === 'cuenta' ? 'secundaria' : 'fantasma'}
@@ -289,59 +310,19 @@ export function Shell({ children }: { children: ReactNode }) {
               >
                 Mi cuenta
               </Boton>
-            )}
+            ) : null /* tableta y escritorio: "Mi cuenta" va al fondo del menú lateral */}
           </div>
 
-          {/* Navegación: pestañas. El indicador activo se desliza con layout, lo
-              que es correcto aquí porque el usuario navega pocas veces y el
-             movimiento confirma "cambié de sección". */}
-          {/* overflow-x-auto: con 5 pestañas y roles de supervisor, en 360 px no caben.
-              scrollbar-width:none + la alternativa para WebKit evitan que la
-              barra de scroll nativa aparezca bajo las pestañas. */}
-          {!esTelefono && (
-          <nav className="flex gap-1 -mb-px overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            {nav.map((n) => {
-              const activa = pantalla === n.id
-              const nuevos = n.id === 'hallazgos' && hallazgosNuevos > 0
-              return (
-                <button
-                  key={n.id}
-                  onClick={() => ir(n.id)}
-                  aria-current={activa ? 'page' : undefined}
-                  aria-describedby={nuevos ? 'nav-hallazgos-nuevos' : undefined}
-                  className={[
-                    'relative shrink-0 flex items-center gap-1.5 px-3 min-h-11 text-[14px] font-medium',
-                    'transition-colors duration-150 ease-out cursor-pointer',
-                    activa ? 'text-ink' : 'text-ink-2 hover:text-ink',
-                  ].join(' ')}
-                >
-                  {n.icono}
-                  {n.label}
-                  {nuevos && (
-                    <span className="min-w-5 h-5 px-1.5 rounded-full bg-beam text-on-beam text-[12px] font-semibold grid place-items-center" aria-hidden>
-                      {hallazgosNuevos}
-                    </span>
-                  )}
-                  {activa && (
-                    <motion.span
-                      layoutId="nav-activo"
-                      className="absolute left-0 right-0 -bottom-px h-[2px] bg-beam rounded-full"
-                      transition={{ type: 'spring', duration: 0.4, bounce: 0.16 }}
-                    />
-                  )}
-                </button>
-              )
-            })}
-          </nav>
-          )}
         </div>
       </header>
 
-      {/* ── Contenido ─────────────────────────────────────────────────────── */}
+      {/* ── Contenido (y menú lateral fijo en escritorio, TSK-OFF-024) ───── */}
+      <div className={['flex-1 flex w-full mx-auto', modo === 'lateral' ? 'max-w-[1440px]' : ''].join(' ')}>
+      {modo === 'lateral' && <MenuLateralFijo {...propsMenu} />}
       <main
         id="contenido-principal"
         tabIndex={-1}
-        className="flex-1 mx-auto w-full max-w-[1180px] px-4 sm:px-6 py-7 pb-barra sm:pb-24"
+        className="flex-1 min-w-0 mx-auto w-full max-w-[1180px] px-4 sm:px-6 py-7 pb-barra sm:pb-24"
       >
         {/* TSK-AUTH-010: la sesión expiró con registros por enviar. La cola está
             en pausa e intacta; al volver a ingresar se envía sola. */}
@@ -372,6 +353,7 @@ export function Shell({ children }: { children: ReactNode }) {
           </motion.div>
         </AnimatePresence>
       </main>
+      </div>
 
       {/* ── Navegación inferior (teléfono) — TSK-OFF-011 / TSK-OFF-022 ─────
           El texto de cada botón es sólo su nombre: el contador de envíos va
@@ -416,10 +398,10 @@ export function Shell({ children }: { children: ReactNode }) {
             {enMas.length > 0 && (
               <button
                 type="button"
-                onClick={() => setVerMas(true)}
+                onClick={() => setVerCajon(true)}
                 aria-label="Más secciones"
                 aria-haspopup="dialog"
-                aria-expanded={verMas}
+                aria-expanded={verCajon}
                 aria-current={masActiva ? 'page' : undefined}
                 className={[
                   'relative h-14 flex flex-col items-center justify-center gap-0.5 text-[12px] font-medium cursor-pointer',
@@ -449,69 +431,17 @@ export function Shell({ children }: { children: ReactNode }) {
         {hallazgosNuevos === 1 ? '1 hallazgo nuevo asignado' : `${hallazgosNuevos} hallazgos nuevos asignados`}
       </span>
 
-      {/* ── Hoja "Más" (teléfono) — TSK-OFF-022 ───────────────────────────
-          Las secciones que no caben en la barra. El botón Atrás la cierra. */}
-      <AnimatePresence>
-        {navAbajo && verMas && (
-          <>
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.18, ease: EASE.out }}
-              onClick={() => setVerMas(false)}
-              className="fixed inset-0 z-40 bg-black/55 backdrop-blur-[2px]"
-              aria-hidden
-            />
-            <motion.div
-              role="dialog"
-              aria-modal="true"
-              aria-label="Más secciones"
-              initial={reducir ? { opacity: 0 } : { y: '100%' }}
-              animate={reducir ? { opacity: 1 } : { y: 0 }}
-              exit={reducir ? { opacity: 0 } : { y: '100%' }}
-              transition={{ duration: reducir ? 0.15 : 0.32, ease: EASE.drawer }}
-              onKeyDown={(e) => {
-                if (e.key === 'Escape') setVerMas(false)
-              }}
-              className="fixed inset-x-0 bottom-0 z-50 panel rounded-b-none px-3 pt-2 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))] shadow-2xl"
-            >
-              <div className="mx-auto mb-2 h-1 w-10 rounded-full bg-line" aria-hidden />
-              <ul className="flex flex-col">
-                {enMas.map((n) => {
-                  const activa = pantalla === n.id
-                  return (
-                    <li key={n.id}>
-                      <button
-                        type="button"
-                        autoFocus={n === enMas[0]}
-                        onClick={() => irDesdeMas(n.id)}
-                        aria-current={activa ? 'page' : undefined}
-                        className={[
-                          'w-full min-h-12 flex items-center gap-3 px-3 rounded-lg text-[15px] font-medium cursor-pointer',
-                          'transition-colors duration-150',
-                          activa ? 'bg-s3 text-beam' : 'text-ink hover:bg-s3',
-                        ].join(' ')}
-                      >
-                        <span aria-hidden>{n.icono}</span>
-                        <span className="flex-1 text-left">{n.label}</span>
-                        {n.id === 'cola' && enviosPendientes > 0 && (
-                          <span className="text-[13px] text-ink-2">{enviosPendientes} por enviar</span>
-                        )}
-                        {n.id === 'hallazgos' && hallazgosNuevos > 0 && (
-                          <span className="min-w-5 h-5 px-1.5 rounded-full bg-beam text-on-beam text-[12px] font-semibold grid place-items-center">
-                            {hallazgosNuevos}
-                          </span>
-                        )}
-                      </button>
-                    </li>
-                  )
-                })}
-              </ul>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
+      {/* ── Cajón lateral — TSK-OFF-024 ─────────────────────────────────────
+          Teléfono: lo que no cabe en la barra ("Más"). Tableta: todas las
+          secciones (hamburguesa). Atrás, Escape o el fondo lo cierran. */}
+      {(modo === 'barra' || modo === 'cajon') && (
+        <MenuLateralCajon
+          {...propsMenu}
+          abierto={verCajon && (modo === 'cajon' || enMas.length > 0)}
+          alCerrar={() => setVerCajon(false)}
+          etiqueta={modo === 'barra' ? 'Más secciones' : 'Menú'}
+        />
+      )}
 
       {/* ── Aviso de salida (TSK-OFF-008) ─────────────────────────────────
           Se pulsó Atrás en la primera pantalla: se avisa antes de cerrar. */}
