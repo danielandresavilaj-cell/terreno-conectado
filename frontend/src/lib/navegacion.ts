@@ -33,6 +33,8 @@ export const PANTALLAS = [
   'plantillas',
   /** TSK-DOM-008 (FR-067): hallazgos que me asignaron. */
   'hallazgos',
+  /** TSK-OPS-003-C (FR-060): activos y lugares con QR. */
+  'activos',
 ] as const
 
 export type Pantalla = (typeof PANTALLAS)[number]

@@ -146,6 +146,20 @@ const NAV: Array<{ id: Pantalla; label: string; roles: Rol[]; icono: ReactNode }
     ),
   },
   {
+    /* TSK-OPS-003-C (FR-060): activos y lugares con QR. */
+    id: 'activos',
+    label: 'Activos',
+    roles: ['tenant_admin'],
+    icono: (
+      <svg width="17" height="17" viewBox="0 0 17 17" fill="none" aria-hidden>
+        <rect x="2.5" y="2.5" width="4.5" height="4.5" rx="0.8" stroke="currentColor" strokeWidth="1.3" />
+        <rect x="10" y="2.5" width="4.5" height="4.5" rx="0.8" stroke="currentColor" strokeWidth="1.3" />
+        <rect x="2.5" y="10" width="4.5" height="4.5" rx="0.8" stroke="currentColor" strokeWidth="1.3" />
+        <path d="M10 10h1.8v1.8H10zM12.7 12.7h1.8v1.8h-1.8zM12.7 10h1.8M10 14.5h1.8" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+      </svg>
+    ),
+  },
+  {
     id: 'importar',
     label: 'Importar',
     roles: ['tenant_admin'],

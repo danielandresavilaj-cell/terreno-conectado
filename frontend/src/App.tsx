@@ -23,6 +23,7 @@ const Conflictos = lazy(() => import('./screens/Conflictos').then((m) => ({ defa
 const Importar = lazy(() => import('./screens/Importar').then((m) => ({ default: m.Importar })))
 const Administracion = lazy(() => import('./screens/Administracion').then((m) => ({ default: m.Administracion })))
 const Plataforma = lazy(() => import('./screens/Plataforma').then((m) => ({ default: m.Plataforma })))
+const Activos = lazy(() => import('./screens/Activos').then((m) => ({ default: m.Activos })))
 const Plantillas = lazy(() => import('./screens/Plantillas').then((m) => ({ default: m.Plantillas })))
 const MisHallazgos = lazy(() => import('./screens/MisHallazgos').then((m) => ({ default: m.MisHallazgos })))
 
@@ -34,7 +35,7 @@ const MisHallazgos = lazy(() => import('./screens/MisHallazgos').then((m) => ({ 
 const POR_ROL: Record<string, Pantalla[]> = {
   field_worker: ['formularios', 'captura', 'bitacora', 'hallazgos', 'cola', 'cuenta'],
   supervisor: ['formularios', 'captura', 'bitacora', 'hallazgos', 'cola', 'dashboard', 'conflictos', 'cuenta'],
-  tenant_admin: ['dashboard', 'administracion', 'conflictos', 'plantillas', 'importar', 'crear-formulario', 'hallazgos', 'cola', 'cuenta'],
+  tenant_admin: ['dashboard', 'administracion', 'conflictos', 'plantillas', 'importar', 'crear-formulario', 'activos', 'hallazgos', 'cola', 'cuenta'],
   platform_admin: ['plataforma', 'cuenta'],
 }
 
@@ -104,6 +105,7 @@ function Raiz() {
         {pantalla === 'importar' && <Importar key="importar" />}
         {pantalla === 'crear-formulario' && <Importar key="cero" inicio="cero" />}
         {pantalla === 'plantillas' && <Plantillas />}
+        {pantalla === 'activos' && <Activos />}
         {pantalla === 'administracion' && <Administracion />}
         {pantalla === 'plataforma' && <Plataforma />}
         {pantalla === 'hallazgos' && <MisHallazgos />}

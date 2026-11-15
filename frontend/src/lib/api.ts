@@ -16,7 +16,11 @@
 
 import { nombreArchivoDeContentDisposition } from '@terreno/shared'
 import type {
+  AssetConQrDto,
+  AssetDto,
+  AssetsResponse,
   AvanceHallazgoBody,
+  CrearAssetBody,
   CapacidadesImport,
   ConfirmImportBody,
   ConflictRecordDto,
@@ -874,4 +878,24 @@ export function getResponsables(): Promise<Array<{ id: string; nombre: string; r
 /** Revisión persistente de un conflicto (quién y cuándo). */
 export function revisarConflicto(id: string): Promise<{ id: string; reviewed_at: string }> {
   return apiFetch(`/conflicts/${encodeURIComponent(id)}/review`, { method: 'PATCH' })
+}
+
+/* ── Activos y QR — TSK-OPS-003-C (FR-060/061) ───────────────────────────── */
+
+export function getActivos(): Promise<AssetsResponse> {
+  return apiFetch('/assets')
+}
+
+/** Crea el activo; la respuesta trae el contenido del QR una sola vez. */
+export function crearActivo(body: CrearAssetBody): Promise<AssetConQrDto> {
+  return apiFetch('/assets', { method: 'POST', body })
+}
+
+/** Nuevo QR: el anterior deja de servir. */
+export function regenerarQrActivo(id: string): Promise<AssetConQrDto> {
+  return apiFetch(`/assets/${encodeURIComponent(id)}/regenerar`, { method: 'POST' })
+}
+
+export function cambiarEstadoActivo(id: string, status: 'active' | 'revoked'): Promise<AssetDto> {
+  return apiFetch(`/assets/${encodeURIComponent(id)}/estado`, { method: 'PATCH', body: { status } })
 }
