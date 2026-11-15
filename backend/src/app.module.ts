@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common'
 import { ConfigModule } from '@nestjs/config'
 import { AdminModule } from './admin/admin.module'
+import { AssetsModule } from './assets/assets.module'
 import { AppController } from './app.controller'
 import { AuthModule } from './auth/auth.module'
 import { DashboardModule } from './dashboard/dashboard.module'
@@ -27,6 +28,7 @@ import { TemplatesModule } from './templates/templates.module'
     TemplatesModule,
     UsersModule,
     SupervisionModule,
+    AssetsModule,
   ],
   controllers: [AppController],
 })
