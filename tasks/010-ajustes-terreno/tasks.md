@@ -1,6 +1,6 @@
 # TASKS — Ajustes desde terreno
 
-**Versión:** 1.6.0 · **Fecha:** 2026-11-15 · **Autor:** Daniel Ávila (con IA)
+**Versión:** 1.6.1 · **Fecha:** 2026-11-15 · **Autor:** Daniel Ávila (con IA)
 **Origen:** prueba en terreno con el teléfono (inspección trabada en la cola) · **Requisitos:** FR-005, FR-010, FR-012, FR-024, FR-056, FR-064, FR-067, FR-069, NFR-05, NFR-12
 
 > **Regla (Artículo II):** cada task referencia al menos un ID de requisito; cada commit referencia al menos un task.
@@ -12,8 +12,8 @@
 | TSK-DOM-008 | "Hallazgos": el responsable ve sus hallazgos, los empieza y reporta lo que hizo; supervisión cierra | FR-067, FR-064 | — | Migración 023; `GET /findings/asignados` (sólo los propios, RLS) y `PATCH /findings/:id/avance` (iniciar o reportar con nota; ajeno o resuelto → 404; auditado); pestaña con aviso de nuevos y aviso en Formularios; lista legible sin señal y borrador del reporte; Gerencia muestra "Listo para revisar". `backend/test/hallazgos-asignados.spec.ts`, `frontend/test/hallazgos-asignados.test.ts` y E2E verdes | ✅ Hecho (#254) |
 | TSK-E2E-003 | Pools de las pruebas de backend que no fallan al apagar el contenedor (H7) | NFR-05, NFR-12 | — | `poolDePrueba` ignora sólo el `57P01` del apagado y relanza cualquier otro error; los 30 specs que abrían `new Pool` lo usan; `backend/test/pool-prueba.spec.ts` verde y CI sin "Unhandled Errors" | ✅ Hecho (#257) |
 | TSK-OFF-021 | Identidad visual: marca de arcos de señal, curvas de nivel de fondo y landing pública (#261) | FR-010 | — | Ninguna pantalla muestra el cuadrado "TC": la marca (`Marca`) va en la barra superior, el login, el cambio de clave y las pantallas de carga, en ambos temas; las curvas de nivel (`Topografia`) están en el login, el cambio de clave y, tenues, en la parte alta del shell, sin recibir eventos ni restar contraste a paneles y formularios; los íconos PWA muestran la marca y el maskable cabe en el área segura del 80 %; `landing/index.html` usa la paleta de la app y funciona en 375 px. Lint, typecheck, tests del frontend y build verdes; sin cambios de colores, tipografía ni comportamiento | ✅ Hecho (#262) |
-| TSK-DOM-009 | Alerta desde la bitácora: reportar un hallazgo desde una entrada, sin inspección (Enmienda 010) | FR-069, FR-064, FR-067 | TSK-DOM-008 | Migración 025 (`finding.log_entry_id`, `finding.site_id`); sync acepta ambos y procesa `log_entry` antes que `finding`; Gerencia, supervisión y "Hallazgos" leen la faena con `COALESCE(finding.site_id, inspection.site_id)` y devuelven `origen`; casilla "Reportar una alerta" y botón por entrada en Bitácora. `backend/test/alerta-bitacora.spec.ts` y `frontend/test/alerta-bitacora.test.ts` verdes | 🔄 En curso |
-| TSK-OFF-022 | Barra inferior en el teléfono para todos los roles de empresa, con "Más" (#271) | FR-010 | TSK-OFF-011 | Hasta 5 secciones van todas; con más, 4 de uso diario por rol + "Más" (hoja que cierra Atrás/Escape, con punto de aviso); plataforma sin barra; sin barra de estado inferior. `frontend/test/nav-telefono.test.ts` y E2E "Tabs por perfil" verdes | 🔄 En curso |
+| TSK-DOM-009 | Alerta desde la bitácora: reportar un hallazgo desde una entrada, sin inspección (Enmienda 010) | FR-069, FR-064, FR-067 | TSK-DOM-008 | Migración 025 (`finding.log_entry_id`, `finding.site_id`); sync acepta ambos y procesa `log_entry` antes que `finding`; Gerencia, supervisión y "Hallazgos" leen la faena con `COALESCE(finding.site_id, inspection.site_id)` y devuelven `origen`; casilla "Reportar una alerta" y botón por entrada en Bitácora. `backend/test/alerta-bitacora.spec.ts` y `frontend/test/alerta-bitacora.test.ts` verdes | ✅ Hecho (PR #270) |
+| TSK-OFF-022 | Barra inferior en el teléfono para todos los roles de empresa, con "Más" (#271) | FR-010 | TSK-OFF-011 | Hasta 5 secciones van todas; con más, 4 de uso diario por rol + "Más" (hoja que cierra Atrás/Escape, con punto de aviso); plataforma sin barra; sin barra de estado inferior. `frontend/test/nav-telefono.test.ts` y E2E "Tabs por perfil" verdes | ✅ Hecho (PR #272) |
 
 ## Control de cambios
 
@@ -30,3 +30,4 @@
 | 1.4.1 | 2026-11-15 | TSK-OFF-021 hecha: PR #262 mergeado con CI verde y desplegado en producción (`ad4c7ab`); las PWA ya instaladas la reciben con "Buscar actualización" (TSK-OFF-019) | Daniel Ávila (con IA) |
 | 1.5.0 | 2026-11-15 | Se agrega TSK-DOM-009 (alerta desde la bitácora, FR-069) | Daniel Ávila (con IA) |
 | 1.6.0 | 2026-11-15 | Se agrega TSK-OFF-022 (barra inferior con "Más" en el teléfono) | Daniel Ávila (con IA) |
+| 1.6.1 | 2026-11-15 | TSK-DOM-009 (PR #270) y TSK-OFF-022 (PR #272) hechas: CI verde, E2E completo verde sobre la rama de TSK-OFF-022 y desplegadas en producción (deploy verde; la migración 025 corre en el deploy) | Daniel Ávila (con IA) |
