@@ -40,7 +40,7 @@ export class SupervisionDashboardService {
                                      AND now() - f.captured_at <= interval '7 days')::int AS b,
                   count(*) FILTER (WHERE now() - f.captured_at > interval '7 days')::int AS c
              FROM finding f LEFT JOIN inspection i ON i.id = f.inspection_id
-            WHERE f.status <> 'resolved' AND ($1::uuid IS NULL OR i.site_id = $1)`,
+            WHERE f.status <> 'resolved' AND ($1::uuid IS NULL OR COALESCE(f.site_id, i.site_id) = $1)`,
           [siteId],
         ),
         q<{ id: string; descripcion: string; severidad: string; faena_nombre: string | null; dias: number }>(
@@ -48,9 +48,9 @@ export class SupervisionDashboardService {
                   floor(extract(epoch FROM now() - f.captured_at) / 86400)::int AS dias
              FROM finding f
              LEFT JOIN inspection i ON i.id = f.inspection_id
-             LEFT JOIN site s ON s.id = i.site_id
+             LEFT JOIN site s ON s.id = COALESCE(f.site_id, i.site_id)
             WHERE f.status <> 'resolved' AND f.severity IN ('high', 'critical')
-              AND ($1::uuid IS NULL OR i.site_id = $1)
+              AND ($1::uuid IS NULL OR COALESCE(f.site_id, i.site_id) = $1)
             ORDER BY (f.severity = 'critical') DESC, f.captured_at ASC
             LIMIT 10`,
           [siteId],
@@ -61,7 +61,7 @@ export class SupervisionDashboardService {
                     ORDER BY extract(epoch FROM f.resolved_at - f.captured_at) / 3600)::float8 AS p50,
                   count(*)::int AS n
              FROM finding f LEFT JOIN inspection i ON i.id = f.inspection_id
-            WHERE f.resolved_at IS NOT NULL AND ($1::uuid IS NULL OR i.site_id = $1)
+            WHERE f.resolved_at IS NOT NULL AND ($1::uuid IS NULL OR COALESCE(f.site_id, i.site_id) = $1)
               AND ${enPeriodo('f.resolved_at')}`,
         ),
         q<{ template_item_id: string; prompt: string; plantilla: string | null; nok: number; respondidas: number }>(

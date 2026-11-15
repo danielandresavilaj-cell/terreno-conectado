@@ -6,7 +6,8 @@
  * el mismo vocabulario (snake_case, espejo del data-model §2.2).
  *
  * Orden de dependencias del lote (FR-020): site → inspection → responses →
- * findings → log_entries → attachments → firmas. El cliente los envía en cualquier
+ * log_entries → findings → attachments → firmas. La bitácora va antes que los
+ * hallazgos porque una alerta puede nacer de una entrada (TSK-DOM-009). El cliente los envía en cualquier
  * orden: el servidor los procesa agrupados por este orden.
  *
  * Idempotencia (FR-021): `id` es el UUIDv7 de cliente; el servidor hace
@@ -80,6 +81,13 @@ export interface SyncFindingPayload {
   severity: SyncSeverity
   description: string
   status: SyncFindingStatus
+  /**
+   * TSK-DOM-009 (FR-069): alerta reportada desde una entrada de bitácora, sin
+   * inspección. Opcionales: las colas de versiones anteriores no los envían.
+   */
+  log_entry_id?: string | null
+  /** Faena del hallazgo cuando no viene de una inspección (FR-069). */
+  site_id?: string | null
 }
 
 export interface SyncLogEntryPayload {

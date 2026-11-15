@@ -253,6 +253,7 @@ export class SupervisionService {
       inspeccion_ms: number | null
       autor: string | null
       fotos_ids: string[] | null
+      origen: 'inspeccion' | 'bitacora'
     }
     const ms = (v: number | null) => (v == null ? null : new Date(v).toISOString())
     const rows = await this.db.queryAsTenant<Row>(
@@ -272,16 +273,19 @@ export class SupervisionService {
                 WHERE tr.template_id = i.template_id AND tr.version = i.template_version
                   AND it->>'id' = ir.template_item_id::text
                 LIMIT 1) AS pregunta,
-              (extract(epoch FROM i.captured_at) * 1000)::float8 AS inspeccion_ms,
+              (extract(epoch FROM COALESCE(i.captured_at, le.captured_at)) * 1000)::float8 AS inspeccion_ms,
               u.full_name AS autor,
+              CASE WHEN f.log_entry_id IS NOT NULL THEN 'bitacora' ELSE 'inspeccion' END AS origen,
               COALESCE((SELECT array_agg(a.id ORDER BY a.captured_at, a.id) FROM attachment a
                          WHERE a.owner_type = 'finding' AND a.owner_id = f.id), '{}') AS fotos_ids
          FROM finding f
          LEFT JOIN inspection i ON i.id = f.inspection_id
          LEFT JOIN inspection_response ir ON ir.id = f.response_id
-         LEFT JOIN site s ON s.id = i.site_id
+         -- TSK-DOM-009: una alerta desde la bitácora toma faena y autor de su entrada.
+         LEFT JOIN log_entry le ON le.id = f.log_entry_id
+         LEFT JOIN site s ON s.id = COALESCE(f.site_id, i.site_id)
          LEFT JOIN template t ON t.id = i.template_id
-         LEFT JOIN app_user u ON u.id = i.executed_by
+         LEFT JOIN app_user u ON u.id = COALESCE(i.executed_by, le.author_id)
         WHERE f.assignee_id = $1
           AND (f.status <> 'resolved' OR f.resolved_at >= now() - make_interval(days => $2))
         ORDER BY (f.status = 'resolved'), f.due_date NULLS LAST, COALESCE(f.assigned_at, f.updated_at) DESC`,
@@ -304,6 +308,7 @@ export class SupervisionService {
       inspeccion_at: ms(r.inspeccion_ms),
       autor: r.autor,
       fotos_ids: r.fotos_ids ?? [],
+      origen: r.origen,
     }))
   }
 
