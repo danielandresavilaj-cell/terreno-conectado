@@ -70,6 +70,7 @@ export function Captura() {
     descartarBorradorYRecargar,
     responderCampo,
     ir,
+    activoQr,
   } = useEstado()
   const [sheetItem, setSheetItem] = useState<ItemPlantilla | null>(null)
   const [confirmarDescarte, setConfirmarDescarte] = useState(false)
@@ -226,6 +227,11 @@ export function Captura() {
               {usuario?.faena} · {FECHA_LARGA.format(new Date())}
               {plantilla.version !== null ? ` · versión ${plantilla.version}` : ''}
             </p>
+            {activoQr && activoQr.revisionId === plantilla.revisionId && (
+              <p className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-beam/40 bg-beam/10 px-3 py-1 text-[13px] font-medium">
+                Abierto por QR · {activoQr.name}
+              </p>
+            )}
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <Boton tamano="sm" variante="secundaria" onClick={() => ir('formularios')}>

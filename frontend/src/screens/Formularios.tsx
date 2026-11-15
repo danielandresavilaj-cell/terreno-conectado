@@ -18,9 +18,14 @@ export function Formularios() {
     faenaPorElegir,
     cambiarFaena,
     hallazgosNuevos,
+    abrirConQr,
   } = useEstado()
   const [error, setError] = useState<string | null>(null)
   const [cambiando, setCambiando] = useState<string | null>(null)
+  /* TSK-OPS-003-C (FR-061): entrada manual del código del QR, también sin señal. */
+  const [codigo, setCodigo] = useState('')
+  const [errorQr, setErrorQr] = useState<string | null>(null)
+  const [abriendoQr, setAbriendoQr] = useState(false)
   const faenas = identidad?.faenas ?? []
 
   /* TSK-OFF-010 (FR-034): con más de una faena, la persona dice en cuál está. */
@@ -40,6 +45,19 @@ export function Formularios() {
       setError(r.error ?? 'No se pudo abrir el formulario.')
       return
     }
+    ir('captura')
+  }
+
+  const abrirCodigo = async () => {
+    setErrorQr(null)
+    setAbriendoQr(true)
+    const r = await abrirConQr(codigo)
+    setAbriendoQr(false)
+    if (!r.ok) {
+      setErrorQr(r.error ?? 'No se pudo abrir el código.')
+      return
+    }
+    setCodigo('')
     ir('captura')
   }
 
@@ -120,6 +138,43 @@ export function Formularios() {
           <Boton tamano="sm" variante="primaria" onClick={() => ir('captura')} data-testid="continue-draft">
             Continuar
           </Boton>
+        </section>
+      )}
+
+      {!faenaPorElegir && formularios.length > 0 && (
+        <section className="panel p-4" aria-labelledby="titulo-qr">
+          <h2 id="titulo-qr" className="text-[15px] font-semibold">
+            Abrir con el código de un QR
+          </h2>
+          <p className="mt-1 text-[13px] text-ink-2 leading-relaxed">
+            Escribe el código impreso bajo el QR del equipo o lugar. Funciona sin señal.
+          </p>
+          <form
+            className="mt-3 flex flex-col sm:flex-row gap-2"
+            onSubmit={(e) => {
+              e.preventDefault()
+              void abrirCodigo()
+            }}
+          >
+            <input
+              value={codigo}
+              onChange={(e) => setCodigo(e.target.value)}
+              placeholder="tc1:…"
+              aria-label="Código del QR"
+              autoCapitalize="off"
+              autoCorrect="off"
+              spellCheck={false}
+              className="h-11 w-full px-3 rounded-[10px] bg-s0 border border-line-soft text-[15px] font-mono text-ink placeholder:text-ink-3 focus:border-beam"
+            />
+            <Boton type="submit" variante="secundaria" disabled={!codigo.trim() || abriendoQr}>
+              {abriendoQr ? 'Abriendo…' : 'Abrir'}
+            </Boton>
+          </form>
+          {errorQr && (
+            <p role="status" aria-live="polite" className="mt-2 text-[13px] text-sev-alta">
+              {errorQr}
+            </p>
+          )}
         </section>
       )}
 
