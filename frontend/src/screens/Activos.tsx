@@ -10,6 +10,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { ASSET_KINDS, ASSET_KIND_LABEL, type AssetConQrDto, type AssetDto, type AssetKind, type SiteDto } from '@terreno/shared'
 import { Chip } from '../components/Badges'
 import { Boton } from '../components/ui'
+import { QrImprimible } from '../components/QrImprimible'
 import { ApiError, cambiarEstadoActivo, crearActivo, getActivos, getPlantillas, getSites, regenerarQrActivo } from '../lib/api'
 
 const INPUT =
@@ -141,15 +142,23 @@ export function Activos() {
               Listo
             </Boton>
           </div>
-          <p className="font-mono text-[15px] break-all rounded-lg bg-s0 border border-line-soft px-3 py-2.5 select-all">{codigo.qr}</p>
+          <QrImprimible
+            texto={codigo.qr}
+            titulo={codigo.name}
+            detalle={`${codigo.faena_nombre} · ${codigo.template_nombre}`}
+          />
           <div className="flex flex-wrap items-center gap-2">
+            <Boton tamano="sm" variante="primaria" onClick={() => window.print()}>
+              Imprimir QR
+            </Boton>
             <Boton tamano="sm" variante="secundaria" onClick={() => void copiar()}>
               {copiado ? 'Copiado' : 'Copiar código'}
             </Boton>
-            <p className="text-[13px] text-ink-2">
-              Guárdalo ahora: no se vuelve a mostrar. Sirve para escribirlo a mano en el teléfono; si se pierde, genera un QR nuevo.
-            </p>
           </div>
+          <p className="text-[13px] text-ink-2">
+            Imprímelo o guárdalo ahora: no se vuelve a mostrar. El código bajo el QR sirve para escribirlo a mano si la
+            etiqueta se daña; si se pierde, genera un QR nuevo.
+          </p>
         </section>
       )}
 
