@@ -284,7 +284,7 @@ export async function loginEnApp(page: Page, email: string): Promise<void> {
    * espera a que se decida una de las dos antes de tocar nada: consultar antes
    * de que termine de hidrataría un falso "no hay sesión" y después no
    * habría formulario sobre el que trabajar. */
-  await page.goto('/')
+  await page.goto('./')
   /* La señal de "ya adentro" es que el FORMULARIO de login no aparezca, no que
    * la barra de navegación exista: durante la hidratación el Shell todavía no
    * está montado y una espera por la nav expira sin decir nada. */

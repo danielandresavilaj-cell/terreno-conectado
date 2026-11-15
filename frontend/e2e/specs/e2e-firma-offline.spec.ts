@@ -42,7 +42,7 @@ const FIRMAS_DE = `SELECT s.signer_role, count(*)::int AS n
                     WHERE i.tenant_id = $1 GROUP BY s.signer_role`
 
 test.beforeEach(async ({ page }) => {
-  await page.goto('/')
+  await page.goto('./')
   await reiniciarDispositivo(page)
 })
 

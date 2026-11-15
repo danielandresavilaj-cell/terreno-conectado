@@ -58,7 +58,7 @@ const ITEM_F101 = '01890000-0000-7000-8000-00000000f101'
  */
 
 test.beforeEach(async ({ page }) => {
-  await page.goto('/')
+  await page.goto('./')
   await reiniciarDispositivoLocal(page)
 })
 
@@ -111,7 +111,7 @@ async function reiniciarDispositivoLocal(page: Page): Promise<void> {
 async function abrirDispositivo(browser: Browser, correo = CUENTAS.trabajadorA) {
   const ctx = await browser.newContext()
   const page = await ctx.newPage()
-  await page.goto('/')
+  await page.goto('./')
   await loginEnApp(page, correo)
   return { ctx, page }
 }

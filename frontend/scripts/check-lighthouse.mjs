@@ -78,7 +78,9 @@ function servirEstatico(dir) {
 
   const server = createServer(async (req, res) => {
     try {
-      const ruta = decodeURIComponent(new URL(req.url ?? '/', 'http://localhost').pathname)
+      // TSK-OFF-023: el build se sirve bajo /app/, como en producción.
+      const completa = decodeURIComponent(new URL(req.url ?? '/', 'http://localhost').pathname)
+      const ruta = completa.startsWith('/app/') ? completa.slice('/app'.length) : completa
       const pedido = ruta === '/' ? '/index.html' : ruta
       const archivo = resolve(dir, '.' + pedido)
       if (!archivo.startsWith(dir)) {
@@ -137,7 +139,7 @@ if (!existsSync(join(DIST, 'index.html'))) {
 }
 
 const { server, puerto } = await servirEstatico(DIST)
-const url = `http://127.0.0.1:${puerto}/`
+const url = `http://127.0.0.1:${puerto}/app/`
 
 let chrome
 let salida = 1

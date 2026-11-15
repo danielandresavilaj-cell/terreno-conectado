@@ -64,7 +64,9 @@ export default defineConfig({
   outputDir: './frontend/e2e/.stack/test-results',
 
   use: {
-    baseURL: WEB_URL,
+    /* TSK-OFF-023: la app vive en /app/ (la raíz es la landing). Las rutas de
+     * los specs son relativas a esta base: `page.goto('./')`. */
+    baseURL: `${WEB_URL}/app/`,
     /* Fotos de evidencia y cámara: el E2E no abre archivos reales, pero el
      * permiso declarado debe existir para no diferir del dispositivo. */
     permissions: [],

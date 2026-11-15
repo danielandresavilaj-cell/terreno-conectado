@@ -1,4 +1,5 @@
-# Imagen del frontend (PWA ya construida) servida por nginx.
+# Imagen del frontend servida por nginx: landing pública en la raíz y PWA ya
+# construida en /app/ (TSK-OFF-023).
 #
 # Contexto de build: la RAÍZ del monorepo.
 #   docker build -f infra/frontend.Dockerfile \
@@ -22,7 +23,7 @@ COPY tsconfig.base.json ./
 COPY shared ./shared
 COPY frontend ./frontend
 
-# En despliegue same-origin (Caddy sirve `/` y `/api/*`) la API es relativa.
+# En despliegue same-origin (Caddy sirve `/`, `/app/` y `/api/*`) la API es relativa.
 ARG VITE_API_URL=/api/v1
 ENV VITE_API_URL=$VITE_API_URL
 
@@ -31,5 +32,6 @@ RUN npm run build --workspace @terreno/shared \
 
 FROM nginx:1.27-alpine AS runtime
 COPY infra/nginx.conf /etc/nginx/conf.d/default.conf
-COPY --from=build /repo/frontend/dist /usr/share/nginx/html
+COPY landing/ /usr/share/nginx/html/
+COPY --from=build /repo/frontend/dist /usr/share/nginx/html/app
 EXPOSE 80
