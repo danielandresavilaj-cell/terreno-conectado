@@ -1,6 +1,6 @@
 # DATA MODEL — Modelo conceptual de datos
 
-**Versión:** 1.11.0 (Enmienda 010) · **Fecha:** 2026-09-14 · actualizado 2026-11-15 · **Autor:** Daniel Ávila · **Relacionado:** spec maestro §5/§7, specs 001–007, ADR-003
+**Versión:** 1.12.0 (Enmienda 010) · **Fecha:** 2026-09-14 · actualizado 2026-11-15 · **Autor:** Daniel Ávila · **Relacionado:** spec maestro §5/§7, specs 001–007, ADR-003
 **Evidencia APT:** "Modelo conceptual de datos preliminar" (informe §6).
 **Reglas transversales:** toda tabla de dominio lleva `tenant_id UUID NOT NULL` + política RLS (Artículo IV); IDs `UUIDv7` generados en el cliente cuando el registro nace offline (FR-015); timestamps `created_at`, `updated_at` (servidor) y `captured_at` (cliente, autoridad para LWW — FR-023).
 
@@ -152,7 +152,7 @@ erDiagram
 
 **INSPECTION_SIGNATURE** — `id UUIDv7, tenant_id, inspection_id FK→INSPECTION, signer_id FK→USER, signer_role ENUM(inspector, supervisor), strokes_json JSONB, content_hash TEXT, declaration_version TEXT, signed_at TIMESTAMPTZ (cliente), client_version INT, created_at`. Un índice único `(inspection_id, signer_role)` evita duplicar la firma de cada rol. `strokes_json` lleva puntos vectoriales normalizados (enteros 0..1000 en un marco de 1000 × 500 con una sola escala, ≥2 puntos por trazo, ≤32 trazos, ≤1024 puntos; TSK-OFF-018), no una imagen de una firma ni datos biométricos; `content_hash` fija el contenido/ciclo de cierre que la persona declaró. RLS por tenant y auditoría de creación; no se permite reemplazo ni borrado desde `tc_app`.
 
-**ASSET (activo o lugar)** — `id UUID, tenant_id, site_id FK→SITE, template_id FK→TEMPLATE, name TEXT, kind ENUM(vehicle, equipment, location), qr_token_hash TEXT UNIQUE, status ENUM(active, revoked), created_by FK→USER, created_at, updated_at`. El QR muestra el token aleatorio en claro sólo al generarlo; la base conserva su hash. `template_id` es una referencia estable: al resolver el QR se elige la revisión publicada que corresponda y se aplica de todos modos `TEMPLATE_ASSIGNMENT` por faena+rol. Regenerar QR invalida el token anterior y deja audit log.
+**ASSET (activo o lugar)** — `id UUID, tenant_id, site_id FK→SITE, template_id FK→TEMPLATE, name TEXT, kind ENUM(vehicle, equipment, location), qr_token_hash TEXT UNIQUE, status ENUM(active, revoked), created_by FK→USER, created_at, updated_at`. El QR muestra el token aleatorio en claro sólo al generarlo; la base conserva su hash. `template_id` es una referencia estable: al resolver el QR se elige la revisión publicada que corresponda y se aplica de todos modos `TEMPLATE_ASSIGNMENT` por faena+rol. Regenerar QR invalida el token anterior y deja audit log. *(Implementada: migración 026, TSK-OPS-003-C.)* El contenido del QR es `tc1:<token>` (128 bits aleatorios, base64url) y `qr_token_hash` es el SHA-256 hex de ese texto completo, sin sal: la entropía lo hace inadivinable y el teléfono puede calcular el mismo hash sin señal. `site_id` y `template_id` se validan contra el tenant en el servicio (una FK no mira RLS). Revocar es `status = revoked`; reactivar lo devuelve. Acciones auditadas: `asset_created`, `asset_qr_regenerated`, `asset_revoked`, `asset_restored`; el token en claro no se guarda ni se registra.
 
 **INSPECTION_SCHEDULE** — `id UUID, tenant_id, site_id FK→SITE, asset_id FK→ASSET NULL, template_id FK→TEMPLATE, assignee_id FK→USER NULL, cadence ENUM(once, daily, weekly, monthly), timezone TEXT, starts_at TIMESTAMPTZ, next_occurs_at TIMESTAMPTZ, due_after_minutes INT NULL, active BOOLEAN, created_by FK→USER, created_at, updated_at`. La zona horaria es IANA. El backend calcula fechas de pared, no suma 24 horas ciegamente, para respetar cambios de horario.
 
@@ -214,6 +214,7 @@ CREATE POLICY tenant_isolation ON inspection
 
 | Versión | Fecha | Cambio |
 | :--- | :--- | :--- |
+| 1.12.0 | 2026-11-15 | **Enmienda 007 (FR-060, TSK-OPS-003-C):** migración 026 — tabla `asset` con RLS; QR `tc1:<token>` y `qr_token_hash` = SHA-256 del contenido | Daniel Ávila (con IA) |
 | 1.11.0 | 2026-11-15 | **Enmienda 010 (FR-069, TSK-DOM-009):** migración 025 — `finding.log_entry_id` y `finding.site_id` para la alerta reportada desde la bitácora | Daniel Ávila (con IA) |
 | 1.10.0 | 2026-11-15 | **Enmienda 009 (FR-068, TSK-REP-014):** migración 024 — tabla `resumen_ia` con RLS (resúmenes de Gerencia guardados para reutilizar y como historial) | Daniel Ávila (con IA) |
 | 1.9.0 | 2026-11-15 | **Enmienda 008 (FR-067, TSK-DOM-008):** migración 023 — `finding.assigned_at`, `progress_note`, `reported_at` (avance del responsable) |
