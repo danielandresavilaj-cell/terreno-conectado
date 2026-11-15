@@ -185,11 +185,24 @@ test.describe('Checklist §1 — ⭐ Humo H-01…H-10 (issue #130)', () => {
 })
 
 test.describe('Tabs por perfil (FW-05 / SU / AD-02 / PA-01)', () => {
+  /* En el teléfono (Pixel 5) la barra inferior muestra hasta cinco botones;
+   * si el rol tiene más secciones, "Más" abre una hoja con el resto
+   * (TSK-OFF-022). Se juntan los nombres de ambas. */
   const verTabs = async (page: Page, email: string) => {
     await loginEnApp(page, email)
-    const nav = page.locator('nav button')
-    await expect(nav.first()).toBeVisible()
-    return nav.allInnerTexts()
+    const nav = page.getByRole('navigation', { name: 'Secciones' })
+    await expect(nav.getByRole('button').first()).toBeVisible()
+    const barra = (await nav.getByRole('button').allInnerTexts()).filter((t) => t !== 'Más')
+    const mas = nav.getByRole('button', { name: 'Más secciones' })
+    if ((await mas.count()) === 0) return barra
+    await mas.click()
+    const hoja = page.getByRole('dialog', { name: 'Más secciones' })
+    await expect(hoja).toBeVisible()
+    const resto = await hoja.getByRole('button').allInnerTexts()
+    await page.keyboard.press('Escape')
+    await expect(hoja).toBeHidden()
+    expect(barra).toHaveLength(4)
+    return [...barra, ...resto.map((t) => t.split('\n')[0].trim())]
   }
 
   test('trabajador A · Inspección, Bitácora, Cola', async ({ page }) => {
@@ -211,8 +224,12 @@ test.describe('Tabs por perfil (FW-05 / SU / AD-02 / PA-01)', () => {
   })
 
   test('plataforma · solo Empresas (sin UI de captura ni datos de empresas)', async ({ page }) => {
-    const tabs = await verTabs(page, CUENTAS.plataforma)
-    expect(tabs).toEqual(['Empresas'])
+    // Una sola sección: en el teléfono no lleva barra de navegación (TSK-OFF-022).
+    await loginEnApp(page, CUENTAS.plataforma)
     await expect(page.getByRole('heading', { name: 'Plataforma' })).toBeVisible()
+    await expect(page.getByRole('navigation', { name: 'Secciones' })).toHaveCount(0)
+    for (const t of ['Inspección', 'Bitácora', 'Cola', 'Gerencia']) {
+      await expect(page.getByRole('button', { name: t, exact: true })).toHaveCount(0)
+    }
   })
 })

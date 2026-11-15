@@ -3,7 +3,7 @@
 | | |
 | :--- | :--- |
 | **Estado** | COMPLETO (ciclo del módulo, F2 · 2026-10-13) |
-| **Versión** | 0.4.0 |
+| **Versión** | 0.4.1 |
 | **Autor** | Daniel Ávila |
 | **Padre** | specs/000-master/spec.md |
 | **Depende de** | 001 (sesión/tenant), 004 (plantillas a renderizar offline) |
@@ -72,7 +72,7 @@ Targets táctiles amplios, alto contraste para luz solar, y **autoguardado de bo
 
 **Alerta desde la bitácora** (TSK-DOM-009, FR-069, Enmienda 010): "Nueva entrada" trae la casilla "Reportar una alerta"; al guardar la entrada se abre la hoja de hallazgo (severidad, descripción obligatoria en alta y crítica, hasta 5 fotos). Cada entrada muestra su alerta con el distintivo de severidad y un botón "Reportar alerta" o "Editar alerta". La alerta es un hallazgo sin inspección, ligado a la entrada y a su faena (`logEntryId`, `siteId`); se guarda y encola sin señal, una entrada tiene a lo más una (corregirla actualiza la misma) y el lote envía la bitácora antes que los hallazgos (`ORDEN_BATCH`).
 
-**Terreno en el teléfono** (TSK-OFF-011): en pantallas de teléfono, cuando el rol tiene cinco secciones o menos (el trabajador tiene cuatro), la navegación es una barra inferior al alcance del pulgar; el estado de señal y el acceso a la cuenta pasan a la barra superior, y la sección Cola muestra un punto cuando hay envíos pendientes (el número va en la descripción accesible). Con más secciones siguen las pestañas superiores y la barra de estado inferior. El ítem de foto muestra la miniatura de lo capturado con "Repetir" y "Quitar". Sin una elección guardada, el tema claro u oscuro sigue al del sistema.
+**Terreno en el teléfono** (TSK-OFF-011, TSK-OFF-022): en pantallas de teléfono la navegación es una barra inferior al alcance del pulgar para todos los roles de empresa; el estado de señal y el acceso a la cuenta van en la barra superior, y la sección Cola muestra un punto cuando hay envíos pendientes (el número va en la descripción accesible). Con cinco secciones o menos (el trabajador tiene cinco) van todas; con más, van las cuatro de uso diario del rol —supervisión: Formularios, Inspección, Hallazgos y Gerencia; administración: Hallazgos, Gerencia, Equipo y Plantillas— y el botón "Más" abre una hoja con el resto (lleva el punto si una sección oculta tiene aviso; Atrás o Escape la cierran). El administrador de plataforma tiene una sola sección y no lleva barra. Ya no hay barra de estado inferior. El ítem de foto muestra la miniatura de lo capturado con "Repetir" y "Quitar". Sin una elección guardada, el tema claro u oscuro sigue al del sistema.
 
 ## 5. Cache del service worker (Workbox)
 
@@ -118,6 +118,7 @@ La toma usa `getUserMedia` y prefiere la cámara trasera. El stream se detiene a
 
 | Versión | Fecha | Cambio | Autor |
 | :--- | :--- | :--- | :--- |
+| 0.4.1 | 2026-11-15 | TSK-OFF-022: barra inferior en el teléfono para todos los roles de empresa, con "Más" cuando hay más de cinco secciones | Daniel Ávila (con IA) |
 | 0.4.0 | 2026-11-15 | TSK-DOM-009 (FR-069, Enmienda 010): reportar una alerta desde la bitácora; la cola envía la bitácora antes que los hallazgos | Daniel Ávila (con IA) |
 | 0.3.15 | 2026-11-15 | TSK-OFF-021 (#261): identidad visual — marca de arcos de señal, curvas de nivel de fondo, íconos PWA y landing con la paleta de la app | Daniel Ávila (con IA) |
 | 0.3.14 | 2026-11-15 | TSK-OFF-020: escala fija en PWA Android; pinch zoom bloqueado sin perder desplazamiento | Raúl González (con IA) |

@@ -19,7 +19,6 @@
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { useEffect, useState, type ReactNode } from 'react'
 import { BadgeSync } from './Badges'
-import { CountUp } from './CountUp'
 import { Boton } from './ui'
 import { BotonTema } from './BotonTema'
 import { Marca } from './Marca'
@@ -28,6 +27,8 @@ import { Topografia } from './Topografia'
 import { useEstado, type Pantalla } from '../lib/store'
 import { EASE } from '../lib/motion'
 import { useMedia } from '../lib/useMedia'
+import { useCapaAtras } from '../lib/useCapaAtras'
+import { llevaBarraInferior, repartirSecciones } from '../lib/nav-telefono'
 import type { Rol } from '../lib/types'
 
 const NAV: Array<{ id: Pantalla; label: string; roles: Rol[]; icono: ReactNode }> = [
@@ -181,6 +182,8 @@ export function Shell({ children }: { children: ReactNode }) {
   const reducir = useReducedMotion()
   const esTelefono = useMedia('(max-width: 639px)')
   const [verAviso, setVerAviso] = useState(false)
+  const [verMas, setVerMas] = useState(false)
+  useCapaAtras(verMas, () => setVerMas(false))
 
   /* El aviso de cuota aparece solo, una vez (FR-017). */
   useEffect(() => {
@@ -192,11 +195,25 @@ export function Shell({ children }: { children: ReactNode }) {
   if (!usuario) return null
 
   const nav = NAV.filter((n) => n.roles.includes(usuario.rol))
-  /* TSK-OFF-011: en el teléfono, con pocas secciones (el trabajador tiene 5),
-   * la navegación va abajo, al alcance del pulgar. Con más secciones siguen las
-   * pestañas de arriba. Se decide al renderizar (no con CSS) para que exista
-   * una sola barra de navegación en la página. */
-  const navAbajo = esTelefono && nav.length <= 5
+  /* TSK-OFF-011 / TSK-OFF-022: en el teléfono la navegación va abajo, al
+   * alcance del pulgar, para todos los roles de empresa. Si el rol tiene más de
+   * cinco secciones, van las cuatro de uso diario y "Más" abre el resto. Se
+   * decide al renderizar (no con CSS) para que exista una sola barra de
+   * navegación en la página. Plataforma (una sección) no lleva barra. */
+  const navAbajo = llevaBarraInferior(esTelefono, nav)
+  const reparto = repartirSecciones(
+    usuario.rol,
+    nav.map((n) => n.id),
+  )
+  const principales = nav.filter((n) => reparto.principales.includes(n.id))
+  const enMas = nav.filter((n) => reparto.mas.includes(n.id))
+  const tieneAviso = (id: Pantalla) => (id === 'cola' && enviosPendientes > 0) || (id === 'hallazgos' && hallazgosNuevos > 0)
+  const masActiva = enMas.some((n) => n.id === pantalla)
+  const masConAviso = enMas.some((n) => tieneAviso(n.id))
+  const irDesdeMas = (id: Pantalla) => {
+    setVerMas(false)
+    ir(id)
+  }
 
   return (
     <div className="relative isolate min-h-dvh flex flex-col bg-s0">
@@ -231,9 +248,9 @@ export function Shell({ children }: { children: ReactNode }) {
 
             <div className="flex-1" />
 
-            <IndicadorSenal on={online} visibleEnTelefono={navAbajo} />
+            <IndicadorSenal on={online} />
             <BotonTema />
-            {navAbajo ? (
+            {esTelefono ? (
               <button
                 type="button"
                 onClick={() => ir('cuenta')}
@@ -267,7 +284,7 @@ export function Shell({ children }: { children: ReactNode }) {
           {/* overflow-x-auto: con 5 pestañas y roles de supervisor, en 360 px no caben.
               scrollbar-width:none + la alternativa para WebKit evitan que la
               barra de scroll nativa aparezca bajo las pestañas. */}
-          {!navAbajo && (
+          {!esTelefono && (
           <nav className="flex gap-1 -mb-px overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {nav.map((n) => {
               const activa = pantalla === n.id
@@ -342,7 +359,7 @@ export function Shell({ children }: { children: ReactNode }) {
         </AnimatePresence>
       </main>
 
-      {/* ── Navegación inferior (teléfono, pocas secciones) — TSK-OFF-011 ───
+      {/* ── Navegación inferior (teléfono) — TSK-OFF-011 / TSK-OFF-022 ─────
           El texto de cada botón es sólo su nombre: el contador de envíos va
           en un punto aparte y en la descripción accesible, no en el nombre. */}
       {navAbajo && (
@@ -350,11 +367,13 @@ export function Shell({ children }: { children: ReactNode }) {
           aria-label="Secciones"
           className="fixed bottom-0 inset-x-0 z-30 border-t border-line-soft bg-s1/95 backdrop-blur-md pb-safe"
         >
-          <div className="grid" style={{ gridTemplateColumns: `repeat(${nav.length}, minmax(0, 1fr))` }}>
-            {nav.map((n) => {
+          <div
+            className="grid"
+            style={{ gridTemplateColumns: `repeat(${principales.length + (enMas.length ? 1 : 0)}, minmax(0, 1fr))` }}
+          >
+            {principales.map((n) => {
               const activa = pantalla === n.id
-              const conAviso =
-                (n.id === 'cola' && enviosPendientes > 0) || (n.id === 'hallazgos' && hallazgosNuevos > 0)
+              const conAviso = tieneAviso(n.id)
               return (
                 <button
                   key={n.id}
@@ -380,6 +399,32 @@ export function Shell({ children }: { children: ReactNode }) {
                 </button>
               )
             })}
+            {enMas.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setVerMas(true)}
+                aria-label="Más secciones"
+                aria-haspopup="dialog"
+                aria-expanded={verMas}
+                aria-current={masActiva ? 'page' : undefined}
+                className={[
+                  'relative h-14 flex flex-col items-center justify-center gap-0.5 text-[12px] font-medium cursor-pointer',
+                  'transition-colors duration-150',
+                  masActiva ? 'text-beam' : 'text-ink-2',
+                ].join(' ')}
+              >
+                <span className="relative" aria-hidden>
+                  <svg width="17" height="17" viewBox="0 0 17 17" fill="none">
+                    <circle cx="3.5" cy="8.5" r="1.3" fill="currentColor" />
+                    <circle cx="8.5" cy="8.5" r="1.3" fill="currentColor" />
+                    <circle cx="13.5" cy="8.5" r="1.3" fill="currentColor" />
+                  </svg>
+                  {masConAviso && <span className="absolute -right-2 -top-1.5 h-2.5 w-2.5 rounded-full bg-beam ring-2 ring-s1" />}
+                </span>
+                Más
+                {masActiva && <span className="absolute top-0 inset-x-4 h-[2px] rounded-full bg-beam" aria-hidden />}
+              </button>
+            )}
           </div>
           <span id="nav-por-enviar" className="sr-only">
             {enviosPendientes} por enviar
@@ -390,27 +435,69 @@ export function Shell({ children }: { children: ReactNode }) {
         {hallazgosNuevos === 1 ? '1 hallazgo nuevo asignado' : `${hallazgosNuevos} hallazgos nuevos asignados`}
       </span>
 
-      {/* ── Barra de estado inferior (solo móvil, si la navegación va arriba) ── */}
-      {!navAbajo && (
-      <div className="fixed bottom-0 inset-x-0 z-30 border-t border-line-soft bg-s1/95 backdrop-blur-md sm:hidden">
-        <div className="flex items-center justify-between px-4 h-barra-inferior pb-safe">
-          <div className="flex items-center gap-2" role="status" aria-live="polite">
-            <span
-              className={[
-                'h-2 w-2 rounded-full shrink-0',
-                online ? 'bg-synced' : 'bg-pending',
-                online ? 'throb' : '',
-              ].join(' ')}
+      {/* ── Hoja "Más" (teléfono) — TSK-OFF-022 ───────────────────────────
+          Las secciones que no caben en la barra. El botón Atrás la cierra. */}
+      <AnimatePresence>
+        {navAbajo && verMas && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.18, ease: EASE.out }}
+              onClick={() => setVerMas(false)}
+              className="fixed inset-0 z-40 bg-black/55 backdrop-blur-[2px]"
+              aria-hidden
             />
-            <span className="label-inst">{online ? 'En línea' : 'Sin señal'}</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span className="label-inst">Por enviar</span>
-            <CountUp valor={enviosPendientes} className="text-[14px] font-semibold text-beam" />
-          </div>
-        </div>
-      </div>
-      )}
+            <motion.div
+              role="dialog"
+              aria-modal="true"
+              aria-label="Más secciones"
+              initial={reducir ? { opacity: 0 } : { y: '100%' }}
+              animate={reducir ? { opacity: 1 } : { y: 0 }}
+              exit={reducir ? { opacity: 0 } : { y: '100%' }}
+              transition={{ duration: reducir ? 0.15 : 0.32, ease: EASE.drawer }}
+              onKeyDown={(e) => {
+                if (e.key === 'Escape') setVerMas(false)
+              }}
+              className="fixed inset-x-0 bottom-0 z-50 panel rounded-b-none px-3 pt-2 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))] shadow-2xl"
+            >
+              <div className="mx-auto mb-2 h-1 w-10 rounded-full bg-line" aria-hidden />
+              <ul className="flex flex-col">
+                {enMas.map((n) => {
+                  const activa = pantalla === n.id
+                  return (
+                    <li key={n.id}>
+                      <button
+                        type="button"
+                        autoFocus={n === enMas[0]}
+                        onClick={() => irDesdeMas(n.id)}
+                        aria-current={activa ? 'page' : undefined}
+                        className={[
+                          'w-full min-h-12 flex items-center gap-3 px-3 rounded-lg text-[15px] font-medium cursor-pointer',
+                          'transition-colors duration-150',
+                          activa ? 'bg-s3 text-beam' : 'text-ink hover:bg-s3',
+                        ].join(' ')}
+                      >
+                        <span aria-hidden>{n.icono}</span>
+                        <span className="flex-1 text-left">{n.label}</span>
+                        {n.id === 'cola' && enviosPendientes > 0 && (
+                          <span className="text-[13px] text-ink-2">{enviosPendientes} por enviar</span>
+                        )}
+                        {n.id === 'hallazgos' && hallazgosNuevos > 0 && (
+                          <span className="min-w-5 h-5 px-1.5 rounded-full bg-beam text-on-beam text-[12px] font-semibold grid place-items-center">
+                            {hallazgosNuevos}
+                          </span>
+                        )}
+                      </button>
+                    </li>
+                  )
+                })}
+              </ul>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
 
       {/* ── Aviso de salida (TSK-OFF-008) ─────────────────────────────────
           Se pulsó Atrás en la primera pantalla: se avisa antes de cerrar. */}
@@ -477,13 +564,10 @@ export function Shell({ children }: { children: ReactNode }) {
 }
 
 /** Estado real de la red (navigator.onLine): ya no es un interruptor manual. */
-function IndicadorSenal({ on, visibleEnTelefono }: { on: boolean; visibleEnTelefono: boolean }) {
+function IndicadorSenal({ on }: { on: boolean }) {
   return (
     <span
-      className={[
-        visibleEnTelefono ? 'inline-flex' : 'hidden sm:inline-flex',
-        'items-center gap-2 px-2 h-9 rounded-lg text-[13px] text-ink-2 shrink-0 whitespace-nowrap',
-      ].join(' ')}
+      className="inline-flex items-center gap-2 px-2 h-9 rounded-lg text-[13px] text-ink-2 shrink-0 whitespace-nowrap"
       role="status"
       aria-live="polite"
     >
