@@ -3,7 +3,7 @@
 | | |
 | :--- | :--- |
 | **Estado** | COMPLETO (ciclo del módulo, F2 · 2026-10-13) |
-| **Versión** | 0.5.1 |
+| **Versión** | 0.6.0 |
 | **Autor** | Daniel Ávila |
 | **Padre** | specs/000-master/spec.md |
 | **Depende de** | 001 (sesión/tenant), 004 (plantillas a renderizar offline) |
@@ -76,6 +76,8 @@ Targets táctiles amplios, alto contraste para luz solar, y **autoguardado de bo
 
 **Terreno en el teléfono** (TSK-OFF-011, TSK-OFF-022): en pantallas de teléfono la navegación es una barra inferior al alcance del pulgar para todos los roles de empresa; el estado de señal y el acceso a la cuenta van en la barra superior, y la sección Cola muestra un punto cuando hay envíos pendientes (el número va en la descripción accesible). Con cinco secciones o menos (el trabajador tiene cinco) van todas; con más, van las cuatro de uso diario del rol —supervisión: Formularios, Inspección, Hallazgos y Gerencia; administración: Hallazgos, Gerencia, Equipo y Plantillas— y el botón "Más" abre una hoja con el resto (lleva el punto si una sección oculta tiene aviso; Atrás o Escape la cierran). El administrador de plataforma tiene una sola sección y no lleva barra. Ya no hay barra de estado inferior. El ítem de foto muestra la miniatura de lo capturado con "Repetir" y "Quitar". Sin una elección guardada, el tema claro u oscuro sigue al del sistema.
 
+**Dirección de la app** (TSK-OFF-023, ADR-002 adenda 4): la raíz `terrenoconectado.cl` es la landing pública; la PWA vive en `/app/` (Vite `base: '/app/'`, manifest con `start_url` y `scope` `/app/`, service worker en `/app/sw.js`). Mismo origen que antes, así que la sesión y la cola en IndexedDB se conservan. Una app instalada antes del cambio abre la raíz y `landing/redirigir.js` la manda a `/app/`; el service worker antiguo de la raíz se retira solo (`landing/sw.js`).
+
 ## 5. Cache del service worker (Workbox)
 
 `vite-plugin-pwa` con `registerType: 'prompt'`:
@@ -120,6 +122,7 @@ La toma usa `getUserMedia` y prefiere la cámara trasera. El stream se detiene a
 
 | Versión | Fecha | Cambio | Autor |
 | :--- | :--- | :--- | :--- |
+| 0.6.0 | 2026-11-15 | TSK-OFF-023 (#284): la app pasa a /app/ y la raíz sirve la landing pública; retiro del service worker antiguo | Daniel Ávila (con IA) |
 | 0.5.1 | 2026-11-15 | TSK-OPS-003-C (tramo 3): lector de QR con la cámara y etiqueta imprimible | Daniel Ávila (con IA) |
 | 0.5.0 | 2026-11-15 | TSK-OPS-003-C (tramo 2): abrir un formulario con el código de un QR, sin señal | Daniel Ávila (con IA) |
 | 0.4.1 | 2026-11-15 | TSK-OFF-022: barra inferior en el teléfono para todos los roles de empresa, con "Más" cuando hay más de cinco secciones | Daniel Ávila (con IA) |

@@ -90,6 +90,14 @@ Internet
 - **Verificación (2026-11-15, TSK-DEPLOY-001):** `https://terrenoconectado.cl/health` y `https://www.terrenoconectado.cl/health` responden 200. El backend acepta como origen CORS sólo esas dos direcciones; el origen DuckDNS ya no recibe `Access-Control-Allow-Origin`. La dirección DuckDNS ya no se sirve: el servidor rechaza el TLS porque Caddy no tiene ese host. En el repositorio no quedan referencias vigentes, sólo históricas, y la guía de provisión ya no indica registrar DuckDNS. El retiro **no afecta** al CI ni a las pruebas: la falla intermitente del 2026-11-14 en el CI y en `deploy.yml` fue el `57P01` del apagado del contenedor de pruebas (H7, TSK-E2E-003).
 - **Pendiente del titular:** el nombre todavía resuelve hacia la VM, así que falta **borrar el subdominio en duckdns.org**. Sólo se puede hacer con la cuenta del titular; ningún secreto ni token de DuckDNS va al repositorio.
 
+#### Adenda 4 — Landing pública en la raíz y la app en `/app` (2026-11-15, TSK-OFF-023, #284)
+
+- **Contexto:** la landing (`landing/index.html`, TSK-OFF-021) existía en el repo pero no se publicaba; la raíz del dominio servía la app.
+- **Decisión (Daniel Ávila):** `https://terrenoconectado.cl/` es la landing y la app vive en `https://terrenoconectado.cl/app/`. Se descartó un subdominio (`app.`): sería otro origen y los teléfonos ya instalados perderían la sesión y lo pendiente sin sincronizar, que viven en IndexedDB del origen.
+- **Cómo:** el mismo contenedor nginx sirve la landing en `/` y el build de Vite (`base: '/app/'`) en `/app/` (`infra/nginx.conf`, `infra/frontend.Dockerfile`). Manifest con `start_url`/`scope` `/app/` y service worker en `/app/sw.js`. Caddy y la API (`/api/*`, `/health`) no cambian.
+- **Teléfonos ya instalados:** su app abre la raíz (start_url antigua): `landing/redirigir.js` manda a `/app/` a quien corre como app instalada y a los enlaces viejos `/#pantalla`. El service worker antiguo de la raíz se reemplaza por `landing/sw.js`, que borra las cachés del shell viejo, se desregistra y lleva las pestañas a `/app/`; no toca IndexedDB, así que la sesión y la cola se conservan. Reinstalar la app (para que el ícono abra `/app/` directo) es opcional.
+- **CSP:** sin cambios; el script de la landing pasó a un archivo propio (`landing/landing.js`) porque la política no permite scripts en línea.
+
 ## Parte B — Ejercicio de diseño: qué sería "producción real" (NO se provisiona)
 
 Comparación educativa para el informe final (muestra que entendemos la diferencia entre demo y producción):
