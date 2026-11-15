@@ -325,9 +325,28 @@ function dimensionesJpeg(b) {
   return { width: 1280, height: 960 }
 }
 
-function adjunto(tenant, ownerType, ownerId, capturedMs) {
+/** Qué fotos calzan con cada formulario (por palabra en el nombre del archivo). */
+const TEMAS_FOTO = {
+  extintores: ['extintor'],
+  andamios: ['andamio', 'obra'],
+  'trabajo-altura': ['andamio', 'obra'],
+  'equipo-movil': ['cargador', 'neumatico'],
+  'seguridad-diaria': ['letrero', 'correa', 'obra', 'extintor'],
+  'orden-aseo': ['correa', 'obra'],
+  epp: ['obra', 'letrero'],
+  'relevo-turno': ['correa', 'obra'],
+  bitacora: ['letrero', 'correa', 'obra', 'andamio'],
+}
+
+function fotoPara(tema) {
+  const claves = TEMAS_FOTO[tema] ?? []
+  const calzan = FOTOS.filter((f) => claves.some((k) => f.nombre.includes(k)))
+  return elegir(calzan.length ? calzan : FOTOS)
+}
+
+function adjunto(tenant, ownerType, ownerId, capturedMs, tema) {
   if (FOTOS.length === 0) return null
-  const f = elegir(FOTOS)
+  const f = fotoPara(tema)
   return registro(tenant, 'attachment', randomUUID(), capturedMs, {
     owner_type: ownerType,
     owner_id: ownerId,
@@ -544,7 +563,7 @@ async function main() {
           registros.push(registro(tenant.id, 'response', respId, capturedMs + 60_000, { inspection_id: insId, template_item_id: item.id, ...valores }))
           respuestas.push([item.id, valores])
           if (foto) {
-            const a = adjunto(tenant.id, 'response', respId, capturedMs + 90_000)
+            const a = adjunto(tenant.id, 'response', respId, capturedMs + 90_000, k)
             if (a) registros.push(a)
           }
           if (r.value_ok === 'nok' && (item.require_finding_on_nok || prob(0.5))) {
@@ -561,7 +580,7 @@ async function main() {
             )
             hallazgos.push({ id: hId, faena: fk, capturedMs, severity })
             if (prob(0.6)) {
-              const a = adjunto(tenant.id, 'finding', hId, capturedMs + 150_000)
+              const a = adjunto(tenant.id, 'finding', hId, capturedMs + 150_000, k)
               if (a) registros.push(a)
             }
           }
@@ -620,12 +639,12 @@ async function main() {
       if (registros.length === 0) continue
       // Se sincroniza al volver la señal: minutos u horas después de capturar.
       const enviado = Math.min(AHORA - 60_000, ultimo + ponderado([[5, 40], [40, 30], [180, 20], [420, 10]]) * 60_000)
-      for (let i = 0; i < registros.length; i += 400) {
+      for (const parte of partirLote(registros)) {
         const r = await api(persona.token, 'POST', '/sync/batch', {
           batch_id: randomUUID(),
           device_id: dispositivos[persona.clave],
           sent_at: iso(enviado),
-          records: registros.slice(i, i + 400),
+          records: parte,
         })
         if (r.records_failed > 0) throw new Error(`Lote con fallos (${persona.nombre}, día ${dia}): ${(r.errors ?? []).join(' | ')}`)
         totalRegistros += r.records_ok
@@ -744,6 +763,29 @@ async function main() {
   paso('Listo')
   log(`  Cuentas, claves y códigos QR en ${SALIDA} (no se suben a Git).`)
   log(`  Gerencia: ${cuentas.gerente.email}`)
+}
+
+/**
+ * Parte un lote por cantidad (≤ 400 de los 500 permitidos) y por tamaño
+ * (≤ ~20 MB de los 32 MB que acepta el servidor), sin separar el orden: el
+ * servidor ordena cada lote por tipo de entidad.
+ */
+function partirLote(registros) {
+  const partes = []
+  let actual = []
+  let bytes = 0
+  for (const r of registros) {
+    const tam = JSON.stringify(r).length
+    if (actual.length && (actual.length >= 400 || bytes + tam > 20 * 1024 * 1024)) {
+      partes.push(actual)
+      actual = []
+      bytes = 0
+    }
+    actual.push(r)
+    bytes += tam
+  }
+  if (actual.length) partes.push(actual)
+  return partes
 }
 
 /** Copia una definición del catálogo con ids nuevos (como `duplicarDefinicion`). */

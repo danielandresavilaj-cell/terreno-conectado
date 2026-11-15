@@ -1,6 +1,6 @@
 # PLAN — Presentación con una empresa de demostración
 
-**Versión:** 0.2.0 · **Fecha:** 2026-11-15 · **Autor:** Daniel Ávila (con IA)
+**Versión:** 0.2.1 · **Fecha:** 2026-11-15 · **Autor:** Daniel Ávila (con IA)
 **Objetivo:** presentar https://terrenoconectado.cl en ~2 días con una empresa ficticia que se vea en operación real, cuentas para cada rol y la alerta desde la bitácora.
 
 ## 1. Qué encontré al revisar
@@ -92,12 +92,12 @@ Todo lo que se vea vacío, roto o poco claro se corrige con PR y deploy antes de
 
 `infra/tools/demo-datos.mjs` usa sólo la API. Crea la empresa, 3 faenas, 9 cuentas (con su faena), 8 formularios del catálogo publicados y asignados (andamios y trabajo en altura con cofirma), 4 activos con QR y **8 semanas** de historia (llena el gráfico de Gerencia): ~300 inspecciones firmadas (algunas abiertas por QR), ~170 hallazgos con foto opcional (asignados, en curso, listos para revisar, vencidos y cerrados con nota), bitácora con relevos y alertas, revisiones y cofirmas de supervisión, 3 conflictos (uno revisado) y hasta 4 resúmenes con IA de semanas anteriores. El azar es reproducible: cada corrida da los mismos números.
 
-**Ensayo local (2026-11-15):** stack E2E con `E2E_KEEP_ALIVE=1`; 4.181 registros sin fallos; Gerencia con 6 por revisar, 8 urgentes y 2 vencidos en la semana; el trabajador ve en el teléfono sus hallazgos asignados (también los de la bitácora).
+**Ensayo local con fotos (2026-11-15):** 208 fotos guardadas (respuestas y hallazgos) y visibles por la API de Gerencia, 49 inspecciones abiertas por QR, 26 alertas desde la bitácora; corre en ~25 s. **Primer ensayo:** stack E2E con `E2E_KEEP_ALIVE=1`; 4.181 registros sin fallos; Gerencia con 6 por revisar, 8 urgentes y 2 vencidos en la semana; el trabajador ve en el teléfono sus hallazgos asignados (también los de la bitácora).
 
 **En producción (lo corre Daniel en su terminal):**
 
 1. `npm ci` y `npm run build --workspace @terreno/shared`.
-2. `node infra/tools/demo-datos.mjs --api https://terrenoconectado.cl/api/v1 [--fotos carpeta]`.
+2. `node infra/tools/demo-datos.mjs --api https://terrenoconectado.cl/api/v1 --fotos .demo-fotos` (8 fotos de dominio público o CC0, créditos en `infra/tools/demo-fotos-creditos.md`; la carpeta está fuera de Git).
 3. Escribir el correo y la clave del administrador de plataforma cuando los pide (no se ven ni quedan en el historial).
 4. Las cuentas, sus claves y los códigos QR quedan en `.demo-cuentas.local.json` (ignorado por Git, permisos 600).
 
