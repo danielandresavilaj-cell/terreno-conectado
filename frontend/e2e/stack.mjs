@@ -400,7 +400,8 @@ export async function levantar() {
   await construirFrontend(envFrontend)
   log(`arrancando frontend en :${WEB_PORT}…`)
   lanzarFrontend(envFrontend)
-  await esperarHasta(webUrl, 'el frontend')
+  // TSK-OFF-023: el build se sirve con base /app/.
+  await esperarHasta(`${webUrl}/app/`, 'el frontend')
 
   const ruta = await escribirEstado({
     apiUrl,

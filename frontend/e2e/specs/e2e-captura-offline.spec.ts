@@ -58,7 +58,7 @@ async function entrarConColaLimpia(page: Page): Promise<void> {
 
 test.beforeEach(async ({ page }) => {
   // Un dispositivo limpio por test: ni sesión, ni cola, ni caché de plantillas.
-  await page.goto('/')
+  await page.goto('./')
   await reiniciarDispositivo(page)
 })
 

@@ -50,7 +50,7 @@ const CONTAR_INSPECCIONES =
   'SELECT count(*)::int AS n FROM inspection WHERE tenant_id = $1'
 
 test.beforeEach(async ({ page }) => {
-  await page.goto('/')
+  await page.goto('./')
   await reiniciarDispositivo(page)
 })
 

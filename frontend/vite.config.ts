@@ -4,6 +4,9 @@ import { defineConfig } from 'vite'
 import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
+  // TSK-OFF-023: la raíz del dominio es la landing pública; la app vive en
+  // /app/ (mismo origen: la sesión y lo pendiente en IndexedDB se conservan).
+  base: '/app/',
   // ExcelJS publica una build específica para browser. La entrada por defecto
   // incluye módulos Node (`fs`, `Buffer`) y rompe al importar una planilla en
   // Vite; el alias mantiene la entrada Node para backend/shared tests.
@@ -31,8 +34,8 @@ export default defineConfig({
         background_color: '#0e0f11',
         display: 'standalone',
         orientation: 'portrait',
-        start_url: '/',
-        scope: '/',
+        start_url: '/app/',
+        scope: '/app/',
         icons: [
           { src: 'pwa-192.png', sizes: '192x192', type: 'image/png' },
           { src: 'pwa-512.png', sizes: '512x512', type: 'image/png' },
@@ -47,7 +50,10 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
+        // Relativo al service worker (/app/sw.js) → /app/index.html. Sólo se
+        // aplica a navegaciones dentro de /app/: la landing no es de la app.
         navigateFallback: 'index.html',
+        navigateFallbackAllowlist: [/^\/app(\/|$)/],
         navigateFallbackDenylist: [/^\/api\//, /^\/api$/],
         runtimeCaching: [
           {

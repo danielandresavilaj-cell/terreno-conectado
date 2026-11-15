@@ -31,7 +31,7 @@ import {
 const TEMPLATE_A = '01890000-0000-7000-8000-0000000000a6'
 
 test.beforeEach(async ({ page }) => {
-  await page.goto('/')
+  await page.goto('./')
   await reiniciarDispositivo(page)
 })
 

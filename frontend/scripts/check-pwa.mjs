@@ -22,7 +22,8 @@ must('manifest.webmanifest', 'web app manifest')
 
 const manifest = JSON.parse(must('manifest.webmanifest', 'manifest parseable'))
 if (manifest.display !== 'standalone') fail('display no es standalone')
-if (![manifest.start_url, manifest.scope].includes('/')) fail('start_url/scope inválidos')
+// TSK-OFF-023: la app vive en /app/ (la raíz es la landing).
+if (manifest.start_url !== '/app/' || manifest.scope !== '/app/') fail('start_url/scope deben ser /app/')
 const icons = manifest.icons ?? []
 for (const [sizes, purpose] of [
   ['192x192', null],
