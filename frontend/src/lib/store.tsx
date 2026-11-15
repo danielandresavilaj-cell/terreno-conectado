@@ -66,6 +66,8 @@ import {
   sesionCaché,
   submitInspection,
   upsertResponse,
+  guardarActivosCache,
+  db as dbLocal,
   type OutboxRow,
 } from './db'
 import {
@@ -76,6 +78,7 @@ import {
   EVENTO_LOGOUT,
   type MotivoSalida,
   getPlantillaOriginal,
+  getActivosCatalogo,
   getSites,
   getToken,
   login,
@@ -86,6 +89,7 @@ import {
   setToken,
 } from './api'
 import { actualizarCatalogo, leerCatalogo } from './catalogo-formularios'
+import { mensajeQr, resolverQr } from './qr'
 import {
   actualizarAsignados,
   contarNuevos,
@@ -150,6 +154,14 @@ export interface PlantillaActual {
   revisionPendiente: string | null
 }
 
+/** TSK-OPS-003-C: activo cuyo QR abrió el formulario actual. */
+export interface ActivoQr {
+  id: string
+  name: string
+  kind: 'vehicle' | 'equipment' | 'location'
+  revisionId: string
+}
+
 interface Ctx {
   usuario: Usuario | null
   identidad: Identidad | null
@@ -209,6 +221,10 @@ interface Ctx {
    *  espalda invalidaría lo ya respondido. */
   descartarBorradorYRecargar: () => Promise<void>
   seleccionarFormulario: (revisionId: string) => Promise<{ ok: boolean; error?: string }>
+  /** TSK-OPS-003-C: abre el formulario de un activo por el contenido de su QR (también sin señal). */
+  abrirConQr: (texto: string) => Promise<{ ok: boolean; error?: string }>
+  /** Activo cuyo QR abrió el formulario actual (se amarra al borrador al crearlo). */
+  activoQr: ActivoQr | null
   /** TSK-OFF-010: la empresa tiene varias faenas y la persona aún no eligió la suya. */
   faenaPorElegir: boolean
   /** Cambia la faena de la sesión (y sus formularios). No se puede con una inspección sin enviar. */
@@ -427,6 +443,7 @@ async function revisionActivaId(): Promise<string | null> {
 export function ProveedorEstado({ children }: { children: ReactNode }) {
   const [usuario, setUsuario] = useState<Usuario | null>(null)
   const [identidad, setIdentidad] = useState<Identidad | null>(null)
+  const [activoQr, setActivoQr] = useState<ActivoQr | null>(null)
   const [hidratando, setHidratando] = useState(true)
   const [debeCambiarClave, setDebeCambiarClave] = useState(false)
   const [sesionExpirada, setSesionExpirada] = useState(false)
@@ -579,6 +596,27 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
     ): Promise<{ items: TemplatePublicadaDto[]; enRed: boolean; purgados: number }> => {
       const { tenantId, faenaId: siteId } = ambito
       const { items, enRed } = await actualizarCatalogo(ambito)
+      // TSK-OPS-003-C: con señal, los activos de las faenas de la cuenta quedan
+      // en el teléfono para abrir un QR sin señal. Sin señal se usa lo último.
+      if (enRed) {
+        try {
+          const { items: activos } = await getActivosCatalogo()
+          await guardarActivosCache(
+            tenantId,
+            activos.map((a) => ({
+              id: a.id,
+              tenantId,
+              siteId: a.site_id,
+              templateId: a.template_id,
+              name: a.name,
+              kind: a.kind,
+              qrHash: a.qr_token_hash,
+            })),
+          )
+        } catch {
+          /* Sin activos nuevos se conserva la última lista. */
+        }
+      }
 
       const purgados = await sincronizarOriginales(tenantId, items, siteId ?? null)
       return { items, enRed, purgados }
@@ -704,6 +742,7 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
       }
 
       await guardarPlantillaSeleccionada(usuario.tenantId, usuario.faenaId, revisionId)
+      setActivoQr((a) => (a && a.revisionId === revisionId ? a : null))
       setPlantilla(plantillaDesdeRevision(revision, 'caché'))
       setErroresCampo({})
       setUltimoEnvio(null)
@@ -712,6 +751,33 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
       return { ok: true }
     },
     [usuario, formularios],
+  )
+
+  /* TSK-OPS-003-C (FR-060/061): el QR resuelve en el teléfono, sin red, contra
+   * los activos y el catálogo asignado guardados; luego abre el formulario por
+   * el mismo camino que elegirlo a mano. Si ya había un borrador del mismo
+   * formulario sin activo, el activo se le amarra. */
+  const abrirConQr = useCallback(
+    async (texto: string): Promise<{ ok: boolean; error?: string }> => {
+      if (!usuario || !usuario.faenaId) return { ok: false, error: 'No se encontró una faena para esta sesión.' }
+      const r = await resolverQr({ texto, tenantId: usuario.tenantId, faenaId: usuario.faenaId, formularios })
+      if (r.estado !== 'ok') {
+        return {
+          ok: false,
+          error: mensajeQr(r, (id) => identidad?.faenas.find((f) => f.id === id)?.nombre) ?? 'No se pudo abrir el código.',
+        }
+      }
+      const sel = await seleccionarFormulario(r.revision.revision_id)
+      if (!sel.ok) return sel
+      const draftId = await getDraftInspectionId()
+      if (draftId) {
+        const borrador = await getInspection(draftId)
+        if (borrador && !borrador.assetId) await dbLocal.inspections.update(draftId, { assetId: r.activo.id })
+      }
+      setActivoQr({ id: r.activo.id, name: r.activo.name, kind: r.activo.kind, revisionId: r.revision.revision_id })
+      return { ok: true }
+    },
+    [usuario, formularios, identidad, seleccionarFormulario],
   )
 
 
@@ -1069,11 +1135,12 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
         templateVersion: plantilla?.version ?? undefined,
         templateRevisionId: plantilla?.revisionId ?? null,
         requiresSupervisorSignature: plantilla?.definition.closing?.require_supervisor_signature ?? false,
+        assetId: activoQr && activoQr.revisionId === plantilla.revisionId ? activoQr.id : null,
       })
       setHayBorrador(true)
       return borrador
     },
-    [plantilla],
+    [plantilla, activoQr],
   )
 
   /* TSK-FORM-001 / FR-036: única vía de escritura de la captura. Valida el
@@ -1309,6 +1376,7 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
         }
         setRespuestas({})
         setHayBorrador(false)
+        setActivoQr(null)
         await refrescar()
         // FR-004: si hay señal la cola se drena; sin señal `sincronizarAhora`
         // no inicia ninguna conexión y el envío queda guardado.
@@ -1471,6 +1539,8 @@ export function ProveedorEstado({ children }: { children: ReactNode }) {
     enviandoInspeccion,
     descartarBorradorYRecargar,
     seleccionarFormulario,
+    abrirConQr,
+    activoQr,
     faenaPorElegir,
     cambiarFaena,
     descartarRegistroCola,

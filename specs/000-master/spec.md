@@ -3,7 +3,7 @@
 | | |
 | :--- | :--- |
 | **ID** | 000-master |
-| **Versión** | 1.14.0 · Enmienda 010 (alerta desde la bitácora, catálogo de plantillas) |
+| **Versión** | 1.14.1 · Enmienda 010 (alerta desde la bitácora, catálogo de plantillas; aclaración del QR sin señal) |
 | **Estado** | APROBADO — Raúl González (2026-09-24) y Daniel Ávila (2026-10-13) · Enmiendas 003–006 firmadas por Daniel Ávila, pendientes de ratificación de Raúl González · Enmienda 007 propuesta por Raúl González y aprobada por Daniel Ávila el 2026-11-12; B está en revisión y C–E se implementan por tareas · Enmienda 008 firmada por Daniel Ávila el 2026-11-13, pendiente de ratificación de Raúl González · Enmienda 009 propuesta por Daniel Ávila el 2026-11-15, pendiente de ratificación de Raúl González |
 | **Autores** | Daniel Ávila (datos/negocio) · Raúl González (infra/plataforma) |
 | **Fuente** | Informe de Definición APT, Fase 1 (2026-09-04) |
@@ -298,6 +298,7 @@ Fuera de alcance explícito — cualquier inclusión requiere enmienda a este sp
 >
 > - **FR-069 (TSK-DOM-009):** en terreno muchas alertas se anotan primero en la bitácora y no en una inspección. Desde "Nueva entrada" o desde una entrada ya escrita se reporta una alerta, que es un hallazgo sin inspección. Migración 025: `finding.log_entry_id` y `finding.site_id` (ambas opcionales); la faena de un hallazgo se lee como `COALESCE(finding.site_id, inspection.site_id)`, así que los existentes no cambian. El lote ordena la bitácora antes que los hallazgos para validar la referencia. Las colas de clientes antiguos siguen sincronizando igual (Art. III); la ingesta valida que la entrada y la faena sean de la misma empresa, además de RLS (Art. IV).
 > - **FR-070 (TSK-FORM-025):** una empresa nueva parte sin formularios. El catálogo vive en el código (`shared/src/catalogo-plantillas.ts`, versionado en el repo), sin tabla ni RLS nuevos; Plantillas → "Desde el catálogo" crea la copia con `POST /templates` y la publica. Reemplaza a TSK-FORM-012 (catálogo de plataforma, ligado por error a FR-048); un catálogo administrable por la plataforma queda como evolución.
+> - **Aclaración de FR-060/061 (TSK-OPS-003-C):** el QR también se resuelve **sin señal**. El teléfono guarda los activos de las faenas de la cuenta con el hash de su código y abre el formulario desde el catálogo asignado que ya tiene, que el servidor filtró por faena y rol. Consecuencia aceptada por Daniel Ávila (2026-11-15): un QR revocado o regenerado sigue abriendo sin señal hasta la próxima sincronización del teléfono; con señal deja de abrir de inmediato. La inspección registra el activo (`inspection.asset_id`, migración 027).
 
 ## 11. Supuestos y restricciones
 
@@ -350,6 +351,7 @@ La demo se considera exitosa si, en vivo ante el docente:
 
 | Versión | Fecha | Cambio | Autor |
 | :--- | :--- | :--- | :--- |
+| 1.14.1 | 2026-11-15 | **Aclaración de FR-060/061 (TSK-OPS-003-C, tramo 2):** resolución del QR sin señal y desfase de revocación aceptado; `inspection.asset_id` | Daniel Ávila (con IA) |
 | 1.14.0 | 2026-11-15 | **Enmienda 010 (ampliación) — FR-070 (TSK-FORM-025):** catálogo de plantillas de inicio definido en el código; la empresa usa una y queda una copia propia publicada. Pendiente de ratificación de Raúl González | Daniel Ávila (con IA) |
 | 1.13.0 | 2026-11-15 | **Enmienda 010 — FR-069 (TSK-DOM-009):** alerta reportada desde la bitácora, ligada a la entrada y a su faena (migración 025); abre el bloque FR-070–079. Propuesta por Daniel Ávila, pendiente de ratificación de Raúl González | Daniel Ávila (con IA) |
 | 1.12.0 | 2026-11-15 | **Enmienda 009 — FR-068 (TSK-REP-014):** resumen de Gerencia redactado con IA a partir de las cifras agregadas del panel; reabre lo que el spec 005 §7 dejó post-V1. Propuesta por Daniel Ávila, pendiente de ratificación de Raúl González | Daniel Ávila (con IA) |

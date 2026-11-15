@@ -359,6 +359,7 @@ export class SyncService {
         if (x.requires_supervisor_signature !== undefined && typeof x.requires_supervisor_signature !== 'boolean') {
           throw new BadRequestException(`${at}.payload.requires_supervisor_signature inválido`)
         }
+        if (x.asset_id != null) this.assertUuid(x.asset_id, `${at}.payload.asset_id`)
         if (x.signature_required !== undefined && typeof x.signature_required !== 'boolean') {
           throw new BadRequestException(`${at}.payload.signature_required inválido`)
         }
@@ -606,6 +607,7 @@ export class SyncService {
             refs: [
               ['site', p.site_id],
               ['app_user', p.executed_by],
+              ...(p.asset_id ? ([['asset', p.asset_id]] as Array<[string, string]>) : []),
             ],
             insertValues: () => [
               rec.id,
@@ -625,12 +627,13 @@ export class SyncService {
               // Sólo el cliente que firma lo declara: una cola de la app anterior
               // no trae firma y su inspección queda exenta (revisable).
               p.signature_required === true,
+              p.asset_id ?? null,
             ],
             insertSql: `INSERT INTO inspection
               (id, tenant_id, site_id, template_id, template_version, executed_by,
                status, captured_at, client_version, location_lat, location_lon, synced_at,
-               queued_at, client_sent_at, requires_supervisor_signature, signature_required)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, now(), $12, $13, $14, $15)
+               queued_at, client_sent_at, requires_supervisor_signature, signature_required, asset_id)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, now(), $12, $13, $14, $15, $16)
              RETURNING id`,
             updateSql: `UPDATE inspection SET
               site_id = $3, template_id = $4, template_version = $5, executed_by = $6,
@@ -638,7 +641,8 @@ export class SyncService {
               location_lat = $10, location_lon = $11,
               synced_at = now(), updated_at = now(),
               queued_at = COALESCE($12, queued_at), client_sent_at = COALESCE($13, client_sent_at),
-              requires_supervisor_signature = $14
+              requires_supervisor_signature = $14,
+              asset_id = COALESCE($15, asset_id)
              WHERE id = $1 AND tenant_id = $2`,
             updateValues: () => [
               rec.id,
@@ -655,6 +659,7 @@ export class SyncService {
               tiempos.queuedAt,
               tiempos.sentAt,
               p.requires_supervisor_signature ?? false,
+              p.asset_id ?? null,
             ],
             payloadFrom: (r) => ({
               site_id: r.site_id,
@@ -667,6 +672,7 @@ export class SyncService {
                 r.location_lat == null || r.location_lon == null
                   ? null
                   : { lat: Number(r.location_lat), lon: Number(r.location_lon) },
+              ...(r.asset_id ? { asset_id: r.asset_id } : {}),
             }),
           }),
         )

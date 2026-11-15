@@ -18,6 +18,7 @@ import { nombreArchivoDeContentDisposition } from '@terreno/shared'
 import type {
   AssetConQrDto,
   AssetDto,
+  AssetsCatalogoResponse,
   AssetsResponse,
   AvanceHallazgoBody,
   CrearAssetBody,
@@ -898,4 +899,9 @@ export function regenerarQrActivo(id: string): Promise<AssetConQrDto> {
 
 export function cambiarEstadoActivo(id: string, status: 'active' | 'revoked'): Promise<AssetDto> {
   return apiFetch(`/assets/${encodeURIComponent(id)}/estado`, { method: 'PATCH', body: { status } })
+}
+
+/** Tramo 2: activos de las faenas de la cuenta, con su hash, para abrir un QR sin señal. */
+export function getActivosCatalogo(): Promise<AssetsCatalogoResponse> {
+  return apiFetch('/assets/catalogo')
 }

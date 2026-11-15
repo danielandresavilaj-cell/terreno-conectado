@@ -73,6 +73,20 @@ export interface InspectionRow {
   location?: { lat: number; lon: number } | null
   /** Regla de cofirma congelada cuando se creó el borrador (FR-057). */
   requiresSupervisorSignature?: boolean
+  /** TSK-OPS-003-C (FR-060): activo cuyo QR abrió la inspección. */
+  assetId?: string | null
+}
+
+/** TSK-OPS-003-C (tramo 2): activo de una faena de la cuenta, para abrir un QR sin señal. */
+export interface ActivoRow {
+  id: string
+  tenantId: string
+  siteId: string
+  templateId: string
+  name: string
+  kind: 'vehicle' | 'equipment' | 'location'
+  /** SHA-256 hex del contenido del QR (`tc1:…`); el token nunca se guarda. */
+  qrHash: string
 }
 
 export interface ResponseRow {
@@ -200,6 +214,7 @@ export const db = new Dexie('terreno-conectado') as Dexie & {
   signatures: EntityTable<InspectionSignatureRow, 'id'>
   plantillas: EntityTable<PlantillaCacheRow, 'revision_id'>
   plantillaOriginales: EntityTable<PlantillaOriginalRow, 'revision_id'>
+  activos: EntityTable<ActivoRow, 'id'>
   meta: EntityTable<{ key: string; value: MetaValue }, 'key'>
 }
 
@@ -232,6 +247,28 @@ db.version(3).stores({
 db.version(4).stores({
   signatures: 'id, inspectionId, tenantId, [inspectionId+signerRole]',
 })
+
+// v5 (TSK-OPS-003-C): activos de las faenas de la cuenta, para resolver un QR
+// sin señal por el hash de su contenido.
+db.version(5).stores({
+  activos: 'id, tenantId, qrHash',
+})
+
+/**
+ * Reemplaza los activos guardados de la empresa por la lista del servidor (es
+ * la lista completa del alcance de la cuenta): un activo revocado o de una
+ * faena que ya no es de la cuenta desaparece al sincronizar.
+ */
+export async function guardarActivosCache(tenantId: string, items: ActivoRow[]): Promise<void> {
+  await db.transaction('rw', db.activos, async () => {
+    await db.activos.where('tenantId').equals(tenantId).delete()
+    await db.activos.bulkPut(items)
+  })
+}
+
+export async function activoPorHash(tenantId: string, qrHash: string): Promise<ActivoRow | undefined> {
+  return (await db.activos.where('qrHash').equals(qrHash).toArray()).find((a) => a.tenantId === tenantId)
+}
 
 /* ------------------------------------------------- dueño de la cola (010) */
 
@@ -534,6 +571,8 @@ export async function ensureDraftInspection(params: {
    *  activa; los borradores previos arrives sin ella. */
   templateRevisionId?: string | null
   requiresSupervisorSignature?: boolean
+  /** TSK-OPS-003-C: activo cuyo QR abrió el formulario (sólo al crear el borrador). */
+  assetId?: string | null
 }): Promise<{ id: string; answeredCount: number }> {
   const existing = await getDraftInspectionId()
   if (existing) {
@@ -569,6 +608,7 @@ export async function ensureDraftInspection(params: {
     answeredCount: 0,
     totalItems: params.totalItems,
     requiresSupervisorSignature: params.requiresSupervisorSignature ?? false,
+    assetId: params.assetId ?? null,
   }
   await db.inspections.add(model)
   await setDraftInspectionId(id)
@@ -1326,6 +1366,8 @@ async function payloadDe(o: OutboxRow): Promise<{
           // debe seguir siendo revisable.
           signature_required: firmada,
           location: r.location ?? null,
+          // Sólo si el QR abrió la inspección: las demás no mandan el campo.
+          ...(r.assetId ? { asset_id: r.assetId } : {}),
         },
       }
     }

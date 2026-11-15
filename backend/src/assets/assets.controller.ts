@@ -35,6 +35,7 @@ function claims(req: AuthedRequest): JwtClaims {
  *  - POST  /api/v1/assets                   (tenant_admin; devuelve el QR una vez)
  *  - POST  /api/v1/assets/:id/regenerar     (tenant_admin; invalida el QR anterior)
  *  - PATCH /api/v1/assets/:id/estado        (tenant_admin; revocar o reactivar)
+ *  - GET   /api/v1/assets/catalogo          (cuenta de empresa; activos de sus faenas, con hash)
  *  - GET   /api/v1/assets/resolver/:hash    (cuenta de empresa; 404 si no corresponde)
  */
 @Controller('assets')
@@ -45,6 +46,11 @@ export class AssetsController {
   @Get()
   listar(@Req() req: AuthedRequest) {
     return this.svc.listar(claims(req))
+  }
+
+  @Get('catalogo')
+  catalogo(@Req() req: AuthedRequest) {
+    return this.svc.catalogo(claims(req))
   }
 
   @Get('resolver/:hash')

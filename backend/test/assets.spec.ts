@@ -15,7 +15,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { AppModule } from '../src/app.module'
 import { configureApp } from '../src/app.setup'
 import { createHash } from 'node:crypto'
-import { DEMO_PASSWORD, SITE_A_ID, SITE_B_ID, TEMPLATE_A_ID, TENANT_A_ID, TENANT_B_ID, seedDatabase } from '../db/seed'
+import { DEMO_PASSWORD, SITE_A_ID, SITE_B_ID, TEMPLATE_A_ID, TEMPLATE_B_ID, TENANT_A_ID, TENANT_B_ID, seedDatabase } from '../db/seed'
 
 /**
  * TSK-OPS-003-C (FR-060/061) — activos y QR, tramo 1 (servidor).
@@ -211,5 +211,76 @@ describe('activos y QR (TSK-OPS-003-C)', () => {
   it('un hash mal formado es 400 y uno desconocido 404', async () => {
     expect((await server().get('/api/v1/assets/resolver/xyz').set(como('workerA'))).status).toBe(400)
     expect((await resolver('workerA', 'tc1:no-existe-este-codigo-0000')).status).toBe(404)
+  })
+})
+
+describe('QR sin señal, tramo 2 (TSK-OPS-003-C)', () => {
+  const catalogo = async (quien: string) =>
+    (await server().get('/api/v1/assets/catalogo').set(como(quien))).body.items as Array<{ id: string; qr_token_hash: string; site_id: string }>
+
+  function inspeccion(tenant: string, site: string, template: string, autor: string, assetId: string | null) {
+    return {
+      entity_type: 'inspection',
+      id: randomUUID(),
+      tenant_id: tenant,
+      client_version: 1,
+      captured_at: new Date().toISOString(),
+      payload: {
+        site_id: site,
+        template_id: template,
+        template_version: 1,
+        executed_by: autor,
+        status: 'in_progress',
+        location: null,
+        ...(assetId ? { asset_id: assetId } : {}),
+      },
+    }
+  }
+  const lote = (records: unknown[]) => ({ batch_id: randomUUID(), device_id: randomUUID(), records })
+
+  it('el teléfono descarga los activos activos de sus faenas con su hash, nunca el token', async () => {
+    const activo = await crearActivo('Pala P-9')
+    const items = await catalogo('workerA')
+    const fila = items.find((a) => a.id === activo.id)
+    expect(fila).toMatchObject({ site_id: SITE_A_ID, qr_token_hash: sha(activo.qr) })
+    expect(JSON.stringify(items)).not.toContain(activo.qr.slice(4))
+    expect((await catalogo('workerB')).some((a) => a.id === activo.id)).toBe(false)
+
+    await server().patch(`/api/v1/assets/${activo.id}/estado`).set(como('adminA')).send({ status: 'revoked' }).expect(200)
+    expect((await catalogo('workerA')).some((a) => a.id === activo.id)).toBe(false)
+  })
+
+  it('con faenas asignadas a la cuenta, sólo baja los activos de esas faenas (FR-065)', async () => {
+    const norte = randomUUID()
+    await ownerPool.query("INSERT INTO site (id, tenant_id, name, kind) VALUES ($1, $2, 'Faena Sur', 'mining')", [norte, TENANT_A_ID])
+    const activo = await crearActivo('Bomba B-2')
+    await ownerPool.query('INSERT INTO user_site (tenant_id, user_id, site_id) VALUES ($1, $2, $3)', [TENANT_A_ID, ids.workerA, norte])
+    try {
+      expect((await catalogo('workerA')).some((a) => a.id === activo.id)).toBe(false)
+    } finally {
+      await ownerPool.query('DELETE FROM user_site WHERE user_id = $1', [ids.workerA])
+    }
+    expect((await catalogo('workerA')).some((a) => a.id === activo.id)).toBe(true)
+  })
+
+  it('la inspección abierta por QR guarda su activo; reenviarla sin él no lo borra', async () => {
+    const activo = await crearActivo('Cargador CF-1')
+    const ins = inspeccion(TENANT_A_ID, SITE_A_ID, TEMPLATE_A_ID, ids.workerA, activo.id)
+    const res = await server().post('/api/v1/sync/batch').set(como('workerA')).send(lote([ins]))
+    expect(res.body).toMatchObject({ records_ok: 1, records_failed: 0 })
+    const sinActivo = { ...ins, client_version: 2, payload: { ...ins.payload } } as typeof ins
+    delete (sinActivo.payload as { asset_id?: string }).asset_id
+    await server().post('/api/v1/sync/batch').set(como('workerA')).send(lote([sinActivo])).expect(200)
+    const { rows } = await ownerPool.query('SELECT asset_id FROM inspection WHERE id = $1', [ins.id])
+    expect(rows[0].asset_id).toBe(activo.id)
+  })
+
+  it('una inspección que apunta al activo de otra empresa se rechaza', async () => {
+    const activo = await crearActivo('Ajeno A-1')
+    const ins = inspeccion(TENANT_B_ID, SITE_B_ID, TEMPLATE_B_ID, ids.workerB, activo.id)
+    const res = await server().post('/api/v1/sync/batch').set(como('workerB')).send(lote([ins]))
+    expect(res.body.records_failed).toBe(1)
+    const { rows } = await ownerPool.query('SELECT count(*)::int AS n FROM inspection WHERE id = $1', [ins.id])
+    expect(rows[0].n).toBe(0)
   })
 })

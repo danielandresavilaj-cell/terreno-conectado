@@ -47,6 +47,8 @@ export interface SyncInspectionPayload {
   signature_required?: boolean
   /** FR-034: georreferencia opcional de la inspección (captura en terreno). */
   location?: { lat: number; lon: number } | null
+  /** TSK-OPS-003-C (FR-060): activo cuyo QR abrió la inspección. Opcional. */
+  asset_id?: string | null
 }
 
 /** Trazo normalizado (0…1000) de una firma manuscrita; no es biometría. */
