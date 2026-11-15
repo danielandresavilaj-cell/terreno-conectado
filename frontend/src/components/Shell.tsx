@@ -23,6 +23,7 @@ import { CountUp } from './CountUp'
 import { Boton } from './ui'
 import { BotonTema } from './BotonTema'
 import { Marca } from './Marca'
+import { subtituloEncabezado } from '../lib/roles'
 import { Topografia } from './Topografia'
 import { useEstado, type Pantalla } from '../lib/store'
 import { EASE } from '../lib/motion'
@@ -219,12 +220,13 @@ export function Shell({ children }: { children: ReactNode }) {
             <Marca tamano={30} />
             {/* En el teléfono también se ve quién está capturando y en qué
                 faena: es lo primero que alguien revisa al tomar un equipo
-                compartido (TSK-OFF-009). */}
+                compartido (TSK-OFF-009). El admin de plataforma ve su alcance
+                global en lugar de una faena (TSK-ADM-004). */}
             <div className="min-w-0">
               <p className="text-[13px] font-semibold tracking-[-0.02em] leading-tight truncate">
                 {usuario.nombre}
               </p>
-              <p className="text-[12px] text-ink-3 leading-tight truncate">{usuario.faena}</p>
+              <p className="text-[12px] text-ink-3 leading-tight truncate">{subtituloEncabezado(usuario)}</p>
             </div>
 
             <div className="flex-1" />
