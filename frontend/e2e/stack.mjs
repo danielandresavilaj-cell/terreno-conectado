@@ -436,6 +436,9 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
       process.on('SIGINT', () => {
         void apagar().then(() => process.exit(0))
       })
+      // Sin esto se llegaba al process.exit de abajo y el stack se apagaba al
+      // instante (Testcontainers retira la base al salir el proceso).
+      await new Promise(() => {})
     } else if (salida === 0) {
       await apagar()
     }
