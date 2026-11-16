@@ -1460,7 +1460,10 @@ function FilaHallazgo({
           )}
         </div>
 
-        <div className="shrink-0 flex items-end gap-2">
+        {/* Estado y gestión son una única columna: la descripción conserva el
+         * ancho que necesita y la acción queda inmediatamente asociada a su
+         * selector. */}
+        <div className="w-[5.5rem] shrink-0 flex flex-col items-stretch gap-2">
           <div className="text-right">
             <label className="label-inst block" htmlFor={`estado-${h.id}`}>
               Estado
@@ -1469,7 +1472,7 @@ function FilaHallazgo({
               id={`estado-${h.id}`}
               value={estado}
               onChange={(e) => void cambiar(e.target.value as FindingDto['status'])}
-              className="mt-1 h-11 px-2 rounded-[10px] bg-s1 border border-line-soft text-[13px]"
+              className="mt-1 h-11 w-full px-2 rounded-[10px] bg-s1 border border-line-soft text-[13px]"
             >
               <option value="open">Abierto</option>
               <option value="in_progress">En curso</option>
@@ -1478,7 +1481,8 @@ function FilaHallazgo({
           </div>
           <Boton
             tamano="sm"
-            variante={editando ? 'secundaria' : 'fantasma'}
+            variante="secundaria"
+            className="w-full"
             aria-expanded={editando}
             onClick={() => {
               if (editando) setEstado(h.status)
