@@ -1,6 +1,6 @@
 # TASKS — Ajustes desde terreno
 
-**Versión:** 1.11.0 · **Fecha:** 2026-11-16 · **Autor:** Daniel Ávila (con IA)
+**Versión:** 1.12.0 · **Fecha:** 2026-11-16 · **Autor:** Daniel Ávila (con IA)
 **Origen:** prueba en terreno con el teléfono (inspección trabada en la cola) · **Requisitos:** FR-005, FR-010, FR-012, FR-024, FR-056, FR-064, FR-067, FR-069, NFR-05, NFR-12
 
 > **Regla (Artículo II):** cada task referencia al menos un ID de requisito; cada commit referencia al menos un task.
@@ -20,6 +20,7 @@
 | TSK-REP-016 | Gerencia carga hallazgos, inspecciones y bitácora en tandas de cinco, con hallazgos por prioridad (#299, Raúl González) | FR-040, FR-041 | TSK-REP-015 | Cada bloque muestra 5 con "Ver 5 más", "Ver todos" y "Mostrar menos"; la bitácora pide cada tanda al servidor (`offset`); los filtros reinician a 5. PR #300 validado a 375 y 1280 px | ✅ Hecho |
 | TSK-REP-017 | "Ver" en Gerencia lleva al panel de revisión también en el teléfono (#297; el commit b7d84bc citó TSK-REP-016 por error) | FR-031 | TSK-REP-015 | Al abrir otra inspección el panel baja a la vista bajo la barra superior y toma el foco (sin animación si se pide menos movimiento); no vuelve a desplazar al llegar el detalle ni al revisar. Verificado a 375 px con 36 inspecciones | ✅ Hecho |
 | TSK-REP-018 | Estado y Gestionar en una sola columna en la tarjeta de hallazgo de Gerencia (#302, Raúl González; el commit del PR #303 citó TSK-REP-017, que ya estaba tomado) | FR-040 | TSK-REP-016 | El selector de estado queda sobre "Gestionar" (con borde visible) en la columna derecha y la descripción gana ancho; abrir y cancelar no cambia responsable, plazo ni nota. PR #303 validado a 375 y 1280 px | ✅ Hecho |
+| TSK-REP-019 | Gerencia más simple: filtros junto a lo que filtran, un solo bloque de hallazgos, ficha móvil, detalle de inspección en su misma ficha, botones con borde y bitácora filtrable (#304, alcance de Raúl González; su issue citaba TSK-REP-018, ya tomado) | FR-040, FR-041, FR-044, FR-063 | TSK-REP-018 | Arriba sólo queda Faena; severidad en botones en Hallazgos y autor en Inspecciones y Bitácora. Sin bloque "Hallazgos" repetido. En 375 px la descripción usa todo el ancho. "Ver" despliega y pliega en la ficha sin saltos. Ningún botón sin marco. La bitácora filtra por etiqueta y autor en el servidor y cambia total y paginación | ✅ Hecho |
 
 ## Control de cambios
 
@@ -45,3 +46,4 @@
 | 1.10.0 | 2026-11-16 | Se agrega y cierra TSK-REP-016 (el panel de revisión de Gerencia baja a la vista al tocar "Ver") | Daniel Ávila (con IA) |
 | 1.10.1 | 2026-11-16 | Ids sin repetir: TSK-REP-016 queda para las listas en tandas de Raúl (#300) y el arreglo de "Ver" pasa a TSK-REP-017 | Daniel Ávila (con IA) |
 | 1.11.0 | 2026-11-16 | Se agrega y cierra TSK-REP-018 (Estado y Gestionar agrupados en la tarjeta de hallazgo, PR #303) | Daniel Ávila (con IA) |
+| 1.12.0 | 2026-11-16 | Se agrega y cierra TSK-REP-019 (Gerencia más simple, #304) | Daniel Ávila (con IA) |
