@@ -329,8 +329,12 @@ export function pedirResumenIA(f: DashboardFiltros = {}): Promise<ResumenIA> {
   })
 }
 
-export function getBitacora(f: DashboardFiltros & { limit?: number; offset?: number } = {}): Promise<BitacoraResponse> {
-  return apiFetch<BitacoraResponse>(`/dashboard/bitacora${qsFiltros(f, { limit: f.limit, offset: f.offset })}`)
+export function getBitacora(
+  f: DashboardFiltros & { etiqueta?: string | null; autor_id?: string | null; limit?: number; offset?: number } = {},
+): Promise<BitacoraResponse> {
+  return apiFetch<BitacoraResponse>(
+    `/dashboard/bitacora${qsFiltros(f, { etiqueta: f.etiqueta, autor_id: f.autor_id, limit: f.limit, offset: f.offset })}`,
+  )
 }
 
 export interface FindingsFiltros extends DashboardFiltros {

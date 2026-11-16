@@ -147,6 +147,26 @@ describe('GET /api/v1/dashboard/bitacora (FR-063)', () => {
     expect(res.body.items.map((e: { id: string }) => e.id)).toEqual([deOtraFaena])
   })
 
+  it('TSK-REP-019: filtra por etiqueta (sin distinguir mayúsculas) y por autor, y ofrece las opciones del período', async () => {
+    const relevo = await server().get('/api/v1/dashboard/bitacora?etiqueta=relevo').set(como('supA'))
+    expect(relevo.status).toBe(200)
+    expect(relevo.body.total).toBe(1)
+    expect(relevo.body.items.map((e: { id: string }) => e.id)).toEqual([reciente])
+    // Las opciones no dependen del filtro elegido: elegir una etiqueta no borra las demás.
+    expect(relevo.body.etiquetas).toEqual([{ etiqueta: 'Relevo', n: 1 }])
+    expect(relevo.body.autores).toEqual([{ id: ids.workerA, nombre: 'Pedro Trabajador', n: 3 }])
+
+    const delAutor = await server().get(`/api/v1/dashboard/bitacora?autor_id=${ids.workerA}`).set(como('supA'))
+    expect(delAutor.body.total).toBe(3)
+    const deOtro = await server().get(`/api/v1/dashboard/bitacora?autor_id=${ids.supA}`).set(como('supA'))
+    expect(deOtro.body.total).toBe(0)
+    expect(deOtro.body.autores).toHaveLength(1)
+
+    const sinCoincidencia = await server().get('/api/v1/dashboard/bitacora?etiqueta=Clima').set(como('supA'))
+    expect(sinCoincidencia.body).toMatchObject({ total: 0, items: [] })
+    expect((await server().get('/api/v1/dashboard/bitacora?autor_id=x').set(como('supA'))).status).toBe(400)
+  })
+
   it('otra empresa no ve nada (RLS); plataforma → 403; sin sesión → 401; filtro inválido → 400', async () => {
     const ajena = await server().get('/api/v1/dashboard/bitacora').set(como('supB'))
     expect(ajena.status).toBe(200)

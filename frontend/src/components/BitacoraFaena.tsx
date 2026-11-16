@@ -3,9 +3,13 @@
  * Lo que otras personas escribieron: el relevo del turno anterior para quien
  * entra, y la vista de supervisión. Necesita señal; sin ella lo dice en vez de
  * mostrar una lista vacía que parezca "no pasó nada".
+ *
+ * TSK-REP-019: con `conFiltros`, Gerencia filtra por etiqueta (Relevo, Clima,
+ * Incidencia…) y por autor. Las opciones las entrega el servidor según el
+ * período y la faena, y filtrar cambia el total y la paginación en el servidor.
  */
-import { useCallback, useEffect, useState } from 'react'
-import type { BitacoraEntradaDto } from '@terreno/shared'
+import { useCallback, useEffect, useState, type ReactNode } from 'react'
+import type { BitacoraEntradaDto, BitacoraResponse } from '@terreno/shared'
 import { ApiError, getBitacora } from '../lib/api'
 import { TANDA_LISTADO } from '../lib/listas-progresivas'
 import { ControlesListado } from './ControlesListado'
@@ -26,6 +30,7 @@ export function BitacoraFaena({
   online,
   limite = TANDA_LISTADO,
   mostrarFaena = false,
+  conFiltros = false,
 }: {
   /** `null` = todas las faenas de la empresa. */
   faenaId: string | null
@@ -34,8 +39,13 @@ export function BitacoraFaena({
   online: boolean
   limite?: number
   mostrarFaena?: boolean
+  conFiltros?: boolean
 }) {
   const [estado, setEstado] = useState<Estado>({ fase: 'cargando' })
+  const [etiqueta, setEtiqueta] = useState('')
+  const [autor, setAutor] = useState('')
+  const [opciones, setOpciones] = useState<Pick<BitacoraResponse, 'etiquetas' | 'autores'>>({ etiquetas: [], autores: [] })
+  const filtros = { site_id: faenaId, desde, hasta, etiqueta: etiqueta || null, autor_id: autor || null }
   const [cargandoMas, setCargandoMas] = useState(false)
   const [errorMas, setErrorMas] = useState<string | null>(null)
 
@@ -48,15 +58,23 @@ export function BitacoraFaena({
     setErrorMas(null)
     setEstado({ fase: 'cargando' })
     try {
-      const r = await getBitacora({ site_id: faenaId, desde, hasta, limit: limite })
+      const r = await getBitacora({ site_id: faenaId, desde, hasta, etiqueta: etiqueta || null, autor_id: autor || null, limit: limite })
       setEstado({ fase: 'ok', items: r.items, total: r.total })
+      setOpciones({ etiquetas: r.etiquetas ?? [], autores: r.autores ?? [] })
     } catch (err) {
       setEstado({
         fase: 'error',
         mensaje: err instanceof ApiError ? err.detalle : 'No se pudo leer la bitácora.',
       })
     }
-  }, [faenaId, desde, hasta, limite, online])
+  }, [faenaId, desde, hasta, etiqueta, autor, limite, online])
+
+  /* Si cambia el período o la faena y la etiqueta o el autor elegidos ya no
+   * existen ahí, se vuelve a "todas" para no dejar un filtro invisible. */
+  useEffect(() => {
+    if (etiqueta && !opciones.etiquetas.some((e) => e.etiqueta === etiqueta)) setEtiqueta('')
+    if (autor && !opciones.autores.some((a) => a.id === autor)) setAutor('')
+  }, [opciones, etiqueta, autor])
 
   useEffect(() => {
     void cargar()
@@ -67,13 +85,7 @@ export function BitacoraFaena({
     setCargandoMas(true)
     setErrorMas(null)
     try {
-      const r = await getBitacora({
-        site_id: faenaId,
-        desde,
-        hasta,
-        limit: limite,
-        offset: estado.items.length,
-      })
+      const r = await getBitacora({ ...filtros, limit: limite, offset: estado.items.length })
       setEstado((prev) => {
         if (prev.fase !== 'ok') return prev
         const existentes = new Set(prev.items.map((item) => item.id))
@@ -88,7 +100,8 @@ export function BitacoraFaena({
     } finally {
       setCargandoMas(false)
     }
-  }, [cargandoMas, estado, faenaId, desde, hasta, limite])
+    // `filtros` se arma con estos mismos valores en cada render.
+  }, [cargandoMas, estado, faenaId, desde, hasta, etiqueta, autor, limite])
 
   const mostrarMenos = () => {
     setEstado((prev) =>
@@ -97,11 +110,33 @@ export function BitacoraFaena({
     setErrorMas(null)
   }
 
+  const hayFiltro = Boolean(etiqueta || autor)
+  const barra =
+    conFiltros && (opciones.etiquetas.length > 0 || opciones.autores.length > 1 || hayFiltro) ? (
+      <FiltrosBitacora
+        etiquetas={opciones.etiquetas}
+        autores={opciones.autores}
+        etiqueta={etiqueta}
+        autor={autor}
+        onEtiqueta={setEtiqueta}
+        onAutor={setAutor}
+      />
+    ) : null
+  const conBarra = (contenido: ReactNode) =>
+    barra ? (
+      <div className="space-y-2.5">
+        {barra}
+        {contenido}
+      </div>
+    ) : (
+      contenido
+    )
+
   if (estado.fase === 'cargando') {
-    return <p className="panel p-5 text-[14px] text-ink-2" role="status">Leyendo la bitácora…</p>
+    return conBarra(<p className="panel p-5 text-[14px] text-ink-2" role="status">Leyendo la bitácora…</p>)
   }
   if (estado.fase === 'error') {
-    return (
+    return conBarra(
       <div className="panel p-5 flex flex-wrap items-center justify-between gap-3">
         <p className="text-[14px] text-ink-2" role="status">{estado.mensaje}</p>
         {online && (
@@ -109,14 +144,19 @@ export function BitacoraFaena({
             Reintentar
           </Boton>
         )}
-      </div>
+      </div>,
     )
   }
   if (estado.items.length === 0) {
-    return <p className="panel p-5 text-[14px] text-ink-2">Nadie ha escrito en la bitácora en este período.</p>
+    return conBarra(
+      <p className="panel p-5 text-[14px] text-ink-2">
+        {hayFiltro ? 'Ninguna entrada con estos filtros en el período.' : 'Nadie ha escrito en la bitácora en este período.'}
+      </p>,
+    )
   }
   return (
     <div className="space-y-2.5">
+      {barra}
       {estado.items.map((e) => {
         const fecha = new Date(e.captured_at)
         return (
@@ -156,6 +196,67 @@ export function BitacoraFaena({
         onMostrarMenos={mostrarMenos}
       />
       {errorMas && <p role="alert" className="text-[12px] text-sev-alta">{errorMas}</p>}
+    </div>
+  )
+}
+
+/** TSK-REP-019: etiquetas como botones (con su cantidad) y autor como selector. */
+function FiltrosBitacora({
+  etiquetas,
+  autores,
+  etiqueta,
+  autor,
+  onEtiqueta,
+  onAutor,
+}: {
+  etiquetas: BitacoraResponse['etiquetas']
+  autores: BitacoraResponse['autores']
+  etiqueta: string
+  autor: string
+  onEtiqueta: (v: string) => void
+  onAutor: (v: string) => void
+}) {
+  const boton = (valor: string, texto: string, n?: number) => {
+    const activo = etiqueta === valor
+    return (
+      <button
+        key={valor || 'todas'}
+        type="button"
+        aria-pressed={activo}
+        onClick={() => onEtiqueta(valor)}
+        className={[
+          'min-h-11 px-3 rounded-lg border text-[13px] font-medium cursor-pointer whitespace-nowrap transition-colors',
+          activo ? 'border-beam bg-beam/10 text-beam' : 'border-line text-ink-2 hover:text-ink hover:bg-s3',
+        ].join(' ')}
+      >
+        {texto}
+        {n !== undefined && <span className="ml-1.5 num-inst text-[12px] opacity-70">{n}</span>}
+      </button>
+    )
+  }
+  return (
+    <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Filtros de la bitácora">
+      {etiquetas.length > 0 && (
+        <div className="flex flex-wrap gap-1.5" role="group" aria-label="Etiqueta">
+          {boton('', 'Todas')}
+          {etiquetas.map((e) => boton(e.etiqueta, e.etiqueta, e.n))}
+        </div>
+      )}
+      {autores.length > 1 && (
+        <select
+          aria-label="Autor de la bitácora"
+          value={autor}
+          onChange={(e) => onAutor(e.target.value)}
+          className="h-11 px-2 rounded-lg bg-s1 border border-line-soft text-[13px] max-w-[220px]"
+        >
+          <option value="">Todos los autores</option>
+          {autores.map((a) => (
+            <option key={a.id} value={a.id}>
+              {a.nombre} ({a.n})
+            </option>
+          ))}
+        </select>
+      )}
     </div>
   )
 }
