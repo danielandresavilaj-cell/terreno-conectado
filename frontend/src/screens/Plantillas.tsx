@@ -288,9 +288,12 @@ export function Plantillas() {
         <div className="space-y-3">
           {visibles.map((p) => (
             <article key={p.revision_id} className="panel p-4 space-y-3">
-              <div className="flex items-center justify-between gap-2">
-                <h2 className="text-[15px] font-semibold tracking-[-0.01em] min-w-0 break-words">{p.name}</h2>
-                <div className="flex items-center gap-2 shrink-0">
+              {/* En teléfono el nombre y las acciones no compiten por la misma
+               * fila: un nombre importado puede ser muy largo. En escritorio
+               * recuperan la composición compacta lado a lado. */}
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <h2 className="min-w-0 text-[15px] font-semibold tracking-[-0.01em] break-words">{p.name}</h2>
+                <div className="flex flex-wrap items-center gap-1 self-start sm:shrink-0 sm:self-auto">
                   <Chip>v{p.version}</Chip>
                   <Boton tamano="sm" variante="fantasma" onClick={() => setPrevia(p)}>
                     Vista previa
@@ -325,28 +328,30 @@ export function Plantillas() {
                   ...faenas.map((f) => ({ siteId: f.id, label: f.nombre })),
                 ]
                 return (
-                  <div key={rol.id} className="flex flex-wrap items-center gap-1.5">
-                    <span className="label-inst w-24 shrink-0">{rol.label}</span>
-                    {targets.map((t) => {
-                      const k = clave(p.revision_id, t.siteId, rol.id)
-                      const asignada = asignaciones.some(
-                        (a) => clave(a.template_revision_id, a.site_id, a.role) === k,
-                      )
-                      const ocupada = pendiente === k
-                      return (
-                        <Boton
-                          key={k}
-                          tamano="sm"
-                          variante={asignada ? 'primaria' : 'secundaria'}
-                          disabled={ocupada}
-                          onClick={() => void alternar(p.revision_id, t.siteId, rol.id)}
-                          aria-pressed={asignada}
-                        >
-                          {asignada ? '✓ ' : '+ '}
-                          {t.label}
-                        </Boton>
-                      )
-                    })}
+                  <div key={rol.id} className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                    <span className="label-inst shrink-0 sm:w-24">{rol.label}</span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {targets.map((t) => {
+                        const k = clave(p.revision_id, t.siteId, rol.id)
+                        const asignada = asignaciones.some(
+                          (a) => clave(a.template_revision_id, a.site_id, a.role) === k,
+                        )
+                        const ocupada = pendiente === k
+                        return (
+                          <Boton
+                            key={k}
+                            tamano="sm"
+                            variante={asignada ? 'primaria' : 'secundaria'}
+                            disabled={ocupada}
+                            onClick={() => void alternar(p.revision_id, t.siteId, rol.id)}
+                            aria-pressed={asignada}
+                          >
+                            {asignada ? '✓ ' : '+ '}
+                            {t.label}
+                          </Boton>
+                        )
+                      })}
+                    </div>
                   </div>
                 )
               })}
@@ -369,14 +374,14 @@ export function Plantillas() {
           </summary>
           <ul className="mt-2 space-y-2">
             {archivadas.map((a) => (
-              <li key={a.template_id} className="panel px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+              <li key={a.template_id} className="panel flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="min-w-0">
                   <p className="text-[14px] font-medium break-words">{a.name}</p>
                   <p className="text-[13px] text-ink-2">
                     Archivado el {new Date(a.archivada_at).toLocaleDateString('es-CL', { day: 'numeric', month: 'short', year: 'numeric' })}
                   </p>
                 </div>
-                <Boton tamano="sm" variante="secundaria" disabled={ocupado !== null} onClick={() => void cambiarEstado(a.template_id, 'active')}>
+                <Boton className="self-start sm:shrink-0" tamano="sm" variante="secundaria" disabled={ocupado !== null} onClick={() => void cambiarEstado(a.template_id, 'active')}>
                   {ocupado === a.template_id ? 'Restaurando…' : 'Restaurar'}
                 </Boton>
               </li>
