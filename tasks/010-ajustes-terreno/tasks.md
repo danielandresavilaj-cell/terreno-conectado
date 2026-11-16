@@ -1,6 +1,6 @@
 # TASKS — Ajustes desde terreno
 
-**Versión:** 1.10.1 · **Fecha:** 2026-11-15 · **Autor:** Daniel Ávila (con IA)
+**Versión:** 1.11.0 · **Fecha:** 2026-11-16 · **Autor:** Daniel Ávila (con IA)
 **Origen:** prueba en terreno con el teléfono (inspección trabada en la cola) · **Requisitos:** FR-005, FR-010, FR-012, FR-024, FR-056, FR-064, FR-067, FR-069, NFR-05, NFR-12
 
 > **Regla (Artículo II):** cada task referencia al menos un ID de requisito; cada commit referencia al menos un task.
@@ -19,6 +19,7 @@
 | TSK-DEMO-002 | Empresa de demostración por la API: script reproducible de la empresa ficticia para la presentación (plan 011) | FR-001, FR-064, FR-069, NFR-05 | TSK-FORM-025, TSK-OPS-003-C | `infra/tools/demo-datos.mjs` crea empresa, faenas, cuentas, formularios del catálogo, activos y 8 semanas de historia sólo con la API; claves sólo en `.demo-cuentas.local.json` (ignorado); ensayo local sin fallos | 🔄 En curso |
 | TSK-REP-016 | Gerencia carga hallazgos, inspecciones y bitácora en tandas de cinco, con hallazgos por prioridad (#299, Raúl González) | FR-040, FR-041 | TSK-REP-015 | Cada bloque muestra 5 con "Ver 5 más", "Ver todos" y "Mostrar menos"; la bitácora pide cada tanda al servidor (`offset`); los filtros reinician a 5. PR #300 validado a 375 y 1280 px | ✅ Hecho |
 | TSK-REP-017 | "Ver" en Gerencia lleva al panel de revisión también en el teléfono (#297; el commit b7d84bc citó TSK-REP-016 por error) | FR-031 | TSK-REP-015 | Al abrir otra inspección el panel baja a la vista bajo la barra superior y toma el foco (sin animación si se pide menos movimiento); no vuelve a desplazar al llegar el detalle ni al revisar. Verificado a 375 px con 36 inspecciones | ✅ Hecho |
+| TSK-REP-018 | Estado y Gestionar en una sola columna en la tarjeta de hallazgo de Gerencia (#302, Raúl González; el commit del PR #303 citó TSK-REP-017, que ya estaba tomado) | FR-040 | TSK-REP-016 | El selector de estado queda sobre "Gestionar" (con borde visible) en la columna derecha y la descripción gana ancho; abrir y cancelar no cambia responsable, plazo ni nota. PR #303 validado a 375 y 1280 px | ✅ Hecho |
 
 ## Control de cambios
 
@@ -43,3 +44,4 @@
 | 1.9.0 | 2026-11-15 | Se agrega TSK-DEMO-002 (empresa de demostración por la API) | Daniel Ávila (con IA) |
 | 1.10.0 | 2026-11-16 | Se agrega y cierra TSK-REP-016 (el panel de revisión de Gerencia baja a la vista al tocar "Ver") | Daniel Ávila (con IA) |
 | 1.10.1 | 2026-11-16 | Ids sin repetir: TSK-REP-016 queda para las listas en tandas de Raúl (#300) y el arreglo de "Ver" pasa a TSK-REP-017 | Daniel Ávila (con IA) |
+| 1.11.0 | 2026-11-16 | Se agrega y cierra TSK-REP-018 (Estado y Gestionar agrupados en la tarjeta de hallazgo, PR #303) | Daniel Ávila (con IA) |
