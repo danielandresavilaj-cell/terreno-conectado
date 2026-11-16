@@ -7,6 +7,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { BitacoraEntradaDto } from '@terreno/shared'
 import { ApiError, getBitacora } from '../lib/api'
+import { TANDA_LISTADO } from '../lib/listas-progresivas'
+import { ControlesListado } from './ControlesListado'
 import { Boton } from './ui'
 
 const FECHA = new Intl.DateTimeFormat('es-CL', { weekday: 'short', day: 'numeric', month: 'short' })
@@ -22,7 +24,7 @@ export function BitacoraFaena({
   desde,
   hasta,
   online,
-  limite = 30,
+  limite = TANDA_LISTADO,
   mostrarFaena = false,
 }: {
   /** `null` = todas las faenas de la empresa. */
@@ -34,12 +36,16 @@ export function BitacoraFaena({
   mostrarFaena?: boolean
 }) {
   const [estado, setEstado] = useState<Estado>({ fase: 'cargando' })
+  const [cargandoMas, setCargandoMas] = useState(false)
+  const [errorMas, setErrorMas] = useState<string | null>(null)
 
   const cargar = useCallback(async () => {
     if (!online) {
       setEstado({ fase: 'error', mensaje: 'Sin señal: la bitácora de la faena se ve cuando vuelva la conexión.' })
       return
     }
+    setCargandoMas(false)
+    setErrorMas(null)
     setEstado({ fase: 'cargando' })
     try {
       const r = await getBitacora({ site_id: faenaId, desde, hasta, limit: limite })
@@ -55,6 +61,41 @@ export function BitacoraFaena({
   useEffect(() => {
     void cargar()
   }, [cargar])
+
+  const cargarMas = useCallback(async () => {
+    if (estado.fase !== 'ok' || cargandoMas || estado.items.length >= estado.total) return
+    setCargandoMas(true)
+    setErrorMas(null)
+    try {
+      const r = await getBitacora({
+        site_id: faenaId,
+        desde,
+        hasta,
+        limit: limite,
+        offset: estado.items.length,
+      })
+      setEstado((prev) => {
+        if (prev.fase !== 'ok') return prev
+        const existentes = new Set(prev.items.map((item) => item.id))
+        return {
+          fase: 'ok',
+          items: [...prev.items, ...r.items.filter((item) => !existentes.has(item.id))],
+          total: r.total,
+        }
+      })
+    } catch (err) {
+      setErrorMas(err instanceof ApiError ? err.detalle : 'No se pudieron cargar más entradas.')
+    } finally {
+      setCargandoMas(false)
+    }
+  }, [cargandoMas, estado, faenaId, desde, hasta, limite])
+
+  const mostrarMenos = () => {
+    setEstado((prev) =>
+      prev.fase === 'ok' ? { ...prev, items: prev.items.slice(0, limite) } : prev,
+    )
+    setErrorMas(null)
+  }
 
   if (estado.fase === 'cargando') {
     return <p className="panel p-5 text-[14px] text-ink-2" role="status">Leyendo la bitácora…</p>
@@ -106,11 +147,15 @@ export function BitacoraFaena({
           </article>
         )
       })}
-      {estado.total > estado.items.length && (
-        <p className="text-[13px] text-ink-3">
-          Se muestran las {estado.items.length} más recientes de {estado.total}.
-        </p>
-      )}
+      <ControlesListado
+        mostrados={estado.items.length}
+        total={estado.total}
+        paso={limite}
+        cargando={cargandoMas}
+        onVerMas={() => void cargarMas()}
+        onMostrarMenos={mostrarMenos}
+      />
+      {errorMas && <p role="alert" className="text-[12px] text-sev-alta">{errorMas}</p>}
     </div>
   )
 }

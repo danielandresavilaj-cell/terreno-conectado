@@ -53,10 +53,12 @@ import { exportacionIndividualPdf, PanelExportar } from '../components/dashboard
 import { FirmaCierre } from '../components/FirmaCierre'
 import { FotoEvidencia } from '../components/FotoEvidencia'
 import { BitacoraFaena } from '../components/BitacoraFaena'
+import { ControlesListado } from '../components/ControlesListado'
 import { TendenciaSemanal } from '../components/dashboard/TendenciaSemanal'
 import { ResumenIA } from '../components/dashboard/ResumenIA'
 import { estadoPlazo, hoyLocal, plazoSugerido, type EstadoPlazo } from '../lib/plazo'
 import { PERIODOS, rangoPeriodo, type Periodo, type RangoFechas } from '../lib/periodos'
+import { ordenarHallazgosPorPrioridad, ordenarPorFechaReciente, siguienteLimite, TANDA_LISTADO } from '../lib/listas-progresivas'
 import { EASE } from '../lib/motion'
 import type { DashboardSummary, DashboardSupervision, FindingDto, InspectionDetalle, InspectionListaItem } from '@terreno/shared'
 import type { InspeccionEstado, Severidad } from '../lib/types'
@@ -143,6 +145,8 @@ export function Dashboard() {
   const [formularioFiltro, setFormularioFiltro] = useState('')
   const [estadoFiltro, setEstadoFiltro] = useState('')
   const [seleccion, setSeleccion] = useState<Set<string>>(new Set())
+  const [limiteHallazgos, setLimiteHallazgos] = useState(TANDA_LISTADO)
+  const [limiteInspecciones, setLimiteInspecciones] = useState(TANDA_LISTADO)
   const [formularios, setFormularios] = useState<Map<string, string>>(new Map())
   const [datos, setDatos] = useState<{ summary: DashboardSummary; hallazgos: FindingDto[] } | null>(null)
   const [cargando, setCargando] = useState(false)
@@ -281,6 +285,16 @@ export function Dashboard() {
       (faena === 'todas' || h.faena_id === faena) &&
       (autor === 'todos' || h.autor_id === autor),
   )
+  /* Lo urgente gana espacio primero: una acción vencida importa más que la
+   * cronología y, entre las restantes, manda la severidad. Con empate se
+   * conserva la lectura temporal, de lo más reciente a lo más antiguo. */
+  const hallazgosOrdenados = useMemo(() => ordenarHallazgosPorPrioridad(filtrados, hoy), [filtrados, hoy])
+  const hallazgosVisibles = hallazgosOrdenados.slice(0, limiteHallazgos)
+  const inspeccionesOrdenadas = useMemo(
+    () => ordenarPorFechaReciente(inspecciones),
+    [inspecciones],
+  )
+  const inspeccionesVisibles = inspeccionesOrdenadas.slice(0, limiteInspecciones)
 
   /* FR-042: export CSV de lo que está filtrado en pantalla. */
   const exportarCsv = () => {
@@ -324,11 +338,14 @@ export function Dashboard() {
     }
   }
 
-  /* La selección se limpia al cambiar el filtro: elegir y luego filtrar otra
-   * cosa exportaría inspecciones que ya no están en pantalla. */
+  /* Un cambio de filtro devuelve cada bloque a la primera tanda y limpia la
+   * selección: elegir y luego filtrar otra cosa exportaría registros que ya no
+   * están en pantalla. */
   useEffect(() => {
     setSeleccion(new Set())
-  }, [periodo, faena, rango, formularioFiltro, estadoFiltro, autor])
+    setLimiteHallazgos(TANDA_LISTADO)
+    setLimiteInspecciones(TANDA_LISTADO)
+  }, [periodo, faena, rango, formularioFiltro, estadoFiltro, autor, sevFiltro, soloVencidos])
 
   const alternar = (id: string) =>
     setSeleccion((prev) => {
@@ -337,7 +354,18 @@ export function Dashboard() {
       else n.add(id)
       return n
     })
-  const todasMarcadas = inspecciones.length > 0 && inspecciones.every((i) => seleccion.has(i.id))
+  const todasMarcadas =
+    inspeccionesVisibles.length > 0 && inspeccionesVisibles.every((i) => seleccion.has(i.id))
+  const alternarTodasVisibles = () =>
+    setSeleccion((prev) => {
+      const n = new Set(prev)
+      if (todasMarcadas) {
+        for (const i of inspeccionesVisibles) n.delete(i.id)
+      } else {
+        for (const i of inspeccionesVisibles) n.add(i.id)
+      }
+      return n
+    })
   const filtrosExport = {
     ...filtrosDe(periodo, faena, rango),
     template_id: formularioFiltro || undefined,
@@ -617,7 +645,9 @@ export function Dashboard() {
               {/* ── Listado de hallazgos: crossfade, sin stagger ──────────── */}
               <section className="space-y-2.5">
                 <div className="flex items-center gap-3">
-                  <h2 className="label-inst">Hallazgos filtrados · {filtrados.length}</h2>
+                  <h2 className="label-inst">
+                    Hallazgos filtrados · {hallazgosVisibles.length} de {hallazgosOrdenados.length}
+                  </h2>
                   <div className="flex-1 rule" />
                   <button
                     type="button"
@@ -650,9 +680,19 @@ export function Dashboard() {
                         </p>
                       </div>
                     ) : (
-                      filtrados.map((h) => (
+                      hallazgosVisibles.map((h) => (
                         <FilaHallazgo key={h.id} h={h} onCambio={() => void cargar()} responsables={responsables} />
                       ))
+                    )}
+                    {hallazgosOrdenados.length > 0 && (
+                      <ControlesListado
+                        mostrados={hallazgosVisibles.length}
+                        total={hallazgosOrdenados.length}
+                        paso={TANDA_LISTADO}
+                        onVerMas={() => setLimiteHallazgos((actual) => siguienteLimite(actual, hallazgosOrdenados.length))}
+                        onVerTodos={() => setLimiteHallazgos(hallazgosOrdenados.length)}
+                        onMostrarMenos={() => setLimiteHallazgos(TANDA_LISTADO)}
+                      />
                     )}
                   </motion.div>
                 </AnimatePresence>
@@ -668,7 +708,7 @@ export function Dashboard() {
               <section className="space-y-2.5">
                 <div className="flex items-center gap-3 flex-wrap">
                   <h2 className="label-inst">
-                    Inspecciones del período · {inspecciones.length}
+                    Inspecciones del período · {inspeccionesVisibles.length} de {inspeccionesOrdenadas.length}
                   </h2>
                   <div className="flex-1 rule" />
                   <Chip>{nombreFaena}</Chip>
@@ -724,9 +764,9 @@ export function Dashboard() {
                       <div className={`hidden px-4 ${COLUMNAS_INSPECCION}`}>
                         <input
                           type="checkbox"
-                          aria-label="Elegir todas las de la lista"
+                          aria-label={`Elegir las ${inspeccionesVisibles.length} inspecciones visibles`}
                           checked={todasMarcadas}
-                          onChange={() => setSeleccion(todasMarcadas ? new Set() : new Set(inspecciones.map((i) => i.id)))}
+                          onChange={alternarTodasVisibles}
                         />
                         {['Faena', 'Plantilla', 'Ejecutado por', 'Estado', 'Resp.', 'Fecha', 'Acciones'].map(
                           (h) => (
@@ -737,7 +777,7 @@ export function Dashboard() {
                         )}
                       </div>
                     </div>
-                    {inspecciones.map((i) => (
+                    {inspeccionesVisibles.map((i) => (
                       <FilaInspeccion
                         key={i.id}
                         i={i}
@@ -750,6 +790,14 @@ export function Dashboard() {
                         onSeleccionar={() => alternar(i.id)}
                       />
                     ))}
+                    <ControlesListado
+                      mostrados={inspeccionesVisibles.length}
+                      total={inspeccionesOrdenadas.length}
+                      paso={TANDA_LISTADO}
+                      onVerMas={() => setLimiteInspecciones((actual) => siguienteLimite(actual, inspeccionesOrdenadas.length))}
+                      onVerTodos={() => setLimiteInspecciones(inspeccionesOrdenadas.length)}
+                      onMostrarMenos={() => setLimiteInspecciones(TANDA_LISTADO)}
+                    />
                   </div>
                 )}
                 {detalleInspeccion.fase !== 'inactivo' && (
@@ -785,7 +833,7 @@ export function Dashboard() {
               desde={rangoBitacora.desde ?? undefined}
               hasta={rangoBitacora.hasta ?? undefined}
               online={online}
-              limite={20}
+              limite={TANDA_LISTADO}
               mostrarFaena={faena === 'todas'}
             />
           </section>
