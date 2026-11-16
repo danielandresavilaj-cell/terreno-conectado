@@ -86,7 +86,7 @@ export function PanelExportar({
   }
 
   return (
-    <div className="panel p-4 space-y-3">
+    <div className="panel space-y-2.5 p-3 sm:p-4">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <p className="text-[13px] font-medium">
           Exportar {seleccion.length > 0 ? `${seleccion.length} elegidas` : `lo filtrado (${totalFiltrado}${totalFiltrado >= 200 ? '+' : ''})`}
@@ -102,18 +102,18 @@ export function PanelExportar({
         </p>
       </div>
 
-      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4" role="radiogroup" aria-label="Formato">
+      <div className="grid grid-cols-2 gap-1.5 lg:grid-cols-4" role="radiogroup" aria-label="Formato">
         {FORMATOS.map((f) => (
           <label
             key={f.id}
             className={[
-              'rounded-lg border px-3 py-2.5 cursor-pointer transition-colors',
+              'min-w-0 cursor-pointer rounded-lg border px-2.5 py-2 transition-colors',
               formato === f.id ? 'border-beam bg-beam/[0.06]' : 'border-line-soft hover:border-beam/50',
             ].join(' ')}
           >
             <input type="radio" name="formato-export" className="sr-only" checked={formato === f.id} onChange={() => setFormato(f.id)} />
-            <span className="block text-[13px] font-medium">{f.titulo}</span>
-            <span className="block mt-0.5 text-[11px] text-ink-3 leading-snug">{f.detalle}</span>
+            <span className="block text-[12px] font-medium leading-snug">{f.titulo}</span>
+            <span className="mt-0.5 block text-[10px] leading-snug text-ink-3">{f.detalle}</span>
           </label>
         ))}
       </div>

@@ -856,10 +856,10 @@ function tiempoRelativo(iso: string): string {
  * plantilla. Es una sola línea declarativa justamente para que no puedan
  * desalinearse — el rótulo "Resp." tiene que caer sobre el número.
  *
- * TSK-REP-010: en pantallas angostas la fila se apila como tarjeta (casilla a
- * la izquierda, datos en una columna) y la cabecera se oculta. Antes la tabla
- * tenía 870 px mínimos y en el teléfono se desbordaba: el supervisor revisa
- * también desde terreno.
+ * TSK-REP-010: en pantallas angostas la fila pasa a tarjeta y la cabecera se
+ * oculta. TSK-REP-015 la condensa en tres líneas para que Gerencia no se haga
+ * interminable en teléfono. Antes la tabla tenía 870 px mínimos y se
+ * desbordaba: el supervisor revisa también desde terreno.
  */
 const SELECT_FILTRO = 'h-11 px-2 rounded-lg bg-s1 border border-line-soft text-[13px] max-w-[220px]'
 /** TSK-REP-012: selectores de la barra de filtros del panel. */
@@ -869,8 +869,6 @@ const COLUMNAS_INSPECCION = [
   'lg:grid lg:items-center lg:gap-3',
   'lg:grid-cols-[1.25rem_minmax(0,1fr)_minmax(0,1.5fr)_minmax(0,1fr)_7rem_4.5rem_6rem_13.5rem]',
 ].join(' ')
-
-const GRID_INSPECCION = `grid grid-cols-[1.25rem_minmax(0,1fr)] items-start gap-x-3 gap-y-1.5 ${COLUMNAS_INSPECCION}`
 
 /**
  * Fila de una inspección con su acción de descarga.
@@ -901,8 +899,79 @@ function FilaInspeccion({
 }) {
   const meta = ESTADO_META[i.status]
   return (
-    <div className="panel px-4 py-3">
-      <div className={GRID_INSPECCION}>
+    <div className="panel px-3 py-2.5 lg:px-4 lg:py-3">
+      {/* En teléfono cada registro se condensa en tres líneas: identifica,
+       * entrega contexto y termina con los datos/acciones. Los controles siguen
+       * midiendo 44 px para usarse con guantes. */}
+      <div className="grid grid-cols-[1.25rem_minmax(0,1fr)_auto] items-start gap-x-2.5 gap-y-1 lg:hidden">
+        <input
+          type="checkbox"
+          className="row-span-3 mt-1 h-5 w-5"
+          aria-label={`Elegir inspección de ${i.faena_nombre}`}
+          checked={seleccionada}
+          onChange={onSeleccionar}
+        />
+        <div className="min-w-0">
+          <p className="text-[13px] font-medium truncate">
+            {i.template_nombre ?? 'Plantilla no disponible'}
+          </p>
+          <p className="label-inst">
+            versión {i.template_version}
+            {i.respuestas === 0 && ' · sin respuestas'}
+          </p>
+        </div>
+        <span className="justify-self-end">
+          <Chip color={meta.color}>{meta.label}</Chip>
+        </span>
+        <p className="col-span-2 col-start-2 truncate text-[12px] text-ink-2">
+          {i.faena_nombre}
+          <span className="px-1 text-ink-3">·</span>
+          {i.ejecutado_por}
+        </p>
+        <div className="col-span-2 col-start-2 flex items-center justify-between gap-2 pt-1">
+          <p className="min-w-0 truncate num-inst text-[12px] text-ink-2">
+            {i.respuestas} resp.
+            <span className="px-1 text-ink-3">·</span>
+            {fechaCorta(i.captured_at)}
+          </p>
+          <div className="flex shrink-0 items-center gap-1">
+            <Boton
+              tamano="sm"
+              variante="fantasma"
+              disabled={revisando}
+              aria-busy={revisando}
+              aria-label={`Revisar inspección de ${i.template_nombre ?? i.faena_nombre}`}
+              onClick={() => onRevisar(i)}
+            >
+              {revisando ? '…' : 'Ver'}
+            </Boton>
+            <Boton
+              tamano="sm"
+              variante="secundaria"
+              disabled={descargando}
+              aria-busy={descargando}
+              aria-label={`Descargar PDF de ${i.template_nombre ?? i.faena_nombre}`}
+              onClick={() => onDescargar(i)}
+              icono={
+                <svg width="13" height="13" viewBox="0 0 14 14" fill="none" aria-hidden>
+                  <path
+                    d="M7 1.8v7.4M4.2 6.6 7 9.4l2.8-2.8"
+                    stroke="currentColor"
+                    strokeWidth="1.4"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                  <path d="M2.2 11.4h9.6" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+                </svg>
+              }
+            >
+              {descargando ? '…' : 'PDF'}
+            </Boton>
+          </div>
+        </div>
+      </div>
+
+      <div className={`${COLUMNAS_INSPECCION} hidden`}>
         <input type="checkbox" className="mt-1 h-5 w-5 lg:mt-0 lg:h-auto lg:w-auto" aria-label={`Elegir inspección de ${i.faena_nombre}`} checked={seleccionada} onChange={onSeleccionar} />
         <span className="text-[13px] text-ink-2 lg:text-ink truncate">{i.faena_nombre}</span>
         <div className="min-w-0 col-start-2 lg:col-start-auto">
