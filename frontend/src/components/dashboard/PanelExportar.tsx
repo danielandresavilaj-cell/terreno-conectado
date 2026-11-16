@@ -93,7 +93,7 @@ export function PanelExportar({
         </p>
         <p className="text-[11px] text-ink-3">
           {seleccion.length > 0 ? (
-            <button type="button" className="text-beam hover:underline" onClick={onLimpiarSeleccion}>
+            <button type="button" className="ml-1 inline-flex min-h-9 items-center rounded-lg border border-line px-2.5 text-ink hover:bg-s3" onClick={onLimpiarSeleccion}>
               Quitar selección y exportar lo filtrado
             </button>
           ) : (

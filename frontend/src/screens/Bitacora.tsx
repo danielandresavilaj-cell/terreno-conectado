@@ -282,7 +282,7 @@ export function Bitacora() {
                 <button
                   type="button"
                   onClick={() => setAlertaPara({ id: e.id, faenaId: e.faenaId, texto: e.texto })}
-                  className="ml-auto min-h-11 px-2 text-[13px] font-medium text-beam hover:underline cursor-pointer"
+                  className="ml-auto min-h-11 px-3 rounded-lg border border-line text-[13px] font-medium text-ink hover:bg-s3 cursor-pointer"
                 >
                   {e.alerta ? 'Editar alerta' : 'Reportar alerta'}
                 </button>

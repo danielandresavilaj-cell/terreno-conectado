@@ -271,7 +271,7 @@ export function Plantillas() {
             className="flex items-start gap-3 rounded-[10px] border border-synced/40 bg-synced/10 px-3.5 py-2.5 text-[13px]"
           >
             <p className="flex-1">{aviso}</p>
-            <button type="button" onClick={() => setAviso(null)} className="text-ink-2 cursor-pointer" aria-label="Cerrar aviso">
+            <button type="button" onClick={() => setAviso(null)} className="h-9 w-9 shrink-0 grid place-items-center rounded-lg border border-line text-ink-2 hover:text-ink cursor-pointer" aria-label="Cerrar aviso">
               ✕
             </button>
           </motion.div>

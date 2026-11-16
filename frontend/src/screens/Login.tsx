@@ -229,7 +229,7 @@ export function Login() {
                 <button
                   type="button"
                   onClick={() => setConEmpresa(true)}
-                  className="min-h-11 text-[13px] text-beam underline-offset-2 hover:underline cursor-pointer"
+                  className="min-h-11 px-3 rounded-lg border border-line text-[13px] text-ink-2 hover:text-ink hover:bg-s3 cursor-pointer"
                 >
                   ¿Tu correo está en más de una empresa?
                 </button>

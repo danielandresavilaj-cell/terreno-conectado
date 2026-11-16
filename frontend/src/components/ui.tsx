@@ -22,7 +22,9 @@ const VARIANTES: Record<Variante, string> = {
     'bg-beam text-on-beam hover:bg-beam-hover active:bg-beam-press shadow-[0_1px_0_var(--color-beam-hi)_inset]',
   secundaria:
     'bg-s3 text-ink hover:bg-s3-hover border border-line hover:border-line-strong',
-  fantasma: 'bg-transparent text-ink-2 hover:text-ink hover:bg-s3',
+  /* TSK-REP-019: sin borde se leía como texto ("Ver", "Cancelar", "Ver todos"…).
+   * Sigue siendo la acción de menor peso —sin relleno— pero con marco visible. */
+  fantasma: 'bg-transparent text-ink border border-line hover:bg-s3 hover:border-line-strong',
   peligro: 'bg-failed/12 text-failed border border-failed/35 hover:bg-failed/20',
 }
 
