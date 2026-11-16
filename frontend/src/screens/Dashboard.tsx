@@ -25,7 +25,7 @@
  *   lee en movimiento. Stagger en scroll se siente como retraso.
  */
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { BadgeSev, Chip, SEV_META } from '../components/Badges'
 import { Barra, CountUp } from '../components/CountUp'
@@ -1064,6 +1064,21 @@ function PanelDetalleInspeccion({
   const [revisando, setRevisando] = useState(false)
   const [errorRevision, setErrorRevision] = useState<string | null>(null)
   const [firmando, setFirmando] = useState(false)
+  /* TSK-REP-016: el panel se dibuja después de la lista; con muchas
+   * inspecciones queda miles de píxeles más abajo y en el teléfono "Ver"
+   * parecía no hacer nada. Al abrir otra inspección, el panel baja a la vista
+   * y toma el foco (lectores de pantalla), sin animar si se pide menos
+   * movimiento. */
+  const raiz = useRef<HTMLElement>(null)
+  const reducirMovimiento = useReducedMotion()
+  const idAbierta = estado.fase === 'ok' ? estado.detalle.id : estado.id
+  useEffect(() => {
+    const el = raiz.current
+    if (!el) return
+    el.scrollIntoView({ behavior: reducirMovimiento ? 'auto' : 'smooth', block: 'start' })
+    el.focus({ preventScroll: true })
+    // Sólo al cambiar de inspección: no cuando llega su detalle ni al revisar.
+  }, [idAbierta])
   const [cofirmando, setCofirmando] = useState(false)
   /* FR-031 (TSK-DOM-005): la supervisión cierra el ciclo de la inspección. */
   const revisar = async () => {
@@ -1095,7 +1110,13 @@ function PanelDetalleInspeccion({
   }
   const tieneFirma = (rol: 'inspector' | 'supervisor') => detalle?.signatures.some((firma) => firma.signer_role === rol) ?? false
   return (
-    <section className="mt-4 panel p-5" aria-live="polite">
+    <section
+      ref={raiz}
+      tabIndex={-1}
+      aria-label="Revisión de la inspección"
+      className="mt-4 panel p-5 scroll-mt-20 focus:outline-none"
+      aria-live="polite"
+    >
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="label-inst">Revisión de respuestas</p>
