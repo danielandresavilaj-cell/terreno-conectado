@@ -25,7 +25,7 @@
  *   lee en movimiento. Stagger en scroll se siente como retraso.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { BadgeSev, Chip, SEV_META } from '../components/Badges'
 import { Barra, CountUp } from '../components/CountUp'
@@ -48,7 +48,8 @@ import {
 import { descargarLibro } from '../lib/exportar'
 import { construirCsvHallazgos } from '../lib/dashboard-csv'
 import { useEstado } from '../lib/store'
-import { BloquesSupervision } from '../components/dashboard/BloquesSupervision'
+import { AntiguedadHallazgos, BloquesSupervision, CierreHallazgos } from '../components/dashboard/BloquesSupervision'
+import { asomarSiQuedoArriba, conservarPosicion } from '../lib/anclar'
 import { exportacionIndividualPdf, PanelExportar } from '../components/dashboard/PanelExportar'
 import { FirmaCierre } from '../components/FirmaCierre'
 import { FotoEvidencia } from '../components/FotoEvidencia'
@@ -161,6 +162,12 @@ export function Dashboard() {
   const [descargandoId, setDescargandoId] = useState<string | null>(null)
   const [errorDescarga, setErrorDescarga] = useState<{ id: string; mensaje: string } | null>(null)
   const [detalleInspeccion, setDetalleInspeccion] = useState<DetalleInspeccion>({ fase: 'inactivo' })
+  /* TSK-REP-019: el detalle se despliega en la misma ficha donde se tocó "Ver"
+   * (listado) o "Revisar" (pendientes). Una inspección puede estar en los dos
+   * lugares, así que se recuerda cuál la abrió para no dibujarla dos veces. */
+  const [origenDetalle, setOrigenDetalle] = useState<'lista' | 'pendientes'>('lista')
+  const pedidoDetalle = useRef<string | null>(null)
+  const [pendienteAbierta, setPendienteAbierta] = useState<DashboardSupervision['revision']['mas_antiguas'][number] | null>(null)
   const reducir = useReducedMotion()
   /* TSK-DOM-007: cuentas a las que se puede asignar un hallazgo. */
   const [responsables, setResponsables] = useState<Array<{ id: string; nombre: string }>>([])
@@ -177,7 +184,6 @@ export function Dashboard() {
     const fs = {
       ...f,
       severidad: sevFiltro === 'todas' ? undefined : SEV_UI_A_WIRE[sevFiltro],
-      autor_id: autor === 'todos' ? undefined : autor,
     }
     setCargando(true)
     setErrorCarga(null)
@@ -282,8 +288,7 @@ export function Dashboard() {
     (h) =>
       (!soloVencidos || estadoPlazo(h.due_date, h.status, hoy) === 'vencido') &&
       (sevFiltro === 'todas' || SEV_WIRE_A_UI[h.severity] === sevFiltro) &&
-      (faena === 'todas' || h.faena_id === faena) &&
-      (autor === 'todos' || h.autor_id === autor),
+      (faena === 'todas' || h.faena_id === faena),
   )
   /* Lo urgente gana espacio primero: una acción vencida importa más que la
    * cronología y, entre las restantes, manda la severidad. Con empate se
@@ -329,14 +334,51 @@ export function Dashboard() {
     }
   }
 
-  const revisar = async (i: Pick<InspectionListaItem, 'id'>) => {
+  const idDetalle =
+    detalleInspeccion.fase === 'inactivo'
+      ? null
+      : detalleInspeccion.fase === 'ok'
+        ? detalleInspeccion.detalle.id
+        : detalleInspeccion.id
+  const cerrarDetalle = () => {
+    pedidoDetalle.current = null
+    setDetalleInspeccion({ fase: 'inactivo' })
+  }
+  /** Abre el detalle en su ficha; tocar de nuevo la misma ficha lo pliega. */
+  const revisar = async (i: Pick<InspectionListaItem, 'id'>, origen: 'lista' | 'pendientes' = 'lista') => {
+    if (idDetalle === i.id && origenDetalle === origen) {
+      cerrarDetalle()
+      return
+    }
+    pedidoDetalle.current = i.id
+    setOrigenDetalle(origen)
     setDetalleInspeccion({ fase: 'cargando', id: i.id })
     try {
-      setDetalleInspeccion({ fase: 'ok', detalle: await getDetalleInspeccion(i.id) })
+      const detalle = await getDetalleInspeccion(i.id)
+      // Si mientras tanto se abrió otra o se cerró, esta respuesta ya no manda.
+      if (pedidoDetalle.current === i.id) setDetalleInspeccion({ fase: 'ok', detalle })
     } catch (err) {
-      setDetalleInspeccion({ fase: 'error', id: i.id, mensaje: motivoDe(err) })
+      if (pedidoDetalle.current === i.id) setDetalleInspeccion({ fase: 'error', id: i.id, mensaje: motivoDe(err) })
     }
   }
+  const panelDetalle =
+    detalleInspeccion.fase === 'inactivo' ? null : (
+      <PanelDetalleInspeccion
+        estado={detalleInspeccion}
+        puedeCofirmar={usuario?.rol === 'supervisor' || usuario?.rol === 'tenant_admin'}
+        onCerrar={cerrarDetalle}
+        onRevisada={() => {
+          if (detalleInspeccion.fase === 'ok') {
+            setDetalleInspeccion({
+              fase: 'ok',
+              detalle: { ...detalleInspeccion.detalle, status: 'reviewed' },
+            })
+          }
+          void cargar()
+        }}
+        onCofirmada={() => void cargar()}
+      />
+    )
 
   /* Un cambio de filtro devuelve cada bloque a la primera tanda y limpia la
    * selección: elegir y luego filtrar otra cosa exportaría registros que ya no
@@ -483,7 +525,11 @@ export function Dashboard() {
             )}
           </AnimatePresence>
 
-          {/* ── Filtros (FR-041, TSK-REP-012): una sola barra para todo el panel ── */}
+          {/* ── Filtros (FR-041, TSK-REP-012): la faena manda en todo el panel.
+               TSK-REP-019: severidad y autor sólo filtraban un listado muchas
+               pantallas más abajo y arriba no cambiaba nada ("no funcionan").
+               Ahora viven en el bloque que filtran: la severidad en Hallazgos,
+               el autor en Inspecciones y en la Bitácora. ── */}
           <div className="flex flex-wrap items-end gap-3" role="group" aria-label="Filtros del panel">
             <label className="block">
               <span className="label-inst">Faena</span>
@@ -492,32 +538,6 @@ export function Dashboard() {
                 {faenas.map((f) => (
                   <option key={f.id} value={f.id}>
                     {f.nombre}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="block">
-              <span className="label-inst">Severidad</span>
-              <select
-                value={sevFiltro}
-                onChange={(e) => setSevFiltro(e.target.value as Severidad | 'todas')}
-                className={`mt-1 block ${SELECT_BARRA}`}
-              >
-                <option value="todas">Todas</option>
-                {(['critica', 'alta', 'media', 'baja'] as Severidad[]).map((s) => (
-                  <option key={s} value={s}>
-                    {SEV_META[s].label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="block">
-              <span className="label-inst">Autor</span>
-              <select value={autor} onChange={(e) => setAutor(e.target.value)} className={`mt-1 block ${SELECT_BARRA}`}>
-                <option value="todos">Todos los autores</option>
-                {autores.map((a) => (
-                  <option key={a.id} value={a.id}>
-                    {a.nombre}
                   </option>
                 ))}
               </select>
@@ -567,7 +587,16 @@ export function Dashboard() {
           {summary && summary.tendencia_semanal.length > 0 && <TendenciaSemanal semanas={summary.tendencia_semanal} />}
 
           {supervision && (
-            <BloquesSupervision datos={supervision} onRevisar={(id) => void revisar({ id })} />
+            <BloquesSupervision
+              datos={supervision}
+              onRevisar={(id) => {
+                setPendienteAbierta(supervision.revision.mas_antiguas.find((p) => p.id === id) ?? null)
+                void revisar({ id }, 'pendientes')
+              }}
+              abierta={origenDetalle === 'pendientes' ? idDetalle : null}
+              detalle={origenDetalle === 'pendientes' ? panelDetalle : null}
+              retener={pendienteAbierta}
+            />
           )}
 
           {!summary && cargando ? (
@@ -635,36 +664,47 @@ export function Dashboard() {
                       )
                     })}
                   </div>
-                  <p className="mt-4 text-[11px] text-ink-3 leading-relaxed border-t border-line-soft pt-3">
-                    Los hallazgos de severidad alta y crítica se destacan de inmediato en este panel al
-                    sincronizarse.
-                  </p>
+                  {supervision && (
+                    <div className="mt-4 border-t border-line-soft pt-4">
+                      <CierreHallazgos h={supervision.hallazgos} />
+                    </div>
+                  )}
                 </section>
               </div>
 
               {/* ── Listado de hallazgos: crossfade, sin stagger ──────────── */}
-              <section className="space-y-2.5">
+              <section className="space-y-2.5" aria-labelledby="titulo-hallazgos">
                 <div className="flex items-center gap-3">
-                  <h2 className="label-inst">
-                    Hallazgos filtrados · {hallazgosVisibles.length} de {hallazgosOrdenados.length}
+                  <h2 id="titulo-hallazgos" className="label-inst">
+                    Hallazgos · {hallazgosVisibles.length} de {hallazgosOrdenados.length}
                   </h2>
                   <div className="flex-1 rule" />
-                  <button
-                    type="button"
-                    aria-pressed={soloVencidos}
+                </div>
+                {/* TSK-REP-019: un solo bloque de hallazgos. El titular y la
+                    antigüedad (antes un bloque aparte que repetía la lista) van
+                    aquí, y los filtros quedan junto a lo que filtran. */}
+                {supervision && <AntiguedadHallazgos h={supervision.hallazgos} />}
+                <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Filtrar hallazgos">
+                  {(['todas', 'critica', 'alta', 'media', 'baja'] as const).map((s) => (
+                    <BotonFiltro
+                      key={s}
+                      activo={sevFiltro === s}
+                      onClick={() => setSevFiltro(s)}
+                      texto={s === 'todas' ? 'Todas' : SEV_META[s].label}
+                    />
+                  ))}
+                  <span className="mx-1 h-6 w-px bg-line-soft" aria-hidden />
+                  <BotonFiltro
+                    activo={soloVencidos}
                     onClick={() => setSoloVencidos((v) => !v)}
-                    className={[
-                      'min-h-11 px-3 rounded-lg border text-[13px] font-medium cursor-pointer',
-                      soloVencidos ? 'border-failed text-failed bg-failed/10' : 'border-campo text-ink-2',
-                    ].join(' ')}
-                  >
-                    Sólo vencidos
-                  </button>
+                    texto="Sólo vencidos"
+                    alerta
+                  />
                 </div>
 
                 <AnimatePresence mode="wait">
                   <motion.div
-                    key={`${faena}-${sevFiltro}-${autor}-${periodo}`}
+                    key={`${faena}-${sevFiltro}-${periodo}`}
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
@@ -729,6 +769,16 @@ export function Dashboard() {
                     <option value="reviewed">Revisadas</option>
                     <option value="in_progress">En curso</option>
                   </select>
+                  {autores.length > 1 && (
+                    <select aria-label="Autor" value={autor} onChange={(e) => setAutor(e.target.value)} className={SELECT_FILTRO}>
+                      <option value="todos">Todos los autores</option>
+                      {autores.map((a) => (
+                        <option key={a.id} value={a.id}>
+                          {a.nombre}
+                        </option>
+                      ))}
+                    </select>
+                  )}
                 </div>
 
                 <PanelExportar
@@ -785,7 +835,9 @@ export function Dashboard() {
                         error={errorDescarga?.id === i.id ? errorDescarga.mensaje : null}
                         onDescargar={descargar}
                         revisando={detalleInspeccion.fase === 'cargando' && detalleInspeccion.id === i.id}
-                        onRevisar={revisar}
+                        abierta={origenDetalle === 'lista' && idDetalle === i.id}
+                        detalle={origenDetalle === 'lista' && idDetalle === i.id ? panelDetalle : null}
+                        onRevisar={(x) => void revisar(x, 'lista')}
                         seleccionada={seleccion.has(i.id)}
                         onSeleccionar={() => alternar(i.id)}
                       />
@@ -799,23 +851,6 @@ export function Dashboard() {
                       onMostrarMenos={() => setLimiteInspecciones(TANDA_LISTADO)}
                     />
                   </div>
-                )}
-                {detalleInspeccion.fase !== 'inactivo' && (
-                  <PanelDetalleInspeccion
-                    estado={detalleInspeccion}
-                    puedeCofirmar={usuario?.rol === 'supervisor' || usuario?.rol === 'tenant_admin'}
-                    onCerrar={() => setDetalleInspeccion({ fase: 'inactivo' })}
-                    onRevisada={() => {
-                      if (detalleInspeccion.fase === 'ok') {
-                        setDetalleInspeccion({
-                          fase: 'ok',
-                          detalle: { ...detalleInspeccion.detalle, status: 'reviewed' },
-                        })
-                      }
-                      void cargar()
-                    }}
-                    onCofirmada={() => void cargar()}
-                  />
                 )}
               </section>
             </>
@@ -835,6 +870,7 @@ export function Dashboard() {
               online={online}
               limite={TANDA_LISTADO}
               mostrarFaena={faena === 'todas'}
+              conFiltros
             />
           </section>
 
@@ -932,6 +968,8 @@ function FilaInspeccion({
   error,
   onDescargar,
   revisando,
+  abierta,
+  detalle,
   onRevisar,
   seleccionada,
   onSeleccionar,
@@ -941,13 +979,18 @@ function FilaInspeccion({
   error: string | null
   onDescargar: (i: InspectionListaItem) => void
   revisando: boolean
+  /** TSK-REP-019: el detalle está desplegado dentro de esta ficha. */
+  abierta: boolean
+  detalle: ReactNode
   onRevisar: (i: InspectionListaItem) => void
   seleccionada: boolean
   onSeleccionar: () => void
 }) {
   const meta = ESTADO_META[i.status]
+  /* Si al abrir ésta se pliega otra más arriba, la ficha tocada no salta. */
+  const alternar = (e: { currentTarget: HTMLElement }) => conservarPosicion(e.currentTarget, () => onRevisar(i))
   return (
-    <div className="panel px-3 py-2.5 lg:px-4 lg:py-3">
+    <div data-ficha className={['panel px-3 py-2.5 lg:px-4 lg:py-3', abierta ? 'border-beam/40' : ''].join(' ')}>
       {/* En teléfono cada registro se condensa en tres líneas: identifica,
        * entrega contexto y termina con los datos/acciones. Los controles siguen
        * midiendo 44 px para usarse con guantes. */}
@@ -985,13 +1028,13 @@ function FilaInspeccion({
           <div className="flex shrink-0 items-center gap-1">
             <Boton
               tamano="sm"
-              variante="fantasma"
-              disabled={revisando}
+              variante={abierta ? 'secundaria' : 'fantasma'}
               aria-busy={revisando}
-              aria-label={`Revisar inspección de ${i.template_nombre ?? i.faena_nombre}`}
-              onClick={() => onRevisar(i)}
+              aria-expanded={abierta}
+              aria-label={`${abierta ? 'Cerrar' : 'Ver'} respuestas de ${i.template_nombre ?? i.faena_nombre}`}
+              onClick={alternar}
             >
-              {revisando ? '…' : 'Ver'}
+              {abierta ? 'Cerrar' : 'Ver'}
             </Boton>
             <Boton
               tamano="sm"
@@ -1044,8 +1087,14 @@ function FilaInspeccion({
         </span>
         <span className="num-inst text-[13px] text-ink-2 col-start-2 lg:col-start-auto">{fechaCorta(i.captured_at)}</span>
         <div className="flex flex-wrap items-center gap-2 mt-1 lg:mt-0 lg:justify-end col-start-2 lg:col-start-auto">
-          <Boton tamano="sm" variante="fantasma" disabled={revisando} aria-busy={revisando} onClick={() => onRevisar(i)}>
-            {revisando ? 'Abriendo…' : 'Revisar'}
+          <Boton
+            tamano="sm"
+            variante={abierta ? 'secundaria' : 'fantasma'}
+            aria-busy={revisando}
+            aria-expanded={abierta}
+            onClick={alternar}
+          >
+            {abierta ? 'Cerrar' : 'Ver respuestas'}
           </Boton>
           <Boton
             tamano="sm"
@@ -1076,7 +1125,29 @@ function FilaInspeccion({
           No se pudo descargar: {error}
         </p>
       )}
+      {detalle}
     </div>
+  )
+}
+
+/** TSK-REP-019: filtro de un toque (severidad, "Sólo vencidos"): con borde, para que se lea como botón. */
+function BotonFiltro({ activo, onClick, texto, alerta }: { activo: boolean; onClick: () => void; texto: string; alerta?: boolean }) {
+  return (
+    <button
+      type="button"
+      aria-pressed={activo}
+      onClick={onClick}
+      className={[
+        'min-h-11 px-3 rounded-lg border text-[13px] font-medium cursor-pointer whitespace-nowrap transition-colors',
+        activo
+          ? alerta
+            ? 'border-failed bg-failed/10 text-failed'
+            : 'border-beam bg-beam/10 text-beam'
+          : 'border-line text-ink-2 hover:text-ink hover:bg-s3',
+      ].join(' ')}
+    >
+      {texto}
+    </button>
   )
 }
 
@@ -1112,21 +1183,15 @@ function PanelDetalleInspeccion({
   const [revisando, setRevisando] = useState(false)
   const [errorRevision, setErrorRevision] = useState<string | null>(null)
   const [firmando, setFirmando] = useState(false)
-  /* TSK-REP-016: el panel se dibuja después de la lista; con muchas
-   * inspecciones queda miles de píxeles más abajo y en el teléfono "Ver"
-   * parecía no hacer nada. Al abrir otra inspección, el panel baja a la vista
-   * y toma el foco (lectores de pantalla), sin animar si se pide menos
-   * movimiento. */
+  /* TSK-REP-019: el detalle se despliega dentro de la ficha que lo abrió (antes
+   * era un panel al final de la lista, al que había que bajar). Al cerrarlo, si
+   * el inicio de la ficha quedó sobre la barra superior, vuelve a la vista. */
   const raiz = useRef<HTMLElement>(null)
-  const reducirMovimiento = useReducedMotion()
-  const idAbierta = estado.fase === 'ok' ? estado.detalle.id : estado.id
-  useEffect(() => {
-    const el = raiz.current
-    if (!el) return
-    el.scrollIntoView({ behavior: reducirMovimiento ? 'auto' : 'smooth', block: 'start' })
-    el.focus({ preventScroll: true })
-    // Sólo al cambiar de inspección: no cuando llega su detalle ni al revisar.
-  }, [idAbierta])
+  const cerrar = () => {
+    const ficha = raiz.current?.parentElement?.closest<HTMLElement>('[data-ficha], li') ?? null
+    onCerrar()
+    asomarSiQuedoArriba(ficha)
+  }
   const [cofirmando, setCofirmando] = useState(false)
   /* FR-031 (TSK-DOM-005): la supervisión cierra el ciclo de la inspección. */
   const revisar = async () => {
@@ -1160,9 +1225,8 @@ function PanelDetalleInspeccion({
   return (
     <section
       ref={raiz}
-      tabIndex={-1}
       aria-label="Revisión de la inspección"
-      className="mt-4 panel p-5 scroll-mt-20 focus:outline-none"
+      className="mt-3 border-t border-line-soft pt-4"
       aria-live="polite"
     >
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -1189,7 +1253,7 @@ function PanelDetalleInspeccion({
             </Boton>
           )}
           {detalle?.status === 'reviewed' && <span className="self-center text-[13px] text-synced">Revisada</span>}
-          <Boton tamano="sm" variante="fantasma" onClick={onCerrar}>Cerrar</Boton>
+          <Boton tamano="sm" variante="fantasma" onClick={cerrar}>Cerrar</Boton>
         </div>
       </div>
       {errorRevision && <p role="alert" className="mt-3 text-[13px] text-failed">{errorRevision}</p>}
@@ -1262,6 +1326,13 @@ function PanelDetalleInspeccion({
               </div>
             </div>
           )}
+        </div>
+      )}
+      {detalle && (
+        <div className="mt-4 flex justify-end">
+          <Boton tamano="sm" variante="fantasma" onClick={cerrar}>
+            Cerrar respuestas
+          </Boton>
         </div>
       )}
       {firmando && (
@@ -1418,10 +1489,16 @@ function FilaHallazgo({
       ].join(' ')}
       style={urgente ? { borderLeftColor: meta.color } : undefined}
     >
-      <div className="flex items-start gap-4 flex-wrap sm:flex-nowrap">
+      {/* TSK-REP-019: en el teléfono la descripción ocupa todo el ancho y debajo
+       * van la evidencia y, en una fila, Estado y Gestionar. Antes compartía la
+       * línea con las fotos y la columna de acciones y quedaba en ~90 px, una
+       * palabra por renglón. Desde 640 px vuelven las tres columnas. */}
+      <div className="flex flex-wrap sm:flex-nowrap items-start gap-x-4 gap-y-3">
         {/* TSK-REP-008: la evidencia se ve, no se describe por su tamaño. */}
-        <FotosHallazgo ids={h.fotos_ids} descripcion={h.description} />
-        <div className="min-w-0 flex-1">
+        <div className="order-2 sm:order-none empty:hidden">
+          <FotosHallazgo ids={h.fotos_ids} descripcion={h.description} />
+        </div>
+        <div className="order-1 sm:order-none basis-full sm:basis-auto min-w-0 sm:flex-1">
           <div className="flex items-center gap-2.5 flex-wrap">
             <BadgeSev sev={sev} destacado={urgente} />
             <p className="text-[14px] font-medium break-words">{h.description}</p>
@@ -1463,8 +1540,8 @@ function FilaHallazgo({
         {/* Estado y gestión son una única columna: la descripción conserva el
          * ancho que necesita y la acción queda inmediatamente asociada a su
          * selector. */}
-        <div className="w-[5.5rem] shrink-0 flex flex-col items-stretch gap-2">
-          <div className="text-right">
+        <div className="order-3 sm:order-none flex-1 min-w-[13rem] sm:min-w-0 sm:flex-none sm:w-[7rem] flex flex-row sm:flex-col items-end sm:items-stretch gap-2">
+          <div className="flex-1 sm:flex-none sm:text-right">
             <label className="label-inst block" htmlFor={`estado-${h.id}`}>
               Estado
             </label>
@@ -1482,7 +1559,7 @@ function FilaHallazgo({
           <Boton
             tamano="sm"
             variante="secundaria"
-            className="w-full"
+            className="shrink-0 h-11 sm:w-full"
             aria-expanded={editando}
             onClick={() => {
               if (editando) setEstado(h.status)

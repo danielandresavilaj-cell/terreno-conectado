@@ -189,7 +189,13 @@ export interface BitacoraEntradaDto {
 
 export interface BitacoraResponse {
   items: BitacoraEntradaDto[]
+  /** Entradas que cumplen todos los filtros (para paginar). */
   total: number
+  /** TSK-REP-019: etiquetas usadas en el período y la faena, con su cantidad
+   * (sin aplicar los filtros de etiqueta ni autor). */
+  etiquetas: Array<{ etiqueta: string; n: number }>
+  /** TSK-REP-019: quiénes escribieron en el período y la faena. */
+  autores: Array<{ id: string; nombre: string; n: number }>
 }
 /* ── Exportación de inspecciones (TSK-FORM-010, FR-044) ─────────────────────
  * El supervisor ve las inspecciones del período y pide el `.xlsx` original

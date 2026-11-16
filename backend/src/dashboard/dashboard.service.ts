@@ -13,7 +13,7 @@ import { Inject, Injectable } from '@nestjs/common'
 import { DbService } from '../db/db.service'
 import type { JwtClaims } from '../auth/auth.types'
 import { exigirDashboard, DASHBOARD_ROLES } from './dashboard.auth'
-import { parsearFiltrosPeriodo, parsearFiltrosFindings, type FiltrosPeriodo } from './dashboard.contract'
+import { exigirUuid, parsearFiltrosPeriodo, parsearFiltrosFindings, type FiltrosPeriodo } from './dashboard.contract'
 import type {
   BitacoraResponse,
   DashboardFindingsResponse,
@@ -227,16 +227,33 @@ export class DashboardService {
    */
   async bitacora(
     u: JwtClaims,
-    f: { site_id: string | null; desde: string | null; hasta: string | null; limit: number; offset: number },
+    f: {
+      site_id: string | null
+      desde: string | null
+      hasta: string | null
+      /** TSK-REP-019: etiqueta (Relevo, Clima…), sin distinguir mayúsculas. */
+      etiqueta?: string | null
+      autor_id?: string | null
+      limit: number
+      offset: number
+    },
   ): Promise<BitacoraResponse> {
     this.exigir(u, ['field_worker', 'supervisor', 'tenant_admin'])
     const tenantId = u.tenant_id as string
     const { siteId, desde, hasta } = parsearFiltrosPeriodo(f)
-    const where = `
+    const etiqueta = f.etiqueta?.trim() ? f.etiqueta.trim().slice(0, 40) : null
+    const autorId = f.autor_id ? exigirUuid(f.autor_id, 'autor') : null
+    /* El período y la faena delimitan el universo; etiqueta y autor lo filtran.
+     * Las opciones de los filtros (`etiquetas`, `autores`) se cuentan sobre el
+     * universo sin filtrar: así elegir "Clima" no hace desaparecer "Relevo". */
+    const universo = `
         WHERE ($1::uuid IS NULL OR l.site_id = $1)
           AND l.captured_at >= COALESCE($2::timestamptz, '-infinity'::timestamptz)
           AND l.captured_at <= COALESCE($3::timestamptz, 'infinity'::timestamptz)`
-    const [rows, total] = await Promise.all([
+    const where = `${universo}
+          AND ($4::text IS NULL OR EXISTS (SELECT 1 FROM unnest(l.tags) t WHERE lower(t) = lower($4)))
+          AND ($5::uuid IS NULL OR l.author_id = $5)`
+    const [rows, total, etiquetas, autores] = await Promise.all([
       this.db.queryAsTenant<{
         id: string
         faena_id: string
@@ -258,12 +275,31 @@ export class DashboardService {
            LEFT JOIN app_user u ON u.id = l.author_id
          ${where}
           ORDER BY l.captured_at DESC, l.id DESC
-          LIMIT $4 OFFSET $5`,
-        [siteId, desde, hasta, f.limit, f.offset],
+          LIMIT $6 OFFSET $7`,
+        [siteId, desde, hasta, etiqueta, autorId, f.limit, f.offset],
       ),
       this.db.queryAsTenant<{ n: number }>(
         tenantId,
         `SELECT count(*)::int AS n FROM log_entry l ${where}`,
+        [siteId, desde, hasta, etiqueta, autorId],
+      ),
+      this.db.queryAsTenant<{ etiqueta: string; n: number }>(
+        tenantId,
+        `SELECT t AS etiqueta, count(*)::int AS n
+           FROM log_entry l CROSS JOIN LATERAL unnest(l.tags) t
+         ${universo}
+          GROUP BY t
+          ORDER BY n DESC, t`,
+        [siteId, desde, hasta],
+      ),
+      this.db.queryAsTenant<{ id: string; nombre: string | null; n: number }>(
+        tenantId,
+        `SELECT l.author_id AS id, u.full_name AS nombre, count(*)::int AS n
+           FROM log_entry l
+           LEFT JOIN app_user u ON u.id = l.author_id
+         ${universo}
+          GROUP BY l.author_id, u.full_name
+          ORDER BY u.full_name NULLS LAST`,
         [siteId, desde, hasta],
       ),
     ])
@@ -280,6 +316,8 @@ export class DashboardService {
         captured_at: new Date(r.captured_ms).toISOString(),
       })),
       total: total[0]?.n ?? 0,
+      etiquetas,
+      autores: autores.map((a) => ({ id: a.id, nombre: a.nombre ?? 'Usuario no disponible', n: a.n })),
     }
   }
 

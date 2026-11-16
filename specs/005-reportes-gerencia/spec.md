@@ -3,7 +3,7 @@
 | | |
 | :--- | :--- |
 | **Estado** | COMPLETO (ciclo del módulo, F2 · 2026-10-13) |
-| **Versión** | 0.10.1 |
+| **Versión** | 0.11.0 |
 | **Autor** | Daniel Ávila |
 | **Padre** | specs/000-master/spec.md |
 | **Depende de** | 003 (datos sincronizados + `SYNC_LOG`), 004 (dominio) |
@@ -55,7 +55,7 @@ Todos bajo `/api/v1`, con Bearer JWT y roles `supervisor`/`tenant_admin` (`field
 | `dashboard/inspections/:id/export` | GET | FR-042/FR-044: `.xlsx` rellenado + hoja de evidencias |
 | `dashboard/inspections/export-lote` | POST | FR-045/FR-046: ZIP del período + manifiesto (filtro en el body) |
 | `dashboard/inspections/:id` | GET | Detalle para revisión: respuestas con la definición congelada, firmas y, desde TSK-REP-008, `foto_id` por respuesta y la lista `hallazgos` (severidad, estado, ítem de origen y `foto_id`) |
-| `dashboard/bitacora` | GET | FR-063: entradas de bitácora de la empresa, más recientes primero, con autor y faena (`site_id`/`desde`/`hasta`, `limit` ≤ 100, `offset`). Roles: `field_worker`, `supervisor`, `tenant_admin` |
+| `dashboard/bitacora` | GET | FR-063: entradas de bitácora de la empresa, más recientes primero, con autor y faena (`site_id`/`desde`/`hasta`, `etiqueta`, `autor_id`, `limit` ≤ 100, `offset`). `total` cuenta lo filtrado; `etiquetas` y `autores` traen las opciones del período y la faena con su cantidad, sin aplicar etiqueta ni autor (TSK-REP-019). Roles: `field_worker`, `supervisor`, `tenant_admin` |
 | `dashboard/attachments/:id` | GET | FR-062: bytes de una foto de respuesta o de hallazgo (`image/jpeg`, `image/png` o `image/webp`), con `nosniff` y caché privada de 1 h. Otra empresa o id inexistente → 404; archivo ausente en el volumen → 404 con el motivo |
 | `conflicts` | GET | Registro LWW visible al `supervisor` y `tenant_admin` de su tenant (FR-023 consume aquí; RLS limita el tenant) |
 
@@ -115,7 +115,18 @@ La fila principal de Gerencia muestra: **Por revisar** (inspecciones enviadas si
 ### 4.5 Tendencia y filtros en una barra (TSK-REP-012, FR-040/041)
 
 - **Tendencia:** `summary.tendencia_semanal` trae las últimas 8 semanas (lunes a domingo en UTC del servidor, de la más antigua a la actual) con inspecciones y hallazgos. Se filtra por faena y **no** por el período elegido, para que la tendencia se lea igual con cualquier filtro. Gerencia la muestra como barras con los números al lado; la semana en curso se rotula "Esta".
-- **Filtros:** faena, severidad y autor quedan en una sola barra de selectores sobre las métricas (antes eran tres columnas de tarjetas a mitad de página). El autor es un solo filtro para hallazgos e inspecciones; formulario y estado siguen junto a la lista de inspecciones.
+- **Filtros:** faena, severidad y autor quedan en una sola barra de selectores sobre las métricas (antes eran tres columnas de tarjetas a mitad de página). El autor es un solo filtro para hallazgos e inspecciones; formulario y estado siguen junto a la lista de inspecciones. *Reemplazado por §4.6.*
+
+### 4.6 Gerencia más simple (TSK-REP-019, FR-040/041/044/063)
+
+Revisión en el teléfono antes de la presentación (2026-11-16):
+
+- **Filtros junto a lo que filtran.** La barra de arriba sólo tiene **Faena**, que manda en todo el panel. Severidad y autor estaban arriba pero sólo filtraban el listado de hallazgos, varias pantallas más abajo, y parecían no funcionar. Ahora la **severidad** son botones (Todas · Crítica · Alta · Media · Baja) junto a "Sólo vencidos" en la cabecera de Hallazgos, y el **autor** está en los filtros de Inspecciones y de la Bitácora.
+- **Un solo bloque de hallazgos.** El bloque "Hallazgos" de supervisión repetía la lista de críticos y altos que está justo debajo. Su titular y la antigüedad de los abiertos (< 1 día, 1–7, > 7 días) pasan a la cabecera del listado; el cierre medio/mediano y los ítems con más "No OK" pasan al panel "Hallazgos por severidad".
+- **Ficha de hallazgo en el teléfono.** Bajo 640 px la descripción ocupa todo el ancho; debajo van la evidencia y, en una fila, Estado y Gestionar. Desde 640 px vuelve la columna lateral.
+- **El detalle se abre en su ficha.** "Ver" despliega las respuestas dentro de la misma tarjeta de la inspección y pasa a decir "Cerrar"; hay un solo detalle abierto a la vez y abrir otro no mueve la tarjeta tocada. Al cerrar desde el final del detalle, la tarjeta vuelve justo bajo la barra superior. "Revisar" en Pendientes de revisión hace lo mismo en su fila, que sigue a la vista después de marcarla revisada hasta que se cierre. Desaparece el panel al final de la lista (TSK-REP-017).
+- **Todo botón parece botón.** El estilo de menor peso (`fantasma`) lleva borde; los enlaces sueltos con forma de texto ("Reportar alerta", "Quitar selección…", "‹ Volver", "¿Tu correo está en más de una empresa?", "Cancelar" de cámara y QR) pasan a botón con marco.
+- **Bitácora del equipo filtrable.** Botones por etiqueta con su cantidad (Relevo, Equipos, Clima, Incidencia…) y selector de autor; el filtro se aplica en el servidor, así que cambia el total y la paginación.
 
 ## 5. Export (FR-042)
 
@@ -166,6 +177,7 @@ El alcance V1 del **resumen ejecutivo** es **read-only** y se apoya en las métr
 
 | Versión | Fecha | Cambio | Autor |
 | :--- | :--- | :--- | :--- |
+| 0.11.0 | 2026-11-16 | **TSK-REP-019:** §4.6 — filtros junto a lo que filtran, bloque de hallazgos fusionado con el listado, ficha móvil, detalle de inspección en su misma ficha, botones con borde y bitácora filtrable por etiqueta y autor (`dashboard/bitacora?etiqueta=&autor_id=`) | Daniel Ávila (con IA) |
 | 0.10.1 | 2026-11-15 | **TSK-REP-015:** las tarjetas de supervisión ya no se salen de la pantalla en el teléfono con textos largos | Daniel Ávila (con IA) |
 | 0.10.0 | 2026-11-15 | **TSK-REP-014 (Enmienda 009, FR-068):** resumen de Gerencia redactado con IA; §7 pasa de post-V1 a V1.4 | Daniel Ávila (con IA) |
 | 0.9.0 | 2026-11-14 | **TSK-REP-012:** `summary.tendencia_semanal` (8 semanas) y filtros de faena, severidad y autor en una barra | Daniel Ávila (con IA) |

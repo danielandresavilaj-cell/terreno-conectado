@@ -196,7 +196,7 @@ export function CamaraCaptura({
         className="absolute inset-x-0 top-0 flex items-center justify-between gap-3 bg-gradient-to-b from-black/70 to-transparent px-4 pb-6"
         style={{ paddingTop: 'max(12px, env(safe-area-inset-top))' }}
       >
-        <button ref={cancelar} type="button" onClick={cerrar} className="h-11 rounded-[10px] px-3 text-[15px] font-medium">
+        <button ref={cancelar} type="button" onClick={cerrar} className="h-11 rounded-[10px] border border-white/45 px-3 text-[15px] font-medium">
           Cancelar
         </button>
         <p className="text-[12px] text-white/80">La foto queda guardada en este teléfono.</p>

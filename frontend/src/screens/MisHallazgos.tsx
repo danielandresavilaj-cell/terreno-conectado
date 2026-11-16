@@ -263,7 +263,7 @@ function DetalleHallazgo({
           <button
             type="button"
             onClick={alCerrar}
-            className="min-h-11 px-3 rounded-[10px] text-[15px] font-medium text-ink-2 hover:text-ink cursor-pointer"
+            className="min-h-11 px-3 rounded-[10px] border border-line text-[15px] font-medium text-ink hover:bg-s3 cursor-pointer"
           >
             ‹ Volver
           </button>

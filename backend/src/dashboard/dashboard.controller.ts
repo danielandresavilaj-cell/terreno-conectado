@@ -16,7 +16,8 @@ import { ResumenIAService } from './resumen-ia.service'
  *  · `GET /api/v1/dashboard/attachments/:id` — foto de una respuesta o de un
  *    hallazgo, para verla en pantalla (FR-062, TSK-REP-008)
  *  · `GET /api/v1/dashboard/bitacora` — bitácora de la empresa por faena y
- *    período, legible también por trabajadores (FR-063, TSK-REP-009)
+ *    período, legible también por trabajadores (FR-063, TSK-REP-009); filtra
+ *    por etiqueta y autor (TSK-REP-019)
  *  · `GET|POST /api/v1/dashboard/resumen-ia` y `GET …/resumen-ia/historial`
  *    — resumen del panel redactado con IA a partir de cifras agregadas, guardado
  *    para reutilizarlo (FR-068, TSK-REP-014). Escribe `resumen_ia` y `audit_log`.
@@ -153,6 +154,8 @@ export class DashboardController {
       site_id: s(q.site_id),
       desde: s(q.desde),
       hasta: s(q.hasta),
+      etiqueta: s(q.etiqueta),
+      autor_id: s(q.autor_id),
       limit: int(q.limit, 50, 100),
       offset: int(q.offset, 0, 100_000),
     })
