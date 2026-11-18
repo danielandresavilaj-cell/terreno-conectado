@@ -7,8 +7,14 @@
  * Lighthouse con la emulación móvil y el throttling simulados por defecto
  * (Android gama media / Slow 4G — lo que pide el NFR).
  *
+ * TSK-OFF-025: una sola corrida en un runner compartido de GitHub varía
+ * demasiado (el mismo build dio 90 y 50; el Total Blocking Time fue de 60 a
+ * 2.100 ms según la máquina). Se corre `LIGHTHOUSE_RUNS` veces (3 por omisión)
+ * y se juzga la corrida mediana por puntaje, como recomienda Lighthouse CI.
+ *
  * Uso:  npm run perf            (requiere `npm run build` antes)
  *       LIGHTHOUSE_MIN_SCORE=90 node frontend/scripts/check-lighthouse.mjs
+ *       LIGHTHOUSE_RUNS=5 npm run perf
  *
  * Chrome se descubre solo (chrome-launcher); en CI se puede forzar con
  * `CHROME_PATH`. El reporte crudo queda en `frontend/lighthouse-report.json`
@@ -30,6 +36,8 @@ const REPORTE = join(RAIZ_FRONT, 'lighthouse-report.json')
 
 /** Umbral del NFR-07. Configurable para experimentar sin tocar el código. */
 const UMBRAL = Number(process.env.LIGHTHOUSE_MIN_SCORE ?? 80)
+/** Corridas por medición; se juzga la mediana (impar para que exista una sola). */
+const CORRIDAS = Math.max(1, Number(process.env.LIGHTHOUSE_RUNS ?? 3))
 
 const MIME = {
   '.html': 'text/html; charset=utf-8',
@@ -148,18 +156,26 @@ try {
     chromeFlags: ['--headless=new', '--no-sandbox', '--disable-gpu', '--disable-dev-shm-usage'],
   })
 
-  const { lhr } = await lighthouse(url, {
-    port: chrome.port,
-    output: 'json',
-    logLevel: 'error',
-    onlyCategories: ['performance'],
-    formFactor: 'mobile',
-    screenEmulation: { mobile: true, width: 412, height: 823, deviceScaleFactor: 2.625, disabled: false },
-  })
+  const corridas = []
+  for (let i = 1; i <= CORRIDAS; i++) {
+    const { lhr } = await lighthouse(url, {
+      port: chrome.port,
+      output: 'json',
+      logLevel: 'error',
+      onlyCategories: ['performance'],
+      formFactor: 'mobile',
+      screenEmulation: { mobile: true, width: 412, height: 823, deviceScaleFactor: 2.625, disabled: false },
+    })
+    const puntaje = Math.round((lhr.categories.performance?.score ?? 0) * 100)
+    console.log(`  corrida ${i}/${CORRIDAS}: Performance ${puntaje} · TBT ${lhr.audits['total-blocking-time']?.displayValue ?? '—'}`)
+    corridas.push({ lhr, puntaje })
+  }
+  corridas.sort((a, b) => a.puntaje - b.puntaje)
+  const { lhr, puntaje: score } = corridas[Math.floor(corridas.length / 2)]
 
   await writeFile(REPORTE, JSON.stringify(lhr, null, 2), 'utf8')
 
-  const score = Math.round((lhr.categories.performance?.score ?? 0) * 100)
+  console.log(`Mediana de ${CORRIDAS} corridas: Performance ${score}`)
   reportar(lhr)
 
   if (score < UMBRAL) {
