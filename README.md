@@ -25,7 +25,7 @@ Proyecto Capstone (PTY4614) — Duoc UC, Ingeniería en Informática, Sede Alame
 | Identidad de registro | **UUIDv7** generado en cliente | creación offline sin depender del servidor |
 | Sincronización | Cola propia + ingesta idempotente por lotes | el corazón del proyecto, no se delega a un BaaS |
 | Fotos | Compresión en cliente (canvas) + volumen Docker | $0; evolución a S3 documentada |
-| Infra demo | 1 VPS + Docker Compose + Caddy | TLS automático, ~US$5/mes |
+| Infra demo | Oracle Always Free (ARM) + Docker Compose + Caddy | TLS automático, US$0/mes (ADR-002) |
 | CI/CD | GitHub Actions | 3 jobs en cada push y PR (`.github/workflows/ci.yml`): lint + typecheck + build + check de PWA, tests de integración con Testcontainers, y escaneo de secretos (gitleaks). Despliegue manual a Oracle Always Free (`deploy.yml` + `infra/tools/ops.mjs`) |
 | Tests | Vitest + Testcontainers | e2e con supertest contra NestJS + PostgreSQL 16 real: RLS, auth, sync, conflictos, dashboard y `/health` |
 
@@ -65,7 +65,7 @@ flowchart LR
 - **Offline-first real (Art. I).** Todo el flujo de captura funciona sin red. La nube es complemento, nunca requisito.
 - **Idempotencia (Art. III).** Reenviar un lote nunca duplica: *upsert* por UUIDv7 de cliente. Los conflictos se resuelven con LWW determinista y ambas versiones quedan auditadas en `CONFLICT_RECORD`: nunca hay sobrescritura silenciosa.
 - **Aislamiento por motor (Art. IV).** Cada tabla de dominio lleva `tenant_id` y una política RLS. El filtrado de la aplicación es defensa secundaria, no la principal.
-- **Presupuesto (Art. VI).** ~US$5/mes en un solo VPS. El diseño de producción real (~US$200-600/mes) está documentado en [adr/002-arquitectura-despliegue.md](adr/002-arquitectura-despliegue.md) sin provisionarse.
+- **Presupuesto (Art. VI).** US$0/mes en una VM Oracle Always Free (el presupuesto tope era ~US$5/mes). El diseño de producción real (~US$200-600/mes) está documentado en [adr/002-arquitectura-despliegue.md](adr/002-arquitectura-despliegue.md) sin provisionarse.
 
 Modelo de datos completo (18 tablas): [data-model.md](data-model.md) · Requisitos FR/NFR: [specs/000-master/spec.md](specs/000-master/spec.md)
 
@@ -109,10 +109,28 @@ terreno-conectado/
 - Infra real solo después del ADR correspondiente entendido y firmado por el equipo.
 - Trazabilidad: cada task referencia un ID de requisito (FR/NFR) y cada commit referencia su task.
 
-## Estado actual: v1.3 (2026-11-11)
+## Estado actual: v1.4 (2026-11-18)
 
-La v1 es un **producto con cuentas reales**, sin modo demo (Enmienda 003 del spec maestro), y desde
-entonces sumó (Enmiendas 004–006):
+La v1 es un **producto con cuentas reales**, sin modo demo (Enmienda 003 del spec maestro). Lo más
+reciente (Enmiendas 007–010, noviembre):
+
+- **Cierre certificado**: el inspector firma con el dedo **sin señal** antes de enviar y supervisión
+  cofirma cuando la plantilla lo exige; la firma sobrevive a recargas y llega una sola vez.
+- **Activos con QR**: administración imprime un QR por equipo o lugar; en terreno se escanea con la
+  cámara (o se escribe el código) y abre el formulario correcto, también sin señal.
+- **Alerta desde la bitácora**: una entrada de bitácora puede reportar un hallazgo con severidad y
+  foto, que supervisión gestiona como cualquier otro.
+- **Catálogo de plantillas de inicio** (8 formularios listos) y **resumen de Gerencia con IA**,
+  guardado con su historial.
+- **Gerencia más simple**: filtros junto a lo que filtran, un solo bloque de hallazgos, listas en
+  tandas, el detalle de una inspección se abre en su misma ficha y la bitácora del equipo se filtra
+  por etiqueta y autor.
+- **Navegación por tamaño de pantalla**: barra inferior en el teléfono, cajón en tableta y menú
+  lateral fijo en escritorio; landing pública en la raíz y la app en `/app/`.
+- **Empresa de demostración** reproducible por la API (`infra/tools/demo-datos.mjs`, con
+  `--continuar` para sumarle los últimos días antes de presentar).
+
+Antes (Enmiendas 004–006):
 
 - **Formularios desde cero o desde cualquier documento**: el administrador crea un formulario desde cero en el editor (secciones, preguntas y tipo de respuesta) o importa una pauta desde **Excel,
   Word o PDF**. Con la **IA opcional** (Claude Haiku, solo en el servidor; ADR-005) también desde un
@@ -145,8 +163,8 @@ Lo que ya tenía la v1:
   ([`infra/OPERACION.md`](infra/OPERACION.md)).
 - **Supervisión**: marcar inspecciones como revisadas, mover hallazgos (abierto → en curso →
   resuelto) y revisar conflictos, todo persistente y auditado.
-- **Pruebas**: 627 automatizadas: 289 de integración del backend, 223 unitarias del frontend, 92 de
-  shared y 23 E2E/caos. La matriz de requisitos está en 97,7% verde en lo implementado ([`test-plan.md`](test-plan.md)). La Enmienda 007 (firma, QR, programación y avisos por correo) está aprobada y por implementar ([`plans/008-operacion-certificada/`](plans/008-operacion-certificada/plan.md)).
+- **Pruebas**: 816 automatizadas: 366 de integración del backend, 316 unitarias del frontend, 106 de
+  shared y 28 E2E/caos (nightly). La matriz de requisitos está en **100 % verde en lo implementado** (53/56; [`test-plan.md`](test-plan.md)) y Lighthouse móvil sobre 80 (mediana de 3 corridas). De la Enmienda 007 quedan por implementar la programación de inspecciones y los avisos por correo ([`plans/008-operacion-certificada/`](plans/008-operacion-certificada/plan.md)).
 - **Producción**: https://terrenoconectado.cl (landing pública) y https://terrenoconectado.cl/app/ (la app; TSK-OFF-023) (Oracle Always Free, US$0/mes; dominio en NIC Chile con DNS en Cloudflare). La dirección anterior en DuckDNS se retiró el 2026-11-14.
 
 ## Cómo ejecutar localmente
