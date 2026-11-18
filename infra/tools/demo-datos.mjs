@@ -33,6 +33,12 @@
  *   --salida RUTA   archivo de cuentas (por omisión .demo-cuentas.local.json en la raíz)
  *   --dominio D     dominio de los correos (por omisión demo.terrenoconectado.cl; para ensayos repetidos)
  *   --sin-ia        no pide resúmenes con IA
+ *   --continuar     NO crea nada: agrega a la empresa ya cargada la actividad
+ *                   desde la última carga hasta ahora (TSK-DEMO-003). Usa las
+ *                   cuentas de `--salida` (no pide la cuenta de plataforma),
+ *                   revisa lo pendiente con más de 2 días y cierra parte de lo
+ *                   vencido de antes. Se puede correr varias veces.
+ *   --ahora ISO     (sólo ensayos) fecha que el script toma como "ahora"
  */
 import { createInterface } from 'node:readline'
 import { createRequire } from 'node:module'
@@ -60,6 +66,8 @@ const SEMANAS = Number(arg('semanas', 8))
 const SALIDA = resolve(RAIZ, String(arg('salida', '.demo-cuentas.local.json')))
 const SIN_IA = arg('sin-ia', false) === true
 const DOMINIO_CORREO = String(arg('dominio', 'demo.terrenoconectado.cl'))
+const CONTINUAR = arg('continuar', false) === true
+const AHORA_ARG = arg('ahora', null)
 
 /* ── Utilidades ─────────────────────────────────────────────────────────── */
 
@@ -142,7 +150,8 @@ async function activarCuenta(email, temporal, definitiva) {
 
 /* ── Tiempo (hora de Chile continental, UTC−3 en noviembre) ─────────────── */
 
-const AHORA = Date.now()
+const AHORA = AHORA_ARG ? Date.parse(String(AHORA_ARG)) : Date.now()
+if (!Number.isFinite(AHORA)) throw new Error('--ahora no es una fecha válida (ISO, p. ej. 2026-11-16T20:00:00-03:00)')
 const DIA = 86_400_000
 const OFFSET_CL = -3 * 3_600_000
 /** Fecha local de Chile `YYYY-MM-DD` de un instante. */
@@ -439,6 +448,7 @@ async function main() {
   const catalogo = Object.fromEntries(CATALOGO_PLANTILLAS.map((p) => [p.clave, p]))
 
   log(`Empresa de demostración → ${API}`)
+  if (CONTINUAR) return continuar(catalogo)
   if (existsSync(SALIDA)) throw new Error(`Ya existe ${SALIDA}: muévelo o usa --salida para no pisar claves anteriores.`)
   log(FOTOS.length ? `Fotos: ${FOTOS.length} de ${DIR_FOTOS}` : 'Sin fotos (usa --fotos carpeta para agregarlas).')
 
@@ -514,145 +524,8 @@ async function main() {
 
   /* 5. Historia: inspecciones, hallazgos y bitácora, por persona y día. */
   paso(`Historia de ${SEMANAS} semanas`)
-  const inspecciones = [] // { id, faena, autor, formulario, capturedMs }
-  const hallazgos = [] // { id, faena, capturedMs, severity }
-  const trabajadores = Object.values(cuentas).filter((c) => c.rol === 'field_worker')
-  const supervisores = Object.values(cuentas).filter((c) => c.rol === 'supervisor')
-  const dispositivos = Object.fromEntries(Object.values(cuentas).map((c) => [c.clave, randomUUID()]))
-  let totalRegistros = 0
-
-  for (let dia = -SEMANAS * 7 + 1; dia <= 0; dia++) {
-    const dow = diaSemana(dia)
-    const laboral = dow >= 1 && dow <= 5
-    for (const persona of [...trabajadores, ...supervisores]) {
-      if (!laboral && !prob(persona.rol === 'field_worker' ? 0.25 : 0.1)) continue
-      const fk = elegir(persona.faenas)
-      const faena = faenas[fk]
-      const registros = []
-      let ultimo = 0
-
-      const nInspecciones =
-        persona.rol === 'field_worker' ? ponderado([[0, 20], [1, 60], [2, 20]]) : ponderado([[0, 50], [1, 50]])
-      for (let n = 0; n < nInspecciones; n++) {
-        const hh = entre(7, 17)
-        const capturedMs = instante(dia, hh, entre(0, 59))
-        if (capturedMs > AHORA - 30 * 60_000) continue
-        const k = persona.rol === 'field_worker' ? elegir(FORMULARIOS_POR_FAENA[fk]) : elegir(FORMULARIOS_SUPERVISION)
-        const f = formularios[k]
-        const insId = randomUUID()
-        const activo = activos.find((a) => a.faena === fk && a.formulario === k && prob(0.5))
-        registros.push(
-          registro(tenant.id, 'inspection', insId, capturedMs, {
-            site_id: faena.id,
-            template_id: f.template_id,
-            template_version: 1,
-            executed_by: persona.id,
-            status: 'submitted',
-            location: null,
-            requires_supervisor_signature: f.cofirma,
-            signature_required: true,
-            ...(activo ? { asset_id: activo.id } : {}),
-          }),
-        )
-        const respuestas = []
-        for (const item of f.definition.sections.flatMap((s) => s.items)) {
-          const r = responder(item, capturedMs)
-          if (!r) continue
-          const respId = randomUUID()
-          const { foto, ...valores } = r
-          registros.push(registro(tenant.id, 'response', respId, capturedMs + 60_000, { inspection_id: insId, template_item_id: item.id, ...valores }))
-          respuestas.push([item.id, valores])
-          if (foto) {
-            const a = adjunto(tenant.id, 'response', respId, capturedMs + 90_000, k)
-            if (a) registros.push(a)
-          }
-          if (r.value_ok === 'nok' && (item.require_finding_on_nok || prob(0.5))) {
-            const hId = randomUUID()
-            const severity = ponderado([['low', 30], ['medium', 40], ['high', 22], ['critical', 8]])
-            registros.push(
-              registro(tenant.id, 'finding', hId, capturedMs + 120_000, {
-                inspection_id: insId,
-                response_id: respId,
-                severity,
-                description: conSector(elegir(HALLAZGOS[k] ?? HALLAZGOS['seguridad-diaria']), faena.sectores),
-                status: 'open',
-              }),
-            )
-            hallazgos.push({ id: hId, faena: fk, capturedMs, severity })
-            if (prob(0.6)) {
-              const a = adjunto(tenant.id, 'finding', hId, capturedMs + 150_000, k)
-              if (a) registros.push(a)
-            }
-          }
-        }
-        const firmaMs = capturedMs + entre(8, 25) * 60_000
-        registros.push(
-          registro(tenant.id, 'inspection_signature', randomUUID(), firmaMs, {
-            inspection_id: insId,
-            signer_id: persona.id,
-            signer_role: 'inspector',
-            strokes: trazoFirma(),
-            content_hash: sha256(JSON.stringify(respuestas)),
-            declaration_version: 'v1',
-            signed_at: iso(firmaMs),
-          }, 0),
-        )
-        inspecciones.push({ id: insId, faena: fk, autor: persona.clave, formulario: k, capturedMs, cofirma: f.cofirma })
-        ultimo = Math.max(ultimo, firmaMs)
-      }
-
-      // Bitácora: relevo de supervisión y notas de terreno; algunas con alerta.
-      const nNotas = persona.rol === 'supervisor' ? (laboral ? 1 : 0) : ponderado([[0, 35], [1, 50], [2, 15]])
-      for (let n = 0; n < nNotas; n++) {
-        const capturedMs = instante(dia, persona.rol === 'supervisor' ? entre(7, 8) : entre(8, 18), entre(0, 59))
-        if (capturedMs > AHORA - 20 * 60_000) continue
-        const tag = persona.rol === 'supervisor' ? 'Relevo' : ponderado([['Seguridad', 30], ['Clima', 15], ['Equipos', 25], ['Incidencia', 15], ['Relevo', 15]])
-        const leId = randomUUID()
-        registros.push(
-          registro(tenant.id, 'log_entry', leId, capturedMs, {
-            site_id: faena.id,
-            author_id: persona.id,
-            entry_text: conSector(elegir(BITACORA[tag]), faena.sectores),
-            tags: [tag],
-            shift_date: fechaCl(capturedMs),
-          }),
-        )
-        if ((tag === 'Seguridad' || tag === 'Incidencia') && prob(0.3)) {
-          const [severity, texto] = elegir(ALERTAS_BITACORA)
-          const hId = randomUUID()
-          registros.push(
-            registro(tenant.id, 'finding', hId, capturedMs + 60_000, {
-              inspection_id: null,
-              response_id: null,
-              log_entry_id: leId,
-              site_id: faena.id,
-              severity,
-              description: conSector(texto, faena.sectores),
-              status: 'open',
-            }),
-          )
-          hallazgos.push({ id: hId, faena: fk, capturedMs, severity, bitacora: true })
-        }
-        ultimo = Math.max(ultimo, capturedMs)
-      }
-
-      if (registros.length === 0) continue
-      // Se sincroniza al volver la señal: minutos u horas después de capturar.
-      const enviado = Math.min(AHORA - 60_000, ultimo + ponderado([[5, 40], [40, 30], [180, 20], [420, 10]]) * 60_000)
-      for (const parte of partirLote(registros)) {
-        const r = await api(persona.token, 'POST', '/sync/batch', {
-          batch_id: randomUUID(),
-          device_id: dispositivos[persona.clave],
-          sent_at: iso(enviado),
-          records: parte,
-        })
-        if (r.records_failed > 0) throw new Error(`Lote con fallos (${persona.nombre}, día ${dia}): ${(r.errors ?? []).join(' | ')}`)
-        totalRegistros += r.records_ok
-      }
-    }
-    process.stdout.write(`\r  día ${dia + SEMANAS * 7}/${SEMANAS * 7} · ${inspecciones.length} inspecciones · ${hallazgos.length} hallazgos`)
-  }
-  log(`\n  ${totalRegistros} registros sincronizados`)
+  const ctx = { tenantId: tenant.id, cuentas, faenas, formularios, activos }
+  const { inspecciones, hallazgos, trabajadores, supervisores, dispositivos } = await generarHistoria(ctx, -SEMANAS * 7 + 1, null)
 
   /* 6. Supervisión: cofirmas, revisiones y gestión de hallazgos. */
   paso('Supervisión')
@@ -668,35 +541,7 @@ async function main() {
   }
   log(`  ${revisadas} inspecciones revisadas`)
 
-  const estados = { abiertos: 0, asignados: 0, vencidos: 0, listos: 0, iniciados: 0, cerrados: 0 }
-  for (const h of hallazgos) {
-    const sup = supDe(h.faena)
-    const edad = (AHORA - h.capturedMs) / DIA
-    const responsable = elegir(trabajadores.filter((t) => t.faenas.includes(h.faena)))
-    const asignar = edad > 10 ? prob(0.97) : edad > 4 ? prob(0.8) : prob(0.4)
-    if (!asignar) {
-      estados.abiertos++
-      continue
-    }
-    const cerrar = edad > 10 ? prob(0.88) : edad > 5 ? prob(0.45) : false
-    // Abiertos: plazo futuro salvo unos pocos vencidos a propósito. Cerrados: plazo de la época.
-    const vencido = !cerrar && edad > 6 && prob(0.15)
-    const plazo = fechaCl(cerrar ? h.capturedMs + entre(3, 10) * DIA : vencido ? AHORA - entre(1, 4) * DIA : AHORA + entre(2, 12) * DIA)
-    await api(sup.token, 'PATCH', `/findings/${h.id}`, { assignee_id: responsable.id, due_date: plazo })
-    estados.asignados++
-    const avance = cerrar ? prob(0.6) : edad > 4 ? ponderado([['nada', 35], ['iniciar', 30], ['reportar', 35]]) : 'nada'
-    if (avance === 'iniciar' || avance === 'reportar' || avance === true) {
-      await api(responsable.token, 'PATCH', `/findings/${h.id}/avance`, { accion: 'iniciar' })
-      if (avance === 'reportar' || avance === true) {
-        await api(responsable.token, 'PATCH', `/findings/${h.id}/avance`, { accion: 'reportar', nota: elegir(REPORTES) })
-        if (!cerrar) estados.listos++
-      } else if (!cerrar) estados.iniciados++
-    }
-    if (cerrar) {
-      await api(sup.token, 'PATCH', `/findings/${h.id}`, { status: 'resolved', resolution_note: elegir(NOTAS_CIERRE) })
-      estados.cerrados++
-    } else if (vencido) estados.vencidos++
-  }
+  const estados = await gestionarHallazgos(hallazgos, { trabajadores, supDe })
   log(`  hallazgos: ${JSON.stringify(estados)}`)
 
   /* 7. Conflictos: dos teléfonos corrigieron la misma respuesta. */
@@ -745,7 +590,8 @@ async function main() {
 
   /* 9. Archivo local con las cuentas (ignorado por Git). */
   const salida = {
-    generado: new Date().toISOString(),
+    // Hasta cuándo llegan los datos (con --ahora, esa fecha): --continuar parte de aquí.
+    generado: iso(AHORA),
     api: API,
     empresa: { nombre: EMPRESA, slug: SLUG, id: tenant.id },
     faenas: Object.values(faenas).map((f) => ({ nombre: f.name, id: f.id })),
@@ -763,6 +609,327 @@ async function main() {
   paso('Listo')
   log(`  Cuentas, claves y códigos QR en ${SALIDA} (no se suben a Git).`)
   log(`  Gerencia: ${cuentas.gerente.email}`)
+}
+
+/* ── Modo --continuar (TSK-DEMO-003) ────────────────────────────────────
+ *
+ * La empresa ya existe y sus datos envejecen: cargada el día X, una semana
+ * después "7 días" casi no muestra actividad y lo pendiente parece abandonado.
+ * Esto agrega la actividad desde la última carga hasta ahora, con las mismas
+ * cuentas (no pide la cuenta de plataforma), y hace lo que haría supervisión:
+ * revisar lo enviado hace más de 2 días y cerrar parte de lo vencido.
+ * Las claves, los QR impresos y los nombres no cambian.
+ */
+async function continuar(catalogo) {
+  if (!existsSync(SALIDA)) throw new Error(`No existe ${SALIDA}: --continuar usa el archivo de cuentas de la carga anterior.`)
+  const previo = JSON.parse(readFileSync(SALIDA, 'utf8'))
+  if (previo.api && previo.api !== API) throw new Error(`Ese archivo es de ${previo.api}, no de ${API}.`)
+  const desdeMs = Date.parse(previo.ultima_carga ?? previo.generado)
+  if (!Number.isFinite(desdeMs)) throw new Error('El archivo de cuentas no dice cuándo fue la última carga.')
+  if (desdeMs > AHORA - 60 * 60_000) throw new Error('La última carga fue hace menos de una hora: no hay actividad nueva que agregar.')
+  // Otra secuencia de azar que la carga original (si no, repetiría los mismos días).
+  semilla = (20261119 + Math.floor(AHORA / 60_000)) | 0
+  log(`Continuar ${previo.empresa?.nombre ?? 'empresa'} desde ${iso(desdeMs)}`)
+
+  paso('Cuentas')
+  const cuentas = {}
+  for (const c of previo.cuentas ?? []) {
+    const p = PERSONAS.find((x) => x.nombre === c.nombre)
+    if (!p) throw new Error(`La cuenta "${c.nombre}" no es de esta empresa de demostración.`)
+    const token = await login(c.email, c.clave)
+    const yo = await api(token, 'GET', '/me')
+    cuentas[p.clave] = { ...p, email: c.email, password: c.clave, token, id: yo.id ?? yo.user?.id }
+  }
+  if (!cuentas.gerente) throw new Error('Falta la cuenta de administración en el archivo.')
+  const tAdmin = cuentas.gerente.token
+  log(`  ${Object.keys(cuentas).length} cuentas`)
+
+  const faenas = {}
+  for (const f of FAENAS) {
+    const g = (previo.faenas ?? []).find((x) => x.nombre === f.name)
+    if (!g) throw new Error(`Falta la faena "${f.name}" en el archivo.`)
+    faenas[f.clave] = { ...f, id: g.id }
+  }
+  const claveFaena = Object.fromEntries(Object.entries(faenas).map(([k, f]) => [f.id, k]))
+
+  const publicadas = (await api(tAdmin, 'GET', '/templates')).items ?? []
+  const formularios = {}
+  for (const k of new Set([...Object.values(FORMULARIOS_POR_FAENA).flat(), ...FORMULARIOS_SUPERVISION])) {
+    const nombre = catalogo[k]?.nombre
+    const rev = publicadas.filter((r) => r.name === nombre).sort((a, b) => b.version - a.version)[0]
+    if (!rev) throw new Error(`No encontré publicado el formulario "${nombre}".`)
+    formularios[k] = {
+      clave: k,
+      nombre,
+      template_id: rev.template_id,
+      revision_id: rev.revision_id,
+      definition: rev.definition,
+      cofirma: Boolean(rev.definition.closing?.require_supervisor_signature),
+    }
+  }
+  const listaActivos = await api(tAdmin, 'GET', '/assets')
+  const activos = ACTIVOS.flatMap((a) => {
+    const x = (listaActivos.items ?? listaActivos).find((y) => y.name === a.name && y.status === 'active')
+    return x ? [{ ...a, id: x.id }] : []
+  })
+
+  const primerDia = -Math.round((Date.parse(fechaCl(AHORA)) - Date.parse(fechaCl(desdeMs))) / DIA)
+  paso(`Actividad desde la última carga (${1 - primerDia} días)`)
+  const ctx = { tenantId: previo.empresa.id, cuentas, faenas, formularios, activos }
+  const { inspecciones, hallazgos, trabajadores, supervisores } = await generarHistoria(ctx, primerDia, desdeMs)
+  const supDe = (fk) => supervisores.find((sv) => sv.faenas.includes(fk))
+
+  /* Supervisión: lo enviado hace más de 2 días (de esta carga o de la anterior). */
+  paso('Supervisión')
+  const cofirmaDe = new Map(Object.values(formularios).map((f) => [f.template_id, f.cofirma]))
+  const enviadas = await api(tAdmin, 'GET', `/dashboard/inspections?status=submitted&desde=${encodeURIComponent(iso(AHORA - 120 * DIA))}`)
+  let revisadas = 0
+  for (const ins of enviadas.items ?? []) {
+    if (Date.parse(ins.captured_at) > AHORA - 2 * DIA || !prob(0.97)) continue
+    const sup = supDe(claveFaena[ins.faena_id])
+    if (!sup) continue
+    if (cofirmaDe.get(ins.template_id)) {
+      try {
+        await api(sup.token, 'POST', `/inspections/${ins.id}/signature`, { strokes: trazoFirma() })
+      } catch (e) {
+        if (e.status !== 409) throw e // ya estaba cofirmada
+      }
+    }
+    await api(sup.token, 'PATCH', `/inspections/${ins.id}/review`)
+    revisadas++
+  }
+  log(`  ${revisadas} inspecciones revisadas`)
+  const estados = await gestionarHallazgos(hallazgos, { trabajadores, supDe })
+  log(`  hallazgos nuevos: ${JSON.stringify(estados)}`)
+
+  /* Lo de antes también avanza: se cierra parte de lo vencido y de lo ya reportado. */
+  paso('Hallazgos de la carga anterior')
+  const hoy = fechaCl(AHORA)
+  let cerradosAntes = 0
+  for (let offset = 0; ; offset += 200) {
+    const pagina = await api(tAdmin, 'GET', `/dashboard/findings?limit=200&offset=${offset}&desde=${encodeURIComponent(iso(AHORA - 120 * DIA))}`)
+    const items = pagina.items ?? []
+    for (const f of items) {
+      if (f.status === 'resolved' || Date.parse(f.captured_at) > desdeMs) continue
+      const vencido = Boolean(f.due_date) && f.due_date < hoy
+      const reportado = f.status === 'in_progress' && Boolean(f.reported_at)
+      if (!((vencido && prob(0.7)) || (reportado && prob(0.5)))) continue
+      const sup = supDe(claveFaena[f.faena_id])
+      if (!sup) continue
+      await api(sup.token, 'PATCH', `/findings/${f.id}`, { status: 'resolved', resolution_note: elegir(NOTAS_CIERRE) })
+      cerradosAntes++
+    }
+    if (items.length < 200) break
+  }
+  log(`  ${cerradosAntes} cerrados`)
+
+  /* Resumen con IA de la semana anterior completa (si el servidor tiene IA). */
+  let resumenIa = 0
+  if (!SIN_IA) {
+    const hoyDow = diaSemana(0) || 7
+    const lunes = -((hoyDow - 1) + 7)
+    try {
+      await api(tAdmin, 'POST', '/dashboard/resumen-ia', { desde: iso(instante(lunes, 0, 0)), hasta: iso(instante(lunes + 7, 0, 0) - 1) })
+      resumenIa = 1
+    } catch (e) {
+      log(`  (sin resumen con IA: ${e.status ?? ''} ${String(e.message).slice(0, 80)})`)
+    }
+  }
+
+  const salida = {
+    ...previo,
+    ultima_carga: iso(AHORA),
+    continuaciones: [
+      ...(previo.continuaciones ?? []),
+      { fecha: iso(AHORA), desde: iso(desdeMs), inspecciones: inspecciones.length, hallazgos: hallazgos.length, revisadas, cerrados_antes: cerradosAntes, resumen_ia: resumenIa, ...estados },
+    ],
+  }
+  writeFileSync(SALIDA, `${JSON.stringify(salida, null, 2)}\n`, { mode: 0o600 })
+  paso('Listo')
+  log(`  ${inspecciones.length} inspecciones y ${hallazgos.length} hallazgos nuevos; ${revisadas} revisadas; ${cerradosAntes} hallazgos de antes cerrados.`)
+  log(`  Cuentas y QR sin cambios (${SALIDA}).`)
+}
+
+/**
+ * Inspecciones, hallazgos y bitácora por persona y día, desde `primerDia`
+ * (0 = hoy) hasta ahora. Con `desdeMs` (modo --continuar) sólo se envía lo
+ * capturado después de esa hora, para no repetir lo de la carga anterior.
+ */
+async function generarHistoria({ tenantId, cuentas, faenas, formularios, activos }, primerDia, desdeMs) {
+  const inspecciones = [] // { id, faena, autor, formulario, capturedMs }
+  const hallazgos = [] // { id, faena, capturedMs, severity }
+  const trabajadores = Object.values(cuentas).filter((c) => c.rol === 'field_worker')
+  const supervisores = Object.values(cuentas).filter((c) => c.rol === 'supervisor')
+  const dispositivos = Object.fromEntries(Object.values(cuentas).map((c) => [c.clave, randomUUID()]))
+  let totalRegistros = 0
+
+  for (let dia = primerDia; dia <= 0; dia++) {
+    const dow = diaSemana(dia)
+    const laboral = dow >= 1 && dow <= 5
+    for (const persona of [...trabajadores, ...supervisores]) {
+      if (!laboral && !prob(persona.rol === 'field_worker' ? 0.25 : 0.1)) continue
+      const fk = elegir(persona.faenas)
+      const faena = faenas[fk]
+      const registros = []
+      let ultimo = 0
+
+      const nInspecciones =
+        persona.rol === 'field_worker' ? ponderado([[0, 20], [1, 60], [2, 20]]) : ponderado([[0, 50], [1, 50]])
+      for (let n = 0; n < nInspecciones; n++) {
+        const hh = entre(7, 17)
+        const capturedMs = instante(dia, hh, entre(0, 59))
+        if (capturedMs > AHORA - 30 * 60_000 || (desdeMs !== null && capturedMs <= desdeMs)) continue
+        const k = persona.rol === 'field_worker' ? elegir(FORMULARIOS_POR_FAENA[fk]) : elegir(FORMULARIOS_SUPERVISION)
+        const f = formularios[k]
+        const insId = randomUUID()
+        const activo = activos.find((a) => a.faena === fk && a.formulario === k && prob(0.5))
+        registros.push(
+          registro(tenantId, 'inspection', insId, capturedMs, {
+            site_id: faena.id,
+            template_id: f.template_id,
+            template_version: 1,
+            executed_by: persona.id,
+            status: 'submitted',
+            location: null,
+            requires_supervisor_signature: f.cofirma,
+            signature_required: true,
+            ...(activo ? { asset_id: activo.id } : {}),
+          }),
+        )
+        const respuestas = []
+        for (const item of f.definition.sections.flatMap((s) => s.items)) {
+          const r = responder(item, capturedMs)
+          if (!r) continue
+          const respId = randomUUID()
+          const { foto, ...valores } = r
+          registros.push(registro(tenantId, 'response', respId, capturedMs + 60_000, { inspection_id: insId, template_item_id: item.id, ...valores }))
+          respuestas.push([item.id, valores])
+          if (foto) {
+            const a = adjunto(tenantId, 'response', respId, capturedMs + 90_000, k)
+            if (a) registros.push(a)
+          }
+          if (r.value_ok === 'nok' && (item.require_finding_on_nok || prob(0.5))) {
+            const hId = randomUUID()
+            const severity = ponderado([['low', 30], ['medium', 40], ['high', 22], ['critical', 8]])
+            registros.push(
+              registro(tenantId, 'finding', hId, capturedMs + 120_000, {
+                inspection_id: insId,
+                response_id: respId,
+                severity,
+                description: conSector(elegir(HALLAZGOS[k] ?? HALLAZGOS['seguridad-diaria']), faena.sectores),
+                status: 'open',
+              }),
+            )
+            hallazgos.push({ id: hId, faena: fk, capturedMs, severity })
+            if (prob(0.6)) {
+              const a = adjunto(tenantId, 'finding', hId, capturedMs + 150_000, k)
+              if (a) registros.push(a)
+            }
+          }
+        }
+        const firmaMs = capturedMs + entre(8, 25) * 60_000
+        registros.push(
+          registro(tenantId, 'inspection_signature', randomUUID(), firmaMs, {
+            inspection_id: insId,
+            signer_id: persona.id,
+            signer_role: 'inspector',
+            strokes: trazoFirma(),
+            content_hash: sha256(JSON.stringify(respuestas)),
+            declaration_version: 'v1',
+            signed_at: iso(firmaMs),
+          }, 0),
+        )
+        inspecciones.push({ id: insId, faena: fk, autor: persona.clave, formulario: k, capturedMs, cofirma: f.cofirma })
+        ultimo = Math.max(ultimo, firmaMs)
+      }
+
+      // Bitácora: relevo de supervisión y notas de terreno; algunas con alerta.
+      const nNotas = persona.rol === 'supervisor' ? (laboral ? 1 : 0) : ponderado([[0, 35], [1, 50], [2, 15]])
+      for (let n = 0; n < nNotas; n++) {
+        const capturedMs = instante(dia, persona.rol === 'supervisor' ? entre(7, 8) : entre(8, 18), entre(0, 59))
+        if (capturedMs > AHORA - 20 * 60_000 || (desdeMs !== null && capturedMs <= desdeMs)) continue
+        const tag = persona.rol === 'supervisor' ? 'Relevo' : ponderado([['Seguridad', 30], ['Clima', 15], ['Equipos', 25], ['Incidencia', 15], ['Relevo', 15]])
+        const leId = randomUUID()
+        registros.push(
+          registro(tenantId, 'log_entry', leId, capturedMs, {
+            site_id: faena.id,
+            author_id: persona.id,
+            entry_text: conSector(elegir(BITACORA[tag]), faena.sectores),
+            tags: [tag],
+            shift_date: fechaCl(capturedMs),
+          }),
+        )
+        if ((tag === 'Seguridad' || tag === 'Incidencia') && prob(0.3)) {
+          const [severity, texto] = elegir(ALERTAS_BITACORA)
+          const hId = randomUUID()
+          registros.push(
+            registro(tenantId, 'finding', hId, capturedMs + 60_000, {
+              inspection_id: null,
+              response_id: null,
+              log_entry_id: leId,
+              site_id: faena.id,
+              severity,
+              description: conSector(texto, faena.sectores),
+              status: 'open',
+            }),
+          )
+          hallazgos.push({ id: hId, faena: fk, capturedMs, severity, bitacora: true })
+        }
+        ultimo = Math.max(ultimo, capturedMs)
+      }
+
+      if (registros.length === 0) continue
+      // Se sincroniza al volver la señal: minutos u horas después de capturar.
+      const enviado = Math.min(AHORA - 60_000, ultimo + ponderado([[5, 40], [40, 30], [180, 20], [420, 10]]) * 60_000)
+      for (const parte of partirLote(registros)) {
+        const r = await api(persona.token, 'POST', '/sync/batch', {
+          batch_id: randomUUID(),
+          device_id: dispositivos[persona.clave],
+          sent_at: iso(enviado),
+          records: parte,
+        })
+        if (r.records_failed > 0) throw new Error(`Lote con fallos (${persona.nombre}, día ${dia}): ${(r.errors ?? []).join(' | ')}`)
+        totalRegistros += r.records_ok
+      }
+    }
+    process.stdout.write(`\r  día ${dia - primerDia + 1}/${1 - primerDia} · ${inspecciones.length} inspecciones · ${hallazgos.length} hallazgos`)
+  }
+  log(`\n  ${totalRegistros} registros sincronizados`)
+  return { inspecciones, hallazgos, trabajadores, supervisores, dispositivos }
+}
+
+/** Asigna, hace avanzar y cierra los hallazgos según su edad (como en la operación real). */
+async function gestionarHallazgos(hallazgos, { trabajadores, supDe }) {
+  const estados = { abiertos: 0, asignados: 0, vencidos: 0, listos: 0, iniciados: 0, cerrados: 0 }
+  for (const h of hallazgos) {
+    const sup = supDe(h.faena)
+    const edad = (AHORA - h.capturedMs) / DIA
+    const responsable = elegir(trabajadores.filter((t) => t.faenas.includes(h.faena)))
+    const asignar = edad > 10 ? prob(0.97) : edad > 4 ? prob(0.8) : prob(0.4)
+    if (!asignar) {
+      estados.abiertos++
+      continue
+    }
+    const cerrar = edad > 10 ? prob(0.88) : edad > 5 ? prob(0.45) : false
+    // Abiertos: plazo futuro salvo unos pocos vencidos a propósito. Cerrados: plazo de la época.
+    const vencido = !cerrar && edad > 6 && prob(0.15)
+    const plazo = fechaCl(cerrar ? h.capturedMs + entre(3, 10) * DIA : vencido ? AHORA - entre(1, 4) * DIA : AHORA + entre(2, 12) * DIA)
+    await api(sup.token, 'PATCH', `/findings/${h.id}`, { assignee_id: responsable.id, due_date: plazo })
+    estados.asignados++
+    const avance = cerrar ? prob(0.6) : edad > 4 ? ponderado([['nada', 35], ['iniciar', 30], ['reportar', 35]]) : 'nada'
+    if (avance === 'iniciar' || avance === 'reportar' || avance === true) {
+      await api(responsable.token, 'PATCH', `/findings/${h.id}/avance`, { accion: 'iniciar' })
+      if (avance === 'reportar' || avance === true) {
+        await api(responsable.token, 'PATCH', `/findings/${h.id}/avance`, { accion: 'reportar', nota: elegir(REPORTES) })
+        if (!cerrar) estados.listos++
+      } else if (!cerrar) estados.iniciados++
+    }
+    if (cerrar) {
+      await api(sup.token, 'PATCH', `/findings/${h.id}`, { status: 'resolved', resolution_note: elegir(NOTAS_CIERRE) })
+      estados.cerrados++
+    } else if (vencido) estados.vencidos++
+  }
+  return estados
 }
 
 /**

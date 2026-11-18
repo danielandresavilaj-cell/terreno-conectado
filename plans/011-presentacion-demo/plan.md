@@ -1,6 +1,6 @@
 # PLAN — Presentación con una empresa de demostración
 
-**Versión:** 0.2.1 · **Fecha:** 2026-11-15 · **Autor:** Daniel Ávila (con IA)
+**Versión:** 0.3.0 · **Fecha:** 2026-11-18 · **Autor:** Daniel Ávila (con IA)
 **Objetivo:** presentar https://terrenoconectado.cl en ~2 días con una empresa ficticia que se vea en operación real, cuentas para cada rol y la alerta desde la bitácora.
 
 ## 1. Qué encontré al revisar
@@ -100,5 +100,15 @@ Todo lo que se vea vacío, roto o poco claro se corrige con PR y deploy antes de
 2. `node infra/tools/demo-datos.mjs --api https://terrenoconectado.cl/api/v1 --fotos .demo-fotos` (8 fotos de dominio público o CC0, créditos en `infra/tools/demo-fotos-creditos.md`; la carpeta está fuera de Git).
 3. Escribir el correo y la clave del administrador de plataforma cuando los pide (no se ven ni quedan en el historial).
 4. Las cuentas, sus claves y los códigos QR quedan en `.demo-cuentas.local.json` (ignorado por Git, permisos 600).
+
+**Antes de presentar: refrescar con lo de los últimos días (TSK-DEMO-003).** La empresa se cargó el 15-11 y sus datos envejecen: el jueves "7 días" mostraría poca actividad y lo pendiente parecería abandonado. `--continuar` no crea nada ni cambia claves, nombres o QR impresos: usa las cuentas de `.demo-cuentas.local.json` (no pide la cuenta de plataforma), agrega la actividad desde la última carga hasta ahora (inspecciones firmadas, hallazgos, bitácora y alertas), revisa lo enviado hace más de 2 días, cierra parte de lo vencido y de lo ya reportado de antes y, si hay IA, pide el resumen de la semana anterior. Deja la hora en `ultima_carga`, así que se puede correr la noche anterior y otra vez la mañana de la presentación:
+
+```bash
+node infra/tools/demo-datos.mjs --api https://terrenoconectado.cl/api/v1 --fotos .demo-fotos --continuar
+```
+
+Ensayo local (empresa cargada con `--ahora 2026-11-15T17:43:00-03:00` y continuada el 17-11): los días 16 y 17 pasaron de 0 a 6 y 8 inspecciones, "por revisar" de 20 a 14, plazos vencidos de 4 a 2 y la bitácora de 7 días de 14 a 24 entradas, en menos de un segundo.
+
+**Borrar y cargar de cero (alternativa, no recomendada):** la API no borra empresas. Habría que borrarla con la cuenta dueña de la base en la VM (`DELETE FROM tenant WHERE id = …`; casi todas las tablas caen en cascada y `audit_log` queda con `tenant_id` nulo), las fotos quedarían huérfanas en el volumen y la nueva carga trae claves y QR nuevos (reimprimir etiquetas).
 
 **Límites conocidos:** la "espera sin señal" y "Equipos sin sincronizar" se calculan con la hora real de llegada al servidor, así que no se pueden fechar hacia atrás; los resúmenes con IA requieren la clave en el servidor (sin ella, el script sigue).
