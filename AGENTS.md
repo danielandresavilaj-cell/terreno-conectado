@@ -56,7 +56,7 @@ npm run db:migrate --workspace @terreno/backend
 npm run db:seed    --workspace @terreno/backend
 
 # E2E + caos (requiere Docker; Spins su propio Postgres en Testcontainers)
-npm run e2e                         # stack completo + 23 tests + teardown
+npm run e2e                         # stack completo + 28 tests + teardown
 npm run e2e -- --grep "caos 7"      # un escenario
 ```
 
