@@ -1,6 +1,6 @@
 # TEST PLAN — Plan de pruebas de validación
 
-**Versión:** 1.10.0 · **Fecha:** 2026-09-14 · actualizado 2026-11-15 · **Autor:** Raúl González (validación) · **Relacionado:** spec maestro §5–6, constitución Artículos III/IV/VII
+**Versión:** 1.11.0 · **Fecha:** 2026-09-14 · actualizado 2026-11-18 · **Autor:** Raúl González (validación) · **Relacionado:** spec maestro §5–6, constitución Artículos III/IV/VII
 **Evidencia APT:** "Plan de pruebas de validación" (informe §6) y soporte de la competencia "Realizar pruebas de certificación de productos y procesos".
 
 ## 1. Principio rector
@@ -62,7 +62,7 @@ verde.
 | FR-055 | Clave temporal: sólo `/me`, `/auth/password`, `/auth/logout` (403 `password_change_required`); cambio de clave revoca otras sesiones; logout revoca el refresh; refresh con empresa suspendida → 401 | Integración + Unit | `backend/test/auth-password.spec.ts`, `frontend/test/sesion-refresh.test.ts` | 🟢 verde |
 | Autoría (Enmienda 003) | Inspección/bitácora a nombre de otro usuario se rechaza por registro; cola del dispositivo separada por usuario; sesión expirada pausa la cola sin marcar fallidos | Integración + Unit + **caos 6** | `backend/test/supervision.spec.ts`, `frontend/test/cola-dueno.test.ts`, `e2e-caos-sync.spec.ts` (caos 6) | 🟢 verde |
 | NFR-02 | Script: 200 registros + 100 fotos en offline simulado de 72 h (reloj adelantado) → sync completo sin pérdida | **caos 5** | `e2e-caos-sync.spec.ts` → "200 registros pendientes suben íntegros y sin duplicar" | 🟢 verde (200 registros; las 100 fotos se comprueban en el FR-012 unitario, no en el mismo escenario) |
-| NFR-07 | Lighthouse CI mobile Performance ≥ 80; interacción de formulario < 200 ms | Rendimiento | `frontend/scripts/check-lighthouse.mjs` (Chrome, perfil móvil, Slow 4G; **Performance 85–89**) + workflow `lighthouse.yml` (nightly/manual). La interacción se aproxima con el Total Blocking Time del mismo reporte (~40–50 ms) | 🟢 verde |
+| NFR-07 | Lighthouse CI mobile Performance ≥ 80; interacción de formulario < 200 ms | Rendimiento | `frontend/scripts/check-lighthouse.mjs` (Chrome, perfil móvil, Slow 4G; **mediana de 3 corridas en frío**, cada una en un Chrome nuevo, TSK-OFF-025) + workflow `lighthouse.yml` (nightly/manual). La interacción se aproxima con el Total Blocking Time del mismo reporte (~40–50 ms) | 🟢 verde |
 | FR-007, NFR-05 | Plantillas/revisiones de tenant A jamás visibles para B (fixture B sembrada) | Integración (RLS, Testcontainers) | `backend/test/rls.spec.ts`, `backend/test/templates.delta.spec.ts` | 🟢 verde |
 | FR-008/009 | Asignación faena+rol: el worker solo ve revisiones publicadas asignadas a su faena y rol | Integración | `backend/test/templates.delta.spec.ts` | 🟢 verde |
 | FR-018 | Plantillas en caché local → captura de formulario 100% sin red (Artículo I) | E2E | `e2e-captura-offline.spec.ts` → "con la red apagada tras un arranque con señal, la plantilla se renderiza" | 🟢 verde |
@@ -220,6 +220,7 @@ y nunca bloquea un PR. Informe por módulo en
 
 | Versión | Fecha | Cambio | Autor |
 | :--- | :--- | :--- | :--- |
+| 1.11.0 | 2026-11-18 | **TSK-OFF-025:** NFR-07 se juzga con la mediana de 3 corridas en frío (una sola corrida en el runner compartido variaba de 50 a 91 con el mismo build: la primera corrida de cada máquina sale en frío). La app no había retrocedido: `main` da medianas de 90 y 91 | Daniel Ávila (con IA) |
 | 1.10.0 | 2026-11-15 | **TSK-OPS-003-C, tramo 3:** lector con cámara y QR imprimible (prueba de ida y vuelta); queda pendiente la lectura real con la cámara del iPhone | Daniel Ávila (con IA) |
 | 1.9.0 | 2026-11-15 | **TSK-OPS-003-C, tramo 2:** QR resuelto sin señal (unitarias, integración y E2E de entrada manual sin señal); sigue 🟡 hasta el lector con cámara | Daniel Ávila (con IA) |
 | 1.8.0 | 2026-11-15 | **TSK-OPS-003-C, tramo 1:** fila FR-060/061 (QR) con la evidencia del servidor (`assets.spec.ts`, 9 pruebas, incluida intrusión RLS); queda 🟡 hasta los tramos 2 y 3 | Daniel Ávila (con IA) |
