@@ -1,6 +1,6 @@
 # TASKS — Ajustes desde terreno
 
-**Versión:** 1.13.0 · **Fecha:** 2026-11-18 · **Autor:** Daniel Ávila (con IA)
+**Versión:** 1.14.0 · **Fecha:** 2026-11-18 · **Autor:** Daniel Ávila (con IA)
 **Origen:** prueba en terreno con el teléfono (inspección trabada en la cola) · **Requisitos:** FR-005, FR-010, FR-012, FR-024, FR-056, FR-064, FR-067, FR-069, NFR-05, NFR-12
 
 > **Regla (Artículo II):** cada task referencia al menos un ID de requisito; cada commit referencia al menos un task.
@@ -18,6 +18,7 @@
 | TSK-OFF-024 | Menú lateral por tamaño de pantalla (#287) | FR-010 | TSK-OFF-022 | Escritorio: menú lateral fijo con grupos, avisos y Mi cuenta al fondo, sin pestañas; tableta: hamburguesa → cajón; teléfono: barra inferior sin cambios y "Más" → cajón lateral; plataforma sin menú; Atrás/Escape/fondo cierran el cajón. `frontend/test/nav-telefono.test.ts` y E2E por rol verdes | ✅ Hecho (PR #288) |
 | TSK-OFF-025 | Lighthouse móvil estable (NFR-07): el nightly fallaba desde el 15-11 | NFR-07 | TSK-OFF-021 | El nightly juzga la mediana de 3 corridas, cada una en un Chrome nuevo, y anota el motivo si una corrida falla. Con el mismo build una sola corrida daba entre 50 y 91 (la primera de cada máquina sale en frío); `main` da medianas de 90 y 91, así que la app no había retrocedido | ✅ Hecho |
 | TSK-DEMO-002 | Empresa de demostración por la API: script reproducible de la empresa ficticia para la presentación (plan 011) | FR-001, FR-064, FR-069, NFR-05 | TSK-FORM-025, TSK-OPS-003-C | `infra/tools/demo-datos.mjs` crea empresa, faenas, cuentas, formularios del catálogo, activos y 8 semanas de historia sólo con la API; claves sólo en `.demo-cuentas.local.json` (ignorado); ensayo local sin fallos | 🔄 En curso |
+| TSK-DEMO-003 | Refrescar la empresa de demostración con la actividad de los últimos días sin recrearla (`--continuar`) | FR-001, FR-064, FR-069 | TSK-DEMO-002 | Con las cuentas del archivo local agrega lo capturado desde la última carga, revisa lo pendiente con más de 2 días y cierra parte de lo vencido; claves, nombres y QR no cambian; se puede correr varias veces. Ensayado en local | ✅ Hecho |
 | TSK-REP-016 | Gerencia carga hallazgos, inspecciones y bitácora en tandas de cinco, con hallazgos por prioridad (#299, Raúl González) | FR-040, FR-041 | TSK-REP-015 | Cada bloque muestra 5 con "Ver 5 más", "Ver todos" y "Mostrar menos"; la bitácora pide cada tanda al servidor (`offset`); los filtros reinician a 5. PR #300 validado a 375 y 1280 px | ✅ Hecho |
 | TSK-REP-017 | "Ver" en Gerencia lleva al panel de revisión también en el teléfono (#297; el commit b7d84bc citó TSK-REP-016 por error) | FR-031 | TSK-REP-015 | Al abrir otra inspección el panel baja a la vista bajo la barra superior y toma el foco (sin animación si se pide menos movimiento); no vuelve a desplazar al llegar el detalle ni al revisar. Verificado a 375 px con 36 inspecciones | ✅ Hecho |
 | TSK-REP-018 | Estado y Gestionar en una sola columna en la tarjeta de hallazgo de Gerencia (#302, Raúl González; el commit del PR #303 citó TSK-REP-017, que ya estaba tomado) | FR-040 | TSK-REP-016 | El selector de estado queda sobre "Gestionar" (con borde visible) en la columna derecha y la descripción gana ancho; abrir y cancelar no cambia responsable, plazo ni nota. PR #303 validado a 375 y 1280 px | ✅ Hecho |
@@ -49,3 +50,4 @@
 | 1.11.0 | 2026-11-16 | Se agrega y cierra TSK-REP-018 (Estado y Gestionar agrupados en la tarjeta de hallazgo, PR #303) | Daniel Ávila (con IA) |
 | 1.12.0 | 2026-11-16 | Se agrega y cierra TSK-REP-019 (Gerencia más simple, #304) | Daniel Ávila (con IA) |
 | 1.13.0 | 2026-11-18 | Se agrega y cierra TSK-OFF-025 (Lighthouse estable y sobre 80) | Daniel Ávila (con IA) |
+| 1.14.0 | 2026-11-18 | Se agrega y cierra TSK-DEMO-003 (`--continuar` del script de demostración) | Daniel Ávila (con IA) |
