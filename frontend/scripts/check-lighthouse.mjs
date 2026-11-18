@@ -11,6 +11,9 @@
  * demasiado (el mismo build dio 90 y 50; el Total Blocking Time fue de 60 a
  * 2.100 ms según la máquina). Se corre `LIGHTHOUSE_RUNS` veces (3 por omisión)
  * y se juzga la corrida mediana por puntaje, como recomienda Lighthouse CI.
+ * Cada corrida abre un Chrome NUEVO: en el mismo navegador las siguientes
+ * salen "en caliente" (código ya compilado en caché, TBT 0 ms) y la mediana
+ * dejaría de medir la primera visita, que es lo que pide el NFR.
  *
  * Uso:  npm run perf            (requiere `npm run build` antes)
  *       LIGHTHOUSE_MIN_SCORE=90 node frontend/scripts/check-lighthouse.mjs
@@ -152,12 +155,11 @@ const url = `http://127.0.0.1:${puerto}/app/`
 let chrome
 let salida = 1
 try {
-  chrome = await launch({
-    chromeFlags: ['--headless=new', '--no-sandbox', '--disable-gpu', '--disable-dev-shm-usage'],
-  })
-
   const corridas = []
   for (let i = 1; i <= CORRIDAS; i++) {
+    chrome = await launch({
+      chromeFlags: ['--headless=new', '--no-sandbox', '--disable-gpu', '--disable-dev-shm-usage'],
+    })
     const { lhr } = await lighthouse(url, {
       port: chrome.port,
       output: 'json',
@@ -166,8 +168,11 @@ try {
       formFactor: 'mobile',
       screenEmulation: { mobile: true, width: 412, height: 823, deviceScaleFactor: 2.625, disabled: false },
     })
+    await chrome.kill()
+    chrome = undefined
     const puntaje = Math.round((lhr.categories.performance?.score ?? 0) * 100)
-    console.log(`  corrida ${i}/${CORRIDAS}: Performance ${puntaje} · TBT ${lhr.audits['total-blocking-time']?.displayValue ?? '—'}`)
+    const error = lhr.runtimeError ? ` · error ${lhr.runtimeError.code}: ${lhr.runtimeError.message}` : ''
+    console.log(`  corrida ${i}/${CORRIDAS}: Performance ${puntaje} · TBT ${lhr.audits['total-blocking-time']?.displayValue ?? '—'}${error}`)
     corridas.push({ lhr, puntaje })
   }
   corridas.sort((a, b) => a.puntaje - b.puntaje)
